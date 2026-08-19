@@ -1,0 +1,11 @@
+{
+  "name": "doc-coverage-audit",
+  "description": "Map a deliverables checklist to the documents that actually exist, with verified links and an honest gap analysis.",
+  "version": "1.0.0",
+  "author": {
+    "name": "dotGov Solutions",
+    "email": "andrian.mamei@dotgovsolutions.net"
+  },
+  "homepage": "https://github.com/dotgovsolutions/dotgov-claude-plugins",
+  "license": "UNLICENSED"
+}

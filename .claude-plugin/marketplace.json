@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dotgov",
+  "description": "Internal Claude Code plugins for dotGov Solutions engineering and delivery teams",
+  "owner": {
+    "name": "dotGov Solutions",
+    "email": "andrian.mamei@dotgovsolutions.net"
+  },
+  "plugins": [
+    {
+      "name": "doc-coverage-audit",
+      "description": "Audit which documents exist for a system against a deliverables checklist and produce a verified mapping table with gap analysis. Built for project close-out, client hand-over, due diligence and audit-evidence sweeps over SharePoint/Microsoft Graph.",
+      "author": {
+        "name": "dotGov Solutions",
+        "email": "andrian.mamei@dotgovsolutions.net"
+      },
+      "category": "productivity",
+      "source": "./plugins/doc-coverage-audit",
+      "keywords": ["sharepoint", "graph", "deliverables", "audit", "handover", "documentation"]
+    }
+  ]
+}

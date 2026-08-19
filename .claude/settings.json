@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "dotgov": {
+      "source": {
+        "source": "github",
+        "repo": "dotgovsolutions/dotgov-claude-plugins"
+      }
+    }
+  }
+}
