@@ -2,9 +2,12 @@
   "extraKnownMarketplaces": {
     "dotgov": {
       "source": {
-        "source": "url",
+        "source": "git",
         "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
       }
     }
-  }
+  },
+  "enabledPlugins": [
+    "doc-coverage-audit@dotgov"
+  ]
 }

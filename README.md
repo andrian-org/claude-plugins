@@ -42,7 +42,7 @@ That produces `.claude/settings.json`:
   "extraKnownMarketplaces": {
     "dotgov": {
       "source": {
-        "source": "url",
+        "source": "git",
         "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
       }
     }
