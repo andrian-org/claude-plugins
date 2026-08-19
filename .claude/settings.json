@@ -3,7 +3,7 @@
     "dotgov": {
       "source": {
         "source": "url",
-        "url": "https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins"
+        "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
       }
     }
   }

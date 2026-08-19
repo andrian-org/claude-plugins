@@ -4,7 +4,7 @@ Internal plugin marketplace for dotGov Solutions. Hosted in Azure DevOps — acc
 the `dotgov` project's repo permissions, so only teammates who can clone this repo can install
 from it.
 
-Clone URL: `https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins`
+Clone URL: `https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins`
 
 ## For teammates: one-time setup
 
@@ -12,7 +12,7 @@ Run the first command in a **normal interactive terminal**, not inside a Claude 
 Git Credential Manager may need to prompt for Azure DevOps sign-in:
 
 ```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins
+claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
 claude plugin install doc-coverage-audit@dotgov
 ```
 
@@ -32,7 +32,7 @@ Let the CLI write the entry rather than hand-authoring it:
 
 ```bash
 cd /path/to/your/project
-claude plugin marketplace add https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins --scope project
+claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins --scope project
 ```
 
 That produces `.claude/settings.json`:
@@ -43,7 +43,7 @@ That produces `.claude/settings.json`:
     "dotgov": {
       "source": {
         "source": "url",
-        "url": "https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins"
+        "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
       }
     }
   },
