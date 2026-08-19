@@ -1,36 +1,49 @@
 # dotGov Claude Code Plugins
 
-Internal plugin marketplace for dotGov Solutions. Private repo — access is controlled by GitHub
-permissions, so only teammates who can clone this repo can install from it.
+Internal plugin marketplace for dotGov Solutions. Hosted in Azure DevOps — access is controlled by
+the `dotgov` project's repo permissions, so only teammates who can clone this repo can install
+from it.
+
+Clone URL: `https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins`
 
 ## For teammates: one-time setup
 
+Run the first command in a **normal interactive terminal**, not inside a Claude Code session —
+Git Credential Manager may need to prompt for Azure DevOps sign-in:
+
 ```bash
-claude plugin marketplace add dotgovsolutions/dotgov-claude-plugins
+claude plugin marketplace add https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins
 claude plugin install doc-coverage-audit@dotgov
 ```
 
-Then restart Claude Code. Verify with `/plugin` or:
+Restart Claude Code, then confirm:
 
 ```bash
 claude plugin list
 ```
 
-Private-repo access uses your existing git/`gh` credentials. If the `add` fails, confirm
-`gh auth status` works and that you can `git clone` this repo.
+If the `add` fails with `unable to get password from user`, you are running non-interactively.
+Do `git clone <url>` once by hand so GCM caches the credential, then retry.
 
 ## Automatic provisioning (recommended)
 
-Any repo can declare this marketplace so teammates get it without running anything. Commit to
-that repo's `.claude/settings.json`:
+Any project repo can declare this marketplace so teammates get the plugin with no setup at all.
+Let the CLI write the entry rather than hand-authoring it:
+
+```bash
+cd /path/to/your/project
+claude plugin marketplace add https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins --scope project
+```
+
+That produces `.claude/settings.json`:
 
 ```json
 {
   "extraKnownMarketplaces": {
     "dotgov": {
       "source": {
-        "source": "github",
-        "repo": "dotgovsolutions/dotgov-claude-plugins"
+        "source": "url",
+        "url": "https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins"
       }
     }
   },
@@ -38,8 +51,7 @@ that repo's `.claude/settings.json`:
 }
 ```
 
-`extraKnownMarketplaces` makes the source available; `enabledPlugins` turns the plugin on.
-Both are read from checked-in project settings, so a fresh clone is ready to go.
+Add `enabledPlugins` yourself. Commit the file — a fresh clone is then ready to go.
 
 ## Plugins
 
@@ -56,7 +68,10 @@ plugins/<your-plugin>/
   commands/  agents/  hooks/      # optional
 ```
 
-1. Scaffold with `claude plugin init <name>` if you want a starting point.
+The nesting matters: `skills/<skill-name>/SKILL.md`, not `skills/SKILL.md`. A flattened copy
+(easy to cause with `cp -R`) will not load.
+
+1. Scaffold with `claude plugin init <name>` for a starting point.
 2. Add an entry to `.claude-plugin/marketplace.json` (`source: "./plugins/<your-plugin>"`).
 3. Validate **both** manifests before opening a PR:
 
@@ -65,31 +80,41 @@ plugins/<your-plugin>/
    claude plugin validate plugins/<your-plugin>
    ```
 
-4. Test it locally as a directory marketplace before pushing:
+4. Test locally as a directory marketplace before pushing:
 
    ```bash
    claude plugin marketplace add /path/to/this/repo
    claude plugin install <your-plugin>@dotgov
+   claude plugin details <your-plugin>@dotgov      # check token cost
    ```
+
+5. If you also keep a copy in `~/.claude/skills/`, delete it — two registrations of the same
+   skill name collide.
 
 ### Writing the `description`
 
 The `description` in `SKILL.md` frontmatter is the **only** thing Claude sees when deciding
 whether to load your skill. Write it as trigger phrases people actually type, not as a summary of
-the implementation. Vague descriptions mean the skill never fires.
+the implementation. Review descriptions in PRs more carefully than implementations — a good skill
+with a vague description never fires.
+
+### Keep an eye on token cost
+
+`claude plugin details <name>@dotgov` reports always-on cost, which every session pays. Keep
+`SKILL.md` lean and push detail into `references/` files that load only when needed.
 
 ### Versioning and releases
 
-Bump `version` in `plugin.json`, then tag:
+Bump `version` in `plugin.json`, then:
 
 ```bash
 claude plugin tag plugins/<your-plugin>
 ```
 
-This creates `<name>--v<version>` and checks that `plugin.json` agrees with the marketplace entry.
-Teammates pick up changes with `claude plugin update <name>` (restart required).
+This creates `<name>--v<version>` and validates that `plugin.json` agrees with the marketplace
+entry. Teammates update with `claude plugin update <name>` (restart required).
 
 ## Secrets
 
-Never commit tokens, `.pfx`/`.jks`/`.pem` files, tenant-specific credentials or client document
-content. Skills should acquire credentials at runtime and cache them outside the repo.
+Never commit tokens, `.pfx`/`.jks`/`.pem` files, tenant credentials or client document content.
+Skills must acquire credentials at runtime and cache them outside the repo — see `.gitignore`.

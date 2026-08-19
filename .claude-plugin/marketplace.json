@@ -16,7 +16,14 @@
       },
       "category": "productivity",
       "source": "./plugins/doc-coverage-audit",
-      "keywords": ["sharepoint", "graph", "deliverables", "audit", "handover", "documentation"]
+      "keywords": [
+        "sharepoint",
+        "graph",
+        "deliverables",
+        "audit",
+        "handover",
+        "documentation"
+      ]
     }
   ]
 }

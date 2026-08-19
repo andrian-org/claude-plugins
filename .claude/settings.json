@@ -2,8 +2,8 @@
   "extraKnownMarketplaces": {
     "dotgov": {
       "source": {
-        "source": "github",
-        "repo": "dotgovsolutions/dotgov-claude-plugins"
+        "source": "url",
+        "url": "https://dev.azure.com/dotgov/DotGovFramework/_git/dotgov-claude-plugins"
       }
     }
   }
