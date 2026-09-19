@@ -357,7 +357,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
 ### Phase 3: Reader-facing documentation
 
-- [ ] **Task 4: Update `docs/architecture.md`** (depends on 1, 2)
+- [x] **Task 4: Update `docs/architecture.md`** (depends on 1, 2)
 
   - **Layout block** — update the `knowledge/` comment to name both families.
   - **Dependency direction table** — name `json/` and `xsd/`, and add the
@@ -374,7 +374,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
   Files: `docs/architecture.md`
 
-- [ ] **Task 5: Update `docs/dgf-knowledge.md`** (depends on 1, 2)
+- [x] **Task 5: Update `docs/dgf-knowledge.md`** (depends on 1, 2)
 
   - **"Where the facts live" tree** — replace the flat `schemas/` listing with the
     `json/` + `xsd/` + `standalone/` + `MANIFEST.md` layout from Task 2.
@@ -396,7 +396,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
   Files: `docs/dgf-knowledge.md`
 
-- [ ] **Task 6: Update `docs/blueprint.md` Part 2** (depends on 1)
+- [x] **Task 6: Update `docs/blueprint.md` Part 2** (depends on 1)
 
   The blueprint is a design document — amend it, do not rewrite its history. Mark each
   change as a dated correction so the original reasoning stays readable.
@@ -424,7 +424,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
   Files: `docs/blueprint.md`
 
-- [ ] **Task 7: Update `docs/getting-started.md`** (depends on 1)
+- [x] **Task 7: Update `docs/getting-started.md`** (depends on 1)
 
   Line 63 currently reads "…completeness — written against the schemas in
   `DotGovFramework/docs/schemas/`." That path holds only the 3 hand-authored standalone
@@ -439,7 +439,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
   Files: `docs/getting-started.md`
 
-- [ ] **Task 8: Update `docs/skill-authoring.md`** (depends on 1)
+- [x] **Task 8: Update `docs/skill-authoring.md`** (depends on 1)
 
   This page is the contract skill authors read, so single-family language here reproduces
   the defect in every future skill.
@@ -457,7 +457,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
 ### Phase 4: Navigation, landing page and rules
 
-- [ ] **Task 9: Update `AGENTS.md`** (depends on 1, 4, 5, 6, 7, 8)
+- [x] **Task 9: Update `AGENTS.md`** (depends on 1, 4, 5, 6, 7, 8)
 
   - **"External References" table** — the row
     `DGF JSON Schemas | DotGovFramework/docs/schemas/ | componentValidator, dataFetcherConfiguration, eventBase`
@@ -479,7 +479,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
   Files: `AGENTS.md`
 
-- [ ] **Task 10: Update `README.md`** (depends on 1)
+- [x] **Task 10: Update `README.md`** (depends on 1)
 
   - Line 33 — "scripts against DGF's own JSON Schemas, never by a model's judgement" →
     name both families ("JSON Schemas and XSDs").
@@ -491,7 +491,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
   Files: `README.md`
 
-- [ ] **Task 11: Update `.ai-factory/rules/base.md`** (depends on 1, 2)
+- [x] **Task 11: Update `.ai-factory/rules/base.md`** (depends on 1, 2)
 
   Add a `## DGF Schema Handling` section after `## Error Handling`, since the rules it
   states are expressed through exit codes:
@@ -521,7 +521,7 @@ What the `/aif-improve` pass changed, so the delta is reviewable:
 
 ### Phase 5: Verification
 
-- [ ] **Task 12: Add the dual-schema documentation consistency check** (depends on 1–11)
+- [x] **Task 12: Add the dual-schema documentation consistency check** (depends on 1–11)
 
   Create `scripts/check-dual-schema-docs.sh` — a deterministic check, per the project's
   "determinism before prompting" rule, that the docs do not drift back to JSON-only.
