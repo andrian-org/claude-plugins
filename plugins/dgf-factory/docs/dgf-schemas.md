@@ -274,8 +274,8 @@ quoting is the rule.
 - DGF commit SHA the set was vendored from
 - DGF version and vendored date
 - Per-file `$schema` dialect
-- Which files came from `Schemas/Json/`, which from `Schemas/XSD/`, which from
-  `docs/schemas/`
+- Which files came from `Schemas/Json/`, which from `Schemas/XSD/`, and which from the
+  hand-authored `docs/schemas/` contracts
 - Any file present in the vendored set but not served by the live MCP, and the reverse
 
 ---
