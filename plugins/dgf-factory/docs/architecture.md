@@ -47,7 +47,7 @@ Plugin-root `scripts/` holds both:
 | Kind | Who runs it | Example |
 |---|---|---|
 | Runtime validator | A skill calls it mid-run | a dual-schema component validator |
-| Repo-maintenance check | A contributor runs it by hand | `check-dual-schema-docs.sh` |
+| Repo-maintenance check | A contributor runs it by hand | `check-dual-schema-docs.sh`, and `check_knowledge_stamps.py` which its section 7 invokes |
 
 A validator used by exactly one slice lives in that slice's own `scripts/`, not here —
 `skills/dgf-doctor/scripts/doctor.py` is the current example. **Promote on the second

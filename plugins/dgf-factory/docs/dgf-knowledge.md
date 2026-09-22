@@ -17,6 +17,11 @@ for when a fact needs a *version range* rather than just a stamp are decided in
 runtime behaviour changed between releases. `dgf_version` is read from
 `src/Directory.Build.props`, never from a git tag.
 
+The **operative contract** — exact field shapes, the three fact classes, what `null` means in
+a `since`/`until` range, and which file is exempt — is
+[`knowledge/README.md`](../knowledge/README.md). This page is the reader-facing summary;
+where the two differ, that file wins, and `scripts/check_knowledge_stamps.py` enforces it.
+
 Acceptable sources, in order of preference:
 
 1. The DotGov Framework repository — a specific file path
@@ -51,7 +56,7 @@ knowledge/
 ├── naming-conventions.md
 ├── schema-families.md         # JSON vs XSD: parity, correspondence, resolution
 └── schemas/                   # vendored copies, version-stamped
-    ├── MANIFEST.md            #   DGF commit SHA, version, date, per-file dialect
+    ├── MANIFEST.md            #   DGF commit SHA, version, date, per-file dialect and sha256
     ├── json/                  #   generated *.schema.json (modern component config)
     ├── xsd/                   #   the 9 *.xsd + form.reference.json (legacy XML)
     └── standalone/            #   hand-authored contracts from DGF docs/schemas/
@@ -61,8 +66,9 @@ Schemas are **vendored, not referenced across the filesystem** — a validator t
 path outside the plugin breaks the moment the plugin is installed somewhere else. Copy
 them in, record the DGF version and the date, and re-vendor deliberately.
 
-The decision is to vendor the complete set — both families, roughly 3.5 MB. Three details
-make that non-obvious, and all three are recorded with their mitigations in
+The complete set is vendored — both families, roughly 3.5 MB, 82 files each recorded with a
+`sha256` in `MANIFEST.md`. Three details make that non-obvious, and all three are recorded
+with their mitigations in
 [DGF Schemas](dgf-schemas.md):
 
 - The hand-authored contracts live in `standalone/` rather than beside the generated set,
@@ -88,7 +94,7 @@ Read from `DotGovFramework` on **2026-09-18**. Re-verify before relying on these
 | Angular 19.2 frontend, standalone components, NGXS state | `AGENTS.md` tech stack |
 | SQL Server via EF Core (`Microsoft.Data.SqlClient`) | `AGENTS.md` tech stack |
 | Auth: JWT Bearer + OpenID Connect (Azure AD + DGPass) | `AGENTS.md` tech stack |
-| ~40 self-contained component plugins, each implementing `IComponentService<TSource>` | `src/Components/DGF.Components.Shared/Contracts/IComponentService.cs` |
+| **34** component service registrations across 31 modules, each implementing `IComponentService<TSource>` — not "~40"; DGF has five disagreeing counts and `knowledge/component-catalogue.md` explains each | the 34 `RegisterComponentService(` call sites; `src/Components/DGF.Components.Shared/Contracts/IComponentService.cs` |
 | One dispatcher handles every UI request | `src/DGF.API/Controllers/ComponentsController.cs` |
 | Components are **statically enumerable** — name→type registry plus a reflection scan | `ComponentServiceProvider.cs`, `RegisterComponentServices()` |
 | Consumer apps compose plugins **declaratively via XML/JSON specs** and the DataFetcher EventBase verb dispatcher | `AGENTS.md` project overview |

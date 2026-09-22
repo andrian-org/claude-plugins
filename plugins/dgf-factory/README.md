@@ -8,10 +8,12 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: setup stage.** The design, the project context and the plugin manifest exist,
-> along with one walking-skeleton skill — `/dgf-doctor`. The rest of the `dgf-*` corpus does
-> not yet. The plugin **loads locally** with `claude --plugin-dir plugins/dgf-factory`; it is
-> **not registered in the marketplace**, so it cannot be installed from there yet.
+> **Status: knowledge base landed.** The plugin manifest, one walking-skeleton skill
+> (`/dgf-doctor`), and the **DGF knowledge base** exist — stamped facts on both schema
+> families, the component catalogue, composition and naming, plus the vendored JSON/XSD
+> schema set with a per-file digest manifest. The validators that consume it and the rest
+> of the `dgf-*` corpus do not exist yet. The plugin **loads locally** with
+> `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
 ## Quick Start

@@ -40,7 +40,9 @@ relative to it.
 | `docs/` | This documentation |
 | `.claude-plugin/plugin.json` | The manifest — what makes this a loadable plugin |
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
-| `scripts/check-dual-schema-docs.sh` | Repo-maintenance check: documentation, decision-record and manifest contracts |
+| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention; four stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md` |
+| `scripts/check-dual-schema-docs.sh` | Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts |
+| `scripts/check_knowledge_stamps.py` | The nested-frontmatter validator that section 7 of the check invokes |
 | `.mcp.json` | The hosted DGF docs MCP (`dgf-mcp`) |
 
 Nothing under `.claude/skills/aif-*` is part of the plugin being built. It is the
@@ -70,8 +72,8 @@ needed, split the file rather than quietly adding an entry.
 ## What is not here yet
 
 - The rest of `skills/dgf-*/` — the skill corpus beyond the `/dgf-doctor` skeleton
-- `knowledge/` — the DGF knowledge base
-- The deterministic dual-schema validators
+- The deterministic dual-schema validators and the drift check that compares
+  `knowledge/` stamps against a consumer's DGF checkout (milestone 8)
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 

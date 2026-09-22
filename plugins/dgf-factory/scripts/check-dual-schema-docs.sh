@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # check-dual-schema-docs.sh — guard this plugin's documentation contracts.
 #
-# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards three contracts — the
-# dual-schema one it was named for, the decision-record one added 2026-09-21, and
-# the plugin-manifest one added 2026-09-22. The filename stays as it is because
-# .ai-factory/rules/base.md, AGENTS.md and the dual-schema plan all reference it
-# by name; renaming churns three files for no gain.
+# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards four contracts — the
+# dual-schema one it was named for, the decision-record one added 2026-09-21, the
+# plugin-manifest one added 2026-09-22, and the knowledge-stamp one added the same
+# day. The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md
+# and the dual-schema plan all reference it by name; renaming churns three files
+# for no gain.
 #
 # DGF supports two configuration formats: modern JSON component config and legacy XML
 # validated by XSD. Every document in this plugin used to assume JSON only, and all of
@@ -476,6 +477,41 @@ EOF
     done
 }
 
+
+# --- 7. knowledge stamps ------------------------------------------------------
+#
+# Every knowledge/**/*.md except knowledge/README.md carries the stamp contract
+# that README.md §1 defines: dgf_version, read_date, a per-source sha256, and —
+# when a range is declared — both since and until. That frontmatter is nested
+# (sources is a list of maps, applies is a map), and the only frontmatter
+# parsing this script does is adr_status(), one sed for one flat key. So the
+# check lives in a Python helper and this section only invokes it, exactly as
+# section 6 does with doctor.py. One implementation; milestone 8's drift check
+# is its second caller.
+STAMPS='scripts/check_knowledge_stamps.py'
+
+check_knowledge_stamps() {
+    section '7. Knowledge stamps'
+
+    stamps_code=0
+    # Capture the status directly, never through a pipe: `cmd | tail` would
+    # report tail's exit code and turn every failure into a pass.
+    stamps_output="$(python3 "${PLUGIN_ROOT}/${STAMPS}" 2>&1)" || stamps_code=$?
+    trace "ran ${STAMPS} (exit ${stamps_code})"
+
+    if [ "${stamps_code}" -ne 0 ]; then
+        printf '%s\n' "${stamps_output}"
+    fi
+
+    case "${stamps_code}" in
+        0) ;;
+        2) warn "${STAMPS} reported warnings (exit 2) — see its output above" ;;
+        1) error "${STAMPS} reported blocking findings (exit 1) — see its output above" ;;
+        3) error "${STAMPS} was invoked incorrectly (exit 3) — see its output above" ;;
+        *) error "${STAMPS} returned an unexpected exit code ${stamps_code}" ;;
+    esac
+}
+
 main() {
     if [ "$#" -gt 0 ]; then
         fail 3 "Usage: $(basename "$0")   (no arguments; set DEBUG=1 for a per-file trace)"
@@ -496,6 +532,7 @@ main() {
     check_absolute_paths
     check_decision_records
     check_plugin_manifest
+    check_knowledge_stamps
 
     section 'Summary'
     printf 'Files checked: %d\n' "${FILES_SCANNED}"

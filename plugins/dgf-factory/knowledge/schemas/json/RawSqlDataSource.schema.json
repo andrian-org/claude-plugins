@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "RawSqlDataSource",
+  "type": "object",
+  "description": "Raw SQL query and stored procedure data source for direct SQL Server access.\nImplements IParametrizedDataSource<RawSqlDataSourceParameter>.\nEnables execution of custom T-SQL queries or stored procedures with parameterized queries,\nsupports optional SkipExecutionIfEmpty behavior, DbType conversion, and flexible result structuring.\nThis is the most direct data access pattern and should be used when table data sources are insufficient.\n            \nPAGINATION PATTERN — when the hosting component has Paging configured:\n1. Set ForwardPaginationParameters = true on this data source.\n2. Add two entries to this data source's Parameters list:\n   { \"sourceName\": \"page\",     \"destinationName\": \"page\",     \"dbType\": \"Int32\", \"isRequired\": true }\n   { \"sourceName\": \"pageSize\", \"destinationName\": \"pageSize\", \"dbType\": \"Int32\", \"isRequired\": true }\n3. Do NOT add \"page\" or \"pageSize\" to the component's Parameters list — they are auto-forwarded from Paging.\n4. SQL query pattern: ORDER BY [col] OFFSET (@page - 1) * @pageSize ROWS FETCH NEXT @pageSize ROWS ONLY\n   Stored procedure: declare @page INT, @pageSize INT and apply the same OFFSET/FETCH pattern.\n5. For complex queries (CTE / window / correlated subquery) where the heuristic count rewrite\n   fails, set CountQuery to an explicit \"SELECT COUNT(*) FROM ...\" matching the same WHERE filters.\n   Set CountQuery to \"no-count\" (NoCountSentinel) to disable total-count computation entirely.",
+  "additionalProperties": false,
+  "properties": {
+    "ColumnAsListOfObjects": {
+      "type": "boolean",
+      "description": "Gets or sets whether a single column result should be returned as a list of objects.\nWhen true, a column of scalar values is wrapped into objects for component consumption."
+    },
+    "Query": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the raw SQL query string to execute.\nQuery should be parameterized using @paramName syntax to prevent SQL injection.\nExample: \"SELECT * FROM Users WHERE UserId = @UserId AND Status = @Status\".\nMutually exclusive with StoredProcedureName."
+    },
+    "CountQuery": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Optional companion SQL that returns a single integer total count, used together with\npagination on Query. Receives the same parameter set as Query.\n            \nBehavior:\n  - null / empty / whitespace: framework derives the count from Query heuristically (default).\n  - NoCountSentinel (\"no-count\"): no count SQL is executed; Total falls back to page row count.\n  - any other string: executed as a scalar SQL command; the first column of the first row is cast to int.\n            \nUse this when Query contains constructs the heuristic cannot rewrite safely:\nCTEs (WITH ...), correlated subqueries in the SELECT list, window functions with OVER(...),\nUNION / INTERSECT / EXCEPT, OPTION(...) hints, or FOR JSON / FOR XML.\n            \nExample:\n  Query:      \"WITH Ranked AS (...) SELECT ... FROM Services s ... ORDER BY s.SortOrder OFFSET ... FETCH NEXT ...\"\n  CountQuery: \"SELECT COUNT(*) FROM Services s WHERE s.IsAvailable > 0 AND s.IsPublished = 1\""
+    },
+    "StoredProcedureName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the stored procedure to execute.\nExample: \"sp_GetUserApprovals\".\nMutually exclusive with Query. When set, parameters are passed as procedure arguments."
+    },
+    "Name": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets the unique name identifier for this SQL data source. Used in component bindings."
+    },
+    "Type": {
+      "description": "Gets the data source type. Can be DataSourceType.RawSql or DataSourceType.StoredProcedure.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DataSourceType"
+        }
+      ]
+    },
+    "SingleResult": {
+      "type": "boolean",
+      "description": "Gets or sets whether this query returns a single result object rather than a collection.\nWhen true, single-row results are unwrapped from array form."
+    },
+    "AllowUnauthorizedAccess": {
+      "type": "boolean",
+      "description": "Gets or sets whether this query allows unauthenticated execution.\nWhen true, the query runs without requiring authentication claims."
+    },
+    "ForwardPaginationParameters": {
+      "type": "boolean",
+      "description": "Gets or sets whether the component's pagination state (page, pageSize) is forwarded to this query as SQL parameters.\nWhen true, also add \"page\" and \"pageSize\" entries to this data source's Parameters list with DbType = Int32,\nand implement OFFSET/FETCH pagination in the SQL query or stored procedure. See class-level summary for the full pattern."
+    },
+    "Parameters": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "description": "Gets or sets the list of SQL parameters to be bound to the query or stored procedure.\nEach parameter maps component state or user claims to SQL @paramName definitions.\nSupports optional SkipExecutionIfEmpty and DbType conversion.",
+      "items": {
+        "$ref": "#/definitions/RawSqlDataSourceParameter"
+      }
+    }
+  },
+  "definitions": {
+    "DataSourceType": {
+      "type": "string",
+      "description": "Specifies the type of data source, determining how data is fetched and processed.\nJSON serialized as string values. Used to classify data sources and route to appropriate executors.",
+      "x-enumNames": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ],
+      "enum": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ]
+    },
+    "RawSqlDataSourceParameter": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DataSourceParameterBase"
+        },
+        {
+          "type": "object",
+          "description": "Defines a SQL parameter for raw query and stored procedure data sources.\nExtends DataSourceParameterBase with IsRequired flag, SkipExecutionIfEmpty behavior, and explicit DbType conversion.",
+          "additionalProperties": false,
+          "properties": {
+            "IsRequired": {
+              "type": "boolean",
+              "description": "Gets or sets whether this parameter is required by the SQL query or stored procedure.\nWhen true, the parameter value must be provided or execution will fail (unless SkipExecutionIfEmpty is true).\nWhen false, execution can proceed without this parameter if not available in component state."
+            },
+            "SkipExecutionIfEmpty": {
+              "type": "boolean",
+              "description": "Gets or sets whether to skip query execution and return null if this parameter has no value.\nWhen true, if the parameter cannot be resolved from component state or user claims,\nthe entire query is skipped and null is returned instead of throwing an exception.\nUseful for optional filters or dynamic query conditions."
+            },
+            "DbType": {
+              "description": "Gets or sets the explicit SQL DbType for this parameter.\nUsed to convert the component state value to the correct SQL data type.\nExample: DbType.Int32, DbType.DateTime2, DbType.VarChar.\nIf not specified, type conversion is inferred from the parameter value.",
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/DbType"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "DbType": {
+      "type": "integer",
+      "description": "",
+      "x-enumNames": [
+        "AnsiString",
+        "Binary",
+        "Byte",
+        "Boolean",
+        "Currency",
+        "Date",
+        "DateTime",
+        "Decimal",
+        "Double",
+        "Guid",
+        "Int16",
+        "Int32",
+        "Int64",
+        "Object",
+        "SByte",
+        "Single",
+        "String",
+        "Time",
+        "UInt16",
+        "UInt32",
+        "UInt64",
+        "VarNumeric",
+        "AnsiStringFixedLength",
+        "StringFixedLength",
+        "Xml",
+        "DateTime2",
+        "DateTimeOffset"
+      ],
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        25,
+        26,
+        27
+      ]
+    },
+    "DataSourceParameterBase": {
+      "type": "object",
+      "description": "Base class for all data source parameter definitions.\nParameters define how external values (component state, user claims, pagination info) map to data source inputs.\nSupports token substitution: ${componentName}, ${item.field}, ${User.attribute}, ~UserID, ~NOW.",
+      "additionalProperties": false,
+      "required": [
+        "SourceName"
+      ],
+      "properties": {
+        "SourceName": {
+          "type": "string",
+          "description": "Gets or sets the source location of the parameter value. Required.\nExamples: component name, nested path (item.field), claim name.\nSupports token syntax like \"${itemValue}\", \"${User.Id}\", \"~UserID\", \"~NOW\".",
+          "minLength": 1
+        },
+        "DestinationName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Gets or sets the destination name for this parameter in the data source.\nFor API parameters: the OpenAPI parameter name.\nFor SQL parameters: the SQL parameter name (with or without @ prefix).\nFor Table parameters: the filter/search/query field name.\nIf not specified, defaults to the SourceName."
+        }
+      }
+    }
+  }
+}
