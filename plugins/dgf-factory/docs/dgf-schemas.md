@@ -227,9 +227,10 @@ behaviour rather than globbing.
 ## 9. Vendoring contract
 
 Schemas are **vendored, not read across the filesystem** — a validator that reaches outside
-the plugin breaks the moment the plugin is installed elsewhere. The decision is to vendor
-the complete set: all committed JSON schemas, all 9 XSDs, and
-`XmlReference/form.reference.json`. Roughly 3.5 MB.
+the plugin breaks the moment the plugin is installed elsewhere. The complete set is
+vendored: all committed JSON schemas, all 9 XSDs, and `XmlReference/form.reference.json`.
+Roughly 3.5 MB. The live record of what was taken, from which commit, with a digest per
+file, is [`knowledge/schemas/MANIFEST.md`](../knowledge/schemas/MANIFEST.md).
 
 ```text
 knowledge/schemas/
@@ -273,6 +274,9 @@ quoting is the rule.
 
 - DGF commit SHA the set was vendored from
 - DGF version and vendored date
+- **A `sha256` per vendored file**, in the manifest's frontmatter `sources` list — the
+  schemas are not Markdown and cannot carry a stamp of their own, so this is their digest
+  table, and it is what the drift check compares against a consumer's DGF checkout
 - Per-file `$schema` dialect
 - Which files came from `Schemas/Json/`, which from `Schemas/XSD/`, and which from the
   hand-authored `docs/schemas/` contracts

@@ -27,11 +27,17 @@ Setup stage. The repository currently contains:
 - `skills/dgf-doctor/` — the walking-skeleton slice: `SKILL.md` plus `scripts/doctor.py`,
   which exercises auto-discovery, `${CLAUDE_PLUGIN_ROOT}`, the exit-code contract and the
   `dgf-gate-result` block without needing any DGF facts
-- `scripts/check-dual-schema-docs.sh` — the repo-maintenance contract check
+- `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention), four stamped
+  facts files (`schema-families`, `component-catalogue`, `composition-specs`,
+  `naming-conventions`), and `schemas/` — the vendored set (69 JSON + 9 XSD + grammar
+  reference + 3 standalone contracts, ~3.5 MB) with a generated `MANIFEST.md` carrying a
+  `sha256` per file
+- `scripts/check-dual-schema-docs.sh` — the repo-maintenance contract check, seven sections
+- `scripts/check_knowledge_stamps.py` — asserts every knowledge file carries the stamp contract
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: the rest of the `dgf-*` skill corpus, the DGF knowledge references,
-the deterministic dual-schema validators, and the marketplace entry.
+Not yet created: the rest of the `dgf-*` skill corpus, the deterministic dual-schema
+validators and the drift check (milestone 8), and the marketplace entry.
 
 ## Tech Stack
 
@@ -52,7 +58,7 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 |---|---|
 | DGF is a **Component-Hosted Pluggable Monolith**, not a BPMN engine | `AGENTS.md` project overview |
 | .NET 10 (`net10.0`, nullable **disabled**), Angular 19.2 + NGXS, SQL Server + EF Core | `src/Directory.Build.props`, `AGENTS.md` |
-| ~40 component plugins, each implementing `IComponentService<TSource>` | `src/Components/DGF.Components.Shared/Contracts/IComponentService.cs` |
+| **34** component service registrations across 31 modules, each implementing `IComponentService<TSource>` — one of five disagreeing component counts (34 services / 67 `ComponentType` members / 56 lifecycle / 59 examples / 66 with schemas); `knowledge/component-catalogue.md` says which answers which question | the 34 `ComponentServiceProvider.RegisterComponentService(` call sites; `src/Components/DGF.Components.Shared/Contracts/IComponentService.cs` |
 | One dispatcher for all UI requests | `src/DGF.API/Controllers/ComponentsController.cs` |
 | Components **are statically enumerable** — a real validator is feasible | `ComponentServiceProvider` name→type registry + `RegisterComponentServices()` reflection scan |
 | Consumer apps compose plugins **declaratively via XML/JSON specs** and the DataFetcher EventBase verb dispatcher | `AGENTS.md` project overview |

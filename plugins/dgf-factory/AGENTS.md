@@ -37,8 +37,16 @@ plugins/dgf-factory/
 │   └── dgf-doctor/             #   walking skeleton — is the plugin installed correctly?
 │       ├── SKILL.md            #     the prompt-program
 │       └── scripts/doctor.py   #     the structural validator it calls
+├── knowledge/                  # The DGF knowledge base — every fact stamped and cited
+│   ├── README.md               #   the stamping convention (the only unstamped file)
+│   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity
+│   ├── component-catalogue.md  #   34 dispatchable components; why 4 other counts differ
+│   ├── composition-specs.md    #   workspace layout, 5 legacy artifacts, events, XML-always policy
+│   ├── naming-conventions.md   #   directory/file/type names a generator must reproduce exactly
+│   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (sha256 per file)
 ├── scripts/                    # Repo-maintenance checks contributors run
-│   └── check-dual-schema-docs.sh  # documentation, decision-record and manifest contracts
+│   ├── check-dual-schema-docs.sh  # documentation, decision-record, manifest and stamp contracts
+│   └── check_knowledge_stamps.py  # the nested-frontmatter validator section 7 invokes
 ├── docs/                       # Detailed documentation, one topic per page
 │   ├── adr/                    #   architecture decision records — README.md is the index
 │   ├── getting-started.md      #   prerequisites, repo layout, build order
@@ -60,9 +68,9 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: the rest of the `skills/dgf-*/` corpus, `agents/`, `knowledge/`, and the
-dual-schema validator scripts that the blueprint calls for first. The manifest and the
-`/dgf-doctor` walking skeleton landed with roadmap milestone 6.
+Not yet created: the rest of the `skills/dgf-*/` corpus, `agents/`, and the dual-schema
+validator scripts and drift check (milestone 8). The manifest and the `/dgf-doctor` walking
+skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7.
 
 ## Key Entry Points
 
@@ -71,6 +79,8 @@ dual-schema validator scripts that the blueprint calls for first. The manifest a
 | [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | The manifest. Component paths are left to their defaults — declaring one restates it. |
 | [skills/dgf-doctor/SKILL.md](skills/dgf-doctor/SKILL.md) | The first prompt-as-program. The house style the next slices copy. |
 | [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability, line endings; emits the gate block |
+| [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
+| [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What was vendored, from which DGF commit, with a `sha256` per file; the re-vendor process |
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |

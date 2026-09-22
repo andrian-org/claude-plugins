@@ -73,7 +73,7 @@ plugins/dgf-factory/
 │
 ├── knowledge/                          # ── SHARED DOMAIN ── the DGF knowledge base
 │   ├── README.md                       #   how to cite, date and version-stamp a fact
-│   ├── component-catalogue.md          #   the ~40 IComponentService<TSource> plugins
+│   ├── component-catalogue.md          #   the 34 IComponentService<TSource> registrations, and why 4 other counts differ
 │   ├── composition-specs.md            #   declarative XML/JSON composition + EventBase verbs
 │   ├── naming-conventions.md
 │   ├── schema-families.md              #   JSON vs XSD: parity, correspondence, resolution
