@@ -60,6 +60,11 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 | `docs/schemas/` holds only 3 hand-authored standalone contracts, not the generated set | `componentValidator`, `dataFetcherConfiguration`, `eventBase` |
 | Hosted DGF documentation MCP | `https://dgf-mcp.dotgov.uk/mcp` |
 | Auth: JWT Bearer + OIDC (Azure AD + DGPass); tests: xUnit/FluentAssertions/Moq + Jest/Playwright | `AGENTS.md` tech stack |
+| DGF version source of truth is **`1.1.11`**, set only under `Condition="'$(Configuration)' == 'ClientDebug'"` despite a comment claiming all configurations share it | `src/Directory.Build.props` L30-34 |
+| **Nothing first-party version-stamps DGF knowledge** — no `version` on the XSDs, none in the generated JSON schemas, no compatibility matrix; release notes are the only version-aware surface | `Schemas/XSD/`, `Schemas/Json/`, `docs/wiki/Release-notes/` |
+| Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0002](../docs/adr/0002-process-verification.md) |
+| A process **cannot be executed headlessly** — stepping one needs a case record and therefore the database | `DGF.OM/Process/StateProcess/InstanceHandler.cs` `GetProcessMapAsync` |
+| Workspaces inherit from a **base workspace** (`webasm`): `FmPath` resolves in the selected workspace, `FmBasePath` in the base, so a base artifact is live in every application | `src/Core/DGF.Kernel/WorkspaceSettings.cs` |
 
 **Correction to the blueprint:** Part 2 was written from a one-sentence description
 that characterised DGF as having "workflows and BPMN-like processes". No BPMN engine
@@ -72,12 +77,16 @@ rather than BPMN. `format-coverage.md` confirms both are the *live runtime forma
 should therefore be re-derived from those two XSDs, alongside `eventBase.schema.json`
 and `dataFetcherConfiguration.schema.json`.
 
-Blueprint open questions now answered: **#1** (spec format — both families have committed
-schemas, and the DGF MCP exposes headless validators for each: `validate_*_xml`,
-`validate_component_config`, `validate_*_json`) and **#2** (component enumeration — yes,
-statically enumerable). Substantially answered: **#4** — DGF systems compose
-configuration rather than write code, and today that configuration is XML for the five
-legacy artifact types. Still open: **#3**, **#5**, **#6**, **#7**.
+**All seven blueprint open questions are now closed.** **#1** (spec format — both families
+have committed schemas, and the DGF MCP exposes headless validators for each) and **#2**
+(component enumeration — yes, statically enumerable) were answered from the repository;
+**#4** substantially so — DGF systems compose configuration rather than write code, and
+today that configuration is XML for the five legacy artifact types. The remaining four were
+decided on 2026-09-21 and recorded in [`docs/adr/`](../docs/adr/README.md): **#5** process
+verification ([0002](../docs/adr/0002-process-verification.md)), **#6** version gating
+([0003](../docs/adr/0003-version-gating.md)), **#3** authoring entry point and scope
+([0004](../docs/adr/0004-authoring-entry-point.md)), **#7** default team rules
+([0005](../docs/adr/0005-default-team-rules.md)).
 
 ## Architecture Notes
 
@@ -118,26 +127,18 @@ slice, with shared DGF facts in `knowledge/` and cross-slice validators in `scri
 Expressed in Claude Code plugin folder names, because auto-discovery only loads
 components from the plugin's mandated paths.
 
-## Known Risk — Accepted
+## Delivery Model (decided)
 
-An accepted ADR series in the DGF repository (`docs/adr/0701`–`0720`) already decides
-this problem differently, and a substantial implementation already exists at
-`DotGovFramework/src/Tools/dgf-harness/` (7 `dgf-*` skills, agents, gates, orchestrator,
-constitution, knowledge, `extension.json`).
+`dgf-factory` is an **independent Claude Code plugin** in the `dotgov` marketplace, and its
+pipeline architecture **derives from AI Factory 2.18.1** — a derivation, not a dependency:
+nothing at runtime requires AI Factory to be installed.
 
-- **ADR 0711** (accepted 2026-09-10): the harness ships as an **ai-factory extension**
-  (`@dotgov/dgf-harness`, installed with `ai-factory extension add`), superseding the
-  earlier proposal to ship it as a Claude Code plugin. The stated reason is
-  `injections[]` and `replaces{}` — extending the generic `aif-*` skills without forking them.
-- **ADR 0716** (accepted 2026-09-11) explicitly rejects the alternative
-  "drop the dependency and ship a Claude Code plugin instead", because it loses `injections`.
+It takes no dependency on any other DGF agent-tooling effort, shares no artifacts with one,
+and is under no obligation to track another repository's ADR series. The overlap with prior
+work was measured on 2026-09-21 and deliberately set aside.
 
-The blueprint's delivery model is therefore the alternative those ADRs rejected, and the
-`dgf-*` skill corpus it proposes overlaps work already done in `dgf-harness`.
-
-**Decision (2026-09-18):** proceed with the blueprint as written, accepting the
-divergence. Anyone continuing this work should read ADRs 0711 and 0716 first and either
-reconcile with `dgf-harness` or record why the divergence is intentional.
+Decision and its full consequences — including what this costs and what would reverse it —
+in [ADR 0001](../docs/adr/0001-independent-plugin-with-ai-factory-derived-architecture.md).
 
 ## Non-Functional Requirements
 
@@ -153,9 +154,10 @@ reconcile with `dgf-harness` or record why the divergence is intentional.
   and says why. Defaulting to JSON is the failure mode to design against.
 - **Parity-aware claims.** Never state that a component is JSON-capable without citing its
   runtime column in `format-coverage.md`. A schema existing is not the runtime reading it.
-- **Token budget.** ADR 0711 records that declaring playwright and chrome-devtools costs
-  roughly 12,000 tokens of tool schema per session; browser MCP servers are therefore not
-  declared in this project.
+- **Token budget.** Declaring playwright and chrome-devtools costs roughly 12,000 tokens of
+  tool schema per session, so browser MCP servers are not declared in this project. This is
+  also why browser-driven checks stay out of the gates — see
+  [ADR 0002](../docs/adr/0002-process-verification.md) §4.
 - **Line endings.** LF enforced repo-wide via `.gitattributes` — CRLF breaks shebangs and
   heredocs in plugin scripts.
 - **Portability.** Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`, never absolute paths.

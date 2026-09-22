@@ -66,6 +66,7 @@ into rules that sharpen the next run.
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |
 | [DGF Knowledge Sourcing](docs/dgf-knowledge.md) | Citing, dating and version-stamping DGF facts |
 | [DGF Schemas](docs/dgf-schemas.md) | The two schema families — JSON and XSD — runtime parity, vendoring |
+| [Decision Records](docs/adr/README.md) | Why the plugin is shaped this way — delivery model, verification, versioning, scope |
 | [Architecture Blueprint](docs/blueprint.md) | The full design: AI Factory teardown + DGF mapping |
 
 Project context for AI agents lives in [AGENTS.md](AGENTS.md) and `.ai-factory/`.

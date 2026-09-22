@@ -11,6 +11,12 @@ kind of mistake here — they get baked into prompts and propagate into generate
 > **Every fact in `knowledge/` cites where it came from, when it was read, and which DGF
 > version it was read from. A fact that cannot be cited stays marked `[assume]` until it can.**
 
+The exact stamp fields — `dgf_version`, `read_date`, and a per-source `sha256` — and the rule
+for when a fact needs a *version range* rather than just a stamp are decided in
+[ADR 0003](adr/0003-version-gating.md). Short version: stamp everything, range only facts whose
+runtime behaviour changed between releases. `dgf_version` is read from
+`src/Directory.Build.props`, never from a git tag.
+
 Acceptable sources, in order of preference:
 
 1. The DotGov Framework repository — a specific file path
@@ -92,7 +98,7 @@ Read from `DotGovFramework` on **2026-09-18**. Re-verify before relying on these
 | **Schema availability is not runtime parity** — `Workflow` and `ProcessFlow` have JSON schemas the runtime ignores in favour of XML | `docs/wiki/AI-Authoring/format-coverage.md` |
 | Hand-authored standalone contracts live separately and are not the generated set | `docs/schemas/` — `componentValidator`, `dataFetcherConfiguration`, `eventBase` |
 | Tests: xUnit + FluentAssertions + Moq/NSubstitute (backend), Jest + Playwright (frontend) | `AGENTS.md` tech stack |
-| A hosted DGF documentation MCP exists | `src/Tools/dgf-harness/mcp/dgf-mcp.json` |
+| A hosted DGF documentation MCP exists at `https://dgf-mcp.dotgov.uk/mcp` | this plugin's `.mcp.json`; the endpoint is **unversioned** |
 
 Because components are statically enumerable and the schemas exist, **real validators are
 feasible** — component resolution and spec well-formedness do not need to be guessed.
@@ -118,24 +124,24 @@ Answered since: headless validation exists for both families — the DGF MCP exp
 `validate_component_config` / `validate_*_json` and `validate_*_xml`, so no separate
 binary is needed.
 
-Still open: how often greenfield is the real case, what verification of a spec looks like
-at runtime, whether DGF versions differ enough to need version-gated references, and which
-dotGov conventions should ship as defaults rather than being discovered per project.
+**Nothing is still open.** The four remaining questions were closed on 2026-09-21 and
+recorded in [`docs/adr/`](adr/README.md): the estate is brownfield-dominant and a skill's unit
+of work is the whole workspaces root ([0004](adr/0004-authoring-entry-point.md)); process
+verification is structural-plus-our-own-semantics, with no headless execution
+([0002](adr/0002-process-verification.md)); version gates are necessary, so every fact is
+stamped and behavioural facts carry a range ([0003](adr/0003-version-gating.md)); and seven
+conventions ship as defaults ([0005](adr/0005-default-team-rules.md)).
 
-## Prior art — read before building
+## Architectural provenance
 
-An accepted ADR series (`DotGovFramework/docs/adr/0701`–`0720`) already designs a DGF
-harness, and a substantial implementation exists at `DotGovFramework/src/Tools/dgf-harness/`
-with its own `dgf-*` skills, agents, gates and orchestrator.
+This plugin is independent: its pipeline architecture derives from AI Factory 2.18.1, and it
+takes no dependency on any other DGF agent-tooling effort. Overlapping prior work exists and
+its overlap was measured on 2026-09-21; it was deliberately set aside rather than overlooked,
+and it is **not** a constraint, an authority or an architecture source here. See
+[ADR 0001](adr/0001-independent-plugin-with-ai-factory-derived-architecture.md).
 
-**ADR 0711** ships that harness as an *ai-factory extension* rather than a Claude Code
-plugin, and **ADR 0716** explicitly rejects the plugin route because it loses
-`injections` — the mechanism for extending generic skills without forking them.
-
-This plugin proceeds on the blueprint's path by an explicit decision recorded in
-[`.ai-factory/DESCRIPTION.md`](../.ai-factory/DESCRIPTION.md). Anyone continuing the work
-should read 0711 and 0716 first and either reconcile with `dgf-harness` or record why the
-divergence is intentional.
+Every fact in `knowledge/` is therefore sourced from first-party DGF — the engine under
+`src/Core`, the MCP server under `src/Tools/dgf-mcp`, the shipped schemas, and `docs/wiki/`.
 
 ## See Also
 

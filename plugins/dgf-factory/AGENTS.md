@@ -13,8 +13,8 @@ DotGov Framework (.NET 10 / Angular 19 Component-Hosted Pluggable Monolith) inst
 deriving the stack at setup time.
 
 Setup stage — the design exists, the `dgf-*` skill corpus does not yet.
-See [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope, verified
-framework facts and accepted risks.
+See [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified
+framework facts, and [docs/adr/](docs/adr/README.md) for the decisions that shape it.
 
 ## Tech Stack
 
@@ -32,6 +32,7 @@ plugins/dgf-factory/
 ├── README.md                   # Landing page — what this plugin is, status, doc links
 ├── AGENTS.md                   # This file — navigation index
 ├── docs/                       # Detailed documentation, one topic per page
+│   ├── adr/                    #   architecture decision records — README.md is the index
 │   ├── getting-started.md      #   prerequisites, repo layout, build order
 │   ├── architecture.md         #   slice structure and dependency rules
 │   ├── skill-authoring.md      #   SKILL.md contract, gates, exit codes
@@ -59,7 +60,8 @@ DGF knowledge references and validator scripts that the blueprint calls for firs
 | File | Purpose |
 |---|---|
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
-| [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the accepted ADR divergence |
+| [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
+| [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
 | [.ai-factory/config.yaml](.ai-factory/config.yaml) | Language, paths, git and workflow settings for the pipeline |
 | [.ai-factory/rules/base.md](.ai-factory/rules/base.md) | Naming, error handling, exit-code contract, skill authoring rules |
 | [.mcp.json](.mcp.json) | MCP servers available to agents in this project |
@@ -75,8 +77,8 @@ DGF knowledge references and validator scripts that the blueprint calls for firs
 | DGF XSD schemas | `DotGovFramework/src/Tools/dgf-mcp/Schemas/XSD/` + `Schemas/XmlReference/` | 9 XSDs plus the generated legacy XML grammar reference. MCP: `list_available_xsd_schemas` |
 | DGF format coverage | `DotGovFramework/docs/wiki/AI-Authoring/format-coverage.md` | **The runtime-parity authority.** Which components the runtime actually parses JSON for, and the current XML-always generation policy |
 | DGF standalone contracts | `DotGovFramework/docs/schemas/` | Only 3 hand-authored JSON contracts (`componentValidator`, `dataFetcherConfiguration`, `eventBase`) — **not** the generated set; only the first is synced into the MCP |
-| DGF ADRs | `DotGovFramework/docs/adr/0701`–`0720` | The harness design series. **Read 0711 and 0716 before changing delivery model.** |
-| Existing harness | `DotGovFramework/src/Tools/dgf-harness/` | A built ai-factory extension with 7 `dgf-*` skills — overlaps this plugin's scope |
+| DGF release notes | `DotGovFramework/docs/wiki/Release-notes/` | The only version-aware surface DGF offers. MCP: `get_release_notes("since:X.Y.Z")` |
+| DGF workspace layout | `DotGovFramework/src/Core/DGF.Kernel/WorkspaceSettings.cs` | The `FM/_PROCESS`, `_WORKFLOW`, `_COMPONENTS` constants and the base-workspace inheritance chain |
 | DGF docs MCP | `https://dgf-mcp.dotgov.uk/mcp` | Hosted DGF documentation, wired in `.mcp.json` |
 | Sibling plugin | `../doc-coverage-audit/` | Layout conventions for a plugin in this marketplace |
 | Marketplace manifest | `../../.claude-plugin/marketplace.json` | Where this plugin must be registered to ship |
@@ -91,6 +93,7 @@ DGF knowledge references and validator scripts that the blueprint calls for firs
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
 | DGF Schemas | `docs/dgf-schemas.md` | The two schema families (JSON + XSD), runtime parity, vendoring |
+| Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, version gating, scope, default rules |
 | Architecture Blueprint | `docs/blueprint.md` | AI Factory teardown and the DGF mapping |
 | Repository README | `../../README.md` | The `dotgov` marketplace and how to install its plugins |
 
@@ -106,6 +109,13 @@ DGF knowledge references and validator scripts that the blueprint calls for firs
 
 ## Agent Rules
 
+- **Decisions live in `docs/adr/`.** [docs/adr/README.md](docs/adr/README.md) is the index.
+  Before reopening a settled question — delivery model, what "process verified" means, version
+  gating, the unit of work, the default rule set — read the ADR that closed it. Reverse a
+  decision with a new ADR that supersedes the old one; never by editing it.
+- **This plugin's architecture derives from AI Factory and depends on nothing else.** It takes
+  no dependency on any other DGF agent-tooling effort and is not obliged to track another
+  repository's ADR series ([ADR 0001](docs/adr/0001-independent-plugin-with-ai-factory-derived-architecture.md)).
 - **Framework facts must be verified, never assumed.** The blueprint's Part 2 is marked
   `[assume]` throughout because it was written from one sentence of description. Confirm
   against the DGF repository or the DGF docs MCP before writing a fact into a skill, and

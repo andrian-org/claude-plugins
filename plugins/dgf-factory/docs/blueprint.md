@@ -231,7 +231,7 @@ AI Factory ships as an npm CLI that installs into 15+ agents. This is a **Claude
 | `src/core/mcp.ts` MCP wiring | **keep as `.mcp.json`** if DGF has tooling worth exposing |
 | skills corpus | **keep — this is the whole plugin** |
 | subagents | **keep** — `.claude/agents/*.md`, ship as-is then specialize |
-| extensions/injections | **defer** — add only if other teams need to extend it |
+| extensions/injections | **out of scope** — there is no injection mechanism in a plugin, and this plugin ships its own skills rather than layering onto generic ones ([ADR 0001](adr/0001-independent-plugin-with-ai-factory-derived-architecture.md)) |
 
 Proposed layout, consistent with `plugins/doc-coverage-audit/`:
 
@@ -298,7 +298,7 @@ Start with the spine, then add DGF-specific skills. Do not port all 30 — port 
 | `/dgf-process` | author or modify a process; validate against `process.xsd` / `workflow.xsd` rather than a BPMN model — *(corrected 2026-09-19)* |
 | `/dgf-model` | **[assume]** entities, relations, migrations |
 | `/dgf-audit` | whole-system consistency: process ↔ component ↔ model ↔ permission graph |
-| `/dgf-scaffold` | greenfield system bootstrap from a structured interview |
+| `/dgf-scaffold` | greenfield bootstrap — **drives the existing template/generator** and verifies its output, rather than emitting files. Stays in phase 3 / milestone 12; the estate is brownfield-dominant — *(decided 2026-09-21, [ADR 0004](adr/0004-authoring-entry-point.md))* |
 
 **Phase 3 — quality and learning:** `/dgf-review`, `/dgf-rules`, `/dgf-rules-check`, `/dgf-qa`, `/dgf-docs`, `/dgf-explore`, `/dgf-grounded`, `/dgf-archive`.
 
@@ -362,16 +362,24 @@ Keep `schema_version: 1` and the last-block-wins parsing rule so anything built 
 
 These are the facts the skills will encode. Wrong answers are expensive to unwind.
 
+> **All seven are now closed** *(2026-09-21)*. The question text below is left unchanged as the
+> historical record of what was unknown; each carries an `ANSWERED` block linking the decision.
+> The decisions themselves live in [`docs/adr/`](adr/README.md).
+
 1. **Process definitions** — what format on disk (XML/JSON/DSL/DB)? Is there a CLI or library to validate one without running the app? That determines whether `/dgf-process` can have a real validator or only prompt heuristics.
    > **ANSWERED (2026-09-19).** XML on disk, validated by XSD: `process.xsd` (root `Process` → `OnStart`, `States`) and `workflow.xsd` (root `Workflow` → `Sequence`, `Input`). No app run is needed — the DGF MCP exposes headless validators for both families (`validate_process_xml`, `validate_workflow_xml`, `validate_component_config`, `validate_*_json`). `/dgf-process` can have a real validator. See [DGF Schemas](dgf-schemas.md).
 2. **Component declaration** — how is a component registered and discovered? Can the set of valid components be enumerated statically?
    > **ANSWERED (2026-09-18).** Yes — `ComponentServiceProvider` holds a name→type registry populated by a `RegisterComponentServices()` reflection scan.
 3. **Greenfield vs. brownfield** — is "build a system from scratch" the dominant case? If yes, `/dgf-scaffold` moves to phase 1.
+   > **ANSWERED (2026-09-21).** No — **mostly brownfield**, so the conditional evaluates to no and `/dgf-scaffold` stays in phase 3 / milestone 12. When a new system does start it comes **from a template or generator**, never from nothing, so the scaffold skill drives that tool rather than emitting files. The unit of work is the **whole workspaces root** — every workspace plus the `webasm` base and the `applibs*` libraries — which is the only scope at which a base-workspace change can be verified against the applications that inherit it. See [ADR 0004](adr/0004-authoring-entry-point.md).
 4. **Generated vs. hand-written** — how much of a DGF system is code the agent writes versus configuration it composes? If mostly configuration, "implement a task" means something quite different from AI Factory's assumption and `/dgf-implement` needs reshaping.
    > **SUBSTANTIALLY ANSWERED (2026-09-19).** Mostly configuration — and today that configuration is **XML** for the five legacy artifact types (form, workflow, process, settings, view). `format-coverage.md` records the Wave-1 policy: AI generates XML for all five regardless of partial JSON parity. `/dgf-implement` therefore composes and validates configuration far more than it writes code.
 5. **Test story** — what does verification look like for a process? Is there a way to execute a process definition headlessly?
+   > **ANSWERED (2026-09-21).** Asymmetric. **Structure** is deterministic and headless today — the MCP's process/workflow validators are one-line XSD wrappers over `XsdValidationService`, and `DgfMcpServer.csproj` has zero `<ProjectReference>`, so no engine build is needed. **Semantics** are checked by nothing DGF ships: `process.xsd` contains no `xs:key`/`xs:keyref`/`xs:unique`, so the grammar cannot verify a `Transition/@state` names a declared `State/@name`; `XmlCrossReferenceValidator.cs:94` excludes process outright; and `DiagnosticCheckService`'s process branch is commented out and DB-bound. **Execution is not headless** — stepping a process needs a case record and therefore the database. So this plugin's gates verify structure plus its own semantic checks, and make no claim about runtime behaviour. See [ADR 0002](adr/0002-process-verification.md).
 6. **Versioning** — do DGF versions differ enough that references need version gates?
+   > **ANSWERED (2026-09-21).** **Yes.** `RELEASE-1.1.15.md` §"Breaking Changes" is the proof: `expandAll` and `paging` were "accepted in configuration and then ignored", and now take effect — `"paging"` on an eager TreeTable moved from silently dropped to a hard configuration error. The same JSON validates against the same schema in 1.1.14 and 1.1.15 and is merely fatal in one, so schema validation cannot substitute for a version gate. The mechanism: **stamp every fact** (DGF version, read date, per-source SHA256), **range only behavioural facts**, never the structural majority. See [ADR 0003](adr/0003-version-gating.md).
 7. **Team conventions** — which dotGov-specific rules should ship as defaults in `RULES.md` rather than being discovered per project?
+   > **ANSWERED (2026-09-21).** Seven ship as defaults, each tagged with how it is enforced: XML-always for the five legacy artifact types (*script*), declarative behaviour only in `FM/` artifacts (*gate*), base-workspace edits need justification (*gate*), DGF-seam scope discipline (*prompt-only*), plus auth, test stack and workspace layout as shipped stack facts. Nothing was rejected as project-specific, which the ADR records as a weak rather than a clean result. `RULES.md` itself stays owned by `/dgf-rules`. See [ADR 0005](adr/0005-default-team-rules.md).
 
 ## References
 
@@ -384,6 +392,7 @@ These are the facts the skills will encode. Wrong answers are expensive to unwin
 
 ## See Also
 
+- [Architecture Decision Records](adr/README.md) — the decisions that closed the open questions above
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — how the facts this blueprint depends on get verified and version-stamped
 - [DGF Schemas](dgf-schemas.md) — the two schema families, and the corrections dated 2026-09-19 above
 - [Architecture](architecture.md) — the slice structure and dependency rules that came out of this design
