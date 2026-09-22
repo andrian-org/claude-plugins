@@ -1,3 +1,6 @@
+---
+archived: 2026-09-22
+---
 # Implementation Plan: Plugin Manifest & Walking Skeleton
 
 Branch: `feature/plugin-manifest-walking-skeleton` — **not yet created, see `## Branch Blocker`**
