@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# check-dual-schema-docs.sh — guard the dual-schema documentation contract.
+# check-dual-schema-docs.sh — guard this plugin's documentation contracts.
+#
+# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards two contracts — the
+# dual-schema one it was named for, and the decision-record one added 2026-09-21.
+# The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md and the
+# dual-schema plan all reference it by name; renaming churns three files for no gain.
 #
 # DGF supports two configuration formats: modern JSON component config and legacy XML
 # validated by XSD. Every document in this plugin used to assume JSON only, and all of
@@ -237,6 +242,155 @@ EOF
     trace 'scanned link targets and fenced blocks'
 }
 
+
+# --- 5. decision records ------------------------------------------------------
+#
+# ADRs are discovered, not enumerated: REQUIRED_DOCS stays as it is, and
+# owned_markdown() already sweeps docs/adr/*.md into checks 1 and 4 unchanged.
+ADR_DIR='docs/adr'
+
+adr_files() {
+    find "${PLUGIN_ROOT}/${ADR_DIR}" -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]-*.md' 2>/dev/null | sort
+}
+
+adr_status() {
+    sed -n 's/^status:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' "$1" | head -1
+}
+
+# Every ADR link written anywhere in this plugin's own markdown, as source<TAB>target.
+scan_adr_links() {
+    while IFS= read -r file; do
+        [ -n "${file}" ] || continue
+        grep -oE 'adr/[0-9]{4}-[A-Za-z0-9._-]+\.md' "${file}" 2>/dev/null \
+            | sed "s|^adr/|$(relpath "${file}")\t|" || true
+    done <<EOF
+$(owned_markdown)
+EOF
+}
+
+# The independence decision in ADR 0001, as far as it is mechanically checkable.
+# Only the concrete path is scanned; "presents another effort as a constraint" is a
+# judgement a script cannot make, and is left to review.
+scan_superseded_tooling() {
+    while IFS= read -r file; do
+        [ -n "${file}" ] || continue
+        grep -n 'dgf-harness' "${file}" 2>/dev/null \
+            | cut -d: -f1 \
+            | sed "s|^|$(relpath "${file}")\t|" || true
+    done <<EOF
+$(owned_markdown)
+EOF
+}
+
+check_decision_records() {
+    section '5. Decision records'
+
+    index="${PLUGIN_ROOT}/${ADR_DIR}/README.md"
+    if [ ! -f "${index}" ]; then
+        error "${ADR_DIR}/README.md is missing — it is the ADR index"
+        return
+    fi
+    trace "${ADR_DIR}/README.md exists"
+
+    adr_count=0
+
+    while IFS= read -r file; do
+        [ -n "${file}" ] || continue
+        adr_count=$((adr_count + 1))
+        base="$(basename "${file}")"
+        rel="${ADR_DIR}/${base}"
+        prefix="${base%%-*}"
+
+        if ! grep -q "(${base})" "${index}"; then
+            error "${rel} has no row in ${ADR_DIR}/README.md"
+        fi
+
+        fm="$(awk 'NR==1 && $0 != "---" { exit } NR==1 { next } /^---[[:space:]]*$/ { exit } { print }' "${file}")"
+        if [ -z "${fm}" ]; then
+            error "${rel} has no YAML frontmatter"
+            continue
+        fi
+
+        for key in id title status date; do
+            if ! printf '%s\n' "${fm}" | grep -q "^${key}:"; then
+                error "${rel} frontmatter is missing required key '${key}'"
+            fi
+        done
+
+        id_val="$(printf '%s\n' "${fm}" | sed -n 's/^id:[[:space:]]*"\{0,1\}\([^"]*[^"[:space:]]\)"\{0,1\}[[:space:]]*$/\1/p' | head -1)"
+        if [ -n "${id_val}" ] && [ "${id_val}" != "${prefix}" ]; then
+            error "${rel} frontmatter id '${id_val}' does not match filename prefix '${prefix}'"
+        fi
+
+        status_val="$(adr_status "${file}")"
+        case "${status_val}" in
+            proposed|accepted|rejected) : ;;
+            superseded-by-[0-9][0-9][0-9][0-9]) : ;;
+            *) error "${rel} status '${status_val}' is outside the allowed vocabulary (proposed|accepted|rejected|superseded-by-NNNN)" ;;
+        esac
+
+        dec="$(awk '/^## Decision/ { grab=1; next } grab && /^## / { exit } grab { print }' "${file}" | tr -d '\n')"
+        dec_len=${#dec}
+        if [ "${dec_len}" -eq 0 ]; then
+            warn "${rel} has no '## Decision' section"
+        elif [ "${dec_len}" -lt 200 ]; then
+            warn "${rel} '## Decision' is only ${dec_len} characters — too short to be a decision"
+        fi
+
+        trace "${rel}: id=${id_val} status=${status_val} decision=${dec_len}c"
+    done <<EOF
+$(adr_files)
+EOF
+
+    # Index rows must point at files that exist.
+    while IFS= read -r target; do
+        [ -n "${target}" ] || continue
+        if [ ! -f "${PLUGIN_ROOT}/${ADR_DIR}/${target}" ]; then
+            error "${ADR_DIR}/README.md links ${target}, which does not exist"
+        fi
+    done <<EOF
+$(grep -oE '\([0-9]{4}-[A-Za-z0-9._-]+\.md\)' "${index}" 2>/dev/null | tr -d '()' | sort -u || true)
+EOF
+
+    # Every ADR reference anywhere in owned markdown must resolve.
+    #
+    # Deliberately broader than "every ANSWERED blueprint question links an ADR":
+    # questions #1, #2 and #4 were answered from the repository before this plugin
+    # had ADRs at all, and citing evidence rather than a decision is correct for
+    # them. The regression worth catching is a dangling ADR link, which this covers
+    # everywhere, not just in the blueprint.
+    while IFS="$(printf '\t')" read -r src target; do
+        [ -n "${src}" ] || continue
+        if [ ! -f "${PLUGIN_ROOT}/${ADR_DIR}/${target}" ]; then
+            error "${src} links ADR ${target}, which does not exist"
+        fi
+    done <<EOF
+$(scan_adr_links)
+EOF
+
+    # An ADR cited by an ANSWERED blueprint question must not still be 'proposed'.
+    while IFS= read -r target; do
+        [ -n "${target}" ] || continue
+        f="${PLUGIN_ROOT}/${ADR_DIR}/${target}"
+        [ -f "${f}" ] || continue
+        if [ "$(adr_status "${f}")" = "proposed" ]; then
+            error "blueprint.md marks a question ANSWERED citing ${target}, but that ADR is still 'proposed'"
+        fi
+    done <<EOF
+$(grep 'ANSWERED' "${PLUGIN_ROOT}/docs/blueprint.md" 2>/dev/null | grep -oE 'adr/[0-9]{4}-[A-Za-z0-9._-]+\.md' | sed 's|^adr/||' | sort -u || true)
+EOF
+
+    # ADR 0001 settled the independence decision; a reintroduction is a regression.
+    while IFS="$(printf '\t')" read -r src lineno; do
+        [ -n "${src}" ] || continue
+        error "${src}:${lineno} cites a superseded DGF agent-tooling path — ADR 0001 settled that this plugin is independent"
+    done <<EOF
+$(scan_superseded_tooling)
+EOF
+
+    trace "scanned ${adr_count} decision record(s)"
+}
+
 main() {
     if [ "$#" -gt 0 ]; then
         fail 3 "Usage: $(basename "$0")   (no arguments; set DEBUG=1 for a per-file trace)"
@@ -245,7 +399,7 @@ main() {
         fail 3 "Not a dgf-factory checkout: ${PLUGIN_ROOT}/docs not found"
     fi
 
-    printf '%sDual-schema documentation check%s\n' "${BOLD}" "${NC}"
+    printf '%sDocumentation contract check%s\n' "${BOLD}" "${NC}"
     printf 'Root: %s\n' "${PLUGIN_ROOT}"
 
     # Each check appends to ERRORS / WARNINGS in this shell, so none of them may
@@ -255,6 +409,7 @@ main() {
     check_both_families
     check_reference_page
     check_absolute_paths
+    check_decision_records
 
     section 'Summary'
     printf 'Files checked: %d\n' "${FILES_SCANNED}"
