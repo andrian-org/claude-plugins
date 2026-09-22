@@ -1,3 +1,6 @@
+---
+archived: 2026-09-22
+---
 # Implementation Plan: Open Decisions Closed
 
 Branch: feature/open-decisions-closed

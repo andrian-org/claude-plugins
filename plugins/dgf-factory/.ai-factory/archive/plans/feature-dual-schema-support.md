@@ -1,3 +1,6 @@
+---
+archived: 2026-09-22
+---
 # Implementation Plan: Dual Schema Support (JSON + XSD)
 
 Branch: feature/dual-schema-support
