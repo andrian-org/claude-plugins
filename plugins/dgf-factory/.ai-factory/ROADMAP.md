@@ -11,7 +11,7 @@
 - [x] **Verified DGF Fact Base** — dual-schema and runtime-parity model made the canonical contract, guarded by a consistency check
 - [x] **Reader-Facing Documentation** — README landing page, six `docs/` pages, `AGENTS.md` navigation index
 - [x] **Open Decisions Closed** — record the independent, AI Factory-derived delivery model; answer blueprint open questions #3, #5, #6, #7
-- [ ] **Plugin Manifest & Walking Skeleton** — `.claude-plugin/plugin.json` plus one loadable skill, so Claude Code can discover the plugin at all
+- [x] **Plugin Manifest & Walking Skeleton** — `.claude-plugin/plugin.json` plus one loadable skill, so Claude Code can discover the plugin at all
 - [ ] **DGF Knowledge Base** — `knowledge/` facts tree and the vendored JSON/XSD schema set; every fact stamped `dgf_version` + `read_date` + per-source `sha256`, behavioural facts additionally carrying a `since`/`until` range, with a `MANIFEST.md` recording the DGF commit SHA and a re-vendor process ([ADR 0003](../docs/adr/0003-version-gating.md))
 - [ ] **Deterministic Validators** — shared `scripts/` that resolve schema family before parsing, resolve components, and check runtime parity before reporting success; plus the four process-semantic checks ADR 0002 commits to — dead transition, unreachable state, handler resolution, process `BASE:` references — a known-bad fixture corpus, and the version drift check ([ADR 0002](../docs/adr/0002-process-verification.md), [ADR 0003](../docs/adr/0003-version-gating.md))
 - [ ] **Pipeline Spine** — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`, `/dgf-commit` with DGF domain content over the AI Factory step structure
@@ -31,3 +31,4 @@
 | Verified DGF Fact Base | 2026-09-19 |
 | Reader-Facing Documentation | 2026-09-19 |
 | Open Decisions Closed | 2026-09-21 |
+| Plugin Manifest & Walking Skeleton | 2026-09-22 |

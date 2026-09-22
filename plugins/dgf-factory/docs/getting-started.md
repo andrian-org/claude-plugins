@@ -38,18 +38,41 @@ relative to it.
 | `.claude/agents/` | 19 subagents — coordinators, workers, loop roles, sidecars |
 | `.ai-factory/` | Project context: config, description, architecture, rules |
 | `docs/` | This documentation |
-| `.mcp.json` | MCP servers: filesystem and the hosted DGF docs MCP |
+| `.claude-plugin/plugin.json` | The manifest — what makes this a loadable plugin |
+| `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
+| `scripts/check-dual-schema-docs.sh` | Repo-maintenance check: documentation, decision-record and manifest contracts |
+| `.mcp.json` | The hosted DGF docs MCP (`dgf-mcp`) |
 
 Nothing under `.claude/skills/aif-*` is part of the plugin being built. It is the
 toolchain, installer-managed and tracked in `.ai-factory.json`. Do not hand-edit it —
 edits are detected and overwritten on update.
 
+## Load it locally
+
+The plugin loads for a single session without touching the marketplace:
+
+```bash
+claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
+```
+
+Point `--plugin-dir` at `plugins/dgf-factory` specifically. A directory *of* plugins loads
+every child, so aiming at `plugins/` would pull in the siblings too.
+
+This is session-scoped. It proves the manifest and slice layout are correct; it does not
+prove marketplace installation works — that claim belongs to the Marketplace Release
+milestone.
+
+`.mcp.json` now has two roles: the dev config for this working directory, **and** the
+plugin's shipped MCP declaration. Anything added to it is declared to every user who
+installs the plugin, which is why it lists only `dgf-mcp`. If a dev-only server is ever
+needed, split the file rather than quietly adding an entry.
+
 ## What is not here yet
 
-- `.claude-plugin/plugin.json` — the manifest
-- `skills/dgf-*/` — the skill corpus
+- The rest of `skills/dgf-*/` — the skill corpus beyond the `/dgf-doctor` skeleton
 - `knowledge/` — the DGF knowledge base
-- `scripts/` — the deterministic validators
+- The deterministic dual-schema validators
+- `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 
 ## Build order

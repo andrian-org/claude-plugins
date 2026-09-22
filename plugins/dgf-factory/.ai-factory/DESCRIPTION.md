@@ -23,10 +23,15 @@ Setup stage. The repository currently contains:
 - `.claude/skills/aif-*` + `.claude/agents/*` — a full AI Factory 2.18.1 install, used as
   the working reference implementation and as the pipeline that builds this plugin
 - `.claude/skills/plugin-structure/` — Claude Code plugin layout reference (installed from skills.sh)
-- `.mcp.json`, `.ai-factory/config.yaml`
+- `.claude-plugin/plugin.json` — the manifest; the plugin loads with `--plugin-dir`
+- `skills/dgf-doctor/` — the walking-skeleton slice: `SKILL.md` plus `scripts/doctor.py`,
+  which exercises auto-discovery, `${CLAUDE_PLUGIN_ROOT}`, the exit-code contract and the
+  `dgf-gate-result` block without needing any DGF facts
+- `scripts/check-dual-schema-docs.sh` — the repo-maintenance contract check
+- `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: `.claude-plugin/plugin.json`, the `dgf-*` skill corpus, the DGF
-knowledge references, the deterministic validator scripts, and the marketplace entry.
+Not yet created: the rest of the `dgf-*` skill corpus, the DGF knowledge references,
+the deterministic dual-schema validators, and the marketplace entry.
 
 ## Tech Stack
 

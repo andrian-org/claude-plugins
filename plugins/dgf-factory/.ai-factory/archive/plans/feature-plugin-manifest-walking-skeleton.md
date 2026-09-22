@@ -1,3 +1,6 @@
+---
+archived: 2026-09-22
+---
 # Implementation Plan: Plugin Manifest & Walking Skeleton
 
 Branch: `feature/plugin-manifest-walking-skeleton` — **not yet created, see `## Branch Blocker`**
@@ -138,7 +141,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
 ### Phase 1 — Manifest and MCP surface
 
-- [ ] **Task 1 — Create `.claude-plugin/plugin.json`**
+- [x] **Task 1 — Create `.claude-plugin/plugin.json`**
 
   **File:** `plugins/dgf-factory/.claude-plugin/plugin.json` (new)
 
@@ -172,7 +175,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
   **Logging:** none (a static JSON file).
 
-- [ ] **Task 2 — Trim `.mcp.json` to the shipped server set**
+- [x] **Task 2 — Trim `.mcp.json` to the shipped server set**
 
   **File:** `plugins/dgf-factory/.mcp.json` (modify)
 
@@ -192,7 +195,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
 ### Phase 2 — The walking-skeleton slice
 
-- [ ] **Task 3 — Create `skills/dgf-doctor/scripts/doctor.py`**
+- [x] **Task 3 — Create `skills/dgf-doctor/scripts/doctor.py`**
 
   **File:** `plugins/dgf-factory/skills/dgf-doctor/scripts/doctor.py` (new, executable)
 
@@ -261,7 +264,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
   *Depends on: Task 1 (there must be a manifest to check).*
 
-- [ ] **Task 4 — Create `skills/dgf-doctor/SKILL.md`**
+- [x] **Task 4 — Create `skills/dgf-doctor/SKILL.md`**
 
   **File:** `plugins/dgf-factory/skills/dgf-doctor/SKILL.md` (new)
 
@@ -310,7 +313,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
 ### Phase 3 — Verification
 
-- [ ] **Task 5 — Extend `scripts/check-dual-schema-docs.sh` with a manifest section**
+- [x] **Task 5 — Extend `scripts/check-dual-schema-docs.sh` with a manifest section**
 
   **File:** `plugins/dgf-factory/scripts/check-dual-schema-docs.sh` (modify)
 
@@ -346,7 +349,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
   *Depends on: Tasks 3 and 4.*
 
-- [ ] **Task 6 — Verify discovery with a real local install**
+- [x] **Task 6 — Verify discovery with a real local install**
 
   **File:** none produced — this is a verification gate, and its evidence goes in the
   `/aif-verify` report.
@@ -383,7 +386,7 @@ is the second use and `gate_result.py` moves up to `scripts/lib/`.
 
 ### Phase 4 — Documentation
 
-- [ ] **Task 7 — Documentation checkpoint (`/aif-docs`)**
+- [x] **Task 7 — Documentation checkpoint (`/aif-docs`)**
 
   Four reader-facing documents currently assert the manifest does not exist. Leaving them is
   the drift Task 5's second check exists to catch, so this task is what makes that check

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # check-dual-schema-docs.sh — guard this plugin's documentation contracts.
 #
-# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards two contracts — the
-# dual-schema one it was named for, and the decision-record one added 2026-09-21.
-# The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md and the
-# dual-schema plan all reference it by name; renaming churns three files for no gain.
+# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards three contracts — the
+# dual-schema one it was named for, the decision-record one added 2026-09-21, and
+# the plugin-manifest one added 2026-09-22. The filename stays as it is because
+# .ai-factory/rules/base.md, AGENTS.md and the dual-schema plan all reference it
+# by name; renaming churns three files for no gain.
 #
 # DGF supports two configuration formats: modern JSON component config and legacy XML
 # validated by XSD. Every document in this plugin used to assume JSON only, and all of
@@ -211,8 +212,13 @@ check_reference_page() {
 #
 # Deliberately narrow. Prose citations of where the DGF repository lives are
 # legitimate and must not fail this check — including the anti-pattern rule in
-# ARCHITECTURE.md that quotes /Users/... as the thing to forbid. What breaks for
-# other readers is a link target or a command, so only those are scanned.
+# ARCHITECTURE.md that quotes a machine-specific home path as the thing to
+# forbid. What breaks for other readers is a link target or a command, so only
+# those are scanned.
+#
+# This comment names no such path literally: doctor.py's portability check
+# sweeps every shipped file, so a spelled-out example here would be reported as
+# the very fault it describes.
 scan_absolute_paths() {
     while IFS= read -r file; do
         awk -v rel="$(relpath "${file}")" '
@@ -391,6 +397,85 @@ EOF
     trace "scanned ${adr_count} decision record(s)"
 }
 
+
+# --- 6. plugin manifest -------------------------------------------------------
+#
+# The structural checks are NOT reimplemented here. doctor.py owns them and the
+# /dgf-doctor skill already calls it; duplicating them would give two
+# implementations that drift apart. This section runs the doctor and adds only
+# what is genuinely a documentation contract: that the reader-facing docs have
+# stopped claiming the manifest does not exist.
+DOCTOR='skills/dgf-doctor/scripts/doctor.py'
+
+# Documents that described the pre-manifest state and had to be corrected.
+MANIFEST_DOCS='
+README.md
+AGENTS.md
+.ai-factory/DESCRIPTION.md
+docs/getting-started.md
+'
+
+MANIFEST_WINDOW=2
+
+# A stale claim is one of these phrases within MANIFEST_WINDOW lines of a
+# plugin.json mention. Window-scoped for the same reason as check 1: the phrase
+# and the filename routinely land on different lines, while file-scoped matching
+# would flag any document that mentions both anywhere.
+scan_stale_manifest_claims() {
+    for rel in ${MANIFEST_DOCS}; do
+        file="${PLUGIN_ROOT}/${rel}"
+        [ -f "${file}" ] || continue
+        awk -v rel="${rel}" -v win="${MANIFEST_WINDOW}" '
+            { lines[NR] = tolower($0) }
+            END {
+                for (i = 1; i <= NR; i++) {
+                    if (lines[i] !~ /not yet created|is not here yet|cannot be installed/) continue
+                    for (j = i - win; j <= i + win; j++) {
+                        if (j < 1 || j > NR) continue
+                        if (lines[j] ~ /plugin\.json/) {
+                            printf "%s\t%d\n", rel, i
+                            break
+                        }
+                    }
+                }
+            }
+        ' "${file}"
+    done
+}
+
+check_plugin_manifest() {
+    section '6. Plugin manifest'
+
+    doctor_code=0
+    # Capture the status directly, never through a pipe: `cmd | tail` would
+    # report tail's exit code and turn every failure into a pass.
+    doctor_output="$(python3 "${PLUGIN_ROOT}/${DOCTOR}" 2>&1)" || doctor_code=$?
+    trace "ran ${DOCTOR} (exit ${doctor_code})"
+
+    if [ "${doctor_code}" -ne 0 ]; then
+        printf '%s\n' "${doctor_output}"
+    fi
+
+    case "${doctor_code}" in
+        0) ;;
+        2) warn "${DOCTOR} reported warnings (exit 2) — see its output above" ;;
+        1) error "${DOCTOR} reported blocking findings (exit 1) — see its output above" ;;
+        3) error "${DOCTOR} was invoked incorrectly (exit 3) — see its output above" ;;
+        *) error "${DOCTOR} returned an unexpected exit code ${doctor_code}" ;;
+    esac
+
+    while IFS="$(printf '\t')" read -r rel lineno; do
+        [ -n "${rel}" ] || continue
+        error "${rel}:${lineno} still claims the plugin manifest does not exist"
+    done <<EOF
+$(scan_stale_manifest_claims)
+EOF
+
+    for rel in ${MANIFEST_DOCS}; do
+        trace "scanned ${rel} for stale manifest claims"
+    done
+}
+
 main() {
     if [ "$#" -gt 0 ]; then
         fail 3 "Usage: $(basename "$0")   (no arguments; set DEBUG=1 for a per-file trace)"
@@ -410,6 +495,7 @@ main() {
     check_reference_page
     check_absolute_paths
     check_decision_records
+    check_plugin_manifest
 
     section 'Summary'
     printf 'Files checked: %d\n' "${FILES_SCANNED}"
