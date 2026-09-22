@@ -1,6 +1,6 @@
 ---
-name: zc-create-tenant
-description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /zc-create-tenant.
+name: tenant-init
+description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
 argument-hint: "<TenantName> [--controllers] [--port <https>] [--no-pipeline] [--auto]"
 allowed-tools: Read Write Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) AskUserQuestion Skill
 disable-model-invocation: false
@@ -432,18 +432,18 @@ The scaffold is step 1 of six. Unless `--no-pipeline` was passed, do **not** end
 
 | # | Skill | Arguments | Gate condition |
 |---|---|---|---|
-| 2 | `zc-tenant-integration` | `<TenantName> [--source ...] [--expose ...]` | always offered |
-| 3 | `zc-integrate-shared` | `<TenantName>` | always offered, **defaults to Skip** — only tenants republishing shared e-Services need it |
-| 4 | `zc-tenant-tests` | `<TenantName>` | offered only if step 2 or step 3 ran; otherwise skip silently — there are no routes to test |
-| 5 | `zc-tenant-audit` | `<TenantName>` | always offered |
-| 6 | `zc-tenant-docs` | `<TenantName> --route /t/<slug>` | offered only if step 2 or step 3 ran; a docs package for a scaffold with no routes is an empty deliverable |
+| 2 | `tenant-integration` | `<TenantName> [--source ...] [--expose ...]` | always offered |
+| 3 | `integrate-shared` | `<TenantName>` | always offered, **defaults to Skip** — only tenants republishing shared e-Services need it |
+| 4 | `tenant-tests` | `<TenantName>` | offered only if step 2 or step 3 ran; otherwise skip silently — there are no routes to test |
+| 5 | `tenant-audit` | `<TenantName>` | always offered |
+| 6 | `tenant-deliverables` | `<TenantName> --route /t/<slug>` | offered only if step 2 or step 3 ran; a docs package for a scaffold with no routes is an empty deliverable |
 
 ### The gate
 
 Before each step, one `AskUserQuestion` call — never a plain-text question, and never two steps in one call. Header `Step <n>`, and the question names what the step will do to the repo:
 
 ```
-Step 2 of 6 — /zc-tenant-integration PQPS. Build the upstream client, models, mappers
+Step 2 of 6 — /tenant-integration PQPS. Build the upstream client, models, mappers
 and exposed routes. Proceed?
 ```
 
@@ -471,15 +471,15 @@ The developer can answer with their own text instead of picking an option. Treat
 End with the chain as it actually ran — one line per step, `ran` / `skipped` / `not reached` — and, when anything is left, the exact commands to resume:
 
 ```
-1 /zc-create-tenant PQPS        ran
-2 /zc-tenant-integration PQPS   ran
-3 /zc-integrate-shared PQPS     skipped
-4 /zc-tenant-tests PQPS         ran
-5 /zc-tenant-audit PQPS         stopped here
+1 /tenant-init PQPS        ran
+2 /tenant-integration PQPS   ran
+3 /integrate-shared PQPS     skipped
+4 /tenant-tests PQPS         ran
+5 /tenant-audit PQPS         stopped here
 
 Resume with:
-  /zc-tenant-audit PQPS
-  /zc-tenant-docs PQPS --route /t/pqps
+  /tenant-audit PQPS
+  /tenant-deliverables PQPS --route /t/pqps
 ```
 
 With `--auto`, run steps 2, 4, 5 and 6 without gating (3 stays skipped unless the request named shared e-Services), and still print the chain summary.

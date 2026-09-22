@@ -1,6 +1,6 @@
 ---
-name: zc-integrate-shared
-description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "which shared endpoints are available", or types /zc-integrate-shared.
+name: integrate-shared
+description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "which shared endpoints are available", or types /integrate-shared.
 argument-hint: "[<TenantName>] [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes] [--all] [--new] [--list]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion Skill
 disable-model-invocation: false
@@ -25,7 +25,7 @@ All paths below are relative to the ZamConnect repository root (the directory ho
 | `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
 | `--mode <mode>` | `inherit` \| `common` \| `routes`. Default chosen per step 4 |
 | `--all` | Every operation in the catalogue — equivalent to `--mode inherit` |
-| `--new` | Tenant does not exist yet; scaffold it with `zc-create-tenant` first |
+| `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
 | `--list` | Print the catalogue (step 1) and stop. No files written |
 
 `--source` and `--endpoint` combine: sources expand to all their operations, then `--endpoint` adds individual ones.
@@ -104,7 +104,7 @@ ls src/Tenants
 grep -rln "EServicesShared" src/Tenants --include=Program.cs
 ```
 
-Offer the tenants that already inject `EServicesShared` first (extending an existing integration), then the rest. A tenant not in `src/Tenants` means `--new` — run `zc-create-tenant` before continuing.
+Offer the tenants that already inject `EServicesShared` first (extending an existing integration), then the rest. A tenant not in `src/Tenants` means `--new` — run `tenant-init` before continuing.
 
 **3b — Sources.** `multiSelect: true` over the regions found in step 1, each option labelled with the system and its operation count (`NIR — 6 operations`, `ZRA — 2 operations`). Add an "All sources" option that sets `--all`.
 

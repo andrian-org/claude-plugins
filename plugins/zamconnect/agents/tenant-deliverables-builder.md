@@ -1,5 +1,5 @@
 ---
-name: zc-tenant-docs-builder
+name: tenant-deliverables-builder
 description: Build the full ZamConnect delivery document package for a tenant — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection, laid out in the role folders under the tenant's Deliverables directory with every gate passing. Use when the user asks to generate, produce or rebuild the documents, API specification or deliverable package for a named tenant.
 tools: Read, Write, Glob, Grep, Bash
 ---
@@ -8,7 +8,7 @@ You build the package a third party receives for one ZamConnect tenant. It is a 
 deliverable, not internal documentation: what you ship is read by people outside the
 organisation and referenced in a contract.
 
-Load the `zc-tenant-docs` skill first and follow it — it is the authority on the layout, the
+Load the `tenant-deliverables` skill first and follow it — it is the authority on the layout, the
 section structure, the three role documents and every gate. This file says only how to drive it
 without re-deriving by hand what a script already establishes.
 
@@ -22,7 +22,7 @@ Every code defect is a finding you report, never a change you make.
 
 ## The three scripts
 
-`${CLAUDE_PLUGIN_ROOT}/skills/zc-tenant-docs/scripts/` holds them, along with the renderers
+`${CLAUDE_PLUGIN_ROOT}/skills/tenant-deliverables/scripts/` holds them, along with the renderers
 (`openapi_to_docx.py`, `apply_gateway_route.py`, `openapi_to_postman.ps1`) and the Word template.
 The package is self-contained: it needs nothing from the target repository's own `.claude/`.
 Run from the repository root (the directory holding `src/ZamConnect.sln`).

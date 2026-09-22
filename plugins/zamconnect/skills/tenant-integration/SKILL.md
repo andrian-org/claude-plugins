@@ -1,13 +1,13 @@
 ---
-name: zc-tenant-integration
-description: Build the integration surface of an existing ZamConnect tenant — upstream REST or SOAP client(s) under Endpoints/, request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides whether the client derives from RestEndpoint or SoapEndpoint. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "expose these endpoints on <Tenant>", or types /zc-tenant-integration.
+name: tenant-integration
+description: Build the integration surface of an existing ZamConnect tenant — upstream REST or SOAP client(s) under Endpoints/, request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides whether the client derives from RestEndpoint or SoapEndpoint. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "expose these endpoints on <Tenant>", or types /tenant-integration.
 argument-hint: "<TenantName> [--source <url|path|wsdl>...] [--expose <METHOD /route>...] [--protocol rest|soap]"
 disable-model-invocation: false
 ---
 
 # ZamConnect Tenant Integration
 
-Implement the business surface of a tenant that already exists (scaffold it first with `zc-create-tenant`). This skill covers the two halves of an integration:
+Implement the business surface of a tenant that already exists (scaffold it first with `tenant-init`). This skill covers the two halves of an integration:
 
 - **Consume** — the upstream API the tenant talks to, wrapped in a `RestEndpoint` or `SoapEndpoint` client
 - **Expose** — the routes the tenant publishes to its own consumers
@@ -20,7 +20,7 @@ Do not start writing code until these are settled. Ask for anything missing, in 
 
 | Input | What it decides |
 |---|---|
-| **Tenant name** | Target folder `src/Tenants/<TenantName>/`. Must already exist — if not, run `zc-create-tenant` first |
+| **Tenant name** | Target folder `src/Tenants/<TenantName>/`. Must already exist — if not, run `tenant-init` first |
 | **Integration sources** | One or more of: Postman collection (`.json`), Swagger/OpenAPI spec (JSON or YAML, URL or file), a bare REST base URL, a SOAP WSDL (`?wsdl` URL or `.wsdl` file), or integration/API documentation (`.docx`, `.pdf`, `.md`, Confluence/SharePoint page) |
 | **Upstream protocol** | REST or SOAP — **derived from the sources, not asked**. Decides the client base class, the configuration section, and the registration call. See step 1a |
 | **Upstream auth** | REST: `Basic`, `JWT`, `Custom` (header name + value), `RA`, or `ClientCertificate`. SOAP: `Basic` or `ClientCertificate` only |
@@ -289,7 +289,7 @@ Must report `0 Error(s)`. Then check, without running the app:
 - Every exposed route declares its success type and `ProblemDetails` failures
 - No upstream DTO — JSON or XML — is returned directly where a public DTO was defined
 
-`/zc-tenant-audit <TenantName>` runs the configuration and secrets checks for you.
+`/tenant-audit <TenantName>` runs the configuration and secrets checks for you.
 
 ## 8. Make the surface spec-ready
 

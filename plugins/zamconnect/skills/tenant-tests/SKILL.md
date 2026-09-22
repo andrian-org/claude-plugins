@@ -1,6 +1,6 @@
 ---
-name: zc-tenant-tests
-description: Scaffold and write the test project for a ZamConnect tenant — `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a mock HTTP handler standing in for the upstream, and endpoint tests that drive the tenant's real Carter modules or controllers over HTTP. Optionally adds an `[Explicit]` staging fixture that calls the live upstream. Use when the user says "add tests for <Tenant>", "test this integration", "write module tests", "cover <Tenant> endpoints", or types /zc-tenant-tests.
+name: tenant-tests
+description: Scaffold and write the test project for a ZamConnect tenant — `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a mock HTTP handler standing in for the upstream, and endpoint tests that drive the tenant's real Carter modules or controllers over HTTP. Optionally adds an `[Explicit]` staging fixture that calls the live upstream. Use when the user says "add tests for <Tenant>", "test this integration", "write module tests", "cover <Tenant> endpoints", or types /tenant-tests.
 argument-hint: "<TenantName> [--module <Name> ...] [--live] [--no-scaffold]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion
 disable-model-invocation: false

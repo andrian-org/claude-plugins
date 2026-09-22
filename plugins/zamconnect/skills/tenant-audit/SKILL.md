@@ -1,6 +1,6 @@
 ---
-name: zc-tenant-audit
-description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every `RestEndpoint` client has a matching `Endpoints:<Name>` configuration section in both appsettings files, that no real credential escaped a `__Token__` placeholder, and that its docs, Postman collection and test project exist. Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /zc-tenant-audit.
+name: tenant-audit
+description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every `RestEndpoint` client has a matching `Endpoints:<Name>` configuration section in both appsettings files, that no real credential escaped a `__Token__` placeholder, and that its docs, Postman collection and test project exist. Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
 argument-hint: "[<TenantName>|--all] [--only registration|slugs|config|secrets|spec|tests|docs] [--fix]"
 allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Edit Write
 disable-model-invocation: false
@@ -49,7 +49,7 @@ grep -l "tenant: <TenantName>$" .azure/tenant.azure-pipelines.*.yaml
 
 Known at time of writing: `CloudAdmin`, `ZamData` and `ZamMobile` have compose services but **no pipeline file**. Re-derive rather than trusting that list.
 
-Fixable with `--fix`: all three. Generate the pipeline and compose entries exactly as `zc-create-tenant` §4 and §5 specify.
+Fixable with `--fix`: all three. Generate the pipeline and compose entries exactly as `tenant-init` §4 and §5 specify.
 
 ## Check 2 — Slug consistency
 
@@ -129,7 +129,7 @@ ls src/Tests/<TenantName>.Tests 2>/dev/null
 tail -5 src/Tenants/<TenantName>/Program.cs | grep -c "partial class Program"
 ```
 
-20 of 58 tenants have a test project. Report presence, and when one exists, that the tenant ends with `public partial class Program;` — without it the factory does not compile. Offer `/zc-tenant-tests <TenantName>` when it is missing.
+20 of 58 tenants have a test project. Report presence, and when one exists, that the tenant ends with `public partial class Program;` — without it the factory does not compile. Offer `/tenant-tests <TenantName>` when it is missing.
 
 ## Check 7 — Docs and collateral
 

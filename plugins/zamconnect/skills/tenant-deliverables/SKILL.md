@@ -1,6 +1,6 @@
 ---
-name: zc-tenant-docs
-description: Generate the full delivery document set for a ZamConnect tenant — the OpenAPI JSON, the Word API Specification and the Postman collection, laid out in the Consumer/Provider/Tenant folders under the tenant's Deliverables directory, with every section of the document filled from the tenant's own source rather than left as boilerplate. Documentation only — never modifies tenant code or any ZamConnect library. Routes are always written with the gateway prefix (`/t/pqps/hub/pesticides`, never the bare controller route). Use when the user says "generate the documents for <Tenant>", "produce the API specification for <Tenant>", "build the deliverable package", "make the tenant docs", or types /zc-tenant-docs.
+name: tenant-deliverables
+description: Generate the full delivery document set for a ZamConnect tenant — the OpenAPI JSON, the Word API Specification and the Postman collection, laid out in the Consumer/Provider/Tenant folders under the tenant's Deliverables directory, with every section of the document filled from the tenant's own source rather than left as boilerplate. Documentation only — never modifies tenant code or any ZamConnect library. Routes are always written with the gateway prefix (`/t/pqps/hub/pesticides`, never the bare controller route). Use when the user says "generate the documents for <Tenant>", "produce the API specification for <Tenant>", "build the deliverable package", "make the tenant docs", or types /tenant-deliverables.
 argument-hint: "<Tenant> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>]"
 allowed-tools: Read Glob Grep Write Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(cp *) Bash(dotnet build *) Bash(dotnet tool run *) Bash(python *) Bash(powershell *) Bash(git status *) Bash(git log *) Bash(git diff *) AskUserQuestion
 disable-model-invocation: false
@@ -41,7 +41,7 @@ python scripts/verify_package.py src/Tenants/<TENANT>/Deliverables --route <r> -
 
 The rest of this document is why each of those steps is what it is, and what the scripts deliberately leave to you: an endpoint the split cannot settle mechanically, and every piece of prose that has to come from source. Read on before overriding anything.
 
-`${CLAUDE_PLUGIN_ROOT}/agents/zc-tenant-docs-builder.md` runs the whole thing as a subagent, which keeps the exploration and the render logs out of the calling conversation.
+`${CLAUDE_PLUGIN_ROOT}/agents/tenant-deliverables-builder.md` runs the whole thing as a subagent, which keeps the exploration and the render logs out of the calling conversation.
 
 ## What gets produced
 
