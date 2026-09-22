@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ]
+    },
+    "dgf-mcp": {
+      "type": "http",
+      "url": "https://dgf-mcp.dotgov.uk/mcp"
+    }
+  }
+}
