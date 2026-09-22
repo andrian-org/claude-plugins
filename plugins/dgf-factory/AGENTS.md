@@ -31,6 +31,14 @@ framework facts, and [docs/adr/](docs/adr/README.md) for the decisions that shap
 plugins/dgf-factory/
 ├── README.md                   # Landing page — what this plugin is, status, doc links
 ├── AGENTS.md                   # This file — navigation index
+├── .claude-plugin/             # The plugin manifest — Claude Code reads it nowhere else
+│   └── plugin.json             #   name, version, description; component paths use defaults
+├── skills/                     # The shipped dgf-* corpus (auto-discovered)
+│   └── dgf-doctor/             #   walking skeleton — is the plugin installed correctly?
+│       ├── SKILL.md            #     the prompt-program
+│       └── scripts/doctor.py   #     the structural validator it calls
+├── scripts/                    # Repo-maintenance checks contributors run
+│   └── check-dual-schema-docs.sh  # documentation, decision-record and manifest contracts
 ├── docs/                       # Detailed documentation, one topic per page
 │   ├── adr/                    #   architecture decision records — README.md is the index
 │   ├── getting-started.md      #   prerequisites, repo layout, build order
@@ -39,7 +47,7 @@ plugins/dgf-factory/
 │   ├── dgf-knowledge.md        #   sourcing and version-stamping DGF facts
 │   ├── dgf-schemas.md          #   the two schema families: JSON + XSD, parity, vendoring
 │   └── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
-├── .mcp.json                   # MCP servers: filesystem + hosted DGF docs MCP
+├── .mcp.json                   # MCP servers — dgf-mcp only; both dev config and shipped
 ├── .ai-factory.json            # AI Factory 2.18.1 install receipts (managed-skill ownership)
 ├── skills-lock.json            # skills.sh install lock for externally sourced skills
 ├── .ai-factory/                # Pipeline artifacts — single-writer ownership per command
@@ -52,13 +60,17 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: `.claude-plugin/plugin.json`, `skills/dgf-*/`, `agents/`, and the
-DGF knowledge references and validator scripts that the blueprint calls for first.
+Not yet created: the rest of the `skills/dgf-*/` corpus, `agents/`, `knowledge/`, and the
+dual-schema validator scripts that the blueprint calls for first. The manifest and the
+`/dgf-doctor` walking skeleton landed with roadmap milestone 6.
 
 ## Key Entry Points
 
 | File | Purpose |
 |---|---|
+| [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | The manifest. Component paths are left to their defaults — declaring one restates it. |
+| [skills/dgf-doctor/SKILL.md](skills/dgf-doctor/SKILL.md) | The first prompt-as-program. The house style the next slices copy. |
+| [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability, line endings; emits the gate block |
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
@@ -88,7 +100,7 @@ DGF knowledge references and validator scripts that the blueprint calls for firs
 | Document | Path | Description |
 |---|---|---|
 | README | `README.md` | Plugin landing page |
-| Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, build order |
+| Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, loading it locally, build order |
 | Architecture | `docs/architecture.md` | Slice structure and dependency rules |
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |

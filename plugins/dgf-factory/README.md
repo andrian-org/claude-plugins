@@ -8,8 +8,10 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: setup stage.** The design and project context exist; the `dgf-*` skill corpus does
-> not yet. This plugin is not registered in the marketplace and cannot be installed.
+> **Status: setup stage.** The design, the project context and the plugin manifest exist,
+> along with one walking-skeleton skill — `/dgf-doctor`. The rest of the `dgf-*` corpus does
+> not yet. The plugin **loads locally** with `claude --plugin-dir plugins/dgf-factory`; it is
+> **not registered in the marketplace**, so it cannot be installed from there yet.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
 ## Quick Start
@@ -41,6 +43,21 @@ pipeline that builds it is already installed there. See
   into project-specific skill overrides
 
 ## Example
+
+### What runs today
+
+One skill exists — `/dgf-doctor`, the walking skeleton. It answers "is this plugin
+installed correctly, and what can it see?", and needs no DGF knowledge to do it:
+
+```bash
+claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
+```
+
+It reports `CLEAN`, `WARNINGS` or `BLOCKED`, exits `0`/`2`/`1` accordingly, and closes with
+a `dgf-gate-result` block. Unbuilt milestones are `INFO` lines that never affect the
+verdict, so an unfinished-but-correct plugin still reads `CLEAN`.
+
+### What the pipeline will look like
 
 The intended workflow, once the skill corpus exists:
 

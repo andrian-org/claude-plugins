@@ -40,6 +40,20 @@ boundary and dependency rules are kept in full — only the vocabulary is transl
 `knowledge/` and `scripts/` are deliberately **not** auto-discovered. They are plain
 files, reached as `${CLAUDE_PLUGIN_ROOT}/knowledge/…` and `${CLAUDE_PLUGIN_ROOT}/scripts/…`.
 
+### Two kinds of script
+
+Plugin-root `scripts/` holds both:
+
+| Kind | Who runs it | Example |
+|---|---|---|
+| Runtime validator | A skill calls it mid-run | a dual-schema component validator |
+| Repo-maintenance check | A contributor runs it by hand | `check-dual-schema-docs.sh` |
+
+A validator used by exactly one slice lives in that slice's own `scripts/`, not here —
+`skills/dgf-doctor/scripts/doctor.py` is the current example. **Promote on the second
+use, not in anticipation of it:** a helper moves up to plugin-root `scripts/` when a
+second slice actually needs it, not when one might.
+
 ## Dependency direction
 
 One way only:
