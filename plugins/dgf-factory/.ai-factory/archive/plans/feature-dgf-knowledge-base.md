@@ -1,3 +1,6 @@
+---
+archived: 2026-09-22
+---
 # Implementation Plan: DGF Knowledge Base
 
 Branch: `feature/dgf-knowledge-base` — created from `develop` at `a7cd356`
