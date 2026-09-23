@@ -307,13 +307,41 @@ check script to exit `0` before finishing.
   written against it.
 - **Owner-routed edits deferred from Task 8** (user decision, 2026-09-23). Neither owner skill
   could run in this session. The old links still resolve because superseded ADRs are kept.
-  - `/aif-roadmap`: reword milestone 8 ("Deterministic Validators"). Replace "the four
+  - **Done 2026-09-23 via `/aif-roadmap`** (milestone 9 also gained the ADR 0009/0010
+    prerequisite). `/aif-roadmap`: reword milestone 8 ("Deterministic Validators"). Replace "the four
     process-semantic checks ADR 0002 commits to — dead transition, unreachable state, handler
     resolution, process `BASE:` references" with the ADR 0006 set: structural check with a
     runtime-divergence allowance, dead transition (End-exempt), unreachable state (warning),
     workflow-reference resolution, validation-flow resolution and change-state target resolution.
     Add the ADR 0007 runtime (`scripts/requirements.txt`, NJsonSchema inheritance pre-pass) and
     link 0006/0007/0008 in place of 0002/0003. Repoint "Gate Contract Wired" from 0002 to 0006.
-  - `/aif`: in `.ai-factory/DESCRIPTION.md`, relink L76, L97 and L171 from 0002 to 0006 (L171's
+  - **Done 2026-09-23 via `/aif`** (L98 went straight to 0013, and #4 now cites ADR 0010).
+    `/aif`: in `.ai-factory/DESCRIPTION.md`, relink L76, L97 and L171 from 0002 to 0006 (L171's
     "§4" becomes 0006 §4), and L98 from 0003 to 0008. Add a verified-facts row for the validator
-    runtime (ADR 0007).
+    runtime (ADR 0007). Also L94 (added 2026-09-23, when ADR 0010 was accepted): #4 is no longer
+    "substantially so". It is decided by ADR 0010: modern JSON under `FM/_COMPONENTS/` first, XML
+    only where no JSON alternative exists, and a little JS or CSS only where configuration cannot.
+- **Owner-routed edits from ADRs 0012 and 0013** (added 2026-09-23). Maintainer checks moved
+  from `scripts/` to `tools/`, fact sources moved to `provenance/`, and ADR 0013 superseded
+  ADR 0008. None of the files below is shipped, so the doctor does not flag them. They are
+  stale, and each is owned by the command named:
+  - **Done 2026-09-23 via `/aif`**, which also updated `.ai-factory/rules/base.md` §"Module
+    Structure" and corrected `AGENTS.md`'s skill count (29 aif skills, not 30).
+    `/aif` — `.ai-factory/DESCRIPTION.md` L35-36: `scripts/check-dual-schema-docs.sh` and
+    `scripts/check_knowledge_stamps.py` are now under `tools/`; add `tools/vendor_schemas.py`
+    and `provenance/`. L33: the schema set's digests are in
+    `provenance/knowledge/schemas/MANIFEST.md`, not in the shipped `MANIFEST.md`. L98, already
+    queued above to move from 0003 to 0008, should go straight to 0013.
+  - **Done 2026-09-23 via `/aif-architecture`**, which also fixed two older stale lines (the
+    tree named `ARCHITECTURE-BLUEPRINT.md` and a filesystem MCP; neither exists).
+    `/aif-architecture` — `.ai-factory/ARCHITECTURE.md` L81 and L104: the shipped `MANIFEST.md`
+    no longer carries the commit SHA, and `scripts/` no longer holds maintainer checks. Add
+    `tools/` and `provenance/` to the layout as not shipped.
+  - **Done 2026-09-23 via `/aif-roadmap`**, which also restated milestone 9 (ADRs 0009/0010
+    accepted, plan-header fields) and milestone 15 (ADR 0012 follow-up).
+    `/aif-roadmap` — milestone 8: the drift check lives in `tools/`, reads the `provenance/`
+    ledgers, and runs as a maintainer tool against a DGF checkout. Link ADR 0013 in place of
+    ADR 0008.
+- **Report upstream to DGF** (found 2026-09-23 while re-vendoring). 60 generated JSON schemas
+  link `docs/Components/Behavior/Events.md`, which does not exist. The page is
+  `docs/wiki/Components/Behavior/Events.md`. See `provenance/knowledge/schemas/MANIFEST.md` §3.

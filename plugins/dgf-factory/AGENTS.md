@@ -66,7 +66,7 @@ plugins/dgf-factory/
 │   ├── DESCRIPTION.md          #   what this project is; verified DGF facts; risks
 │   └── rules/base.md           #   detected project conventions
 └── .claude/
-    ├── skills/                 # 30 aif-* skills (the reference pipeline) +
+    ├── skills/                 # 29 aif skills (the reference pipeline) +
     │                           # plugin-structure (Claude Code plugin layout reference)
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```

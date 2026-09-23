@@ -12,7 +12,9 @@ touching each other.
 What the slices share sits in exactly two places: a plugin-level `knowledge/` tree
 holding the versioned DGF facts that more than one skill needs, and a plugin-level
 `scripts/` tree holding validators that more than one skill calls. Everything else is
-local to a slice. This is the Structured Modules trade-off — soft boundaries and fast
+local to a slice. Maintainer material — the checks contributors run, and the record of
+where each DGF fact came from — sits beside the slices in `tools/` and `provenance/`, and
+is never shipped. This is the Structured Modules trade-off — soft boundaries and fast
 authoring rather than enforced ports and adapters — which is the right level of
 formalism for a corpus that has no runtime and no dependency injection to invert.
 
@@ -48,6 +50,10 @@ plugins/dgf-factory/
 │   └── plugin.json                     # ── MANIFEST ── required, must live here
 │
 ├── skills/                             # ── SLICES ── one directory per skill
+│   ├── dgf-doctor/                     # Slice: plugin install check (exists today)
+│   │   ├── SKILL.md
+│   │   └── scripts/doctor.py           #   owns SHIPPED_DIRS and the DGF_PATH check
+│   │
 │   ├── dgf/                            # Setup slice
 │   │   └── SKILL.md
 │   │
@@ -78,7 +84,7 @@ plugins/dgf-factory/
 │   ├── naming-conventions.md
 │   ├── schema-families.md              #   JSON vs XSD: parity, correspondence, resolution
 │   └── schemas/                        #   vendored copies, version-stamped
-│       ├── MANIFEST.md                 #     DGF commit SHA, version, date, per-file dialect
+│       ├── MANIFEST.md                 #     DGF version, date, per-file dialect and membership
 │       ├── json/                       #     generated *.schema.json (modern component config)
 │       ├── xsd/                        #     the 9 *.xsd + form.reference.json (legacy XML)
 │       └── standalone/                 #     hand-authored contracts from DGF docs/schemas/
@@ -90,21 +96,41 @@ plugins/dgf-factory/
 │       ├── detect_family.py            #   JSON vs XSD resolution + runtime-parity lookup
 │       └── gate_result.py              #   emits the dgf-gate-result block
 │
-├── .mcp.json                           # MCP servers (filesystem, DGF docs MCP)
+├── .mcp.json                           # MCP servers (DGF docs MCP only)
+│
+│   ── NOT SHIPPED ── everything below is maintainer material
+├── tools/                              # ── MAINTENANCE ── run by contributors, never by a skill
+│   ├── check-dual-schema-docs.sh       #   documentation and decision-record contracts
+│   ├── check_knowledge_stamps.py       #   stamps, ledgers, vendored-schema digests
+│   └── vendor_schemas.py               #   re-vendors DGF's schemas, rewriting DGF paths
+├── provenance/                         # ── PROVENANCE ── where each knowledge fact came from
+│   └── knowledge/                      #   one ledger per knowledge file, same relative path
+│       └── schemas/MANIFEST.md         #     DGF commit, upstream + shipped sha256 per file
+├── docs/                               # documentation, the blueprint, ADRs (docs/adr/)
 ├── AGENTS.md                           # navigation index
-├── ARCHITECTURE-BLUEPRINT.md           # the design document
-└── .ai-factory/                        # pipeline artifacts (not shipped with the plugin)
+└── .ai-factory/                        # pipeline artifacts
 ```
+
+The tree is the target shape. Today only `skills/dgf-doctor/`, `knowledge/`, `tools/`,
+`provenance/` and the files around them exist. The other slices, `agents/`, and the shared
+validators in `scripts/` arrive with roadmap milestones 8 onward, and `scripts/` is absent
+until then.
 
 Root `knowledge/` and `scripts/` are not auto-discovered — they are plain files, reached
 from a slice by `${CLAUDE_PLUGIN_ROOT}/knowledge/...` and
 `${CLAUDE_PLUGIN_ROOT}/scripts/...`. That is deliberate: only things Claude Code must
 load automatically live in a discovered directory.
 
-`scripts/` holds two kinds of thing: cross-slice validators that skills call at runtime,
-and repo-maintenance checks that only contributors run (documentation consistency, for
-example). Both are plain scripts under the same exit-code contract; the difference is who
-invokes them, not how they are written.
+**Shipped and maintainer material are kept apart, by directory.** What ships is exactly
+the directories `doctor.py` lists in `SHIPPED_DIRS`: `skills/`, `agents/`, `commands/`,
+`scripts/`, `knowledge/` and `.claude-plugin/`. A developer's install has no DGF
+checkout, so no shipped file names a path into the DGF repository
+([ADR 0012](../docs/adr/0012-no-dgf-paths-in-shipped-files.md)). That is why
+repo-maintenance checks live in `tools/`, not `scripts/`: they run against a DGF checkout
+and may name its paths. It is also why a knowledge fact's DGF source paths and digests live
+in its `provenance/` ledger, not in the fact file
+([ADR 0013](../docs/adr/0013-version-gating-provenance-ledger.md)). Both kinds of script
+follow the same exit-code contract; they differ in who runs them and whether they ship.
 
 ## Dependency Rules
 
@@ -127,6 +153,14 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
 - ❌ A validator or skill that handles only one schema family. DGF configurations are
   authored in modern JSON **and** legacy XML; a single-family consumer silently passes
   everything in the other family.
+- ✅ A maintenance tool in `tools/` reads `knowledge/`, `provenance/` and a DGF checkout,
+  and may import a shipped script to share one definition — `vendor_schemas.py` imports
+  `doctor.py`'s `DGF_PATH_PATTERN`
+- ❌ A shipped file reads, calls or links anything in `tools/` or `provenance/`. They are
+  not part of what a developer runs, and the direction is maintainer → shipped only.
+- ❌ A shipped file names a DGF repository path — `src/…`, `docs/wiki/…`, a checkout
+  folder. Cite the knowledge base, a DGF docs MCP call (`get_doc_page('<page>')`) or a DGF
+  type name. `doctor.py` blocks on it as `DGF_PATH`.
 - ❌ Circular invocation — slice A invokes B, B invokes A. Route through an artifact.
 - ❌ Absolute paths, `~/` or working-directory-relative paths anywhere. Always
   `${CLAUDE_PLUGIN_ROOT}`.
@@ -145,8 +179,9 @@ only:
 - **Command invocation.** A slice may invoke another as a command when the user's flow
   calls for it, but never reaches into its files.
 
-Shared `knowledge/` is read-only to every slice. It changes through a deliberate edit
-with a cited source, not as a side effect of running the pipeline.
+Shared `knowledge/` is read-only to every slice. It changes through a deliberate edit,
+with its `provenance/` ledger updated in the same change, never as a side effect of
+running the pipeline. The vendored schemas change only through `tools/vendor_schemas.py`.
 
 ## Key Principles
 
@@ -154,9 +189,10 @@ with a cited source, not as a side effect of running the pipeline.
    its directory until a second skill needs them — then they move up to `knowledge/` or
    `scripts/`. Promote on the second use, not in anticipation of it.
 2. **Knowledge is the asset; the pipeline is copyable.** The DGF facts in `knowledge/`
-   are what makes this plugin worth having. Every fact cites its source in the DGF
-   repository or the DGF docs MCP, and carries a date and the DGF version it was read
-   from.
+   are what makes this plugin worth having. Every fact carries the date and the DGF
+   version it was read from. Its DGF source files and their digests are in its
+   `provenance/` ledger; the shipped fact names its source by DGF type, file name or MCP
+   call.
 3. **Determinism before prompting.** If a JSON Schema, an XSD, or a script can decide a
    question, write the script. A statically checkable rule encoded as a prompt instruction
    is a defect, not a shortcut.
@@ -175,6 +211,9 @@ with a cited source, not as a side effect of running the pipeline.
 7. **The executor never re-decides.** When a plan bundle conflicts with the current code,
    the executing slice stops and reports the drift. Re-deciding architecture at execution
    time defeats the reason the bundle was written by a stronger model.
+8. **What ships stands alone.** A developer's install holds the shipped directories and
+   the hosted DGF docs MCP, nothing more. Every path in a shipped file resolves inside the
+   plugin or on the MCP; everything that needs a DGF checkout is maintainer material.
 
 ## Code Organization Note
 
@@ -345,5 +384,12 @@ Note the direction: `scripts/` reads `knowledge/`, never the reverse, and never 
   reading the last fenced `dgf-gate-result` block breaks on the first rewording.
 - ❌ **Hardcoded paths.** `/Users/...`, `~/plugins/...` or `./scripts/...` all break once
   the plugin is installed somewhere else. Use `${CLAUDE_PLUGIN_ROOT}`.
+- ❌ **DGF repository paths in a shipped file.** "From `src/Core/…/WorkspaceSettings.cs`" in a
+  knowledge file points at nothing on a developer's machine. Name the type, and put the path
+  in the file's `provenance/` ledger.
+- ❌ **A maintenance tool in `scripts/`.** `scripts/` ships. A check that runs against a DGF
+  checkout belongs in `tools/`.
+- ❌ **Hand-editing a vendored schema.** The shipped digest no longer matches the ledger, and
+  `tools/check_knowledge_stamps.py` fails. Re-vendor with `tools/vendor_schemas.py`.
 - ❌ **Forking an `aif-*` skill.** They are installer-managed; edits are detected and
   overwritten on update.
