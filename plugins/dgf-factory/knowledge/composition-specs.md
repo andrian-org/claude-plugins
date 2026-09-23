@@ -2,17 +2,6 @@
 dgf_version: "1.1.11"
 read_date: 2026-09-22
 review_date: 2026-09-22
-sources:
-  - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
-    sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
-  - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
-  # hand-authored standalone contract, not the generated set
-  - path: docs/schemas/eventBase.schema.json
-    sha256: ecbfecefe9c3ab22b6eb0af104c62f8ccbd1d96dc4a741f145440f1c6734caeb
-  # hand-authored standalone contract, not the generated set
-  - path: docs/schemas/dataFetcherConfiguration.schema.json
-    sha256: 61995e23dd027aa43f52ca3455967b944fedf856955ca29751ff98c0c110d76e
 ---
 
 # Composition specs — how a consumer application is assembled from DGF
@@ -27,7 +16,7 @@ ones are, how components talk to each other, and — as a **policy** fact carryi
 
 ## 1. Workspace layout — where artifacts live
 
-From `src/Core/DGF.Kernel/WorkspaceSettings.cs`. Every workspace has an `FM` directory
+From DGF's `WorkspaceSettings` class. Every workspace has an `FM` directory
 (`WorkspaceSettings.Fm`), and the artifact directories sit under it as constants:
 
 | Constant | Value | Holds |
@@ -64,7 +53,8 @@ kinds inherit the same way is not asserted here.
 
 ## 2. The five legacy artifacts — XML-only, no JSON equivalent
 
-From `format-coverage.md` §"Legacy XML-only artifacts". *"These five artifact types have no
+From DGF's format-coverage page, §"Legacy XML-only artifacts"
+(`get_doc_page('AI-Authoring/format-coverage.md')`). *"These five artifact types have no
 JSON equivalent today. The runtime reads only XML."*
 
 | Artifact | Grammar | Status (verbatim) |
@@ -85,8 +75,8 @@ runtime reading it.
 
 ## 3. Wiring components together — events and the DataFetcher
 
-Two hand-authored standalone contracts in DGF's `docs/schemas/` define the composition
-mechanism. Both are draft-07 and vendored under `schemas/standalone/`.
+Two hand-authored standalone contracts, which DGF keeps apart from its generated schema set,
+define the composition mechanism. Both are draft-07 and vendored under `schemas/standalone/`.
 
 ### 3.1 `EventBase` — one event handler entry
 
@@ -115,8 +105,8 @@ Required: `type`, `name`. Notable optional properties: `dataSource`, `dataSource
 `metaData`.
 
 `DataFetcher` is one of the 34 dispatchable components in `component-catalogue.md`, so it
-has a runtime service; its contract lives in `docs/schemas/` as a hand-authored standalone
-file, not in the generated set, and it is **not** synced into the MCP.
+has a runtime service; its contract is a hand-authored standalone
+file, not part of the generated set, and it is **not** synced into the MCP.
 
 ## 4. Current generation policy — XML for all five, regardless of parity
 

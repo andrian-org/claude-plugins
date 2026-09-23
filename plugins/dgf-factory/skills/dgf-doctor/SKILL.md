@@ -46,9 +46,10 @@ DEBUG=1 python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/doctor.py"
 | `2` | warnings | Continue to Step 3, and surface **every** warning to the user. |
 | `3` | usage error | **STOP.** The invocation is wrong, not the plugin. |
 
-On `1`, the plugin cannot load or a slice will not register. Report what the script
-found and stop there — repairing it silently hides the fault from the person who has to
-fix the install.
+On `1`, the plugin cannot load, a slice will not register, or a shipped file names a
+path into the DGF repository (`DGF_PATH`). A developer's install has no DGF checkout, so
+such a path points at nothing. Report what the script found and stop there — repairing it
+silently hides the fault from the person who has to fix the install.
 
 On `3`, the script was called incorrectly. Show its stderr message; do not retry with
 guessed arguments.

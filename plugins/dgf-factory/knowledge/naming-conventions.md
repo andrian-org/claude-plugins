@@ -1,25 +1,17 @@
 ---
 dgf_version: "1.1.11"
 read_date: 2026-09-22
-sources:
-  - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
-    sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
-  - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
-  - path: src/Tools/dgf-mcp/Services/SchemaIndexService.cs
-    sha256: 2558a66391ef4fbc8d5d7918ce9d66a4cf8aeb37dd8553a45807a11eb23df8c9
-  - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
 ---
 
 # Naming conventions — the names DGF expects, as rules a generator must honour
 
-Structural facts: stamp only. Deliberately short — only rules read directly from the
-sources above. Nothing here is inferred from how a name *looks*.
+Structural facts: stamp only. Deliberately short — only rules read directly from DGF
+source; the files read are in the maintainer provenance ledger for this file. Nothing here is
+inferred from how a name *looks*.
 
 ## 1. Workspace directories
 
-Under `<workspace>/FM/`, from `WorkspaceSettings.cs`. The casing is **not** uniform, and a
+Under `<workspace>/FM/`, from DGF's `WorkspaceSettings` class. The casing is **not** uniform, and a
 generator must reproduce each constant exactly:
 
 | Kind | Exact name |
@@ -62,7 +54,7 @@ key. Emit the enum spelling.
 
 ## 4. Generated JSON schema filenames
 
-From `SchemaIndexService.cs`: a component's schema is `<ComponentType>Configuration.schema.json`,
+From the MCP's `SchemaIndexService`: a component's schema is `<ComponentType>Configuration.schema.json`,
 and the index key is that filename with the `Configuration.schema.json` suffix stripped.
 The one allow-listed exception is `componentValidator.schema.json`, which has no
 `Configuration` infix because it is a cross-cutting contract, not a per-component config.

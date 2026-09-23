@@ -4,9 +4,10 @@
 # NAME/SCOPE MISMATCH, DELIBERATE: this script now guards five contracts — the
 # dual-schema one it was named for, the decision-record one added 2026-09-21, the
 # plugin-manifest one added 2026-09-22, the knowledge-stamp one added the same
-# day, and ADR supersession integrity added 2026-09-23. The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md
-# and the dual-schema plan all reference it by name; renaming churns three files
-# for no gain.
+# day, and ADR supersession integrity added 2026-09-23. The filename stays as it
+# is because AGENTS.md, the docs and the plans reference it by name; renaming
+# churns them for no gain. It moved from scripts/ to tools/ on 2026-09-23: it is
+# a maintainer check, and scripts/ ships (ADR 0012).
 #
 # DGF supports two configuration formats: modern JSON component config and legacy XML
 # validated by XSD. Every document in this plugin used to assume JSON only, and all of
@@ -14,10 +15,11 @@
 # contracts, not the generated set. This check stops both mistakes coming back.
 #
 # It is a repo-maintenance check, not a runtime validator: contributors run it, skills
-# do not. It reads and reports; it never edits.
+# do not. It reads and reports; it never edits. It is not shipped: tools/ is outside
+# doctor.py's SHIPPED_DIRS, so it may name DGF repository paths.
 #
-# Usage:  bash scripts/check-dual-schema-docs.sh
-#         DEBUG=1 bash scripts/check-dual-schema-docs.sh     # per-file trace
+# Usage:  bash tools/check-dual-schema-docs.sh
+#         DEBUG=1 bash tools/check-dual-schema-docs.sh       # per-file trace
 #
 # Exit codes (contract, see .ai-factory/rules/base.md):
 #   0  CLEAN     — no findings
@@ -660,14 +662,16 @@ EOF
 # --- 7. knowledge stamps ------------------------------------------------------
 #
 # Every knowledge/**/*.md except knowledge/README.md carries the stamp contract
-# that README.md §1 defines: dgf_version, read_date, a per-source sha256, and —
-# when a range is declared — both since and until. That frontmatter is nested
-# (sources is a list of maps, applies is a map), and the only frontmatter
-# parsing this script does is fm_value(), one flat key at a time. So the
-# check lives in a Python helper and this section only invokes it, exactly as
-# section 6 does with doctor.py. One implementation; milestone 8's drift check
-# is its second caller.
-STAMPS='scripts/check_knowledge_stamps.py'
+# that README.md §1 defines: dgf_version, read_date and — when a range is
+# declared — both since and until. Its sources, each with a sha256, are in a
+# provenance ledger at the same path under provenance/ (ADR 0013), and the
+# vendored schemas must match their recorded shipped digests. That frontmatter is
+# nested (sources is a list of maps, applies is a map), and the only frontmatter
+# parsing this script does is fm_value(), one flat key at a time. So the check
+# lives in a Python helper and this section only invokes it, exactly as section 6
+# does with doctor.py. One implementation; milestone 8's drift check is its
+# second caller.
+STAMPS='tools/check_knowledge_stamps.py'
 
 check_knowledge_stamps() {
     section '7. Knowledge stamps'

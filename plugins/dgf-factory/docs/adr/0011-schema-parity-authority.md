@@ -53,7 +53,7 @@ the runtime reads that format. The MCP offers no parity query today. DGF's
 - `.ai-factory/rules/base.md` §"DGF Schema Handling" — resolve the family before parsing,
   unknown family is exit `3`, and a schema-valid config the runtime does not read is exit `2`.
 - `knowledge/composition-specs.md` stamps the XML-always policy as a **policy** fact with
-  `review_date: 2026-09-22`, per [ADR 0008](0008-version-gating-revised.md) §2.
+  `review_date: 2026-09-22`, per [ADR 0013](0013-version-gating-provenance-ledger.md) §2.
 - [ADR 0005](0005-default-team-rules.md) rule 1 ships XML-always as a scripted default.
 
 ## Options
@@ -115,7 +115,10 @@ written to prevent.
 - **Accept, amend or reject before milestone 8's parity check is written.**
 - On acceptance, cite this ADR from the `AGENTS.md` rule and from `.ai-factory/rules/base.md`
   §"DGF Schema Handling".
-- No new tracking is needed. `docs/wiki/AI-Authoring/format-coverage.md` is already a stamped
-  `sources` entry, with its `sha256`, in `knowledge/component-catalogue.md`,
-  `knowledge/composition-specs.md` and `knowledge/naming-conventions.md`, so milestone 8's drift
-  check covers it as soon as it reads those stamps.
+- No new tracking is needed. `docs/wiki/AI-Authoring/format-coverage.md` is already a `sources`
+  entry, with its `sha256`, in the provenance ledgers of `knowledge/component-catalogue.md`,
+  `knowledge/composition-specs.md`, `knowledge/naming-conventions.md` and
+  `knowledge/schema-families.md` ([ADR 0013](0013-version-gating-provenance-ledger.md) §1), so
+  milestone 8's drift check covers it as soon as it reads those ledgers.
+- Shipped files cite the page as `get_doc_page('AI-Authoring/format-coverage.md')`, never by its
+  repository path ([ADR 0012](0012-no-dgf-paths-in-shipped-files.md)).

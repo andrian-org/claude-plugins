@@ -1,7 +1,7 @@
 ---
 id: 0008
 title: Stamp every fact, gate only behavioural ones (revised)
-status: accepted
+status: superseded-by-0013
 date: 2026-09-23
 deciders: [Andrian Mamei]
 supersedes: [0003]

@@ -187,3 +187,10 @@ Corrections of fact that do not change what this ADR decides. See
   `allOf` + `$ref` + `additionalProperties: false` pattern occurs 97 times in 64 of the 69 files
   under `knowledge/schemas/json/`. The decision is unchanged; the count shows the pre-pass
   touches most of the set, not an edge case. Source: a recursive scan of those files.
+- **2026-09-23** — §Context said the plugin "already ships" two stdlib-only scripts, naming
+  `scripts/check_knowledge_stamps.py`. That script moved to `tools/check_knowledge_stamps.py`
+  the same day and no longer ships, because repo-maintenance tools left the shipped `scripts/`
+  directory ([ADR 0012](0012-no-dgf-paths-in-shipped-files.md) §4). It is still stdlib-only.
+  So is the new `tools/vendor_schemas.py`. The decision is unchanged: shipped validators run
+  on Python with `lxml` and `jsonschema`, and the existing scripts stay stdlib-only. Source:
+  `git mv` of the file, and the imports at the top of both tools.

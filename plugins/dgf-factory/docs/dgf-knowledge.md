@@ -11,22 +11,33 @@ kind of mistake here — they get baked into prompts and propagate into generate
 > **Every fact in `knowledge/` cites where it came from, when it was read, and which DGF
 > version it was read from. A fact that cannot be cited stays marked `[assume]` until it can.**
 
-The exact stamp fields — `dgf_version`, `read_date`, and a per-source `sha256` — and the rule
-for when a fact needs a *version range* rather than just a stamp are decided in
-[ADR 0008](adr/0008-version-gating-revised.md). Short version: stamp everything, range only facts whose
-runtime behaviour changed between releases. `dgf_version` is read from
+The exact stamp fields — `dgf_version` and `read_date` in the knowledge file, a per-source
+`sha256` in its provenance ledger — and the rule for when a fact needs a *version range*
+rather than just a stamp are decided in
+[ADR 0013](adr/0013-version-gating-provenance-ledger.md). Short version: stamp everything,
+range only facts whose runtime behaviour changed between releases. `dgf_version` is read from
 `src/Directory.Build.props`, never from a git tag.
+
+**Where a fact came from is recorded outside `knowledge/`.** `knowledge/` ships, and a shipped
+file names no path into the DGF repository
+([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)): a developer's install has no DGF
+checkout to resolve one against. So each knowledge file has a ledger at the same relative path
+under `provenance/` that lists its DGF source files with their digests. The knowledge file
+itself names a source by DGF type, file name or MCP call.
 
 The **operative contract** — exact field shapes, the three fact classes, what `null` means in
 a `since`/`until` range, and which file is exempt — is
 [`knowledge/README.md`](../knowledge/README.md). This page is the reader-facing summary;
-where the two differ, that file wins, and `scripts/check_knowledge_stamps.py` enforces it.
+where the two differ, that file wins, and `tools/check_knowledge_stamps.py` enforces it.
 
 Acceptable sources, in order of preference:
 
-1. The DotGov Framework repository — a specific file path
-2. The DGF docs MCP at `https://dgf-mcp.dotgov.uk/mcp` (declared in `.mcp.json`, no credentials)
-3. A DGF ADR under `DotGovFramework/docs/adr/`
+1. The DotGov Framework repository — a specific file, whose path and digest go in the
+   provenance ledger
+2. The DGF docs MCP at `https://dgf-mcp.dotgov.uk/mcp` (declared in `.mcp.json`, no
+   credentials) — name the tool and the argument, e.g.
+   `get_doc_page('AI-Authoring/format-coverage.md')`
+3. A DGF ADR under `DotGovFramework/docs/adr/`, recorded in the ledger like any other file
 
 Not acceptable: inference from a name, analogy to another framework, or recall.
 
@@ -56,27 +67,31 @@ knowledge/
 ├── naming-conventions.md
 ├── schema-families.md         # JSON vs XSD: parity, correspondence, resolution
 └── schemas/                   # vendored copies, version-stamped
-    ├── MANIFEST.md            #   DGF commit SHA, version, date, per-file dialect and sha256
+    ├── MANIFEST.md            #   DGF version, date, per-file dialect and membership
     ├── json/                  #   generated *.schema.json (modern component config)
     ├── xsd/                   #   the 9 *.xsd + form.reference.json (legacy XML)
     └── standalone/            #   hand-authored contracts from DGF docs/schemas/
+
+provenance/knowledge/          # NOT SHIPPED — one ledger per file above, same relative path
+└── schemas/MANIFEST.md        #   DGF commit SHA, upstream and shipped sha256 per file
 ```
 
 Schemas are **vendored, not referenced across the filesystem** — a validator that reads a
 path outside the plugin breaks the moment the plugin is installed somewhere else. Copy
 them in, record the DGF version and the date, and re-vendor deliberately.
 
-The complete set is vendored — both families, roughly 3.5 MB, 82 files each recorded with a
-`sha256` in `MANIFEST.md`. Three details make that non-obvious, and all three are recorded
-with their mitigations in
-[DGF Schemas](dgf-schemas.md):
+The complete set is vendored — both families, roughly 3.5 MB, 82 files, each recorded with
+its upstream and shipped `sha256` in the schema ledger. They differ for 61 files, because
+`tools/vendor_schemas.py` rewrites the DGF paths inside DGF's own schema text as it copies
+the set in. Three further details make the set non-obvious, and all three are recorded with
+their mitigations in [DGF Schemas](dgf-schemas.md):
 
 - The hand-authored contracts live in `standalone/` rather than beside the generated set,
   because `dataFetcherConfiguration.schema.json` and `DataFetcherConfiguration.schema.json`
   differ only in case and silently overwrite each other on a case-insensitive filesystem.
 - The set mixes JSON Schema draft-04 and draft-07, so `MANIFEST.md` records the dialect
   per file.
-- `MANIFEST.md` records the DGF commit SHA, because the deployed MCP can lag the
+- The schema ledger records the DGF commit SHA, because the deployed MCP can lag the
   repository and the vendored set needs a knowable position between the two.
 
 Nothing in `knowledge/` may name a skill, a step number or a pipeline stage. Knowledge
@@ -137,7 +152,8 @@ verification is structural-plus-our-own-semantics, with no headless execution
 ([0006](adr/0006-process-verification-revised.md), superseding 0002); validators run on Python
 with `lxml` and `jsonschema` ([0007](adr/0007-validator-runtime.md)); version gates are
 necessary, so every fact is stamped and behavioural facts carry a range
-([0008](adr/0008-version-gating-revised.md), superseding 0003); and seven conventions ship as
+([0013](adr/0013-version-gating-provenance-ledger.md), superseding 0008 and 0003); shipped
+files carry no DGF repository paths ([0012](adr/0012-no-dgf-paths-in-shipped-files.md)); and seven conventions ship as
 defaults ([0005](adr/0005-default-team-rules.md)).
 
 ## Architectural provenance

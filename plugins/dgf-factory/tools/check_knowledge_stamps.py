@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
-"""check_knowledge_stamps.py — is every knowledge file stamped the way README.md says?
+"""check_knowledge_stamps.py — is every knowledge file stamped, and sourced, the way README.md says?
 
 A repo-maintenance check, not a runtime validator: contributors run it (via
-scripts/check-dual-schema-docs.sh section 7), skills do not. It reads and
+tools/check-dual-schema-docs.sh section 7), skills do not. It reads and
 reports; it never edits.
 
-It exists because the stamp frontmatter is nested — `sources` is a list of
-maps, `applies` is a map — and the only frontmatter parsing the shell script
-does is one flat key. Asserting "every source has a digest" in awk is fragile
-in exactly the way this check is meant to prevent.
+The contract is knowledge/README.md §1 and ADR 0013:
+  - every knowledge file carries its stamp (`dgf_version`, `read_date`, and an
+    `applies` range or `review_date` where its fact class needs one), and never
+    a `sources` key — a shipped file carries no DGF paths (ADR 0012);
+  - every knowledge file has exactly one provenance ledger at the same relative
+    path under provenance/, and every ledger has its knowledge file;
+  - each ledger lists its DGF sources, each with a 64-hex `sha256`;
+  - the vendored schema set's ledger also names each shipped file (`vendored`)
+    and its digest (`shipped_sha256`), and every shipped schema must match it —
+    a mismatch is a hand edit to a vendored file.
+
+It exists because the frontmatter is nested — `sources` is a list of maps,
+`applies` is a map — and the only frontmatter parsing the shell script does is
+one flat key. Asserting "every source has a digest" in awk is fragile in
+exactly the way this check is meant to prevent.
 
 Usage:  check_knowledge_stamps.py [<plugin-root>]
         DEBUG=1 check_knowledge_stamps.py          # per-file trace
@@ -17,8 +28,9 @@ Usage:  check_knowledge_stamps.py [<plugin-root>]
 With no argument the plugin root is resolved from this file's location.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
-  0  CLEAN     — every stamped file conforms
-  1  BLOCKED   — a required stamp field is missing or malformed
+  0  CLEAN     — every stamped file and ledger conforms
+  1  BLOCKED   — a stamp or ledger field is missing or malformed, a ledger is
+                 missing or orphaned, or a vendored schema was edited by hand
   2  WARNINGS  — stamps conform but disagree with each other
   3  usage error
 
@@ -26,6 +38,7 @@ No dgf-gate-result block is emitted: this is not a skill-facing gate, and
 milestone 10 owns the plugin-wide gate contract.
 """
 
+import hashlib
 import os
 import re
 import sys
@@ -43,8 +56,11 @@ else:
     RED = YELLOW = GREEN = BOLD = NC = ""
 
 EXEMPT = {"README.md"}  # describes the convention; is not itself a DGF fact
+PROVENANCE = "provenance"  # maintainer-only ledgers, outside the shipped tree
+SCHEMA_MANIFEST = "knowledge/schemas/MANIFEST.md"  # the vendored set's stamp
 
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 VERSION_PATTERN = re.compile(r'"\d+\.\d+\.\d+"\Z')
 FLAT_KEY = re.compile(r"([A-Za-z_][\w-]*):\s*(.*)\Z")
 
@@ -99,7 +115,8 @@ def frontmatter_lines(text):
 
 def parse_frontmatter(lines):
     """Returns {scalars: {}, sources: [{}], applies: {}}."""
-    result = {"scalars": {}, "sources": [], "applies": {}, "applies_declared": False}
+    result = {"scalars": {}, "sources": [], "applies": {}, "applies_declared": False,
+              "sources_declared": False}
     block = None  # which nested structure indented lines belong to
     for raw in lines:
         line = raw.rstrip()
@@ -123,6 +140,8 @@ def parse_top_level(body, result):
     if not match:
         return None
     key, value = match.groups()
+    if key == "sources":
+        result["sources_declared"] = True  # any form — a shipped file may not carry one
     if key in ("sources", "applies") and value == "":
         if key == "applies":
             result["applies_declared"] = True  # declared-but-empty must not pass as "no range"
@@ -171,8 +190,8 @@ def check_required(rel, fm):
     review_date = scalars.get("review_date")
     if review_date is not None and not valid_date(review_date):
         error(f"{rel}: `review_date` must be a real YYYY-MM-DD date, got {review_date}")
-    if not fm["sources"]:
-        error(f"{rel}: `sources` is missing or empty — a fact with no source is a guess")
+    if fm["sources_declared"]:
+        error(f"{rel}: `sources` belongs in {PROVENANCE}/{rel}, not in a shipped file (ADR 0013)")
 
 
 def check_sources(rel, sources):
@@ -184,6 +203,81 @@ def check_sources(rel, sources):
             error(f"{rel}: sources[{index}] ({path or '?'}) has no `sha256` sibling")
         elif not SHA256_PATTERN.match(digest):
             error(f"{rel}: sources[{index}] ({path}) `sha256` is not a 64-hex digest")
+        shipped = entry.get("shipped_sha256")
+        if entry.get("vendored") and not shipped:
+            error(f"{rel}: sources[{index}] ({path}) names a `vendored` file but no `shipped_sha256`")
+        elif shipped and not SHA256_PATTERN.match(shipped):
+            error(f"{rel}: sources[{index}] ({path}) `shipped_sha256` is not a 64-hex digest")
+
+
+def read_frontmatter(root, path):
+    """(rel, parsed frontmatter) — or (rel, None) after reporting why it is unusable."""
+    rel = path.relative_to(root).as_posix()
+    lines = frontmatter_lines(path.read_text(encoding="utf-8"))
+    if lines is None:
+        error(f"{rel}: no closed frontmatter block")
+        return rel, None
+    return rel, parse_frontmatter(lines)
+
+
+def check_ledger(root, knowledge_rel):
+    """ADR 0013 §1: one ledger per knowledge file, same relative path under provenance/."""
+    ledger = root / PROVENANCE / knowledge_rel
+    if not ledger.is_file():
+        error(f"{knowledge_rel}: no provenance ledger at {PROVENANCE}/{knowledge_rel}")
+        return None
+    rel, fm = read_frontmatter(root, ledger)
+    if fm is None:
+        return None
+    if not fm["sources"]:
+        error(f"{rel}: `sources` is missing or empty — a fact with no source is a guess")
+    check_sources(rel, fm["sources"])
+    commit = fm["scalars"].get("dgf_commit")
+    if commit is not None and not COMMIT_PATTERN.match(commit):
+        error(f"{rel}: `dgf_commit` must be a 40-hex commit SHA, got {commit}")
+    trace(f"{rel}: {len(fm['sources'])} source(s)")
+    return fm
+
+
+def check_orphan_ledgers(root, knowledge_rels):
+    """A ledger with no knowledge file records the provenance of nothing."""
+    base = root / PROVENANCE
+    if not base.is_dir():
+        return
+    for path in sorted(base.rglob("*.md")):
+        rel = path.relative_to(base).as_posix()
+        if rel not in knowledge_rels:
+            error(f"{PROVENANCE}/{rel}: ledger has no knowledge file at {rel}")
+
+
+def sha256_of(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def check_vendored(root, fm):
+    """Every shipped schema is listed in the schema ledger, and matches its shipped digest."""
+    rel = f"{PROVENANCE}/{SCHEMA_MANIFEST}"
+    base = (root / SCHEMA_MANIFEST).parent
+    if not fm["scalars"].get("dgf_commit"):
+        error(f"{rel}: no `dgf_commit` — the vendored set's position in DGF is unrecorded")
+    listed = set()
+    for index, entry in enumerate(fm["sources"], 1):
+        vendored = entry.get("vendored")
+        if not vendored:
+            error(f"{rel}: sources[{index}] ({entry.get('path', '?')}) has no `vendored` path")
+            continue
+        listed.add(vendored)
+        path = base / vendored
+        if not path.is_file():
+            error(f"{rel}: sources[{index}] names knowledge/schemas/{vendored}, which does not exist")
+        elif entry.get("shipped_sha256") and sha256_of(path) != entry["shipped_sha256"]:
+            error(f"knowledge/schemas/{vendored}: does not match its recorded `shipped_sha256` — "
+                  "a vendored file was edited by hand; re-vendor with tools/vendor_schemas.py")
+    for path in sorted(base.rglob("*")):
+        vendored = path.relative_to(base).as_posix()
+        if path.is_file() and path != root / SCHEMA_MANIFEST and vendored not in listed:
+            error(f"knowledge/schemas/{vendored}: vendored file has no entry in {rel}")
+    trace(f"{rel}: {len(listed)} vendored file(s) checked against their shipped digests")
 
 
 def check_applies(rel, fm):
@@ -222,7 +316,7 @@ def resolve_root(argv):
         root = Path(argv[0]).expanduser().resolve()
     else:
         try:
-            root = Path(__file__).resolve().parents[1]  # scripts/ -> plugin root
+            root = Path(__file__).resolve().parents[1]  # tools/ -> plugin root
         except IndexError:
             fail(3, "Cannot resolve the plugin root from this file's location; pass it explicitly")
     if not (root / "knowledge").is_dir():
@@ -231,23 +325,20 @@ def resolve_root(argv):
 
 
 def check_files(root):
-    """Runs the per-file rules; returns ({rel: dgf_version}, files checked)."""
-    versions, checked = {}, 0
+    """Runs the per-file rules; returns ({rel: dgf_version}, {rel: ledger}, files checked)."""
+    versions, ledgers, checked = {}, {}, 0
     for path in knowledge_files(root):
-        rel = path.relative_to(root).as_posix()
+        rel, fm = read_frontmatter(root, path)
         checked += 1
-        lines = frontmatter_lines(path.read_text(encoding="utf-8"))
-        if lines is None:
-            error(f"{rel}: no closed frontmatter block")
+        if fm is None:
             continue
-        fm = parse_frontmatter(lines)
-        trace(f"{rel}: {len(fm['sources'])} source(s), applies={'yes' if fm['applies'] else 'no'}")
+        trace(f"{rel}: applies={'yes' if fm['applies'] else 'no'}")
         check_required(rel, fm)
-        check_sources(rel, fm["sources"])
         check_applies(rel, fm)
         if fm["scalars"].get("dgf_version"):
             versions[rel] = fm["scalars"]["dgf_version"]
-    return versions, checked
+        ledgers[rel] = None
+    return versions, ledgers, checked
 
 
 def main(argv):
@@ -256,11 +347,22 @@ def main(argv):
     print(f"Root: {root}")
 
     section("1. Stamp contract per file")
-    versions, checked = check_files(root)
+    versions, ledgers, checked = check_files(root)
     if checked == 0:
         warn("no stamped files found under knowledge/ — a clean tree and a broken glob look the same")
 
-    section("2. Version agreement")
+    section("2. Provenance ledgers")
+    for rel in ledgers:
+        ledgers[rel] = check_ledger(root, rel)
+    check_orphan_ledgers(root, set(ledgers))
+
+    section("3. Vendored schema digests")
+    if ledgers.get(SCHEMA_MANIFEST):
+        check_vendored(root, ledgers[SCHEMA_MANIFEST])
+    else:
+        trace(f"skipped — no usable ledger for {SCHEMA_MANIFEST}")
+
+    section("4. Version agreement")
     check_version_agreement(versions)
 
     section("Summary")

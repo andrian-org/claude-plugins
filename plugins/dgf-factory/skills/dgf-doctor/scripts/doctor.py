@@ -7,7 +7,7 @@ come are reported as INFO lines that never touch the exit code, so this stays
 green from milestone 6 through 15 and a red result keeps meaning something.
 
 It is a runtime validator — the /dgf-doctor skill calls it, and so does
-scripts/check-dual-schema-docs.sh. It reads and reports; it never edits.
+tools/check-dual-schema-docs.sh. It reads and reports; it never edits.
 
 Usage:  doctor.py [<plugin-root>]
         DEBUG=1 doctor.py            # per-check trace
@@ -17,7 +17,8 @@ from the working directory.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — no findings
-  1  BLOCKED   — the plugin cannot load, or a slice will not register
+  1  BLOCKED   — the plugin cannot load, a slice will not register, or a
+                 shipped file names a DGF repository path
   2  WARNINGS  — it loads, but something needs a human look
   3  usage error
 """
@@ -43,12 +44,43 @@ else:
 COMPONENT_KEYS = ("skills", "agents", "commands", "hooks", "mcpServers")
 
 # Directories shipped to whoever installs the plugin. `.claude/` is excluded on
-# purpose: the aif-* corpus there is installer-managed and is not shipped.
+# purpose: the aif-* corpus there is installer-managed and is not shipped. So are
+# `tools/` and `provenance/`: maintainer checks and source ledgers (ADR 0012).
 SHIPPED_DIRS = ("skills", "agents", "commands", "scripts", "knowledge", ".claude-plugin")
 
 # Built in pieces so this file does not match its own portability check.
 _SEP = "/"
 ABSOLUTE_PATH_MARKERS = (_SEP + "Users" + _SEP, _SEP + "home" + _SEP, "~" + _SEP)
+
+# A path into the DGF framework repository (ADR 0012). A developer's install has
+# no DGF checkout, so a shipped file that names one points at nothing. The folder
+# lists are DGF's top-level `src/` and `docs/` entries, read at commit aa1d5c4c2;
+# `docs/adr` is left out because this plugin has a `docs/adr` of its own. Built in
+# pieces, like the markers above. tools/vendor_schemas.py imports this pattern, so
+# there is one definition.
+_DGF_SRC = ("Components", "Core", "DGE.Office", "DGF.API", "DGF.Tests", "DGF.UI",
+            "PlatformServices", "Plugins", "Tools", "samples", "tests")
+_DGF_SRC_FILES = ("Directory.Build.props", "Directory.Packages.props", "global.json")
+_DGF_DOCS = ("Components", "Presentations", "Release-notes", "Research", "analysis",
+             "schemas", "wiki")
+_DGF_MCP_SCHEMAS = ("Json", "XSD", "XmlReference")
+
+
+def _alternatives(prefix, names, suffix=""):
+    return prefix + _SEP + "(?:" + "|".join(re.escape(n) + suffix for n in names) + ")"
+
+
+# The lookbehind admits a JSON string escape such as `\n` right before the path:
+# vendored schemas write "…docs at\n<path>" inside one string.
+DGF_PATH_PATTERN = re.compile(
+    r"(?:(?<![\w.-])|(?<=\\[nrt]))(?:"
+    + _alternatives("src", _DGF_SRC, _SEP) + "|"
+    + _alternatives("src", _DGF_SRC_FILES) + "|"
+    + _alternatives("docs", _DGF_DOCS, _SEP) + "|"
+    + _alternatives("Schemas", _DGF_MCP_SCHEMAS, _SEP)
+    + ")"
+    + "|_?" + "DotGov" + "Framework" + _SEP
+)
 
 NAME_PATTERN = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*\Z")
 SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
@@ -309,7 +341,12 @@ def check_portability(root):
             if marker:
                 warn("ABSOLUTE_PATH", rel,
                      f"{rel}:{lineno} contains `{marker}` — breaks for other users")
-    trace("scanned shipped files for machine-specific paths")
+            match = DGF_PATH_PATTERN.search(line)
+            if match:
+                error("DGF_PATH", rel,
+                      f"{rel}:{lineno} names DGF repository path `{match.group(0)}…` — "
+                      "a developer's install has no DGF checkout (ADR 0012)")
+    trace("scanned shipped files for machine-specific and DGF repository paths")
 
 
 # --- 5. line endings ---------------------------------------------------------
@@ -351,7 +388,7 @@ def gate_block(status, errors, warnings):
     exists to prevent.
     """
     if status == "fail":
-        reason = f"{errors} blocking finding(s) — the plugin will not load correctly"
+        reason = f"{errors} blocking finding(s) — the plugin is not fit to install"
     elif status == "warn":
         reason = f"{warnings} portability warning(s) — the plugin loads but is not clean"
     else:

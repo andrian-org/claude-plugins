@@ -2,29 +2,6 @@
 dgf_version: "1.1.11"
 read_date: 2026-09-22
 review_date: 2026-09-22
-sources:
-  - path: src/Tools/dgf-mcp/Services/SchemaIndexService.cs
-    sha256: 2558a66391ef4fbc8d5d7918ce9d66a4cf8aeb37dd8553a45807a11eb23df8c9
-  - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
-  - path: src/Tools/dgf-mcp/Schemas/XSD/form.xsd
-    sha256: 382980eda2104aad8bcad8e42ffb9b185d08290d27d91dc9380c59da2764a685
-  - path: src/Tools/dgf-mcp/Schemas/XSD/grid-form.xsd
-    sha256: 59df49ce2fd0756410b6386f870bcd3e0066dbc994b39f83a6f5751a064e3459
-  - path: src/Tools/dgf-mcp/Schemas/XSD/lookup-view.xsd
-    sha256: 2e5c31ae7c00093e6288c9975d4ae5ca92f6897d04c63e275f30c1677fa82d76
-  - path: src/Tools/dgf-mcp/Schemas/XSD/options.xsd
-    sha256: 9a2df54423350285013c670768eb0ec982152813add887c87f89799f48120ad4
-  - path: src/Tools/dgf-mcp/Schemas/XSD/process.xsd
-    sha256: 7adf1ea3f94f10e0606112d78e5dc49c528cd93bdfe41e7dc4251cc3546de121
-  - path: src/Tools/dgf-mcp/Schemas/XSD/profile.xsd
-    sha256: 884dcc5a04e343513a499b0e861e6a1a8cf67928c401e64f3c5f6bafcb0b65a4
-  - path: src/Tools/dgf-mcp/Schemas/XSD/settings.xsd
-    sha256: 6c8265271620860ac3a607d2936266811b277b78fe069856214f46360e972bb9
-  - path: src/Tools/dgf-mcp/Schemas/XSD/table-view.xsd
-    sha256: afd9befe47332b1cd1a9fdc9d8e893bfcde2b5382babe9cf054c88771c5ff783
-  - path: src/Tools/dgf-mcp/Schemas/XSD/workflow.xsd
-    sha256: afc3eb4f23c379012f8fb23609f03daedffeaadff08527b0990507c6c41cdff8
 ---
 
 # Schema families — how a validator resolves, selects and trusts a DGF schema
@@ -42,8 +19,8 @@ because its source is hand-maintained prose that no code regenerates.
 
 | Family | Schema form | Where the schemas live | Vendored at |
 |---|---|---|---|
-| Modern JSON component config | JSON Schema, one per `IComponentConfiguration` class | `src/Tools/dgf-mcp/Schemas/Json/` — 69 files | `schemas/json/` |
-| Legacy XML | XSD 1.0, one per artifact grammar | `src/Tools/dgf-mcp/Schemas/XSD/` — 9 files, plus `Schemas/XmlReference/form.reference.json` | `schemas/xsd/` |
+| Modern JSON component config | JSON Schema, one per `IComponentConfiguration` class | DGF's generated JSON schema set, served by the MCP (`list_available_json_schemas`, `get_json_schema_details`) — 69 files, 58 of them indexed (§3) | `schemas/json/` |
+| Legacy XML | XSD 1.0, one per artifact grammar | DGF's XSD set, served by the MCP (`list_available_xsd_schemas`, `get_xsd_schema_details`) — 9 files, plus the XML grammar reference `form.reference.json` | `schemas/xsd/` |
 
 Neither family is an encoding of the other. Some concepts exist in only one (§5).
 
@@ -60,8 +37,7 @@ like malformed JSON instead of a different format, which is the failure this rul
 
 ## 3. Resolving a JSON schema the way DGF does
 
-`SchemaIndexService` (`src/Tools/dgf-mcp/Services/SchemaIndexService.cs`) does **not**
-glob `*.schema.json`. A resolver reproduces its selection exactly:
+The MCP's `SchemaIndexService` does **not** glob `*.schema.json`. A resolver reproduces its selection exactly:
 
 1. **Glob `*Configuration.schema.json`** — matches 57 of the 69 files. The index key is the
    filename with `Configuration.schema.json` removed, lowercased.
@@ -113,8 +89,9 @@ unrelated concept. When this table says none, there is none.
 
 ## 6. Runtime parity — a schema existing is not the runtime reading it
 
-*Policy fact. Source: `docs/wiki/AI-Authoring/format-coverage.md`, a hand-maintained living
-document stamped `last_updated: 2026-09-09`. Nothing regenerates it. Re-read it on every
+*Policy fact. Source: DGF's format-coverage page,
+`get_doc_page('AI-Authoring/format-coverage.md')`, a hand-maintained living document stamped
+`last_updated: 2026-09-09`. Nothing regenerates it. Re-read it on every
 re-vendor and update `review_date`.*
 
 Legend, verbatim from the source: **`✓ supported · ◐ partial · ✗ not supported today`**.
@@ -135,11 +112,11 @@ column in `format-coverage.md` is the only authority; a schema in `schemas/json/
 ## Not in this file
 
 DataSource discriminator resolution (`table`, `rawsql`, `static`, …) is resolver behaviour
-that mirrors `src/Core/DGF.DataSources/JsonConverters/DataSourceConverter.cs`. It belongs to
-the config validators and is not stamped here until that file has been read and digested.
+that mirrors DGF's `DataSourceConverter`. It belongs to the config validators and is not
+stamped here until that source has been read and digested.
 
 ## See Also
 
 - [`README.md`](README.md) — the stamping convention this file follows
-- [`schemas/MANIFEST.md`](schemas/MANIFEST.md) — per-file dialect and provenance for the vendored set
+- [`schemas/MANIFEST.md`](schemas/MANIFEST.md) — per-file dialect and membership for the vendored set
 - [`composition-specs.md`](composition-specs.md) — the five legacy artifacts and the XML-always policy

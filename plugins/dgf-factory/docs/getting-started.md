@@ -40,9 +40,11 @@ relative to it.
 | `docs/` | This documentation |
 | `.claude-plugin/plugin.json` | The manifest — what makes this a loadable plugin |
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
-| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention; four stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md` |
-| `scripts/check-dual-schema-docs.sh` | Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts |
-| `scripts/check_knowledge_stamps.py` | The nested-frontmatter validator that section 7 of the check invokes |
+| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention; four stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
+| `provenance/` | Not shipped. One ledger per knowledge file: the DGF files its facts were read from, each with a `sha256` |
+| `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts |
+| `tools/check_knowledge_stamps.py` | Not shipped. Checks stamps, ledgers and vendored schema digests; section 7 of the check invokes it |
+| `tools/vendor_schemas.py` | Not shipped. Re-vendors DGF's schema set from a DGF checkout, rewriting DGF paths on the way in |
 | `.mcp.json` | The hosted DGF docs MCP (`dgf-mcp`) |
 
 Nothing under `.claude/skills/aif-*` is part of the plugin being built. It is the
