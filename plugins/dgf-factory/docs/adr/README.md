@@ -11,15 +11,18 @@ person to read the code.
 | # | Title | Status | Date | Decides |
 |---|-------|--------|------|---------|
 | [0001](0001-independent-plugin-with-ai-factory-derived-architecture.md) | Independent plugin with AI Factory-derived architecture | accepted | 2026-09-21 | delivery model and architectural provenance |
-| [0002](0002-process-verification.md) | Process verification is structural today, semantic by our own validators | accepted | 2026-09-21 | blueprint open question #5 |
-| [0003](0003-version-gating.md) | Stamp every fact, gate only behavioural ones | accepted | 2026-09-21 | blueprint open question #6 |
+| [0002](0002-process-verification.md) | Process verification is structural today, semantic by our own validators | superseded-by-0006 | 2026-09-23 | blueprint open question #5 — replaced by 0006 |
+| [0003](0003-version-gating.md) | Stamp every fact, gate only behavioural ones | superseded-by-0008 | 2026-09-23 | blueprint open question #6 — replaced by 0008 |
 | [0004](0004-authoring-entry-point.md) | Brownfield-first, scoped to the whole workspaces root | accepted | 2026-09-21 | blueprint open question #3 |
 | [0005](0005-default-team-rules.md) | Seven shipped defaults for dotGov DGF systems | accepted | 2026-09-21 | blueprint open question #7 |
+| [0006](0006-process-verification-revised.md) | Process verification — structure with a runtime-divergence allowance, semantics by our own validators | accepted | 2026-09-23 | blueprint open question #5; the semantic checks of milestone 8 |
+| [0007](0007-validator-runtime.md) | Validators run on Python with lxml and jsonschema | accepted | 2026-09-23 | validator runtime and dependencies |
+| [0008](0008-version-gating-revised.md) | Stamp every fact, gate only behavioural ones (revised) | accepted | 2026-09-23 | blueprint open question #6; version source and range semantics |
 
 ## Numbering
 
 This plugin's ADRs are numbered from `0001` in this directory and are **independent of any
-other repository's ADR series**. A bare `0001`–`0005` in this plugin always means a
+other repository's ADR series**. A bare four-digit number in this plugin always means a
 dgf-factory ADR. When citing an ADR from another repository, always qualify it with that
 repository's name — never with a bare number.
 
@@ -121,4 +124,4 @@ ADR; and each index row's Status cell matches its ADR's frontmatter.
 
 - [Architecture Blueprint](../blueprint.md) — the open questions these ADRs close
 - [DGF Knowledge Sourcing](../dgf-knowledge.md) — the citation rule these ADRs inherit
-- [DGF Schemas](../dgf-schemas.md) — the two schema families ADRs 0002 and 0003 depend on
+- [DGF Schemas](../dgf-schemas.md) — the two schema families ADRs 0006, 0007 and 0008 depend on

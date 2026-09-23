@@ -113,7 +113,7 @@ here, re-read before citing, and must not re-derive anything.
 
 ### Phase 2: Superseding and urgent ADRs
 
-- [ ] **Task 3: Write ADR 0006, "Process verification: structure with a runtime-divergence allowance, semantics
+- [x] **Task 3: Write ADR 0006, "Process verification: structure with a runtime-divergence allowance, semantics
   by our own validators" (`supersedes: [0002]`).** (depends on 1)
   Restate 0002 §3 (vendored XSDs, in-process validation, no MCP dependency) and §4 (no runtime claim,
   Playwright out of the gate, `checks_run`) unchanged in substance. Replace §1–§2:
@@ -145,7 +145,7 @@ here, re-read before citing, and must not re-derive anything.
   **Present the Decision section to the user and get confirmation before setting `status: accepted`.**
   Files: `docs/adr/0006-process-verification-revised.md`.
 
-- [ ] **Task 4: Write ADR 0007, "Validator runtime and dependencies".** (depends on 1)
+- [x] **Task 4: Write ADR 0007, "Validator runtime and dependencies".** (depends on 1)
   Context: E17; `DESCRIPTION.md` allows Node `.mjs` and Python 3; `doctor.py` and `check_knowledge_stamps.py` are
   stdlib-only; the plugin-install model (check the `plugin-structure` skill for whether a plugin can declare or
   install dependencies).
@@ -166,7 +166,7 @@ here, re-read before citing, and must not re-derive anything.
   recommendation. Record their answer as the Decision, status `accepted`. Files:
   `docs/adr/0007-validator-runtime.md`.
 
-- [ ] **Task 5: Write ADR 0008, "Stamp every fact, gate only behavioural ones (revised)"
+- [x] **Task 5: Write ADR 0008, "Stamp every fact, gate only behavioural ones (revised)"
   (`supersedes: [0003]`).** (depends on 1)
   Restate 0003 §2–§4 (fact classes, out-of-range behaviour, gate carried by this plugin) in substance. Replace:
   - the version-source rationale with **determinism**, per `knowledge/README.md` §1.1 (E16). Keep the
@@ -177,7 +177,7 @@ here, re-read before citing, and must not re-derive anything.
   Mark 0003's follow-up on `applies.since` as discharged by `knowledge/README.md` §3. Status `accepted` (this
   records a convention already in force). Files: `docs/adr/0008-version-gating-revised.md`.
 
-- [ ] **Task 6: Flip the superseded ADRs, update the index, and relink the blueprint answers.** (depends on 3, 4, 5)
+- [x] **Task 6: Flip the superseded ADRs, update the index, and relink the blueprint answers.** (depends on 3, 4, 5)
   - Set 0002 to `status: superseded-by-0006` and 0003 to `status: superseded-by-0008`, with `date: 2026-09-23`
     on both. Change no other text in either.
   - In `docs/adr/README.md`, add rows for 0006, 0007 and 0008, and update the 0002 and 0003 status cells.
