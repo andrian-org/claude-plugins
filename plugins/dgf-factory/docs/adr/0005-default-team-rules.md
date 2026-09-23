@@ -41,7 +41,7 @@ first real project that contradicts one of these is the test, and the demotion p
 of the rule — a rule with no enforcement path is a preference, and must be labelled as one.**
 
 This ADR decides the **content** of the default rule set. It does **not** write `RULES.md`:
-`paths.rules_file` is owned by `/aif-rules`, and writing it here would breach single-writer
+`paths.rules_file` is owned by `/dgf-rules`, and writing it here would breach single-writer
 artifact ownership.
 
 ### Authoring conventions
@@ -74,13 +74,21 @@ into a generic style guide, and nothing can check it mechanically.
 |---|---|---|
 | 5 | **Auth:** JWT Bearer plus OIDC via Azure AD and DGPass. | prompt-only |
 | 6 | **Test stack:** xUnit + FluentAssertions + Moq/NSubstitute (backend); Jest and Playwright (frontend). | prompt-only |
-| 7 | **Workspace layout:** `FM/_PROCESS`, `_WORKFLOW`, `_COMPONENTS`, `_DATA`, `_LOOKUP`, `_PROFILE` naming and casing. | **script** |
+| 7 | **Workspace layout:** `FM/_PROCESS`, `_WORKFLOW`, `_COMPONENTS`, `_DATA`, `_LOOKUP`, `_PROFILE` and `Services`, plus `_STORAGE` at the workspace root — naming and casing. | **script** |
 
 These ship so that skills stop re-deriving them at every setup. Rule 7 is scriptable because
 the directory names are framework constants in `WorkspaceSettings.cs` — `Fm = "FM"`,
 `Process = "_PROCESS"`, `Workflow = "_WORKFLOW"`, `Components = "_COMPONENTS"`,
-`Data = "_DATA"`, `Lookup = "_LOOKUP"`, `Profile = "_PROFILE"` — not a convention someone
-wrote down.
+`Data = "_DATA"`, `Lookup = "_LOOKUP"`, `Profile = "_PROFILE"`, `Services = "Services"`
+(joined under `FM/`), and `StoragePath = "_STORAGE"` (joined under the workspace root, not
+`FM/` — `WorkspaceSettings.cs` L50) — not a convention someone wrote down.
+
+The script checks only constants the engine **uses**. `WorkspaceSettings.cs` also declares
+`DataSources = "_DataSources"`, `SiteMaps = "_SiteMaps"` and `Endpoints = "_EndPoints"`, but
+nothing under `src/Core` references them — endpoints load from `_COMPONENTS/Endpoints`
+(`src/Core/DGF.DataSources/Endpoints/EndpointFactory.cs:26`) — so requiring those directories
+would flag every real workspace. `_DATACALLS` exists on disk in `webasm/FM/` but is not a
+framework constant at all.
 
 Rules 5 and 6 are **defaults, not invariants.** `/dgf` setup may record a per-project override
 in `DESCRIPTION.md`, and where it does, the project wins. Shipping them as defaults saves the
@@ -110,8 +118,8 @@ than a clean one.
 
 - **Setup gets cheaper and more consistent.** Seven facts that would otherwise be re-derived,
   or derived differently, per project.
-- **Three of seven are mechanically enforceable** (rules 1, 3 as a gate, and 7), so the default
-  set is not purely advisory.
+- **Four of seven are mechanically enforceable** — rules 1 and 7 by script, rules 2 and 3 by
+  gate — so the default set is not purely advisory.
 - **Rule 3 closes a real hole opened by ADR 0004.** Whole-root scope makes base-workspace edits
   both possible to detect and important to justify.
 
@@ -119,9 +127,9 @@ than a clean one.
 
 - **Nothing was rejected, so the default/project-specific boundary is untested.** The set may
   be over-inclusive, and that will only surface when a project contradicts one.
-- **Four of seven rules are prompt-only**, which means over half the default set rests on
-  instruction-following rather than enforcement — the same honest trade-off the blueprint
-  records for the pipeline as a whole.
+- **Three of seven rules are prompt-only** (rules 4, 5 and 6), which means close to half the
+  default set rests on instruction-following rather than enforcement — the same honest
+  trade-off the blueprint records for the pipeline as a whole.
 - **Rule 1 is a Wave-1 policy, not a permanent truth.** `format-coverage.md` describes it as
   current. When JSON parity broadens it becomes wrong, and being scripted makes it *more*
   disruptive to change, not less.
@@ -131,7 +139,7 @@ than a clean one.
 
 ### Follow-ups
 
-- **`/aif-rules` writes `RULES.md`** from this decided set. This ADR is its input; it does not
+- **`/dgf-rules` writes `RULES.md`** from this decided set. This ADR is its input; it does not
   do the writing.
 - **Demotion path:** when a project contradicts a shipped default, record the counter-example,
   demote the rule to project-discovered, and supersede this ADR rather than editing it.
@@ -139,3 +147,29 @@ than a clean one.
   the boundary can actually be drawn from evidence instead of from candidates.
 - Tag rule 1 with a review date when the knowledge base lands, per [ADR 0003](0003-version-gating.md)
   §2's treatment of policy facts.
+
+## Errata
+
+Corrections of fact that do not change what this ADR decides. See
+[the ADR contract](README.md) §"Errata".
+
+- **2026-09-23** — §Consequences said "three of seven" rules were mechanically enforceable and
+  "four of seven" were prompt-only. This ADR's own enforcement tables tag rules 1 and 7
+  *script* and rules 2 and 3 *gate*, so it is **four** enforceable and **three** prompt-only
+  (rules 4, 5 and 6). Both bullets are corrected in place. Source: the two tables in
+  §Decision.
+- **2026-09-23** — §Decision and §Follow-ups named `/aif-rules` as the owner of `RULES.md`.
+  `aif-*` skills are build-time reference material that this plugin does not ship
+  ([ADR 0001](0001-independent-plugin-with-ai-factory-derived-architecture.md) §2), so in a
+  consumer's project the owner is **`/dgf-rules`**, which is what the blueprint's answer to
+  question #7 already said. Source: `docs/blueprint.md` question #7; roadmap milestone
+  "Quality & Authoring Skills".
+- **2026-09-23** — Rule 7 omitted two directory constants the engine uses: `Services`, joined
+  under `FM/` (`src/Core/DGF.Kernel/WorkspaceSettings.cs:64`, used by
+  `src/Core/DGF.Domain/Workflow/RecordsServiceWorkflowManager.cs:12`), and `_STORAGE`, joined
+  under the **workspace root** (`WorkspaceSettings.cs:50`, used by
+  `src/Core/DGF.OM/Providers/DbRowProvider.cs:166`). Both are added. The three other declared
+  constants — `_DataSources`, `_SiteMaps`, `_EndPoints` — are referenced nowhere under
+  `src/Core` and are deliberately **not** added. Read at DGF commit `aa1d5c4c2` on 2026-09-23.
+  The rule's decision — layout names and casing are framework constants, checked by script —
+  is unchanged.

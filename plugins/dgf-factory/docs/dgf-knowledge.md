@@ -13,7 +13,7 @@ kind of mistake here — they get baked into prompts and propagate into generate
 
 The exact stamp fields — `dgf_version`, `read_date`, and a per-source `sha256` — and the rule
 for when a fact needs a *version range* rather than just a stamp are decided in
-[ADR 0003](adr/0003-version-gating.md). Short version: stamp everything, range only facts whose
+[ADR 0008](adr/0008-version-gating-revised.md). Short version: stamp everything, range only facts whose
 runtime behaviour changed between releases. `dgf_version` is read from
 `src/Directory.Build.props`, never from a git tag.
 
@@ -134,9 +134,11 @@ binary is needed.
 recorded in [`docs/adr/`](adr/README.md): the estate is brownfield-dominant and a skill's unit
 of work is the whole workspaces root ([0004](adr/0004-authoring-entry-point.md)); process
 verification is structural-plus-our-own-semantics, with no headless execution
-([0002](adr/0002-process-verification.md)); version gates are necessary, so every fact is
-stamped and behavioural facts carry a range ([0003](adr/0003-version-gating.md)); and seven
-conventions ship as defaults ([0005](adr/0005-default-team-rules.md)).
+([0006](adr/0006-process-verification-revised.md), superseding 0002); validators run on Python
+with `lxml` and `jsonschema` ([0007](adr/0007-validator-runtime.md)); version gates are
+necessary, so every fact is stamped and behavioural facts carry a range
+([0008](adr/0008-version-gating-revised.md), superseding 0003); and seven conventions ship as
+defaults ([0005](adr/0005-default-team-rules.md)).
 
 ## Architectural provenance
 

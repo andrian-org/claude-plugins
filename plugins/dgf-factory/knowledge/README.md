@@ -6,8 +6,9 @@ saying which DGF it describes, when it was read, and from where. A fact without 
 not a fact; it is a guess with good formatting.
 
 This file is the operative contract. The decisions behind it are recorded in
-[ADR 0003](../docs/adr/0003-version-gating.md); where this file and the ADR's worked
-examples disagree, **this file wins** — see §3 for the one place they do.
+[ADR 0008](../docs/adr/0008-version-gating-revised.md), which superseded ADR 0003 on
+2026-09-23 and adopted §1.1 and §3 below. This file and the ADR agree; if they ever
+disagree, **this file wins** until a new ADR settles it.
 
 `scripts/check_knowledge_stamps.py` enforces everything mechanically checkable below.
 
@@ -42,10 +43,10 @@ states anywhere, and it lags: git tags reach `1.1.15` and release notes exist th
 `1.1.15`. So a fact stamped `1.1.11` may well have been read from a tree that is
 behaviourally `1.1.15`.
 
-This is accepted. ADR 0003 gives "a stamp that lags is worse than no stamp" as the reason
-to prefer the props file over a tag, and that particular reason does not survive — the
-props file *is* the lagging source. The conclusion still holds, for a better reason:
-**determinism.** `git describe` on a DGF checkout returns a different value depending on
+This is accepted. The superseded ADR 0003 gave "a stamp that lags is worse than no stamp"
+as the reason to prefer the props file over a tag, and that reason does not survive — the
+props file *is* the lagging source. The conclusion still holds, for a better reason, which
+[ADR 0008](../docs/adr/0008-version-gating-revised.md) §1 records: **determinism.** `git describe` on a DGF checkout returns a different value depending on
 which branch is checked out (on one branch it returns `1.1.12-21-gaa1d5c4c2`, with `1.1.13`
 and `1.1.15` unreachable), while the props file returns the same value regardless. The gate
 in §4 must be reproducible, and a version source that shifts with branch state is not.
@@ -98,13 +99,9 @@ never fires for such a fact, so it applies to every consumer version.
 **`until: null` — no known end.** The range is open-ended: true from `since` onward until
 proven otherwise. It is **not** "true through `dgf_version`".
 
-> ADR 0003 §2 annotates `until: null` with *"still true at dgf_version"*. That comment is
-> superseded by this section. Its own example pairs `since: "1.1.15"` with
-> `dgf_version: "1.1.11"`, and 1.1.11 is below 1.1.15 — so the fact is *not* true at
-> `dgf_version` and the comment is wrong as written. Under the open-ended reading the example
-> is coherent; under the other it needs a special case for every fact whose `since` exceeds
-> the stamp, starting with the ADR's own flagship TreeTable example. The ADR is not edited;
-> decisions are reversed by a superseding ADR, never in place.
+> Both conventions are decided in [ADR 0008](../docs/adr/0008-version-gating-revised.md) §3,
+> which also records why the superseded ADR 0003's reading of `until: null` ("still true at
+> `dgf_version`") had to go: it made its own flagship TreeTable example incoherent.
 
 ## 4. Out-of-range behaviour — the gate
 
@@ -165,7 +162,7 @@ set — is stamped and is checked.
 
 ## See Also
 
-- [ADR 0003 — Stamp every fact, gate only behavioural ones](../docs/adr/0003-version-gating.md)
+- [ADR 0008 — Stamp every fact, gate only behavioural ones (revised)](../docs/adr/0008-version-gating-revised.md)
 - [DGF Knowledge Sourcing](../docs/dgf-knowledge.md) — the reader-facing version of §5
 - [DGF Schemas](../docs/dgf-schemas.md) — inventories, correspondence map, vendoring contract
 - [`schemas/MANIFEST.md`](schemas/MANIFEST.md) — what was vendored, from which commit, with digests

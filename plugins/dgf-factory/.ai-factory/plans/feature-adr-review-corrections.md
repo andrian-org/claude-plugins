@@ -193,7 +193,7 @@ here, re-read before citing, and must not re-derive anything.
 
 ### Phase 3: Errata and propagation
 
-- [ ] **Task 7: Add a dated `## Errata` section to ADR 0005.** (depends on 1)
+- [x] **Task 7: Add a dated `## Errata` section to ADR 0005.** (depends on 1)
   Correct four things:
   - the enforceable/prompt-only counts (E14), fixing the Positive and Negative bullets in place;
   - the `RULES.md` owner, which becomes `/dgf-rules` (E15; `/aif-rules` does not ship);
@@ -206,7 +206,7 @@ here, re-read before citing, and must not re-derive anything.
   Also add `docs/adr/0002` L137→L127 as an erratum **in 0006's Context** (0002 itself is frozen once
   superseded). Files: `docs/adr/0005-default-team-rules.md`.
 
-- [ ] **Task 8: Point the remaining live documents at the successors.** (depends on 6)
+- [x] **Task 8: Point the remaining live documents at the successors.** (depends on 6)
   The blueprint relinks already happened in Task 6. The header note moves to Task 10.
   - `knowledge/README.md`:
     - repoint ADR 0003 citations to 0008;
@@ -296,3 +296,24 @@ check script to exit `0` before finishing.
   milestone 8 as blocked. Do not guess the runtime.
 - **Single-writer edits (Task 8)** may need owner commands that assume an interactive session. Deferring with a
   recorded follow-up is acceptable; hand-editing `ROADMAP.md` or `DESCRIPTION.md` is not.
+
+## Follow-ups found during implementation
+
+- **`knowledge/naming-conventions.md` §1 is wrong in two ways** (found in Task 7, 2026-09-23). It
+  lists `_STORAGE` under `<workspace>/FM/`, but `WorkspaceSettings.cs:50` joins it under the
+  workspace root. It also presents `_DataSources`, `_SiteMaps` and `_EndPoints` as live
+  directories, but nothing under `src/Core` references them. It is a stamped fact, so it is not
+  edited in this plan. Correct and re-stamp it in milestone 8, before the rule-7 layout script is
+  written against it.
+- **Owner-routed edits deferred from Task 8** (user decision, 2026-09-23). Neither owner skill
+  could run in this session. The old links still resolve because superseded ADRs are kept.
+  - `/aif-roadmap`: reword milestone 8 ("Deterministic Validators"). Replace "the four
+    process-semantic checks ADR 0002 commits to — dead transition, unreachable state, handler
+    resolution, process `BASE:` references" with the ADR 0006 set: structural check with a
+    runtime-divergence allowance, dead transition (End-exempt), unreachable state (warning),
+    workflow-reference resolution, validation-flow resolution and change-state target resolution.
+    Add the ADR 0007 runtime (`scripts/requirements.txt`, NJsonSchema inheritance pre-pass) and
+    link 0006/0007/0008 in place of 0002/0003. Repoint "Gate Contract Wired" from 0002 to 0006.
+  - `/aif`: in `.ai-factory/DESCRIPTION.md`, relink L76, L97 and L171 from 0002 to 0006 (L171's
+    "§4" becomes 0006 §4), and L98 from 0003 to 0008. Add a verified-facts row for the validator
+    runtime (ADR 0007).
