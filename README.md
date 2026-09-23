@@ -58,7 +58,7 @@ Add `enabledPlugins` yourself. Commit the file — a fresh clone is then ready t
 | Plugin | What it does |
 |---|---|
 | `doc-coverage-audit` | Maps a deliverables checklist to the documents that actually exist, with verified links and gap analysis. Built for close-out, hand-over, due diligence and audit evidence. |
-| `zamconnect` | ZamConnect tenant lifecycle: scaffolding, upstream and shared e-Services integration, drift audit, test generation, and the contractual delivery package (OpenAPI, Word API Specification, Postman). |
+| `zamconnect-integration` | ZamConnect tenant lifecycle: scaffolding, upstream and shared e-Services integration, drift audit, test generation, and the contractual delivery package (OpenAPI, Word API Specification, Postman). |
 
 ## Contributing a plugin
 

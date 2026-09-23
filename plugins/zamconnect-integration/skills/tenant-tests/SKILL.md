@@ -1,7 +1,7 @@
 ---
 name: tenant-tests
 description: Scaffold and write the test project for a ZamConnect tenant — `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a mock HTTP handler standing in for the upstream, and endpoint tests that drive the tenant's real Carter modules or controllers over HTTP. Optionally adds an `[Explicit]` staging fixture that calls the live upstream. Use when the user says "add tests for <Tenant>", "test this integration", "write module tests", "cover <Tenant> endpoints", or types /tenant-tests.
-argument-hint: "<TenantName> [--module <Name> ...] [--live] [--no-scaffold]"
+argument-hint: "<TenantName> [--module <Name> ...] [--coverage full|errors|smoke] [--live] [--no-scaffold] [--auto] [--dry-run]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion
 disable-model-invocation: false
 ---
@@ -12,6 +12,8 @@ disable-model-invocation: false
 
 All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`).
 
+Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`.
+
 ## Arguments
 
 | Argument | Meaning |
@@ -19,7 +21,33 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | `<TenantName>` | Tenant under `src/Tenants/<TenantName>/`. Test project goes to `src/Tests/<TenantName>.Tests/` |
 | `--module <Name>` | Cover only these modules/controllers; repeatable. Default: every one the tenant exposes |
 | `--live` | Also generate the staging fixture that calls the real upstream (`[Explicit]`, `[Category("Staging")]`) |
-| `--no-scaffold` | Project already exists — add fixtures only |
+| `--coverage full\|errors\|smoke` | Which cases each route gets — see step 6. Default `full` |
+| `--no-scaffold` | Project already exists — add fixtures only. Detected: when `src/Tests/<TenantName>.Tests/` exists, this is implied and never asked |
+| `--gate <n>/<N>` | Gate mode, set by `tenant-pipeline` |
+| `--auto` | No questions: every default |
+| `--dry-run` | Stop at the review and write nothing |
+
+## Gate
+
+Only with `--gate <n>/<N>`. One `AskUserQuestion` call. Nothing here is required, so the gate is asked alone:
+
+| Header | Question | Options |
+|---|---|---|
+| `Step <n>/<N>` | `/tenant-tests <T>` — scaffold `src/Tests/<T>.Tests` if missing and write endpoint tests for <k> routes. Run it? | `Proceed (Recommended)` — full coverage matrix, every module, no live fixture · `Customize…` — choose coverage, modules, live staging fixture · `Skip` · `Stop` |
+
+`<k>` is the route count from step 1. When the project already exists, the question says "add fixtures to the existing `src/Tests/<T>.Tests`" instead.
+
+`Customize…` asks one call, leaving out any question whose flag was passed:
+
+| Header | Question | Options | → flag |
+|---|---|---|---|
+| `Coverage` | What should each route be tested for? | `Full matrix (Recommended)` — happy path, upstream 404, upstream 500, forwarded body, route contract · `Happy path + errors` — no forwarded-body or route-contract cases · `Smoke only` — happy path per route | `--coverage` |
+| `Modules` | Which modules or controllers? (`multiSelect`) | The tenant's modules from step 1, with their route counts, up to 3 · `All <n> modules (Recommended)`. With more than 4, spread them over up to 3 more questions in this call (R9) | `--module` |
+| `Live` | Add a staging fixture that calls the real upstream? | `No (Recommended)` · `Yes — [Explicit], [Category("Staging")], reads appsettings.local.json` | `--live` |
+
+`Skip` → `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`.
+
+Before writing, one R6 review: the files to create (project, handler, factory, one fixture per module, the `Program` edit if needed), the test count per module, and the equivalent command. Options `Apply (Recommended)` · `Adjust` · `Cancel`. With `--dry-run`, print it and stop.
 
 ## 1. Read the tenant
 
@@ -206,7 +234,7 @@ public class <Name>ModuleTests
 }
 ```
 
-What to cover, per route:
+What to cover, per route. `--coverage full` takes all five, `errors` the first three, `smoke` the first only:
 
 - **Happy path** — upstream 200 maps to the tenant's public response shape. Assert on field **names and values**, not just the status, since the DTO boundary is the whole point of the mapper
 - **Upstream 404** — surfaces as `ProblemDetails` with the tenant's own status, via `CustomResults.Problem`
@@ -257,6 +285,12 @@ dotnet test src/Tests/<TenantName>.Tests/<TenantName>.Tests.csproj -v q --nologo
 
 All non-`[Explicit]` tests must pass. If a test fails because the tenant is wrong rather than the test, say so and fix the tenant — do not weaken the assertion to make it green.
 
+When tests fail, and not with `--auto`, ask once with header `Failures`. The question text lists each failing test and the one-line cause:
+
+- `Fix the tenant and re-run (Recommended)` — the failure shows a tenant defect: fix it, re-run, ask again if it still fails
+- `Fix the test and re-run` — only when the test itself is wrong, e.g. it asserts the wrong casing for this tenant's JSON options. Never to weaken an assertion
+- `Stop with the failures reported` — in gate mode, `GATE-RESULT: failed <n> tests failing`
+
 Common failures:
 
 - `Invalid URI: The format of the URI could not be determined` — a `__Endpoints.*__` placeholder the in-memory configuration did not override
@@ -266,6 +300,8 @@ Common failures:
 ## Report
 
 One line per file created, the solution entry, and the `dotnet test` result as counts (passed / failed / skipped). Then a table of routes covered against routes exposed, and name any route left untested and why.
+
+End with the equivalent command (R7), e.g. `/tenant-tests PQPS --coverage full --live`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>`.
 
 ## Sensitive data
 

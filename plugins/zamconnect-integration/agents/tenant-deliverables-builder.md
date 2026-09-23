@@ -12,6 +12,14 @@ Load the `tenant-deliverables` skill first and follow it — it is the authority
 section structure, the three role documents and every gate. This file says only how to drive it
 without re-deriving by hand what a script already establishes.
 
+**You cannot ask the developer anything.** `AskUserQuestion` doesn't exist inside a subagent, so
+skip the skill's `## Questions` section and work from the flags in your prompt: `--route`,
+`--version`, `--roles`, `--author`, `--provide-paths`, `--out`. Every missing flag takes the
+default the skill names. There is one exception: an endpoint that `inspect_tenant.py` marks
+`UNKNOWN` or `Provide?` and that `--provide-paths` doesn't settle. Don't guess it and don't build.
+Return the list of unresolved paths, each with the client its module injects, so the caller can
+ask and dispatch you again.
+
 **You produce documents only.** The tenant's source and the ZamConnect libraries are read-only
 input: you do not edit, add or delete anything under `src/Tenants/<Tenant>/`, `src/Core/`,
 `src/Gateway/`, any `.csproj`, `.sln`, `appsettings*.json`, pipeline or compose file — not even
@@ -36,8 +44,10 @@ configuration, Swagger readiness, and which roles to render. Run this first and 
 of opening the modules, `Program.cs`, both `appsettings`, the csproj and the gateway config.
 
 It marks what it cannot settle. `UNKNOWN` means you must open that module and read the injected
-client yourself; `Provide?` is an inference to confirm the same way. Never leave either
-unresolved — an endpoint in the wrong section is a wrong contract.
+client yourself; `Provide?` is an inference to confirm the same way. When reading the client
+settles it beyond doubt, add the path to `--provide-paths` yourself, and say so in the report.
+When it doesn't, return it unresolved, as above. An endpoint in the wrong section is a wrong
+contract.
 
 **2. `build_package.py <TENANT> --route <r> --version <X.Y> --roles tenant,consumer`**
 — build, export, gateway prefix, folder layout, archiving, one DOCX per role, the Postman

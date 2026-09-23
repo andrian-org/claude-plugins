@@ -1,8 +1,8 @@
 ---
 name: tenant-audit
 description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every `RestEndpoint` client has a matching `Endpoints:<Name>` configuration section in both appsettings files, that no real credential escaped a `__Token__` placeholder, and that its docs, Postman collection and test project exist. Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
-argument-hint: "[<TenantName>|--all] [--only registration|slugs|config|secrets|spec|tests|docs] [--fix]"
-allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Edit Write
+argument-hint: "[<TenantName>|--all] [--only registration|slugs|config|secrets|spec|tests|docs] [--fix [registration]] [--report-only] [--auto]"
+allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Edit Write AskUserQuestion
 disable-model-invocation: false
 ---
 
@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 A tenant can build cleanly and still be broken: unregistered in the pipeline, deployed under a name the gateway route does not resolve, or running with an upstream client that silently has no `HttpClient`. None of that fails a build. This skill finds it.
 
-Read-only by default. `--fix` permits edits, and only for the checks marked fixable below.
+Read-only by default. Nothing is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix`, and even then only the checks marked fixable below. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`.
 
 All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`).
 
@@ -21,7 +21,9 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | `<TenantName>` | Audit one tenant |
 | `--all` | Audit every tenant under `src/Tenants/`. Default when no tenant is given |
 | `--only <check>` | Run only these checks; repeatable |
-| `--fix` | Apply the fixable repairs instead of only reporting them |
+| `--fix [<check>...]` | Apply the fixable repairs without asking: all of them, or only the named checks |
+| `--report-only` | Report, and don't ask the fix question |
+| `--auto` | Same as `--fix` — every fixable repair, no questions. `tenant-pipeline --auto` passes it |
 
 Folders with no `.csproj` (`Certificates`, `DotGovDocs`, `MOHAIS`, `PO`, `PluginTest`, `TestConsoleTenant`, `TestPluginTenant`) are not tenants. Skip them silently — they are placeholders, not drift.
 
@@ -49,7 +51,7 @@ grep -l "tenant: <TenantName>$" .azure/tenant.azure-pipelines.*.yaml
 
 Known at time of writing: `CloudAdmin`, `ZamData` and `ZamMobile` have compose services but **no pipeline file**. Re-derive rather than trusting that list.
 
-Fixable with `--fix`: all three. Generate the pipeline and compose entries exactly as `tenant-init` §4 and §5 specify.
+Fixable (through the fix question or `--fix`): all three. Generate the pipeline and compose entries exactly as `tenant-init` §4 and §5 specify.
 
 ## Check 2 — Slug consistency
 
@@ -110,7 +112,7 @@ No tenant matches today, so any hit is new. Treat it as a finding regardless of 
 
 ## Check 5 — API spec readiness
 
-`/api-spec-sync <Tenant>` needs metadata that has to already be in the code. Only `src/Tenants/APIS` currently satisfies all of it.
+`/tenant-deliverables <Tenant>` (and the repo-local `/api-spec-sync`) need metadata that has to already be in the code. Tenants scaffolded by `tenant-init` 0.3+ start with the project-level half; `/tenant-integration <Tenant> --spec-only` adds the rest. Only `src/Tenants/APIS` currently satisfies all of it.
 
 - `<GenerateDocumentationFile>true</GenerateDocumentationFile>` and `<NoWarn>$(NoWarn);CS1591</NoWarn>` in the csproj
 - `AddSwaggerGen` with a populated `OpenApiInfo` and `IncludeXmlComments` in `Program.cs`
@@ -148,6 +150,24 @@ git log -1 --format=%ad --date=short -- src/Tenants
 
 Internal platform tenants (`CloudAdmin`, `GOVZM`, `MobileID`, `ZamMobile`, `ZamData`, `NIR`, `NLR`, `NDR`, `NDW`, `NDP`) are excluded from that table by design — do not report them as missing rows.
 
+## Fixing
+
+After the report, when at least one finding is fixable and neither `--fix` nor `--report-only` was passed, ask once. Header `Fix`, `multiSelect: true`. Each option is one concrete repair, labelled with what it writes:
+
+```
+Apply fixes for PQPS? Only the ticked repairs are written. The rest of the report stays as-is.
+  [ ] Fix all 3 fixable findings (Recommended)
+  [ ] Add .azure/tenant.azure-pipelines.pqps.yaml       check 1 — never deployed without it
+  [ ] Add core-pqps to docker-compose.yml               check 1
+  [ ] Add PQPS to ZamConnect.sln (Tenants folder)       check 1
+```
+
+With more than 3 fixable findings, show the 3 most severe plus `Fix all <n> fixable findings`. Under `--all`, one option per root cause across tenants: `Add pipeline files for CloudAdmin, ZamData, ZamMobile`.
+
+Findings that aren't fixable — a missing `Endpoints:<Name>` section, a committed credential, a slug that must match a variable group — are **never** options. They stay in the report with the exact block to add.
+
+Apply the picked repairs exactly as `tenant-init` §4 and §5 specify, re-run the checks they belong to, and report the new status.
+
 ## Report
 
 Lead with the findings, not the checks that passed.
@@ -165,6 +185,8 @@ Severity, highest first:
 5. Everything else
 
 Close by naming what the audit cannot see: the `GSB.<TENANT>.<ENV>` variable-group contents, the ADO pipeline definitions, and the live YARP scope/cluster/route registrations in the gateway admin.
+
+When anything was repaired, end with the equivalent command, e.g. `/tenant-audit PQPS --fix registration`.
 
 ## Sensitive data
 

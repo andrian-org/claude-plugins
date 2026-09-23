@@ -1,7 +1,7 @@
 ---
 name: integrate-shared
 description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "which shared endpoints are available", or types /integrate-shared.
-argument-hint: "[<TenantName>] [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes] [--all] [--new] [--list]"
+argument-hint: "[<TenantName>] [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list] [--auto] [--dry-run]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -14,6 +14,8 @@ This skill selects that subset interactively and generates the wiring.
 
 All paths below are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`). Resolve it once and never write an absolute path into generated code, config, or the report.
 
+Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Every option is a complete answer (R12). The catalogue holds more than 4 sources, so the menus group first and drill down after (R9).
+
 ## Arguments
 
 | Argument | Meaning |
@@ -24,11 +26,28 @@ All paths below are relative to the ZamConnect repository root (the directory ho
 | `--base-path <path>` | Route group prefix. **Default: none** — routes sit at the tenant root. Pass one only when the tenant already groups its own surface under a prefix |
 | `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
 | `--mode <mode>` | `inherit` \| `common` \| `routes`. Default chosen per step 4 |
+| `--dto shared\|tenant` | Return the shared response models, or tenant DTOs plus a mapper. Default `shared` |
 | `--all` | Every operation in the catalogue — equivalent to `--mode inherit` |
 | `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
 | `--list` | Print the catalogue (step 1) and stop. No files written |
+| `--gate <n>/<N>`, `--recommend proceed\|skip` | Gate mode, set by `tenant-pipeline` |
+| `--auto` | No questions. Uses `--source` / `--endpoint` / `--all` as given; with none of them, stops with `missing --source <SYS> or --all` |
+| `--dry-run` | Stop at the confirmation in step 3 and write nothing |
 
 `--source` and `--endpoint` combine: sources expand to all their operations, then `--endpoint` adds individual ones.
+
+## Gate
+
+Only with `--gate <n>/<N>`. **One** `AskUserQuestion` call holds the gate and, unless `--source`, `--endpoint` or `--all` was passed, the group question from 3b (R4). Which e-Services to expose has no default.
+
+| Header | Question | Options |
+|---|---|---|
+| `Step <n>/<N>` | `/integrate-shared <T>` — republish shared e-Services (NIR, PACRA, ZRA…) on this tenant through `EServicesShared`. Run it? | `Proceed` — every operation of the groups picked below, `routes` mode (`inherit` if everything is picked), tag `EServices`, no base path, shared response models · `Customize…` — also choose operations, Swagger tag, module mode, response models · `Skip` · `Stop` |
+| `e-Services` | The 3b group question | the four groups |
+
+`(Recommended)` goes on `Proceed` with `--recommend proceed`, and on `Skip` with `--recommend skip`. The option order doesn't change. `Skip` → `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`.
+
+With `Proceed`, skip 3c and 3d: every operation of the picked groups is exposed, and step 3's confirmation shows them. With `Customize…`, ask 3c and 3d as well.
 
 ## 1. Rescan the catalogue
 
@@ -106,13 +125,29 @@ grep -rln "EServicesShared" src/Tenants --include=Program.cs
 
 Offer the tenants that already inject `EServicesShared` first (extending an existing integration), then the rest. A tenant not in `src/Tenants` means `--new` — run `tenant-init` before continuing.
 
-**3b — Sources.** `multiSelect: true` over the regions found in step 1, each option labelled with the system and its operation count (`NIR — 6 operations`, `ZRA — 2 operations`). Add an "All sources" option that sets `--all`.
+**3b — Groups.** Header `e-Services`, `multiSelect: true`. The ten regions don't fit in 4 options, so group them. Take the counts from the step 1 rescan, not from this example:
 
-**3c — Endpoints.** `multiSelect: true` over the operations of the chosen sources, each option labelled `METHOD /route — purpose`. Pre-select every operation of a source the user picked whole; the user deselects what the tenant must not expose. Skip this question entirely when `--all` is set. Split into one question per source when the selection exceeds what a single menu holds.
+| Option | Covers |
+|---|---|
+| `Identity — NIR (6 operations)` | NIR |
+| `Business registries — NBR, DOC, SRS (3)` | NBR / PACRA, cooperatives, societies |
+| `Immigration — ZDI (5)` | permits, immigrants, passports |
+| `Land, tax, health, education — NLR, ZDA, ZRA, MOH, NAIR (6)` | the rest |
 
-**3d — Placement.** Only when the choice is genuinely open (see step 4): Swagger tag and module mode. Do not ask about a base path — the default is none, and a tenant that needs one already has a prefix in its existing modules to match.
+A region the rescan finds that isn't in this table joins the last group, with its name added to the label. The question text says "Pick every group you need; each one is expanded to its operations next". There is no `All sources` option: picking all four groups means the same thing, and sets `--all`.
 
-Confirm the final selection as a table — key, method, route — before writing a single file.
+**3c — Operations.** Asked under `Customize…`, or without a gate when no `--endpoint` was passed. `multiSelect: true` over the operations of the chosen groups, each option labelled `METHOD /route — purpose` (`GET /nir/persons/nrc/{nrc} — person by NRC`). One question per group, at most 4 questions per call (R9). A group with more than 4 operations shows 3 plus `All <n> <group> operations`, which selects the rest. The question text says that only the ticked operations are exposed.
+
+**3d — Placement.** `Customize…` only, one call:
+
+| Header | Options |
+|---|---|
+| `Tag` | `EServices (Recommended)` · the tag the tenant's existing modules already use, if there is one |
+| `Mode` | The step 4 default `(Recommended)` · the other two modes, each with its one-line "use when" from step 4 |
+| `Models` | `Shared response models (Recommended)` · `Tenant DTOs + mapper` |
+| `Base path` | Only when the tenant's existing modules already group under a prefix: `None (Recommended)` · that prefix |
+
+Then one R6 confirmation. The question text is the table — key, method, route, response model — plus the files to write and the equivalent command. Options `Apply (Recommended)` · `Adjust` · `Cancel`. `Adjust` re-asks whichever of 3b, 3c or 3d is picked. With `--dry-run`, print it and stop.
 
 ## 4. Choose the module mode
 
@@ -228,11 +263,13 @@ Must report `0 Error(s)`. Then, without running the app:
 - No route collides with one the tenant already exposes — `grep -rn "MapGroup\|MapGet\|MapPost" src/Tenants/<TenantName>/Modules/`
 - Every generic call passes both type arguments and a `map` delegate
 
-Offer `/api-spec-sync <TenantName>` to regenerate the OpenAPI JSON, DOCX specification, and Postman collection.
+The new routes change the tenant's contract. Outside `tenant-pipeline`, which runs it for you, name `/tenant-deliverables <TenantName>` as the next step: it regenerates the OpenAPI JSON, DOCX specification and Postman collection.
 
 ## Report
 
 One line per file added or changed, then a table of the exposed routes (method, path, shared operation, upstream gateway path). Close with what stays outside this skill: the gateway credentials themselves, the tenant's entitlement to each e-Service on the gateway side, the Helm `values.tenant.yaml` entry, and the `azure-pipelines.yaml` stage.
+
+End with the equivalent command (R7), e.g. `/integrate-shared PQPS --source NIR --endpoint nbr.entity --mode routes`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 
 ## Sensitive data
 

@@ -26,14 +26,14 @@
       ]
     },
     {
-      "name": "zamconnect",
+      "name": "zamconnect-integration",
       "description": "ZamConnect tenant tooling: tenant scaffolding, shared-library integration, drift audit, test generation and delivery document packages (OpenAPI, Word API Specification, Postman).",
       "author": {
         "name": "Ruslan Solihodjaev",
         "email": "ruslan.solihodjaev@dotgovsolutions.net"
       },
       "category": "development",
-      "source": "./plugins/zamconnect",
+      "source": "./plugins/zamconnect-integration",
       "keywords": [
         "zamconnect",
         "tenant",

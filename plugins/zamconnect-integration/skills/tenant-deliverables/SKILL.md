@@ -1,7 +1,7 @@
 ---
 name: tenant-deliverables
 description: Generate the full delivery document set for a ZamConnect tenant — the OpenAPI JSON, the Word API Specification and the Postman collection, laid out in the Consumer/Provider/Tenant folders under the tenant's Deliverables directory, with every section of the document filled from the tenant's own source rather than left as boilerplate. Documentation only — never modifies tenant code or any ZamConnect library. Routes are always written with the gateway prefix (`/t/pqps/hub/pesticides`, never the bare controller route). Use when the user says "generate the documents for <Tenant>", "produce the API specification for <Tenant>", "build the deliverable package", "make the tenant docs", or types /tenant-deliverables.
-argument-hint: "<Tenant> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>]"
+argument-hint: "<Tenant> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--auto] [--dry-run]"
 allowed-tools: Read Glob Grep Write Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(cp *) Bash(dotnet build *) Bash(dotnet tool run *) Bash(python *) Bash(powershell *) Bash(git status *) Bash(git log *) Bash(git diff *) AskUserQuestion
 disable-model-invocation: false
 ---
@@ -89,6 +89,52 @@ Whatever the role, the role word lives in three places, and the last is a separa
 | `--roles` | Which documents to render. Default: whichever the tenant actually has — `tenant` always, `consumer` when it consumes, `provider` when it provides |
 | `--out <dir>` | Where the package is written — this directory holds the five role folders directly. Default: `src/Tenants/<Tenant>/Deliverables/`. Override only when the user asks for a location outside the repository |
 | `--version <X.Y>` | Document version. Bump only when the contract changed; keep it for a docs-only re-render |
+| `--author <name>` | Author on the Document History row. Default `dotGov Solutions LLC` |
+| `--provide-paths <path> ...` | OpenAPI paths that are Provide; every other path is Consume. Passed straight to `build_package.py`. When absent, settled in the classification question below |
+| `--gate <n>/<N>` | Gate mode, set by `tenant-pipeline` |
+| `--auto` | No questions. Every default; stops with `unresolved endpoint <path>: pass --provide-paths` when an endpoint is `UNKNOWN` or `Provide?` |
+| `--dry-run` | Run `inspect_tenant.py` and the review, then stop. Nothing is built or written |
+
+## Questions
+
+Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Run `inspect_tenant.py` first: every default below comes from it or from the package on disk (R5), never from the developer's memory.
+
+**Gate** — only with `--gate <n>/<N>`. One call:
+
+| Header | Question | Options |
+|---|---|---|
+| `Step <n>/<N>` | `/tenant-deliverables <T>` — build the OpenAPI JSON, the Word specifications and the Postman collection into `Deliverables/`. Run it? | `Proceed (Recommended)` — route `<route>`, version `<v>`, roles `<roles>`, author `dotGov Solutions LLC`, superseded files to `Archive/` · `Customize…` — choose version, roles, author, output folder · `Skip` · `Stop` |
+
+The defaults written into `Proceed` are the real values: the route from `GATEWAY-CONFIG.md`, the roles `inspect_tenant.py` derived, and the version. That's `1.0` for a new package; for an existing one, the version in the running header of `Deliverables/Tenant/<CODE> (t) API Specification.docx`, read by unzipping `word/header*.xml`, never by opening it in Word. `Skip` → `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`.
+
+**Customize** — `Customize…` only, or without a gate when the flag is absent and there's a real choice:
+
+| Header | Question | Options | → flag |
+|---|---|---|---|
+| `Version` | Document version? | New package: `1.0 (Recommended)` · `0.9 — draft for review`. Existing `<v>`: `Keep <v> — docs-only re-render (Recommended)` · `<v+0.1> — the contract changed` · `<major+1>.0 — breaking change` | `--version` |
+| `Roles` | Which documents? | The derived set `(Recommended)`, e.g. `Tenant + Consumer — derived from the injected clients` · `All three` · `Tenant only` | `--roles` |
+| `Author` | Author on the Document History row | `dotGov Solutions LLC (Recommended)` · the `git config user.name` value | `--author` |
+| `Output` | Where to write the package? | `src/Tenants/<T>/Deliverables/ (Recommended)` · the `--out` of the last run, if state has one | `--out` |
+
+**Classification** — always asked when `inspect_tenant.py` reports any endpoint as `UNKNOWN` or `Provide?`, because a wrong split is a wrong contract (step 3). One question per endpoint, 4 per call, header `Split`:
+
+```
+GET /t/pqps/hub/pesticides — HubModule injects PqpsService (Endpoints:Pqps). Consume or Provide?
+  ( ) Provide — served from PQPS's own system (Recommended)
+  ( ) Consume — reached through the ZamConnect gateway
+```
+
+The description names the injected client and the config section that decided the recommendation. When the pipeline state records `role: provide` for the integration that added a route, that is the recommended answer. The answers become `--provide-paths`.
+
+**Review** — one R6 call before `build_package.py` writes anything. Options `Apply (Recommended)` · `Adjust` · `Cancel`. The question text lists the documents per role folder, what moves to `Archive/`, and the equivalent command. With `--dry-run`, print it and stop.
+
+**Code findings** — after the build, when the report lists code findings (missing `///`, `.WithTags`, `.WithSummary`, undeclared response codes), and not with `--auto`, ask with header `Findings`:
+
+- `Fix them now, then re-render (Recommended)` — invoke `tenant-integration <T> --spec-only`. It makes the code changes, which this skill never does. Then re-run `build_package.py` with the same flags
+- `Hand over the list` — keep the documents as rendered, and report the findings by file and member
+- `Stop`
+
+This skill still writes no code. The fix is `tenant-integration`'s, run as a separate step that the developer picked.
 
 ## 1. Establish the tenant's shape
 
@@ -432,6 +478,8 @@ Write into `src/Tenants/<Tenant>/Deliverables/` itself (unless `--out` overrides
 `Integration Requests` is never generated. It holds upstream material — the counterpart's own API document, mapping spreadsheets, sample certificates — plus a `readme.md` giving the source URL of each. Carry these across unchanged and leave the readme's links intact.
 
 Report: every file written with its path, which gates passed, whether Word repagination succeeded or fell back, and a **Code findings** list of everything the source could not supply — missing `///` comments, missing `.WithTags(…)`, undeclared response codes, committed credentials — each with the file and member to change. These are handed over, never applied: the only files this run touched are the ones listed under `Deliverables/`.
+
+End with the equivalent command (R7), e.g. `/tenant-deliverables PQPS --route pqps --version 1.0 --roles tenant,provider --provide-paths /t/pqps/hub/pesticides`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <gate or reason>` when a gate fails on something other than a reported source gap.
 
 ## Sensitive data
 

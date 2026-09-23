@@ -1,7 +1,7 @@
 ---
 name: tenant-integration
 description: Build the integration surface of an existing ZamConnect tenant — upstream REST or SOAP client(s) under Endpoints/, request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides whether the client derives from RestEndpoint or SoapEndpoint. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "expose these endpoints on <Tenant>", or types /tenant-integration.
-argument-hint: "<TenantName> [--source <url|path|wsdl>...] [--expose <METHOD /route>...] [--protocol rest|soap]"
+argument-hint: "<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth Basic|JWT|Custom|RA|ClientCertificate|None] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run]"
 disable-model-invocation: false
 ---
 
@@ -14,19 +14,84 @@ Implement the business surface of a tenant that already exists (scaffold it firs
 
 The tenant always exposes REST. What it consumes is whatever the upstream speaks, and that is decided by the integration sources, not by preference — see step 1a.
 
+Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`, R12 above all: **every option is a complete answer**. This skill never offers a source *type* as an option, never asks for anything the source already says (protocol, SOAP version, operations, auth block), and never writes "pick Other and…" in an option.
+
+## Arguments
+
+| Flag | Meaning | When absent |
+|---|---|---|
+| `<TenantName>` | Existing tenant under `src/Tenants/` | Required. If the folder is missing, run `tenant-init` first |
+| `--source <url\|path>` | Integration source; repeatable | Asked (step 1, source question) |
+| `--expose <METHOD /route>` | A route the tenant should expose; repeatable | Every upstream operation, confirmed in the review |
+| `--protocol rest\|soap` | Overrides the classification in step 1a | Detected from the source |
+| `--auth <scheme>` / `--auth-header <name>` | Upstream auth. `--auth-header` goes with `Custom` | Detected from the source. Asked only when it can't be |
+| `--system <Name>` | Upstream system name: the client class, `Models/<Name>/`, the config token `<SYSTEM>` | Derived from the source title. Asked only under `Customize…` or when there's nothing to derive it from |
+| `--role provide\|consume` | Whether the exposed routes serve this tenant's own institution (`provide`) or data reached back through the gateway (`consume`). `tenant-deliverables` uses it to split the Consume/Provide documents | `provide` |
+| `--dto public\|passthrough` | Public DTOs plus a mapper, or return the upstream shape as-is | `public` |
+| `--modules system\|domain` | One Carter module per upstream system, or per business domain | `system` |
+| `--timeout <seconds>` | Upstream `Timeout` (REST only) | The `RestEndpoint` default |
+| `--no-spec-ready` | Skip step 8 | Step 8 runs |
+| `--spec-only` | Run only step 8 on the tenant's existing surface, then the step 7 build. No source is needed and no questions are asked. `tenant-deliverables` uses it to fix the code findings it reports | Full integration |
+| `--gate <n>/<N>`, `--recommend` | Gate mode, set by `tenant-pipeline` | No gate |
+| `--auto` | Every `(Recommended)` default, no questions. Stops with `missing --source <url\|path>` if there's none | Interactive |
+| `--dry-run` | Stop at the review (step 1, review) and write nothing | Writes |
+
+## Gate
+
+Only with `--gate <n>/<N>`. **One** `AskUserQuestion` call holds the gate and, unless `--source` was passed, the source question (R4). The source is required and has no default.
+
+| Header | Question | Options |
+|---|---|---|
+| `Step <n>/<N>` | `/tenant-integration <T>` — build the upstream client, models, mappers and exposed routes. Run it? | `Proceed (Recommended)` — protocol and auth detected from the source, every operation exposed, public DTOs + mapper, spec-ready · `Customize…` — also choose system name, auth, data role, DTO strategy, module grouping, timeout · `Skip` · `Stop` |
+| `Source` | The source question from step 1 below | discovered sources |
+
+`Skip` → end with `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`. Either way, ignore the source answer.
+
 ## 1. Collect inputs
 
-Do not start writing code until these are settled. Ask for anything missing, in one batch.
+Don't write code until every input is settled. Ask through `AskUserQuestion` only, never in plain text.
 
-| Input | What it decides |
-|---|---|
-| **Tenant name** | Target folder `src/Tenants/<TenantName>/`. Must already exist — if not, run `tenant-init` first |
-| **Integration sources** | One or more of: Postman collection (`.json`), Swagger/OpenAPI spec (JSON or YAML, URL or file), a bare REST base URL, a SOAP WSDL (`?wsdl` URL or `.wsdl` file), or integration/API documentation (`.docx`, `.pdf`, `.md`, Confluence/SharePoint page) |
-| **Upstream protocol** | REST or SOAP — **derived from the sources, not asked**. Decides the client base class, the configuration section, and the registration call. See step 1a |
-| **Upstream auth** | REST: `Basic`, `JWT`, `Custom` (header name + value), `RA`, or `ClientCertificate`. SOAP: `Basic` or `ClientCertificate` only |
-| **Endpoints to expose** | Method + route + purpose for each route the tenant publishes. If the user does not list them, derive a proposal from the sources and confirm before generating |
+### Discover sources
 
-Resolve sources in this order:
+Before asking anything, look for sources on disk. Files whose name contains the tenant code come first:
+
+```bash
+find "src/Tenants/<T>/Deliverables/Integration Requests" "postman collections" . -maxdepth 2 -type f \( -iname "*.wsdl" -o -iname "*.postman_collection.json" -o -iname "*swagger*.json" -o -iname "*swagger*.yaml" -o -iname "*openapi*.json" -o -iname "*openapi*.yaml" -o -iname "*.docx" -o -iname "*.pdf" \) 2>/dev/null
+```
+
+Skip anything under `bin/`, `obj/` or `node_modules/`, and skip other tenants' `Deliverables/`. For each candidate, peek at it (the first request of a collection, `openapi`/`swagger` and `info.title` of a spec, the `wsdl:service` name) so the option can say what it is.
+
+### Source question
+
+Header `Source`, `multiSelect: true`. Leave it out when `--source` was passed.
+
+**When candidates were found**, each option *is* a source: label is the path relative to the repo, description is what the peek found.
+
+```
+Integration source for TT — select one or more, or paste a URL or path in Other.
+  [ ] postman collections/TT.postman_collection.json    Postman · 12 requests · JSON bodies (REST)
+  [ ] Integration Requests/tt-service.wsdl              WSDL · SOAP 1.1 · 5 operations
+  [ ] Integration Requests/TT API Guide.docx            API document · converted to Markdown first
+```
+
+With more than 3 candidates, show the best 3 plus `Show all <N> found`. That option re-asks with the rest, spread over up to 4 questions (R9).
+
+**When nothing was found**, single-select:
+
+```
+No integration source for TT in the repo. Paste a URL or path in Other, or:
+  ( ) Search Downloads and Desktop     .wsdl / Postman / OpenAPI / .docx / .pdf changed in the last 30 days
+  ( ) Wait while I add files           creates Integration Requests/, then rescans
+  ( ) Skip the integration for now
+```
+
+- `Search Downloads and Desktop` — run the same `find` over `"$HOME/Downloads" "$HOME/Desktop"` with `-mtime -30`, then ask the found-candidates form. If that finds nothing too, fall back to this question without that option.
+- `Wait while I add files` — `mkdir -p "src/Tenants/<T>/Deliverables/Integration Requests"`, say where it is, then ask `Files added?` with `Rescan (Recommended)` / `Skip the integration for now`.
+- `Skip the integration for now` — end. In gate mode: `GATE-RESULT: skipped`.
+
+Other may hold several sources, one per line. A local file from outside the repo belongs in `Integration Requests/` — offer to copy it there as part of the review, not as a separate question.
+
+### Resolve the sources
 
 - Local file → read it directly
 - `.docx` / `.pdf` / `.xlsx` → `convert-documents-to-markdown` skill first
@@ -35,6 +100,75 @@ Resolve sources in this order:
 - WSDL → read `wsdl:portType`/`wsdl:operation` for the operation list, `wsdl:binding` for the SOAP version and `soapAction` values, `wsdl:service`/`soap:address` for the endpoint URL, and the inline or imported `xsd:schema` for the message types
 
 Record, for every upstream operation you intend to call: its name, the request and response message shapes, and the failure signals that carry meaning — non-200 codes for REST, `Fault` codes and reasons for SOAP.
+
+Then classify (step 1a) and **echo what was read** (R11) before asking anything else:
+
+```
+Read as: Postman collection · 12 requests in 3 folders · REST (JSON bodies) · Basic auth at collection level
+```
+
+### Detect the rest
+
+Take these from the source, not from the developer:
+
+| Input | Where it's detected |
+|---|---|
+| Protocol, SOAP version | Step 1a; `wsdl:binding` |
+| Auth | OpenAPI `components.securitySchemes`; Postman `auth` at collection, folder or request level; `Authorization` / `X-Api-Key`-style headers on requests; WS-Security policy in the WSDL |
+| System name | OpenAPI `info.title`, the Postman `info.name`, `wsdl:service/@name`, the document title. Reduced to a PascalCase class name (`PqpsService` → `Pqps`) |
+| Operations and groups | OpenAPI tags; Postman folders; `wsdl:portType` operations |
+| Per-operation URLs (SOAP) | More than one `soap:address`, or operations documented at different paths |
+| Full descriptive name | Only when the state file has `fullName: "pending"`: the same titles as for the system name |
+
+### Proposal questions
+
+**With `Proceed`, or no gate:** ask only what detection left open, in one call of at most 4 questions. When everything was detected, skip straight to the review.
+
+**With `Customize…`:** ask all four questions of the proposal call, then the customize call, whether detected or not. The detected value is always the first option, marked `(Recommended)`.
+
+Proposal call:
+
+| Header | Question | Options (each a complete answer) |
+|---|---|---|
+| `Auth` | How does `<T>` authenticate to `<System>`? | The detected scheme first, naming where it came from: `Basic (collection auth)`, `Custom header X-Api-Key (securitySchemes)`. Then the other supported schemes, to 4 in total. REST: `Basic`, `JWT bearer`, `Client certificate`, `Custom header`; the question text says "`RA` or `None`: type it in Other". SOAP: `Basic`, `Client certificate`, `None` |
+| `System` | Upstream system name for the client class and config | The derived name `(Recommended)`, e.g. `Pqps — from wsdl:service PqpsService`; the tenant code; the source's short title, if different |
+| `Role` | Where does the data behind these routes come from? | `Provide — <T>'s own institution (Recommended)` · `Consume — another system reached through the gateway` |
+| `Name` | Only when `fullName` is `pending`: full descriptive name of `<T>` for the spec title | Titles found in the sources, the most specific first · `Use <T> for now` |
+
+When `Custom header` is picked and no header name was detected, follow up with `Header name?`, offering the header names found on the source's requests.
+
+Customize call (`Customize…` only):
+
+| Header | Question | Options |
+|---|---|---|
+| `DTOs` | Response shaping | `Public DTOs + mapper (Recommended)` · `Pass-through — shared model already exists` |
+| `Modules` | Module grouping | `One module per upstream system (Recommended)` · `One module per business domain` |
+| `Timeout` | Upstream timeout (REST only) | `Default (Recommended)` · `60 seconds` · `120 seconds` |
+| `Spec` | Make the surface spec-ready now (step 8)? | `Now (Recommended)` · `Later` — adds `--no-spec-ready` |
+
+### Endpoint selection
+
+Asked with `Customize…`, or when `--expose` is absent and there are more than 3 operation groups. `multiSelect`. Options are the groups found (`Pesticides — 3 operations`), or single operations (`GET /pesticides/{id} — pesticide by id`) when there are 3 or fewer, plus `All operations (Recommended)`. More than 3 groups go over up to 4 questions (R9). With `Proceed` and 3 or fewer groups, everything is exposed and the review shows it.
+
+### Review before writing
+
+One R6 call. The question text is the plan, the options `Apply (Recommended)` · `Adjust` · `Cancel`:
+
+```
+Integrate TT with Pqps (SOAP 1.1, Basic):
+  Endpoints/Pqps.cs                     SoapEndpoint, 5 operations
+  appsettings.json + .Development.json  SoapEndpoints:Pqps
+  Models/Pqps/                          5 request/response pairs
+  Mapper/TTMappingExtensions.cs
+  Modules/PqpsModule.cs                 MapGroup("/pqps"), tag PQPS
+  Program.cs                            + RegisterSoapEndpoints
+Routes:
+  GET  /t/tt/pqps/pesticides            list pesticides
+  POST /t/tt/pqps/validate/ephyto       validate an ePhyto certificate
+Command: /tenant-integration TT --source "src/Tenants/TT/Deliverables/Integration Requests/tt-service.wsdl" --auth Basic --system Pqps --role provide
+```
+
+`Adjust` asks one `multiSelect` — `Source`, `Endpoints`, `Auth`, `System`, `Role`, `DTOs / modules / timeout` — and re-asks only what was picked. `Cancel` ends; in gate mode, `GATE-RESULT: stopped`. With `--dry-run`, print the plan and end here. With `--auto`, apply without asking.
 
 ## 1a. Decide the client base class
 
@@ -65,7 +199,7 @@ Everything downstream follows from this one choice:
 
 A tenant may do both — `RegisterEndpoints` and `RegisterSoapEndpoints` are independent and can be called side by side, each scanning the same assembly for its own marker interface. IFMIS is the reference for a tenant that consumes SOAP while exposing REST.
 
-If the sources are genuinely silent on protocol, ask — do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol rest|soap` overrides the classification when the user already knows.
+If the sources are genuinely silent on protocol, ask with header `Protocol`: `REST — JSON over HTTP` / `SOAP — XML envelopes`, with the reason detection failed in the question text. Do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol rest|soap` overrides the classification when the user already knows.
 
 ## 2. Read the tenant and its neighbours
 
@@ -103,7 +237,7 @@ Add to both `appsettings.json` and `appsettings.Development.json`:
 }
 ```
 
-Scheme-specific fields: `JWT` and `Custom` use `AuthHeaderValue` (and `AuthHeaderName` for `Custom`); `RA` uses the registration-authority handler. `Timeout` and `DangerousAcceptAnyServerCertificate` are available when the upstream needs them — the latter only for a test environment with a self-signed certificate, never for production.
+Scheme-specific fields: `JWT` and `Custom` use `AuthHeaderValue` (and `AuthHeaderName` for `Custom`); `RA` uses the registration-authority handler. `--auth-header` / the detected header name goes in `AuthHeaderName` as a literal. `AuthHeaderValue` is always a `__Credentials.<TenantName>Tenant.<SYSTEM>ApiKey__`-style token, never a value found in the source. A `--timeout` answer from the customize call goes in `Timeout`. `Timeout` and `DangerousAcceptAnyServerCertificate` are available when the upstream needs them — the latter only for a test environment with a self-signed certificate, never for production.
 
 ### SOAP
 
@@ -293,9 +427,11 @@ Must report `0 Error(s)`. Then check, without running the app:
 
 ## 8. Make the surface spec-ready
 
-Every integration ends here. `/api-spec-sync <TenantName>` generates the OpenAPI JSON, the DOCX API Specification, and the Postman collection from the tenant's own Swashbuckle document — but it is only one command, and it is only as good as the metadata already in the code. Retrofitting a tenant to meet its prerequisites is the real work, and it is far cheaper to do now, while the routes and DTOs are being written, than as a separate pass later. Do it as part of the integration, not after it.
+Skipped with `--no-spec-ready`, and then the report names every item below that is still unmet.
 
-Only `src/Tenants/APIS` currently satisfies all of this — read it as the reference for each item below.
+The delivery documents (`/tenant-deliverables <TenantName>`) are generated from the tenant's own Swashbuckle document, so they are only as good as the metadata already in the code. It is far cheaper to add that metadata now, while the routes and DTOs are being written, than as a separate pass later.
+
+A tenant scaffolded by `tenant-init` 0.3+ already has the project-level half: `GenerateDocumentationFile`, `Swagger/OpenApiDocumentation.cs`, and `AddSwaggerGen` with `OpenApiInfo`, the Basic security scheme and `IncludeXmlComments`. Check it is there, and add whatever is missing on an older tenant. `src/Tenants/APIS` is the reference for each item below.
 
 **Project** — `src/Tenants/<TenantName>/<TenantName>.csproj`:
 
@@ -308,8 +444,8 @@ Only `src/Tenants/APIS` currently satisfies all of this — read it as the refer
 
 **`Program.cs`** — `AddSwaggerGen` with a populated `OpenApiInfo` and `IncludeXmlComments`:
 
-- `Title` must be `"{full descriptive name} ({TENANT})"` — e.g. `"Advance Passenger Information System (APIS)"`. The DOCX cover page renders the tenant code and role separately, so `Title` carries the full name only. Older `"{TENANT} - {name}"` and `"{TENANT} ({role})"` forms still render, but risk the role appearing twice — use this convention for anything new.
-- `Description` is the **only** source of narrative prose in the generated DOCX — submission model, message-format primers, worked examples. There is no markdown file to maintain; it lives in the C#.
+- `Title` must be `"{full descriptive name} ({TENANT})"` — e.g. `"Advance Passenger Information System (APIS)"`. The DOCX cover page renders the tenant code and role separately, so `Title` carries the full name only. When the scaffold left the bare code because the name was `pending`, write the name chosen in the proposal call now.
+- `Description` is the **only** source of narrative prose in the generated DOCX. Extend the scaffolded sentence with what this integration adds: the system it reaches and the datasets its routes expose ("Pesticide registrations and ePhyto validation from the PQPS Plant Health system"). State only what a route actually provides.
 
 **Routes** — on every route generated in step 6:
 
@@ -321,11 +457,24 @@ Only `src/Tenants/APIS` currently satisfies all of this — read it as the refer
 
 **Never use `<see cref="..."/>` in those comments.** Swashbuckle does not resolve cref targets; it emits the raw fully-qualified type name as literal text ("See APIS.Paxlst.MessageKind."). Write plain prose.
 
-Then run `/api-spec-sync <TenantName>`. If the tenant cannot be brought up to this bar within the current request, say exactly which items are missing in the report rather than offering the sync as if it were ready.
+**Gateway route** — widen `match.methods` in `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` to exactly the verbs the tenant now exposes. `tenant-init` left it at `GET`.
+
+The documents themselves are step 6 of `tenant-pipeline` (`/tenant-deliverables <TenantName>`). Don't generate them here. The ZamConnect repository also has a repo-local `/api-spec-sync` for a quick developer-side regeneration; it reads the same metadata.
+
+## 9. Another integration?
+
+Tenants often reach more than one upstream (`MCTI` → ZABS + ZMA, `MLSS` → four systems). Unless `--auto` is set, ask with header `Next`:
+
+- `Done — continue (Recommended)`
+- `Add another integration source` — back to step 1 for the next upstream. Keep what's been built, and skip anything already answered for this tenant, such as the full name
+
+Each pass gets its own client, config section, models and module, and the report covers all passes.
 
 ## Report
 
-State the upstream system and its base URL, one line per file added or changed, and a table of the exposed routes (method, path, purpose). Name the generated deliverables from step 8, or the prerequisites still unmet. Then list what remains outside this skill: the `GSB.<TENANT>.<ENV>` variable-group values behind each `__Credentials.*__` token, the gateway scope/cluster/route registration, and the ADO pipeline definition.
+State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list what remains outside this skill: the `GSB.<TENANT>.<ENV>` variable-group values behind each `__Credentials.*__` token, the gateway scope/cluster/route registration, and the ADO pipeline definition.
+
+Close with the equivalent command for each pass (R7), and these answers for the pipeline state: `sources`, `system`, `auth`, `role`, and `fullName` if it was settled here. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 
 ## Sensitive data
 

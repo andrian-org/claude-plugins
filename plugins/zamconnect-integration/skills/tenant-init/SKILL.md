@@ -1,25 +1,30 @@
 ---
 name: tenant-init
 description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
-argument-hint: "<TenantName> [--controllers] [--port <https>] [--no-pipeline] [--auto]"
+argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run]"
 allowed-tools: Read Write Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
 
 # Create ZamConnect Tenant
 
-Scaffold a new tenant under `src/Tenants/<TenantName>/`. Produce the boilerplate only — **no Modules, Models, Controllers, Endpoints, or Mappers** unless the user asks for them in the same request.
+Scaffold a new tenant under `src/Tenants/<TenantName>/`. Produce the boilerplate only — **no Modules, Models, Controllers, Endpoints, or Mappers** unless the user asks for them in the same request. The boilerplate is spec-ready from the start (step 3), so the integration never has to retrofit it.
+
+Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Read it first.
 
 ## Inputs
 
-| Input | Required | Default |
+| Input | Flag | Default |
 |---|---|---|
-| `<TenantName>` | yes | — PascalCase; matches folder, csproj, assembly, namespace root |
-| Style | no | `carter` (minimal API modules). `--controllers` selects the MVC variant |
-| Dev ports | no | Next free pair from the scan in step 2 |
-| Pipeline | no | On. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates |
+| `<TenantName>` | positional, required | — PascalCase; matches folder, csproj, assembly, namespace root |
+| Style | `--controllers` | `carter` (minimal API modules) |
+| Full descriptive name | `--full-name "<name>"` | Asked in step 1a. Goes into `OpenApiInfo.Title` as `"<full name> (<TenantName>)"` |
+| What it integrates with | `--integrates rest,soap,shared,unknown` | Asked in step 1a. Decides the defaults of the later pipeline steps |
+| Dev ports | `--port <https>` | Next free pair from the scan in step 2 |
+| Pipeline | `--no-pipeline` / `--auto` | Guided. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates |
+| Dry run | `--dry-run` | Off. Stops at the review in step 2a and writes nothing |
 
-Ask only if `<TenantName>` is missing. Everything else takes the default.
+If `<TenantName>` is missing, ask for it in plain text; there's nothing to offer as options. Everything else goes through step 1a.
 
 ## Reference tenants
 
@@ -40,6 +45,21 @@ grep -n "TenantName" src/ZamConnect.sln
 
 Stop and ask if either hits.
 
+### 1a. Intake
+
+One `AskUserQuestion` call. Leave out any question whose flag was passed. With `--auto`, take every `(Recommended)` option and ask nothing.
+
+| Header | Question | Options | → flag |
+|---|---|---|---|
+| `Style` | Project style for `<TenantName>`? | `Carter modules (Recommended)` — minimal API, like CEEC and MOH · `MVC controllers` — like MOA | `--controllers` |
+| `Integrates` | What will `<TenantName>` integrate with? (`multiSelect`) | `Agency REST API` · `Agency SOAP service` · `Shared e-Services` — NIR, PACRA, ZRA, ZDI and the rest via `EServicesShared` · `Not known yet` | `--integrates` |
+| `Name` | Full descriptive name of `<TenantName>`, for the API specification title. Type it in Other, or: | `Take it from the integration source (Recommended)` — step 2 proposes it from the spec or WSDL title · `Use <TenantName> for now` — the title stays the bare code and the deliverables report it | `--full-name` |
+| `Pipeline` | After the scaffold? | `Guided — gate each step (Recommended)` · `Auto — run every step with defaults` · `Scaffold only` | `--auto` / `--no-pipeline` |
+
+Leave out the `Pipeline` question when run with `--no-pipeline`, which is how `tenant-pipeline` calls this skill.
+
+Record the answers as flags for the equivalent command, for example `/tenant-init PQPS --integrates soap --full-name "Plant Quarantine and Phytosanitary Service"`. `Take it from the integration source` records `fullName: "pending"` in state; step 2 picks it up from there.
+
 ### 2. Pick free dev ports
 
 ```bash
@@ -47,6 +67,24 @@ grep -h applicationUrl src/Tenants/*/Properties/launchSettings.json | grep -o "[
 ```
 
 Choose an unused consecutive pair (https, http). Repo convention is a high 5-digit pair, e.g. `53390;53391`.
+
+### 2a. Review before writing
+
+Work out the pipeline slug (step 4) and `core-<slug>` (step 5) now, so the review can show them. Then make one R6 review call. The question text is the plan:
+
+```
+Scaffold PQPS (Carter, spec-ready):
+  src/Tenants/PQPS/            csproj, Program.cs, appsettings x2, Dockerfile, launchSettings, Swagger/, GATEWAY-CONFIG.md
+  .azure/tenant.azure-pipelines.pqps.yaml
+  src/.dockercompose/docker-compose.yml   + core-pqps
+  src/ZamConnect.sln                      + Tenants/PQPS
+Dev ports 53390 / 53391 · gateway route /t/pqps · title "Plant Quarantine and Phytosanitary Service (PQPS)"
+Command: /tenant-init PQPS --full-name "Plant Quarantine and Phytosanitary Service" --integrates soap --port 53390
+```
+
+Options: `Apply (Recommended)` · `Adjust` · `Cancel`. `Adjust` asks one `multiSelect` — `Dev ports`, `Pipeline slug`, `Style`, `Full name` — and re-asks only the ones picked. Ports and slug are the values most often overridden: offer the next two free pairs and the hyphenated / unhyphenated slug as options, never "type it in Other".
+
+With `--dry-run`, print the plan and stop here. With `--auto`, skip the call and apply.
 
 ### 3. Create the files
 
@@ -59,10 +97,13 @@ appsettings.json
 appsettings.Development.json
 Dockerfile
 Properties/launchSettings.json
+Swagger/OpenApiDocumentation.cs
 GATEWAY-CONFIG.md
 ```
 
 #### `<TenantName>.csproj`
+
+`GenerateDocumentationFile` feeds `IncludeXmlComments`, so `///` comments on DTOs reach the generated specification. `CS1591` is silenced because not every public type needs one.
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk.Web">
@@ -71,6 +112,8 @@ GATEWAY-CONFIG.md
     <TargetFramework>net10.0</TargetFramework>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\..</DockerfileContext>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -91,10 +134,13 @@ For `--controllers`: drop the `Carter` package and the `Shared` project referenc
 #### `Program.cs` (Carter style)
 
 ```csharp
+using System;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using <TenantName>.Swagger;
 using Carter;
 using Internal.Extensions.Extensions.Logging;
 using Internal.Extensions.Extensions.Rest;
@@ -103,6 +149,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.OpenApi.Models;
 using Prometheus;
 
 Activity.DefaultIdFormat = ActivityIdFormat.W3C;
@@ -124,7 +171,41 @@ builder.Services.AddCarter()
         options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 builder.Services.AddEndpointsApiExplorer();
-if (builder.Environment.IsDevelopment()) builder.Services.AddSwaggerGen();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "<Full name> (<TenantName>)",
+            Version = "v1",
+            Description = OpenApiDocumentation.Description
+        });
+
+        options.AddSecurityDefinition("basic", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "basic",
+            Description = "HTTP Basic authentication. Credentials are issued per consumer and "
+                          + "are checked by the ZamConnect gateway before the request reaches "
+                          + "this service; an unauthenticated call is rejected with 401."
+        });
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "basic" }
+            }] = []
+        });
+
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, "<TenantName>.xml");
+        if (File.Exists(xmlPath))
+        {
+            options.IncludeXmlComments(xmlPath);
+        }
+    });
+}
 
 builder.Services.RegisterEndpoints(Assembly.GetExecutingAssembly(), builder.Configuration);
 builder.Services.AddHealthChecks().ForwardToPrometheus();
@@ -148,9 +229,31 @@ app.MapCarter();
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.Run();
+
+public partial class Program;
 ```
 
-For `--controllers`, follow `src/Tenants/MOA/Program.cs`: swap `AddCarter`/`MapCarter` for `AddControllers`/`MapControllers`, and add `AddHttpClient()`, `AddHttpContextAccessor()`, `UseRouting()`, `AddSwaggerGen(o => o.EnableAnnotations())`. The observability lines below are the same either way.
+`Title` is `"<Full name> (<TenantName>)"` when the full name is known. When it's `pending` or the code was chosen, write `"<TenantName>"`; step 2 or the developer replaces it later. `public partial class Program;` is there so `tenant-tests` can bind `WebApplicationFactory<Program>` without editing the tenant later.
+
+For `--controllers`, follow `src/Tenants/MOA/Program.cs`: swap `AddCarter`/`MapCarter` for `AddControllers`/`MapControllers`, and add `AddHttpClient()`, `AddHttpContextAccessor()`, `UseRouting()`, and `options.EnableAnnotations()` inside the same `AddSwaggerGen` block. The Swagger block and the observability lines are the same either way.
+
+#### `Swagger/OpenApiDocumentation.cs`
+
+The Executive Summary of the generated specification comes from `Description`, and only from there (see `src/Tenants/APIS/Swagger/OpenApiDocumentation.cs`). Scaffold one short paragraph that states only what is known. `tenant-integration` extends it with the datasets the tenant exposes.
+
+```csharp
+namespace <TenantName>.Swagger;
+
+internal static class OpenApiDocumentation
+{
+    public const string Description = """
+        This API specification describes the interface through which <Full name> (<TenantName>)
+        exchanges data over the ZamConnect Government Service Bus.
+        """;
+}
+```
+
+With no full name yet, write `<TenantName>` alone in that sentence.
 
 Do not add `RegisterGatewayEndpoint` or `EServicesShared` (MOH extras) unless the integration needs the shared e-services surface.
 
@@ -418,71 +521,36 @@ Five hits. `ConfigureOpenTelemetry` missing is the one that fails silently — t
 
 And that `core-<slug>` is spelled identically in the compose service key, the compose `container_name`, and the `GATEWAY-CONFIG.md` cluster address.
 
+And that the spec-ready baseline is there:
+
+```bash
+grep -n "GenerateDocumentationFile" src/Tenants/<TenantName>/<TenantName>.csproj
+grep -n "OpenApiInfo\|AddSecurityDefinition\|IncludeXmlComments\|partial class Program" src/Tenants/<TenantName>/Program.cs
+```
+
+## State
+
+Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contract describes, creating `.claude/zamconnect/.gitignore` (`*`) with it. Record step 1 as `ran`, its equivalent command, and the intake answers (`style`, `integrates`, `fullName`). Later steps read them from there. Do this even with `--no-pipeline`, so a later `/tenant-pipeline <TenantName>` picks up where this left off. Skip it with `--dry-run`.
+
 ## Report
 
-One line per file created, then the solution entry and the build result. Close by naming what was deliberately left out so the user can ask for it:
+One line per file created, then the solution entry and the build result, then the equivalent command (R7). Close by naming what was deliberately left out so the user can ask for it:
 
 - ADO pipeline definition + `GSB.<TENANT>.<ENV>` variable groups, including `helmReleaseName` (must be `<slug>`), `OTEL_SERVICE_NAME` (set it to `core-<slug>`) and `OTEL_EXPORTER_OTLP_ENDPOINT`, and a variable for every `__Token__` in `appsettings.json` — all created outside the repo. `values.tenant.yaml` is generic and needs no per-tenant edit; the release is parameterised entirely through `--set` in `tenant.deployment-jobs.yaml`
 - Gateway scope/cluster/route registration in the gateway admin (values generated in `GATEWAY-CONFIG.md`)
 - Business surface: `Modules/`, `Endpoints/`, `Models/`, `Mapper/`
 
-## Pipeline
+## Hand-off to the pipeline
 
-The scaffold is step 1 of six. Unless `--no-pipeline` was passed, do **not** end the turn after the report — walk the rest of the chain, asking the developer at every boundary.
+The scaffold is step 1 of six. The rest of the chain belongs to `tenant-pipeline`; this skill does not gate it.
 
-| # | Skill | Arguments | Gate condition |
-|---|---|---|---|
-| 2 | `tenant-integration` | `<TenantName> [--source ...] [--expose ...]` | always offered |
-| 3 | `integrate-shared` | `<TenantName>` | always offered, **defaults to Skip** — only tenants republishing shared e-Services need it |
-| 4 | `tenant-tests` | `<TenantName>` | offered only if step 2 or step 3 ran; otherwise skip silently — there are no routes to test |
-| 5 | `tenant-audit` | `<TenantName>` | always offered |
-| 6 | `tenant-deliverables` | `<TenantName> --route /t/<slug>` | offered only if step 2 or step 3 ran; a docs package for a scaffold with no routes is an empty deliverable |
+| Intake / flag | What happens after the report |
+|---|---|
+| `Guided` (default) | Invoke `tenant-pipeline` with the `Skill` tool: `<TenantName> --from integration` |
+| `Auto` / `--auto` | Invoke `tenant-pipeline`: `<TenantName> --from integration --auto` |
+| `Scaffold only` / `--no-pipeline` | Stop after the report, and print `/tenant-pipeline <TenantName>` as the command to continue |
 
-### The gate
-
-Before each step, one `AskUserQuestion` call — never a plain-text question, and never two steps in one call. Header `Step <n>`, and the question names what the step will do to the repo:
-
-```
-Step 2 of 6 — /tenant-integration PQPS. Build the upstream client, models, mappers
-and exposed routes. Proceed?
-```
-
-Exactly three options, in this order:
-
-| Option | Meaning | What you do |
-|---|---|---|
-| `Proceed` | run it now | invoke the skill via the `Skill` tool with the arguments from the table, let it finish, then gate the next step |
-| `Skip` | leave this step undone, continue the chain | record it as skipped and gate the next step |
-| `Stop` | end the pipeline here | stop immediately; do not gate any further step |
-
-Keep this order in every gate — `Proceed` first, `Skip` second, `Stop` third — regardless of which one is recommended. Put `(Recommended)` on `Proceed` for steps 2, 4, 5 and 6, and on `Skip` for step 3; the label moves, the order does not.
-
-The developer can answer with their own text instead of picking an option. Treat it as instructions for that step — a source URL, a route override, "run it but only for the REST endpoints" — apply it, then run the step. Do not re-gate what they already answered.
-
-### Running a step
-
-- Invoke the skill with the `Skill` tool. Do not reimplement it inline, and do not paste its instructions into the conversation.
-- Step 2 with no `--source`: ask for the source in the same `AskUserQuestion` gate (a free-text answer carries it) rather than starting the skill and having it ask again.
-- Step 6's `--route` is the gateway route already written into `GATEWAY-CONFIG.md` — `/t/<slug>`. Pass it; do not make the developer retype it.
-- If a step fails, stop the pipeline and report the failure. Do not silently continue to the next gate.
-
-### Closing
-
-End with the chain as it actually ran — one line per step, `ran` / `skipped` / `not reached` — and, when anything is left, the exact commands to resume:
-
-```
-1 /tenant-init PQPS        ran
-2 /tenant-integration PQPS   ran
-3 /integrate-shared PQPS     skipped
-4 /tenant-tests PQPS         ran
-5 /tenant-audit PQPS         stopped here
-
-Resume with:
-  /tenant-audit PQPS
-  /tenant-deliverables PQPS --route /t/pqps
-```
-
-With `--auto`, run steps 2, 4, 5 and 6 without gating (3 stays skipped unless the request named shared e-Services), and still print the chain summary.
+Do not end the turn between the report and the hand-off.
 
 ## Sensitive data
 
