@@ -44,6 +44,36 @@ Status vocabulary: `proposed` | `accepted` | `rejected` | `superseded-by-NNNN`.
 An ADR is never edited to reverse its decision. Write a new one, set the old one's status
 to `superseded-by-NNNN`, and list the old id in the new one's `supersedes`.
 
+### Supersession is always full
+
+A successor **restates every section of the old ADR that is still valid**, and then
+changes what needs changing. A reader never has to combine two ADRs to learn what is
+decided: the newest one in a chain is complete on its own. The superseded ADR changes only
+its `status` and `date` — its body stays exactly as written, as the record of what was
+believed and why.
+
+The vocabulary has no "partially superseded" status on purpose. An ADR that is half right
+is replaced whole.
+
+### Errata — the only permitted in-place edit
+
+An ADR may be edited in place **only** to correct a fact that does not change what it
+decides: a wrong line number, a miscounted list, a misnamed owner. Every such correction is
+recorded in a dated `## Errata` section at the end of the ADR:
+
+```markdown
+## Errata
+
+- **2026-09-23** — §Consequences said "three of seven" rules were enforceable; it is four
+  (rules 1, 2, 3 and 7). Source: this ADR's own enforcement tables.
+```
+
+Each entry starts with a `YYYY-MM-DD` date and names what was wrong, what is right, and
+where that was read from. If a correction would change the decision, it is not an erratum —
+write a superseding ADR.
+
+A superseded ADR takes no errata. Corrections to it belong in its successor's Context.
+
 ## Section contract
 
 ```markdown
@@ -68,9 +98,24 @@ is the question list; this directory holds the answers. The blueprint's question
 **never edited** — it is the historical record of what was unknown. An answered question
 gains an `ANSWERED` block linking the ADR that decided it.
 
+When the ADR that answered a question is superseded, the `ANSWERED` block gains a
+`Revised (<date>)` sentence and its link moves to the successor. The superseded ADR may
+still be named in plain text ("originally ADR 0002"), but never linked from that block.
+
+A `proposed` ADR does not answer anything. It is never linked from a blueprint line that
+contains the word `ANSWERED` — including "SUBSTANTIALLY ANSWERED". A pending decision is
+linked from a separate line:
+
+```markdown
+   > **DECISION PENDING** — [ADR NNNN](adr/NNNN-<slug>.md) (proposed).
+```
+
 `scripts/check-dual-schema-docs.sh` enforces the link in both directions: every ADR has an
 index row here, and no blueprint question is marked answered without pointing at an ADR
-file that exists.
+file that exists. It also enforces supersession integrity: a `superseded-by-NNNN` status
+names a successor that exists and lists the old id in its `supersedes`; every id in a
+`supersedes` list is marked superseded by that ADR; no `ANSWERED` line links a superseded
+ADR; and each index row's Status cell matches its ADR's frontmatter.
 
 ## See Also
 

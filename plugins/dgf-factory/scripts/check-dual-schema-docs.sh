@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # check-dual-schema-docs.sh — guard this plugin's documentation contracts.
 #
-# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards four contracts — the
+# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards five contracts — the
 # dual-schema one it was named for, the decision-record one added 2026-09-21, the
-# plugin-manifest one added 2026-09-22, and the knowledge-stamp one added the same
-# day. The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md
+# plugin-manifest one added 2026-09-22, the knowledge-stamp one added the same
+# day, and ADR supersession integrity added 2026-09-23. The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md
 # and the dual-schema plan all reference it by name; renaming churns three files
 # for no gain.
 #
@@ -398,6 +398,160 @@ EOF
     trace "scanned ${adr_count} decision record(s)"
 }
 
+# --- 5b. supersession integrity -----------------------------------------------
+#
+# docs/adr/README.md §"Supersession is always full" and §"Errata". A superseded
+# ADR must point at a successor that points back, a blueprint answer must not
+# rest on a superseded ADR, and the index must not disagree with the files.
+BLUEPRINT='docs/blueprint.md'
+
+adr_file_for_id() {
+    find "${PLUGIN_ROOT}/${ADR_DIR}" -maxdepth 1 -type f -name "$1-*.md" 2>/dev/null | sort | head -1
+}
+
+# The ids in an ADR's `supersedes:` list, one per line. Only the inline form the
+# existing ADRs use is accepted — [] / [0002] / [0002, 0003]. Anything else prints
+# MALFORMED so the caller can report it rather than skip it silently.
+adr_supersedes() {
+    line="$(sed -n 's/^supersedes:[[:space:]]*//p' "$1" | head -1)"
+    [ -n "${line}" ] || return 0
+    if ! printf '%s\n' "${line}" | grep -qE '^\[([0-9]{4}([[:space:]]*,[[:space:]]*[0-9]{4})*)?\][[:space:]]*$'; then
+        printf 'MALFORMED\n'
+        return 0
+    fi
+    printf '%s\n' "${line}" | grep -oE '[0-9]{4}' || true
+}
+
+# Index rows as target<TAB>status, from the third |-delimited column.
+index_rows() {
+    awk -F'|' '
+        $2 ~ /\[[0-9][0-9][0-9][0-9]\]\([0-9][0-9][0-9][0-9]-[^)]*\.md\)/ {
+            target = $2
+            sub(/^.*\(/, "", target); sub(/\).*$/, "", target)
+            status = $4
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+            printf "%s\t%s\n", target, status
+        }
+    ' "$1"
+}
+
+# Errata entries that do not open with a date, as lineno<TAB>text.
+undated_errata() {
+    awk '
+        /^## Errata[[:space:]]*$/ { grab = 1; next }
+        grab && /^## / { exit }
+        grab && /^- / && $0 !~ /^- (\*\*)?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { printf "%d\t%s\n", NR, $0 }
+    ' "$1"
+}
+
+check_successor_links() {
+    file="$1"
+    rel="$2"
+    id="$3"
+    status="$4"
+
+    case "${status}" in
+        superseded-by-[0-9][0-9][0-9][0-9]) : ;;
+        *) return 0 ;;
+    esac
+
+    succ_id="${status#superseded-by-}"
+    succ="$(adr_file_for_id "${succ_id}")"
+    if [ -z "${succ}" ]; then
+        error "${rel} is superseded-by-${succ_id}, but no ${ADR_DIR}/${succ_id}-*.md exists"
+        return 0
+    fi
+    if ! adr_supersedes "${succ}" | grep -qx "${id}"; then
+        error "${rel} is superseded-by-${succ_id}, but $(relpath "${succ}") does not list ${id} in 'supersedes'"
+        return 0
+    fi
+    trace "${rel}: successor $(relpath "${succ}") lists ${id}"
+}
+
+check_predecessor_links() {
+    file="$1"
+    rel="$2"
+    id="$3"
+
+    ids="$(adr_supersedes "${file}")"
+    if [ "${ids}" = "MALFORMED" ]; then
+        error "${rel} has a 'supersedes' value that is not an inline list of 4-digit ids, e.g. [] or [0002]"
+        return 0
+    fi
+    trace "${rel}: supersedes=[$(printf '%s' "${ids}" | tr '\n' ' ')]"
+
+    while IFS= read -r old; do
+        [ -n "${old}" ] || continue
+        old_file="$(adr_file_for_id "${old}")"
+        if [ -z "${old_file}" ]; then
+            error "${rel} supersedes ${old}, but no ${ADR_DIR}/${old}-*.md exists"
+            continue
+        fi
+        old_status="$(adr_status "${old_file}")"
+        if [ "${old_status}" != "superseded-by-${id}" ]; then
+            error "${rel} supersedes ${old}, but $(relpath "${old_file}") has status '${old_status}', not 'superseded-by-${id}'"
+        fi
+    done <<EOF
+${ids}
+EOF
+}
+
+check_adr_supersession() {
+    section '5b. Supersession integrity'
+
+    while IFS= read -r file; do
+        [ -n "${file}" ] || continue
+        rel="${ADR_DIR}/$(basename "${file}")"
+        id="$(basename "${file}")"
+        id="${id%%-*}"
+        status="$(adr_status "${file}")"
+
+        check_successor_links "${file}" "${rel}" "${id}" "${status}"
+        check_predecessor_links "${file}" "${rel}" "${id}"
+
+        while IFS="$(printf '\t')" read -r lineno text; do
+            [ -n "${lineno}" ] || continue
+            warn "${rel}:${lineno} Errata entry does not start with a YYYY-MM-DD date: ${text}"
+        done <<EOF
+$(undated_errata "${file}")
+EOF
+    done <<EOF
+$(adr_files)
+EOF
+
+    # The index's Status column must match each ADR's frontmatter.
+    index="${PLUGIN_ROOT}/${ADR_DIR}/README.md"
+    while IFS="$(printf '\t')" read -r target cell; do
+        [ -n "${target}" ] || continue
+        f="${PLUGIN_ROOT}/${ADR_DIR}/${target}"
+        [ -f "${f}" ] || continue
+        actual="$(adr_status "${f}")"
+        if [ "${cell}" != "${actual}" ]; then
+            error "${ADR_DIR}/README.md lists ${target} as '${cell}', but its frontmatter status is '${actual}'"
+        else
+            trace "index row ${target}: status '${cell}' matches"
+        fi
+    done <<EOF
+$(index_rows "${index}")
+EOF
+
+    # A blueprint answer must rest on a live decision, not a superseded one.
+    while IFS=: read -r lineno text; do
+        [ -n "${lineno}" ] || continue
+        for target in $(printf '%s\n' "${text}" | grep -oE 'adr/[0-9]{4}-[A-Za-z0-9._-]+\.md' | sed 's|^adr/||' || true); do
+            f="${PLUGIN_ROOT}/${ADR_DIR}/${target}"
+            [ -f "${f}" ] || continue
+            case "$(adr_status "${f}")" in
+                superseded-by-*)
+                    error "${BLUEPRINT}:${lineno} marks a question ANSWERED linking ${target}, which is $(adr_status "${f}") — link the successor" ;;
+                *) trace "${BLUEPRINT}:${lineno} links live ADR ${target}" ;;
+            esac
+        done
+    done <<EOF
+$(grep -n 'ANSWERED' "${PLUGIN_ROOT}/${BLUEPRINT}" 2>/dev/null || true)
+EOF
+}
+
 
 # --- 6. plugin manifest -------------------------------------------------------
 #
@@ -531,6 +685,7 @@ main() {
     check_reference_page
     check_absolute_paths
     check_decision_records
+    check_adr_supersession
     check_plugin_manifest
     check_knowledge_stamps
 
