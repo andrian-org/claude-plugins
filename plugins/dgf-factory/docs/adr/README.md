@@ -18,6 +18,9 @@ person to read the code.
 | [0006](0006-process-verification-revised.md) | Process verification — structure with a runtime-divergence allowance, semantics by our own validators | accepted | 2026-09-23 | blueprint open question #5; the semantic checks of milestone 8 |
 | [0007](0007-validator-runtime.md) | Validators run on Python with lxml and jsonschema | accepted | 2026-09-23 | validator runtime and dependencies |
 | [0008](0008-version-gating-revised.md) | Stamp every fact, gate only behavioural ones (revised) | accepted | 2026-09-23 | blueprint open question #6; version source and range semantics |
+| [0009](0009-plan-ledger-scope.md) | One plan ledger at workspaces-root scope, partitioned by affected workspaces | proposed | 2026-09-23 | plan-ledger contention (ADR 0004 follow-up); due before milestone 9 |
+| [0010](0010-dgf-implement-scope.md) | /dgf-implement composes configuration first and routes code as a bounded exception | proposed | 2026-09-23 | blueprint open question #4; due before milestone 9 |
+| [0011](0011-schema-parity-authority.md) | Resolve the schema family first; format-coverage.md is the only runtime-parity authority | proposed | 2026-09-23 | dual-schema and parity rule; due before milestone 8's parity check |
 
 ## Numbering
 

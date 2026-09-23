@@ -328,3 +328,4 @@ scaffolding or greenfield skill is written.
 - [Architecture](architecture.md) — where vendored schemas live and which code may read them
 - [Skill Authoring](skill-authoring.md) — the determinism rule these schemas exist to serve
 - [Architecture Blueprint](blueprint.md) — the design this knowledge feeds
+- [ADR 0011](adr/0011-schema-parity-authority.md) — the proposed decision record for the family-first, parity-checked rule this page defines

@@ -362,8 +362,10 @@ Keep `schema_version: 1` and the last-block-wins parsing rule so anything built 
 
 These are the facts the skills will encode. Wrong answers are expensive to unwind.
 
-> **All seven are now closed** *(2026-09-21)*. The question text below is left unchanged as the
-> historical record of what was unknown; each carries an `ANSWERED` block linking the decision.
+> **Six of seven are closed** *(2026-09-21; revised 2026-09-23)*. Question #4 is only
+> substantially settled: what `/dgf-implement` does is a pending decision, due before milestone 9.
+> The question text below is left unchanged as the historical record of what was unknown; each
+> closed question carries a block linking the decision that closed it.
 > The decisions themselves live in [`docs/adr/`](adr/README.md).
 
 1. **Process definitions** — what format on disk (XML/JSON/DSL/DB)? Is there a CLI or library to validate one without running the app? That determines whether `/dgf-process` can have a real validator or only prompt heuristics.
@@ -374,6 +376,7 @@ These are the facts the skills will encode. Wrong answers are expensive to unwin
    > **ANSWERED (2026-09-21).** No — **mostly brownfield**, so the conditional evaluates to no and `/dgf-scaffold` stays in phase 3 / milestone 12. When a new system does start it comes **from a template or generator**, never from nothing, so the scaffold skill drives that tool rather than emitting files. The unit of work is the **whole workspaces root** — every workspace plus the `webasm` base and the `applibs*` libraries — which is the only scope at which a base-workspace change can be verified against the applications that inherit it. See [ADR 0004](adr/0004-authoring-entry-point.md).
 4. **Generated vs. hand-written** — how much of a DGF system is code the agent writes versus configuration it composes? If mostly configuration, "implement a task" means something quite different from AI Factory's assumption and `/dgf-implement` needs reshaping.
    > **SUBSTANTIALLY ANSWERED (2026-09-19).** Mostly configuration — and today that configuration is **XML** for the five legacy artifact types (form, workflow, process, settings, view). `format-coverage.md` records the Wave-1 policy: AI generates XML for all five regardless of partial JSON parity. `/dgf-implement` therefore composes and validates configuration far more than it writes code.
+   > **DECISION PENDING** — [ADR 0010](adr/0010-dgf-implement-scope.md) (proposed) recommends a configuration-composer `/dgf-implement` that admits code only as a plan task marked `kind: code` with a reason. Due before milestone 9.
 5. **Test story** — what does verification look like for a process? Is there a way to execute a process definition headlessly?
    > **ANSWERED (2026-09-21).** Asymmetric. **Structure** is deterministic and headless today — the MCP's process/workflow validators are one-line XSD wrappers over `XsdValidationService`, and `DgfMcpServer.csproj` has zero `<ProjectReference>`, so no engine build is needed. **Semantics** are checked by nothing DGF ships: `process.xsd` contains no `xs:key`/`xs:keyref`/`xs:unique`, so the grammar cannot verify a `Transition/@state` names a declared `State/@name`; `XmlCrossReferenceValidator.cs:94` excludes process outright; and `DiagnosticCheckService`'s process branch is commented out and DB-bound. **Execution is not headless** — stepping a process needs a case record and therefore the database. So this plugin's gates verify structure plus its own semantic checks, and make no claim about runtime behaviour. Originally decided in ADR 0002. **Revised (2026-09-23):** ADR 0002's rules failed DGF's own 23 sample processes — `End` is a reserved terminal state, states are entered by workflow `CHANGE_STATE` steps, and `process.xsd` lags the runtime model — so XSD failures on runtime-bound constructs are now warnings, unreachable-state is advisory, and workflow and change-state references are resolved. See [ADR 0006](adr/0006-process-verification-revised.md).
 6. **Versioning** — do DGF versions differ enough that references need version gates?

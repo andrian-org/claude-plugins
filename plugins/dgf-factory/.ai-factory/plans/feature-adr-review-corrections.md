@@ -235,7 +235,7 @@ as not yet accepted, and must be at least 200 characters (the script warns other
 `proposed` index row in `docs/adr/README.md`**, because the script errors on any ADR without a row, and runs the
 check script to exit `0` before finishing.
 
-- [ ] **Task 9: ADR 0009, "Plan ledger at workspaces-root scope".** (depends on 1)
+- [x] **Task 9: ADR 0009, "Plan ledger at workspaces-root scope".** (depends on 1)
   - Context: ADR 0004's contention follow-up; `workflow.plan_id_format` values in `config.yaml`; single-writer
     ownership.
   - Options: per-application `plan_id` prefix; a plan-level `affects_workspaces` field plus a lock check; a
@@ -244,7 +244,7 @@ check script to exit `0` before finishing.
 
   Files: `docs/adr/0009-plan-ledger-scope.md`, `docs/adr/README.md`.
 
-- [ ] **Task 10: ADR 0010, "What `/dgf-implement` implements".** (depends on 1, 6. Task 6 also edits
+- [x] **Task 10: ADR 0010, "What `/dgf-implement` implements".** (depends on 1, 6. Task 6 also edits
   `docs/blueprint.md`.)
   - Context: blueprint Q4 ("SUBSTANTIALLY ANSWERED"), `format-coverage.md`, and ADR 0005 rule 2.
   - Options: configuration-composer with code as an exception; symmetric code and config; config-only with code
@@ -257,7 +257,7 @@ check script to exit `0` before finishing.
 
   Files: `docs/adr/0010-dgf-implement-scope.md`, `docs/blueprint.md`, `docs/adr/README.md`.
 
-- [ ] **Task 11: ADR 0011, "Schema-family resolution and the runtime-parity authority".** (depends on 1)
+- [x] **Task 11: ADR 0011, "Schema-family resolution and the runtime-parity authority".** (depends on 1)
   - Context: `AGENTS.md` "Both schema families" rule, `docs/dgf-schemas.md`, and E18. It also records Workflow
     and ProcessFlow as validated but ignored by the runtime.
   - Decision to propose: `format-coverage.md` is the sole parity authority; XML-always holds until DGF Wave 1.5;
