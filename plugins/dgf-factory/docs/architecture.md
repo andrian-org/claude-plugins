@@ -29,7 +29,9 @@ plugins/dgf-factory/
 ├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
 ├── scripts/                     # SHARED INFRASTRUCTURE — cross-slice validators
-└── .mcp.json                    # MCP servers
+├── .mcp.json                    # MCP servers
+├── tools/                       # NOT SHIPPED — repo-maintenance checks and the schema vendoring tool
+└── provenance/                  # NOT SHIPPED — the DGF sources of each knowledge file
 ```
 
 Folder names are Claude Code plugin names rather than the reference pattern's
@@ -42,12 +44,16 @@ files, reached as `${CLAUDE_PLUGIN_ROOT}/knowledge/…` and `${CLAUDE_PLUGIN_ROO
 
 ### Two kinds of script
 
-Plugin-root `scripts/` holds both:
+They live apart, because one kind ships and the other does not
+([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)):
 
-| Kind | Who runs it | Example |
-|---|---|---|
-| Runtime validator | A skill calls it mid-run | a dual-schema component validator |
-| Repo-maintenance check | A contributor runs it by hand | `check-dual-schema-docs.sh`, and `check_knowledge_stamps.py` which its section 7 invokes |
+| Kind | Who runs it | Where | Example |
+|---|---|---|---|
+| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | a dual-schema component validator |
+| Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py` |
+
+A shipped file names no path into the DGF repository. A maintenance tool may, because it
+runs against a DGF checkout that only a maintainer has.
 
 A validator used by exactly one slice lives in that slice's own `scripts/`, not here —
 `skills/dgf-doctor/scripts/doctor.py` is the current example. **Promote on the second

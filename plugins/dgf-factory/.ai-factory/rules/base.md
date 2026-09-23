@@ -30,10 +30,25 @@
   every component directory must live at plugin root, never nested inside it.
 - `<plugin>/skills/<name>/SKILL.md` — one directory per skill, auto-discovered
 - `<plugin>/agents/*.md` — subagent definitions, auto-discovered
-- `<plugin>/scripts/` — shared helpers
+- `<plugin>/scripts/` — shared runtime validators that skills call. **Shipped.**
+- `<plugin>/knowledge/` — stamped DGF facts and the vendored schema set. **Shipped.**
+- `<plugin>/tools/` — repo-maintenance checks and the schema vendoring tool that
+  contributors run by hand. **Not shipped.** A maintenance tool never goes in `scripts/`.
+- `<plugin>/provenance/` — one ledger per knowledge file: the DGF files its facts came from,
+  each with a `sha256`. **Not shipped.**
 - `.ai-factory/` — pipeline artifacts, single-writer ownership per command
 - Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`. Never hardcode absolute paths,
   `~/` shortcuts, or working-directory-relative paths.
+- **No DGF repository paths in shipped files.** "Shipped" is `SHIPPED_DIRS` in
+  `skills/dgf-doctor/scripts/doctor.py`. A developer's install has no DGF checkout, so a
+  shipped file names a DGF source by knowledge file, DGF docs MCP call
+  (`get_doc_page('<page>')`) or type name, never by path. A fact's source paths go in its
+  `provenance/` ledger, never in `knowledge/`. Workspace layout paths such as
+  `FM/_COMPONENTS/` are fine. `doctor.py` reports a violation as `DGF_PATH`, exit `1`
+  ([ADR 0012](../../docs/adr/0012-no-dgf-paths-in-shipped-files.md)).
+- **Re-vendor schemas only with `tools/vendor_schemas.py`.** Never copy or hand-edit a file
+  under `knowledge/schemas/`. The tool rewrites DGF paths and regenerates the digests, and a
+  hand edit fails `tools/check_knowledge_stamps.py`.
 
 ## Skill Authoring
 

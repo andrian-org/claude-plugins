@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # check-dual-schema-docs.sh — guard this plugin's documentation contracts.
 #
-# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards four contracts — the
+# NAME/SCOPE MISMATCH, DELIBERATE: this script now guards five contracts — the
 # dual-schema one it was named for, the decision-record one added 2026-09-21, the
-# plugin-manifest one added 2026-09-22, and the knowledge-stamp one added the same
-# day. The filename stays as it is because .ai-factory/rules/base.md, AGENTS.md
-# and the dual-schema plan all reference it by name; renaming churns three files
-# for no gain.
+# plugin-manifest one added 2026-09-22, the knowledge-stamp one added the same
+# day, and ADR supersession integrity added 2026-09-23. The filename stays as it
+# is because AGENTS.md, the docs and the plans reference it by name; renaming
+# churns them for no gain. It moved from scripts/ to tools/ on 2026-09-23: it is
+# a maintainer check, and scripts/ ships (ADR 0012).
 #
 # DGF supports two configuration formats: modern JSON component config and legacy XML
 # validated by XSD. Every document in this plugin used to assume JSON only, and all of
@@ -14,10 +15,11 @@
 # contracts, not the generated set. This check stops both mistakes coming back.
 #
 # It is a repo-maintenance check, not a runtime validator: contributors run it, skills
-# do not. It reads and reports; it never edits.
+# do not. It reads and reports; it never edits. It is not shipped: tools/ is outside
+# doctor.py's SHIPPED_DIRS, so it may name DGF repository paths.
 #
-# Usage:  bash scripts/check-dual-schema-docs.sh
-#         DEBUG=1 bash scripts/check-dual-schema-docs.sh     # per-file trace
+# Usage:  bash tools/check-dual-schema-docs.sh
+#         DEBUG=1 bash tools/check-dual-schema-docs.sh       # per-file trace
 #
 # Exit codes (contract, see .ai-factory/rules/base.md):
 #   0  CLEAN     — no findings
@@ -260,8 +262,26 @@ adr_files() {
     find "${PLUGIN_ROOT}/${ADR_DIR}" -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]-*.md' 2>/dev/null | sort
 }
 
+# One flat key from an ADR's YAML frontmatter only — never from the body — with
+# a trailing `# comment` stripped. The ADR README's frontmatter template carries
+# such comments, so an ADR copied from it must parse, not fail.
+fm_value() {
+    awk -v key="$1" '
+        NR == 1 && $0 != "---" { exit }
+        NR == 1 { next }
+        /^---[[:space:]]*$/ { exit }
+        index($0, key ":") == 1 {
+            v = substr($0, length(key) + 2)
+            sub(/[[:space:]]+#.*$/, "", v)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+            print v
+            exit
+        }
+    ' "$2"
+}
+
 adr_status() {
-    sed -n 's/^status:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' "$1" | head -1
+    fm_value status "$1"
 }
 
 # Every ADR link written anywhere in this plugin's own markdown, as source<TAB>target.
@@ -324,7 +344,7 @@ check_decision_records() {
             fi
         done
 
-        id_val="$(printf '%s\n' "${fm}" | sed -n 's/^id:[[:space:]]*"\{0,1\}\([^"]*[^"[:space:]]\)"\{0,1\}[[:space:]]*$/\1/p' | head -1)"
+        id_val="$(fm_value id "${file}" | tr -d '"')"
         if [ -n "${id_val}" ] && [ "${id_val}" != "${prefix}" ]; then
             error "${rel} frontmatter id '${id_val}' does not match filename prefix '${prefix}'"
         fi
@@ -396,6 +416,167 @@ $(scan_superseded_tooling)
 EOF
 
     trace "scanned ${adr_count} decision record(s)"
+}
+
+# --- 5b. supersession integrity -----------------------------------------------
+#
+# docs/adr/README.md §"Supersession is always full" and §"Errata". A superseded
+# ADR must point at a successor that points back, a blueprint answer must not
+# rest on a superseded ADR, and the index must not disagree with the files.
+BLUEPRINT='docs/blueprint.md'
+
+adr_file_for_id() {
+    find "${PLUGIN_ROOT}/${ADR_DIR}" -maxdepth 1 -type f -name "$1-*.md" 2>/dev/null | sort | head -1
+}
+
+# The ids in an ADR's `supersedes:` list, one per line. Only the inline form the
+# existing ADRs use is accepted — [] / [0002] / [0002, 0003]. Anything else prints
+# MALFORMED so the caller can report it rather than skip it silently.
+adr_supersedes() {
+    line="$(fm_value supersedes "$1")"
+    [ -n "${line}" ] || return 0
+    if ! printf '%s\n' "${line}" | grep -qE '^\[([0-9]{4}([[:space:]]*,[[:space:]]*[0-9]{4})*)?\][[:space:]]*$'; then
+        printf 'MALFORMED\n'
+        return 0
+    fi
+    printf '%s\n' "${line}" | grep -oE '[0-9]{4}' || true
+}
+
+# Index rows as target<TAB>status, from the third |-delimited column.
+index_rows() {
+    awk -F'|' '
+        $2 ~ /\[[0-9][0-9][0-9][0-9]\]\([0-9][0-9][0-9][0-9]-[^)]*\.md\)/ {
+            target = $2
+            sub(/^.*\(/, "", target); sub(/\).*$/, "", target)
+            status = $4
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+            printf "%s\t%s\n", target, status
+        }
+    ' "$1"
+}
+
+# Errata entries that do not open with a date, as lineno<TAB>text.
+undated_errata() {
+    awk '
+        /^## Errata[[:space:]]*$/ { grab = 1; next }
+        grab && /^## / { exit }
+        grab && /^- / && $0 !~ /^- (\*\*)?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { printf "%d\t%s\n", NR, $0 }
+    ' "$1"
+}
+
+check_successor_links() {
+    file="$1"
+    rel="$2"
+    id="$3"
+    status="$4"
+
+    case "${status}" in
+        superseded-by-[0-9][0-9][0-9][0-9]) : ;;
+        *) return 0 ;;
+    esac
+
+    succ_id="${status#superseded-by-}"
+    succ="$(adr_file_for_id "${succ_id}")"
+    if [ -z "${succ}" ]; then
+        error "${rel} is superseded-by-${succ_id}, but no ${ADR_DIR}/${succ_id}-*.md exists"
+        return 0
+    fi
+    if ! adr_supersedes "${succ}" | grep -qx "${id}"; then
+        error "${rel} is superseded-by-${succ_id}, but $(relpath "${succ}") does not list ${id} in 'supersedes'"
+        return 0
+    fi
+    # A proposed ADR decides nothing, so it cannot replace a decision: the old one
+    # would be retired with no live decision in its place.
+    succ_status="$(adr_status "${succ}")"
+    if [ "${succ_status}" = "proposed" ]; then
+        error "${rel} is superseded-by-${succ_id}, but $(relpath "${succ}") is still 'proposed' — accept it first"
+        return 0
+    fi
+    trace "${rel}: successor $(relpath "${succ}") lists ${id}"
+}
+
+check_predecessor_links() {
+    file="$1"
+    rel="$2"
+    id="$3"
+
+    ids="$(adr_supersedes "${file}")"
+    if [ "${ids}" = "MALFORMED" ]; then
+        error "${rel} has a 'supersedes' value that is not an inline list of 4-digit ids, e.g. [] or [0002]"
+        return 0
+    fi
+    trace "${rel}: supersedes=[$(printf '%s' "${ids}" | tr '\n' ' ')]"
+
+    while IFS= read -r old; do
+        [ -n "${old}" ] || continue
+        old_file="$(adr_file_for_id "${old}")"
+        if [ -z "${old_file}" ]; then
+            error "${rel} supersedes ${old}, but no ${ADR_DIR}/${old}-*.md exists"
+            continue
+        fi
+        old_status="$(adr_status "${old_file}")"
+        if [ "${old_status}" != "superseded-by-${id}" ]; then
+            error "${rel} supersedes ${old}, but $(relpath "${old_file}") has status '${old_status}', not 'superseded-by-${id}'"
+        fi
+    done <<EOF
+${ids}
+EOF
+}
+
+check_adr_supersession() {
+    section '5b. Supersession integrity'
+
+    while IFS= read -r file; do
+        [ -n "${file}" ] || continue
+        rel="${ADR_DIR}/$(basename "${file}")"
+        id="$(basename "${file}")"
+        id="${id%%-*}"
+        status="$(adr_status "${file}")"
+
+        check_successor_links "${file}" "${rel}" "${id}" "${status}"
+        check_predecessor_links "${file}" "${rel}" "${id}"
+
+        while IFS="$(printf '\t')" read -r lineno text; do
+            [ -n "${lineno}" ] || continue
+            warn "${rel}:${lineno} Errata entry does not start with a YYYY-MM-DD date: ${text}"
+        done <<EOF
+$(undated_errata "${file}")
+EOF
+    done <<EOF
+$(adr_files)
+EOF
+
+    # The index's Status column must match each ADR's frontmatter.
+    index="${PLUGIN_ROOT}/${ADR_DIR}/README.md"
+    while IFS="$(printf '\t')" read -r target cell; do
+        [ -n "${target}" ] || continue
+        f="${PLUGIN_ROOT}/${ADR_DIR}/${target}"
+        [ -f "${f}" ] || continue
+        actual="$(adr_status "${f}")"
+        if [ "${cell}" != "${actual}" ]; then
+            error "${ADR_DIR}/README.md lists ${target} as '${cell}', but its frontmatter status is '${actual}'"
+        else
+            trace "index row ${target}: status '${cell}' matches"
+        fi
+    done <<EOF
+$(index_rows "${index}")
+EOF
+
+    # A blueprint answer must rest on a live decision, not a superseded one.
+    while IFS=: read -r lineno text; do
+        [ -n "${lineno}" ] || continue
+        for target in $(printf '%s\n' "${text}" | grep -oE 'adr/[0-9]{4}-[A-Za-z0-9._-]+\.md' | sed 's|^adr/||' || true); do
+            f="${PLUGIN_ROOT}/${ADR_DIR}/${target}"
+            [ -f "${f}" ] || continue
+            case "$(adr_status "${f}")" in
+                superseded-by-*)
+                    error "${BLUEPRINT}:${lineno} marks a question ANSWERED linking ${target}, which is $(adr_status "${f}") — link the successor" ;;
+                *) trace "${BLUEPRINT}:${lineno} links live ADR ${target}" ;;
+            esac
+        done
+    done <<EOF
+$(grep -n 'ANSWERED' "${PLUGIN_ROOT}/${BLUEPRINT}" 2>/dev/null || true)
+EOF
 }
 
 
@@ -481,14 +662,16 @@ EOF
 # --- 7. knowledge stamps ------------------------------------------------------
 #
 # Every knowledge/**/*.md except knowledge/README.md carries the stamp contract
-# that README.md §1 defines: dgf_version, read_date, a per-source sha256, and —
-# when a range is declared — both since and until. That frontmatter is nested
-# (sources is a list of maps, applies is a map), and the only frontmatter
-# parsing this script does is adr_status(), one sed for one flat key. So the
-# check lives in a Python helper and this section only invokes it, exactly as
-# section 6 does with doctor.py. One implementation; milestone 8's drift check
-# is its second caller.
-STAMPS='scripts/check_knowledge_stamps.py'
+# that README.md §1 defines: dgf_version, read_date and — when a range is
+# declared — both since and until. Its sources, each with a sha256, are in a
+# provenance ledger at the same path under provenance/ (ADR 0013), and the
+# vendored schemas must match their recorded shipped digests. That frontmatter is
+# nested (sources is a list of maps, applies is a map), and the only frontmatter
+# parsing this script does is fm_value(), one flat key at a time. So the check
+# lives in a Python helper and this section only invokes it, exactly as section 6
+# does with doctor.py. One implementation; milestone 8's drift check is its
+# second caller.
+STAMPS='tools/check_knowledge_stamps.py'
 
 check_knowledge_stamps() {
     section '7. Knowledge stamps'
@@ -531,6 +714,7 @@ main() {
     check_reference_page
     check_absolute_paths
     check_decision_records
+    check_adr_supersession
     check_plugin_manifest
     check_knowledge_stamps
 

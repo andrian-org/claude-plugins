@@ -37,16 +37,19 @@ plugins/dgf-factory/
 │   └── dgf-doctor/             #   walking skeleton — is the plugin installed correctly?
 │       ├── SKILL.md            #     the prompt-program
 │       └── scripts/doctor.py   #     the structural validator it calls
-├── knowledge/                  # The DGF knowledge base — every fact stamped and cited
+├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
 │   ├── README.md               #   the stamping convention (the only unstamped file)
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity
 │   ├── component-catalogue.md  #   34 dispatchable components; why 4 other counts differ
 │   ├── composition-specs.md    #   workspace layout, 5 legacy artifacts, events, XML-always policy
 │   ├── naming-conventions.md   #   directory/file/type names a generator must reproduce exactly
-│   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (sha256 per file)
-├── scripts/                    # Repo-maintenance checks contributors run
+│   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (dialects, membership)
+├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
+│   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
+├── tools/                      # NOT SHIPPED — repo-maintenance tools contributors run
 │   ├── check-dual-schema-docs.sh  # documentation, decision-record, manifest and stamp contracts
-│   └── check_knowledge_stamps.py  # the nested-frontmatter validator section 7 invokes
+│   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
+│   └── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
 ├── docs/                       # Detailed documentation, one topic per page
 │   ├── adr/                    #   architecture decision records — README.md is the index
 │   ├── getting-started.md      #   prerequisites, repo layout, build order
@@ -63,7 +66,7 @@ plugins/dgf-factory/
 │   ├── DESCRIPTION.md          #   what this project is; verified DGF facts; risks
 │   └── rules/base.md           #   detected project conventions
 └── .claude/
-    ├── skills/                 # 30 aif-* skills (the reference pipeline) +
+    ├── skills/                 # 29 aif skills (the reference pipeline) +
     │                           # plugin-structure (Claude Code plugin layout reference)
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
@@ -78,9 +81,10 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 |---|---|
 | [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | The manifest. Component paths are left to their defaults — declaring one restates it. |
 | [skills/dgf-doctor/SKILL.md](skills/dgf-doctor/SKILL.md) | The first prompt-as-program. The house style the next slices copy. |
-| [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability, line endings; emits the gate block |
+| [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability (including DGF paths in shipped files), line endings; emits the gate block |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
-| [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What was vendored, from which DGF commit, with a `sha256` per file; the re-vendor process |
+| [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What the vendored schema set holds: directories, dialects, membership |
+| [provenance/knowledge/schemas/MANIFEST.md](provenance/knowledge/schemas/MANIFEST.md) | Maintainer-only: the DGF commit, upstream and shipped `sha256` per file, the path rewrite, the re-vendor process |
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
@@ -115,7 +119,7 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
 | DGF Schemas | `docs/dgf-schemas.md` | The two schema families (JSON + XSD), runtime parity, vendoring |
-| Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, version gating, scope, default rules |
+| Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, validator runtime, version gating, scope, default rules |
 | Architecture Blueprint | `docs/blueprint.md` | AI Factory teardown and the DGF mapping |
 | Repository README | `../../README.md` | The `dotgov` marketplace and how to install its plugins |
 
@@ -133,8 +137,14 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 
 - **Decisions live in `docs/adr/`.** [docs/adr/README.md](docs/adr/README.md) is the index.
   Before reopening a settled question — delivery model, what "process verified" means, version
-  gating, the unit of work, the default rule set — read the ADR that closed it. Reverse a
-  decision with a new ADR that supersedes the old one; never by editing it.
+  gating, the validator runtime, the unit of work, the default rule set — read the ADR that
+  closed it. Process verification and version gating are decided by
+  [ADR 0006](docs/adr/0006-process-verification-revised.md) and
+  [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); 0002, 0003 and 0008 are
+  superseded history.
+  Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
+  only in-place edit is a dated erratum that corrects a fact without changing the decision.
+  A `proposed` ADR decides nothing until it is accepted.
 - **This plugin's architecture derives from AI Factory and depends on nothing else.** It takes
   no dependency on any other DGF agent-tooling effort and is not obliged to track another
   repository's ADR series ([ADR 0001](docs/adr/0001-independent-plugin-with-ai-factory-derived-architecture.md)).
@@ -142,6 +152,17 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
   `[assume]` throughout because it was written from one sentence of description. Confirm
   against the DGF repository or the DGF docs MCP before writing a fact into a skill, and
   cite where it came from.
+- **No DGF repository paths in shipped files** ([ADR 0012](docs/adr/0012-no-dgf-paths-in-shipped-files.md)).
+  Files a developer installs never contain a path into the DGF repository: no `src/…`, no
+  `docs/wiki/…`, no local checkout path. Shipped files
+  are everything under the directories `doctor.py` lists in `SHIPPED_DIRS` (`skills/`,
+  `agents/`, `commands/`, `scripts/`, `knowledge/`, `.claude-plugin/`). A developer's install
+  has no DGF checkout, so shipped content cites the shipped `knowledge/` base or a DGF docs MCP
+  tool instead. Workspace layout paths such as `FM/_COMPONENTS/` are allowed: they describe the
+  developer's own workspaces, not the DGF repository. Maintainer material (`docs/`, ADRs,
+  `.ai-factory/`, `provenance/`, `tools/`) still cites DGF paths as evidence. A fact's DGF
+  sources go in its `provenance/` ledger, never in the knowledge file. `doctor.py` blocks on a
+  violation.
 - **Determinism before prompting.** If a JSON Schema, an XSD, or a script can decide the
   question, write the script. Do not encode a statically checkable rule as a prompt
   instruction.

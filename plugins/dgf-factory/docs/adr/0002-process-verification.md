@@ -1,8 +1,8 @@
 ---
 id: 0002
 title: Process verification is structural today, semantic by our own validators
-status: accepted
-date: 2026-09-21
+status: superseded-by-0006
+date: 2026-09-23
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [validation, process, gates]

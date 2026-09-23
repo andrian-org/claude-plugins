@@ -270,7 +270,7 @@
     </xs:complexType>
 
     <!-- Component Events Type -->
-    <!-- Mirrors ComponentEvent (src/Core/DGF.Domain/Data/Form/ComponentEvent.cs).
+    <!-- Mirrors ComponentEvent (ComponentEvent.cs).
          Valid on a cell (FormCell.cs:75) and on a component (FormCellComponent.cs:31). -->
     <xs:complexType name="componentEventsType">
         <xs:sequence>

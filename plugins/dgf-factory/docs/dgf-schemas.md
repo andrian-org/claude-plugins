@@ -136,8 +136,9 @@ The XSD side has no such drift: 9 in the repository, 9 on the live server.
 | What does production actually serve right now? | The **live MCP** |
 | Does the runtime read this format for this component? | **`format-coverage.md`** |
 
-The deployed MCP can lag the repository. `knowledge/schemas/MANIFEST.md` therefore records
-the DGF **commit SHA** the vendored set was taken from, so the vendored set's position
+The deployed MCP can lag the repository. The schema ledger,
+`provenance/knowledge/schemas/MANIFEST.md`, therefore records the DGF **commit SHA** the
+vendored set was taken from, so the vendored set's position
 relative to the deployed server is always knowable rather than assumed.
 
 ---
@@ -229,16 +230,26 @@ behaviour rather than globbing.
 Schemas are **vendored, not read across the filesystem** — a validator that reaches outside
 the plugin breaks the moment the plugin is installed elsewhere. The complete set is
 vendored: all committed JSON schemas, all 9 XSDs, and `XmlReference/form.reference.json`.
-Roughly 3.5 MB. The live record of what was taken, from which commit, with a digest per
-file, is [`knowledge/schemas/MANIFEST.md`](../knowledge/schemas/MANIFEST.md).
+Roughly 3.5 MB. What the set holds is
+[`knowledge/schemas/MANIFEST.md`](../knowledge/schemas/MANIFEST.md), which ships. Where each
+file came from, from which commit, with its digests, is the maintainer-only ledger
+[`provenance/knowledge/schemas/MANIFEST.md`](../provenance/knowledge/schemas/MANIFEST.md).
 
 ```text
-knowledge/schemas/
-├── MANIFEST.md        # DGF commit SHA, DGF version, vendored date, per-file dialect
+knowledge/schemas/                      # shipped
+├── MANIFEST.md        # DGF version, vendored date, per-file dialect and membership
 ├── json/              # generated *.schema.json from Schemas/Json/
 ├── xsd/               # the 9 *.xsd plus form.reference.json
 └── standalone/        # hand-authored contracts from DGF docs/schemas/
+
+provenance/knowledge/schemas/MANIFEST.md   # not shipped — commit SHA, upstream + shipped sha256
 ```
+
+**The shipped copies are not byte-identical to upstream.** A shipped file carries no DGF
+repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)), and DGF's own schema
+text contains some. `tools/vendor_schemas.py` rewrites them as it copies the set in: a
+`docs/wiki/<page>` link becomes `get_doc_page('<page>')`, and any other DGF path is cut to its
+file name. Nothing else changes. At the 2026-09-23 vendor that touched 61 of 82 files.
 
 Three hazards are verified, not theoretical. Each has a required mitigation.
 
@@ -270,17 +281,26 @@ file is also stale and unserved by the live MCP.
 **Mitigation:** quote every schema path in every script. Do not special-case this one file;
 quoting is the rule.
 
-### 9.4 What `MANIFEST.md` records
+### 9.4 What the two manifests record
 
-- DGF commit SHA the set was vendored from
-- DGF version and vendored date
-- **A `sha256` per vendored file**, in the manifest's frontmatter `sources` list — the
-  schemas are not Markdown and cannot carry a stamp of their own, so this is their digest
-  table, and it is what the drift check compares against a consumer's DGF checkout
+The shipped `knowledge/schemas/MANIFEST.md`:
+
+- DGF version and vendored date — the stamp for the set, since the schemas are not Markdown
+  and cannot carry one of their own
 - Per-file `$schema` dialect
+- Any file present in the vendored set but not served by the live MCP, and the reverse
+
+The maintainer ledger `provenance/knowledge/schemas/MANIFEST.md`, whose frontmatter only
+`tools/vendor_schemas.py` writes:
+
+- DGF commit SHA the set was vendored from (`dgf_commit`)
+- Per file: the upstream path, the upstream `sha256`, the vendored path, and the shipped
+  `sha256`. The drift check compares the upstream digest against a DGF checkout.
+  `tools/check_knowledge_stamps.py` compares the shipped digest against the shipped file, so
+  a hand edit to a vendored schema fails without any checkout.
 - Which files came from `Schemas/Json/`, which from `Schemas/XSD/`, and which from the
   hand-authored `docs/schemas/` contracts
-- Any file present in the vendored set but not served by the live MCP, and the reverse
+- The rewrite rules and what each re-vendor changed
 
 ---
 
@@ -297,12 +317,16 @@ bash src/Tools/dgf-mcp/sync-schemas.sh
 On the DGF side, `/dgf-freshness-audit` catches a forgotten sync and blocks the release.
 **That audit does not see this plugin.** Re-vendoring here is therefore a deliberate act:
 
-1. Re-run the upstream flow in the DGF repository, or confirm it is already current.
-2. Copy the sets into `knowledge/schemas/{json,xsd,standalone}/`, respecting §9.1.
-3. Update `MANIFEST.md` — new commit SHA, date, and any dialect or membership changes.
+1. Re-run the upstream flow in the DGF repository, or confirm it is already current, and
+   commit it — the vendoring tool refuses a DGF tree with uncommitted schema changes.
+2. `python3 tools/vendor_schemas.py <dgf-root> --dry-run`, then without `--dry-run`. It
+   copies the sets into `knowledge/schemas/{json,xsd,standalone}/` respecting §9.1, rewrites
+   DGF paths, and regenerates the ledger's frontmatter and the shipped manifest's stamp.
+3. Update the ledger's prose and the shipped manifest's prose for any dialect or membership
+   change.
 4. Re-read `format-coverage.md` and update any parity claim this plugin repeats.
 
-Never automate step 2 on a schedule. A vendored set that changes without a recorded
+The ledger's §4 has the full procedure. Never automate step 2 on a schedule. A vendored set that changes without a recorded
 decision is worse than one that is knowingly old.
 
 ---
@@ -328,3 +352,4 @@ scaffolding or greenfield skill is written.
 - [Architecture](architecture.md) — where vendored schemas live and which code may read them
 - [Skill Authoring](skill-authoring.md) — the determinism rule these schemas exist to serve
 - [Architecture Blueprint](blueprint.md) — the design this knowledge feeds
+- [ADR 0011](adr/0011-schema-parity-authority.md) — the proposed decision record for the family-first, parity-checked rule this page defines

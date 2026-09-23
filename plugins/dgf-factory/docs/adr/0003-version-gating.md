@@ -1,8 +1,8 @@
 ---
 id: 0003
 title: Stamp every fact, gate only behavioural ones
-status: accepted
-date: 2026-09-21
+status: superseded-by-0008
+date: 2026-09-23
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [knowledge, versioning, drift]

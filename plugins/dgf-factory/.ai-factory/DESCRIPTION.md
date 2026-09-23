@@ -30,10 +30,16 @@ Setup stage. The repository currently contains:
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention), four stamped
   facts files (`schema-families`, `component-catalogue`, `composition-specs`,
   `naming-conventions`), and `schemas/` — the vendored set (69 JSON + 9 XSD + grammar
-  reference + 3 standalone contracts, ~3.5 MB) with a generated `MANIFEST.md` carrying a
-  `sha256` per file
-- `scripts/check-dual-schema-docs.sh` — the repo-maintenance contract check, seven sections
-- `scripts/check_knowledge_stamps.py` — asserts every knowledge file carries the stamp contract
+  reference + 3 standalone contracts, ~3.5 MB) with a `MANIFEST.md` of dialects and
+  membership. Shipped, so it names no DGF repository path
+- `provenance/` — **not shipped.** One ledger per knowledge file, recording the DGF files its
+  facts were read from with a `sha256` each; the schema ledger adds the DGF commit and each
+  vendored file's upstream and shipped digests
+- `tools/` — **not shipped.** `check-dual-schema-docs.sh` (the repo-maintenance contract check,
+  seven sections), `check_knowledge_stamps.py` (stamps, ledgers and vendored digests) and
+  `vendor_schemas.py` (re-vendors DGF's schema set, rewriting DGF paths on the way in)
+- `scripts/` — shipped, and empty until milestone 8's validators land
+- `docs/adr/` — 13 decision records, 0001–0013; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
 Not yet created: the rest of the `dgf-*` skill corpus, the deterministic dual-schema
@@ -73,9 +79,11 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 | Auth: JWT Bearer + OIDC (Azure AD + DGPass); tests: xUnit/FluentAssertions/Moq + Jest/Playwright | `AGENTS.md` tech stack |
 | DGF version source of truth is **`1.1.11`**, set only under `Condition="'$(Configuration)' == 'ClientDebug'"` despite a comment claiming all configurations share it | `src/Directory.Build.props` L30-34 |
 | **Nothing first-party version-stamps DGF knowledge** — no `version` on the XSDs, none in the generated JSON schemas, no compatibility matrix; release notes are the only version-aware surface | `Schemas/XSD/`, `Schemas/Json/`, `docs/wiki/Release-notes/` |
-| Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0002](../docs/adr/0002-process-verification.md) |
+| Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0006](../docs/adr/0006-process-verification-revised.md) |
 | A process **cannot be executed headlessly** — stepping one needs a case record and therefore the database | `DGF.OM/Process/StateProcess/InstanceHandler.cs` `GetProcessMapAsync` |
 | Workspaces inherit from a **base workspace** (`webasm`): `FmPath` resolves in the selected workspace, `FmBasePath` in the base, so a base artifact is live in every application | `src/Core/DGF.Kernel/WorkspaceSettings.cs` |
+| Neither Python's nor Node's standard library validates XSD or JSON Schema, and a plugin cannot install its own dependencies — so validators run on Python with `lxml` + `jsonschema`, installed by the user and detected as missing (exit `3`) | verified 2026-09-23 — see [ADR 0007](../docs/adr/0007-validator-runtime.md) |
+| Modern components are JSON files under `<workspace>/FM/_COMPONENTS/<Type>/<name>.json`, loaded only as `.json`; a `BASE:` prefix resolves the same path in `webasm` | `src/Components/DGF.Components.Shared/ComponentFileLoadService.cs:14-25` — see [ADR 0010](../docs/adr/0010-dgf-implement-scope.md) |
 
 **Correction to the blueprint:** Part 2 was written from a one-sentence description
 that characterised DGF as having "workflows and BPMN-like processes". No BPMN engine
@@ -90,14 +98,16 @@ and `dataFetcherConfiguration.schema.json`.
 
 **All seven blueprint open questions are now closed.** **#1** (spec format — both families
 have committed schemas, and the DGF MCP exposes headless validators for each) and **#2**
-(component enumeration — yes, statically enumerable) were answered from the repository;
-**#4** substantially so — DGF systems compose configuration rather than write code, and
-today that configuration is XML for the five legacy artifact types. The remaining four were
-decided on 2026-09-21 and recorded in [`docs/adr/`](../docs/adr/README.md): **#5** process
-verification ([0002](../docs/adr/0002-process-verification.md)), **#6** version gating
-([0003](../docs/adr/0003-version-gating.md)), **#3** authoring entry point and scope
-([0004](../docs/adr/0004-authoring-entry-point.md)), **#7** default team rules
-([0005](../docs/adr/0005-default-team-rules.md)).
+(component enumeration — yes, statically enumerable) were answered from the repository. The
+other five are recorded in [`docs/adr/`](../docs/adr/README.md): **#3** authoring entry point
+and scope ([0004](../docs/adr/0004-authoring-entry-point.md)), **#7** default team rules
+([0005](../docs/adr/0005-default-team-rules.md)), **#5** process verification
+([0006](../docs/adr/0006-process-verification-revised.md), superseding 0002), **#6** version
+gating ([0013](../docs/adr/0013-version-gating-provenance-ledger.md), superseding 0008 and
+0003), and **#4**, decided on 2026-09-23 ([0010](../docs/adr/0010-dgf-implement-scope.md)):
+`/dgf-implement` composes configuration. It uses modern JSON under `FM/_COMPONENTS/` first,
+legacy XML only where no JSON alternative exists, and a little JavaScript or CSS only where
+configuration cannot express the plan.
 
 ## Architecture Notes
 
@@ -135,6 +145,8 @@ folder structure, dependency rules, communication mechanisms and anti-patterns.
 
 Pattern: **Structured Modules (Vertical Slices)** — one skill is one self-contained
 slice, with shared DGF facts in `knowledge/` and cross-slice validators in `scripts/`.
+Maintainer material — `tools/` and `provenance/` — sits beside the slices and is never
+shipped.
 Expressed in Claude Code plugin folder names, because auto-discovery only loads
 components from the plugin's mandated paths.
 
@@ -168,7 +180,12 @@ in [ADR 0001](../docs/adr/0001-independent-plugin-with-ai-factory-derived-archit
 - **Token budget.** Declaring playwright and chrome-devtools costs roughly 12,000 tokens of
   tool schema per session, so browser MCP servers are not declared in this project. This is
   also why browser-driven checks stay out of the gates — see
-  [ADR 0002](../docs/adr/0002-process-verification.md) §4.
+  [ADR 0006](../docs/adr/0006-process-verification-revised.md) §4.
 - **Line endings.** LF enforced repo-wide via `.gitattributes` — CRLF breaks shebangs and
   heredocs in plugin scripts.
 - **Portability.** Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`, never absolute paths.
+- **No DGF repository paths in shipped files.** A developer's install has no DGF checkout,
+  so nothing under `skills/`, `agents/`, `commands/`, `scripts/`, `knowledge/` or
+  `.claude-plugin/` names a path into it. Shipped files cite the knowledge base, a DGF docs
+  MCP call or a DGF type name; paths and digests live in `provenance/`. `doctor.py` blocks
+  on a violation — see [ADR 0012](../docs/adr/0012-no-dgf-paths-in-shipped-files.md).
