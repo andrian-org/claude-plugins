@@ -272,7 +272,7 @@ check script to exit `0` before finishing.
 
 ### Phase 5: Verification and docs
 
-- [ ] **Task 12: Run the gates and the documentation checkpoint.** (depends on 2-11)
+- [x] **Task 12: Run the gates and the documentation checkpoint.** (depends on 2-11)
   - Run `bash scripts/check-dual-schema-docs.sh`: exit `0`.
   - Run `python3 scripts/check_knowledge_stamps.py`: exit `0`.
   - Run `python3 skills/dgf-doctor/scripts/doctor.py`: no new findings.

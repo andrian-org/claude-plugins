@@ -115,7 +115,7 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
 | DGF Schemas | `docs/dgf-schemas.md` | The two schema families (JSON + XSD), runtime parity, vendoring |
-| Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, version gating, scope, default rules |
+| Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, validator runtime, version gating, scope, default rules |
 | Architecture Blueprint | `docs/blueprint.md` | AI Factory teardown and the DGF mapping |
 | Repository README | `../../README.md` | The `dotgov` marketplace and how to install its plugins |
 
@@ -133,8 +133,13 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 
 - **Decisions live in `docs/adr/`.** [docs/adr/README.md](docs/adr/README.md) is the index.
   Before reopening a settled question — delivery model, what "process verified" means, version
-  gating, the unit of work, the default rule set — read the ADR that closed it. Reverse a
-  decision with a new ADR that supersedes the old one; never by editing it.
+  gating, the validator runtime, the unit of work, the default rule set — read the ADR that
+  closed it. Process verification and version gating are decided by
+  [ADR 0006](docs/adr/0006-process-verification-revised.md) and
+  [ADR 0008](docs/adr/0008-version-gating-revised.md); 0002 and 0003 are superseded history.
+  Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
+  only in-place edit is a dated erratum that corrects a fact without changing the decision.
+  A `proposed` ADR decides nothing until it is accepted.
 - **This plugin's architecture derives from AI Factory and depends on nothing else.** It takes
   no dependency on any other DGF agent-tooling effort and is not obliged to track another
   repository's ADR series ([ADR 0001](docs/adr/0001-independent-plugin-with-ai-factory-derived-architecture.md)).
