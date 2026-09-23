@@ -1,7 +1,7 @@
 ---
 id: 0009
 title: One plan ledger at workspaces-root scope, partitioned by affected workspaces
-status: proposed
+status: accepted
 date: 2026-09-23
 deciders: [Andrian Mamei]
 supersedes: []
@@ -10,9 +10,8 @@ tags: [planning, scope, ownership]
 
 # 0009 — One plan ledger at workspaces-root scope, partitioned by affected workspaces
 
-**Status: proposed.** This ADR sets out the options and a recommendation. It decides nothing
-until it is accepted, which must happen **before roadmap milestone 9 ("Pipeline Spine")**,
-because `/dgf-plan` writes the ledger this ADR is about.
+**Status: accepted** (2026-09-23, Andrian Mamei). This satisfies the precondition roadmap
+milestone 9 ("Pipeline Spine") places on it: `/dgf-plan` writes the ledger this ADR is about.
 
 ## Context
 
@@ -23,8 +22,7 @@ put `.dgf-factory/` there **once**, not per workspace. Its Negative consequences
 > artifact ownership was designed for one project; at this scope, two teams touching two
 > applications share `.dgf-factory/plans/`. Contention is a real risk, not a theoretical one.
 
-Its follow-up leaves the question open: *"Candidates: per-application plan id prefixes, or a
-plan-level `affects_workspaces` field. Not decided here."*
+Its follow-up leaves open how the shared ledger is partitioned.
 
 What the inherited pipeline provides, read from this repository on 2026-09-23:
 
@@ -45,18 +43,10 @@ Two properties of DGF shape the answer (ADR 0004 §Context):
 - A running application is exactly one workspace (`WorkspaceName` is a single value), so most
   plans touch one application plus, sometimes, the base.
 
-## Options
+## Decision
 
-### A. Per-application plan-id prefix
-
-`plans/zims-<slug>.md`, `plans/webasm-<slug>.md`. It sorts and filters by application and needs
-no new field.
-
-- It breaks branch-based discovery unless branch names carry the same prefix.
-- It encodes one application per plan, which is false for exactly the plans that matter: a
-  base-workspace change affects every application.
-
-### B. Plan-level `affects_workspaces` field plus an overlap check — recommended
+**Keep one plan ledger at the workspaces root and scope each plan with a mandatory
+`affects_workspaces` list.**
 
 Every plan declares, in its header, the workspaces it touches:
 
@@ -64,60 +54,45 @@ Every plan declares, in its header, the workspaces it touches:
 affects_workspaces: [zims, webasm]
 ```
 
-`/dgf-plan` writes it from the reconnaissance it already does. A deterministic check, run by
-`/dgf-plan` and `/dgf-verify`, lists every **other** active plan whose set intersects this one.
-A plan touching `webasm` is treated as intersecting every plan. Overlap is a **warning**
-(exit `2`), not a lock: two teams may knowingly work in parallel, but never unknowingly.
-
-- Filenames and branch-based discovery stay unchanged.
-- It gives [ADR 0006](0006-process-verification-revised.md)'s whole-root checks, and
-  [ADR 0005](0005-default-team-rules.md)'s rule 3 (base-workspace edits need justification), a
-  declared scope to check against.
-- The field can be wrong. `/dgf-verify` compares it with the files the branch actually changed
-  and fails when the diff reaches a workspace the plan did not declare.
-
-### C. A ledger per workspace under one root
-
-`.dgf-factory/plans/<workspace>/…`. It gives the strongest isolation.
-
-- It reintroduces the boundary ADR 0004 removed: a plan touching `zims` and `webasm` has no
-  single home.
-- Branch-based discovery must search every subdirectory.
-
-## Decision
-
-**Recommended, not yet accepted:** Option **B**. Keep one ledger at the workspaces root, keep
-slug ids and branch-based discovery, and add a mandatory `affects_workspaces` list to every
-plan. A deterministic overlap check warns when active plans share a workspace, treating
-`webasm` as shared with all. `/dgf-verify` blocks when the branch's diff reaches a workspace
-the plan did not declare.
-
-Reject `sequential` ids at workspaces-root scope. Duplicate numbers are certain whenever two
-teams plan from the same base.
-
-## Alternatives considered
-
-Options A and C above. A third — **do nothing and rely on git conflicts** — is rejected in
-advance: plan files rarely conflict textually, so two overlapping plans would merge cleanly
-and nobody would learn that they overlapped.
+- `/dgf-plan` writes the list from the reconnaissance it already does. It is never empty.
+- **A plan may affect several workspaces at once.** This is intended. A change that spans
+  applications, or that touches the base workspace together with the applications that rely
+  on it, is one plan on one branch. It is not split into one plan per workspace.
+- Plan ids stay `slug`, and discovery stays branch-based. Filenames carry no workspace.
+  `sequential` ids are not permitted at workspaces-root scope, because two teams planning from
+  the same base are certain to allocate the same number.
+- A deterministic overlap check, run by `/dgf-plan` and `/dgf-verify`, lists every other active
+  plan whose set intersects this one. `webasm` intersects every plan. An overlap exits `2`
+  (warning), never `1`. It locks nothing: two teams may knowingly work in parallel, but never
+  unknowingly. Git does not do this on its own. Plan files rarely conflict textually, so two
+  overlapping plans would merge cleanly and nobody would learn that they overlapped.
+- `/dgf-verify` compares the list with the files the branch actually changed, and fails with
+  exit `1` when the diff reaches a workspace the plan did not declare. A plan may declare more
+  than its diff touches, but not less.
 
 ## Consequences
 
 ### Positive
 
 - The contention ADR 0004 named becomes visible at plan time, not at merge time.
-- Declared scope gives rule 3 and the whole-root gates something to check against.
+- A change that spans workspaces is an ordinary plan, not a special case.
+- Filenames and branch-based discovery stay exactly as inherited.
+- Declared scope gives [ADR 0006](0006-process-verification-revised.md)'s whole-root checks, and
+  [ADR 0005](0005-default-team-rules.md)'s rule 3 (base-workspace edits need justification),
+  something to check against.
 
 ### Negative
 
 - One more field for `/dgf-plan` to get right, and one more check to maintain.
+- A multi-workspace plan is a larger unit of review and rollback. It overlaps more plans, so it
+  raises more warnings.
 - Overlap is only warned, so the contention risk is surfaced, not removed.
 - Treating `webasm` as shared with everything will warn often on an estate where base edits are
   common.
 
 ### Follow-ups
 
-- **Accept, amend or reject this ADR before milestone 9 starts.** Until then, milestone 9 must
-  not fix a plan-header format.
-- Decide whether `affects_workspaces` includes the `applibs*` libraries or only application
-  workspaces and `webasm`.
+- Milestone 9 defines the plan-header format with `affects_workspaces`, alongside
+  [ADR 0010](0010-dgf-implement-scope.md)'s `kind` field.
+- Still open: decide whether `affects_workspaces` includes the `applibs*` libraries or only
+  application workspaces and `webasm`.
