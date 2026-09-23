@@ -31,8 +31,8 @@ What the inherited pipeline provides, read from this repository on 2026-09-23:
 - **Plan ids.** `.ai-factory/config.yaml` `workflow.plan_id_format` accepts `slug` (the default,
   derived from the branch name) and `sequential` (`<NNNN>_<stem>`). `timestamp` and `uuid` are
   reserved and behave like `slug`. `sequential` numbers from the highest existing prefix in the
-  plans directory, so two branches cut from the same base allocate the **same** number and
-  collide on merge.
+  plans directory, so two branches cut from the same base allocate the **same** number. The
+  files coexist after merge, because their stems differ, but the numbering stops being unique.
 - **Discovery is branch-based.** `/aif-implement`, `/aif-improve` and `/aif-verify` find the
   active plan by converting the current branch name to a filename stem. One branch, one plan.
 - **Single-writer ownership** (blueprint §"What stays") means `/dgf-plan` owns every plan file.
@@ -92,7 +92,7 @@ plan. A deterministic overlap check warns when active plans share a workspace, t
 `webasm` as shared with all. `/dgf-verify` blocks when the branch's diff reaches a workspace
 the plan did not declare.
 
-Reject `sequential` ids at workspaces-root scope. Their merge collision is certain whenever two
+Reject `sequential` ids at workspaces-root scope. Duplicate numbers are certain whenever two
 teams plan from the same base.
 
 ## Alternatives considered

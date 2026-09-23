@@ -70,6 +70,10 @@ validates JSON with JsonSchema.Net 7.3.4 (`src/Tools/dgf-mcp/DgfMcpServer.csproj
 > each allOf branch evaluates independently, so the derived branch (with
 > additionalProperties: false) rejects every property the base declares.
 
+The pattern is not rare. In the vendored `json/` set it occurs **97 times, in 64 of the 69
+files**: an `allOf` holding a `$ref` next to an object that declares `properties` and
+`additionalProperties: false` (for example `RowConfig.schema.json`). Counted 2026-09-23.
+
 The comment attributes the merged reading to draft-04. The draft-04 specification does not
 say that: `additionalProperties` considers only `properties` and `patternProperties` in the
 **same** schema object, in every draft. So this is not a draft-04-versus-2020-12 problem.
@@ -172,3 +176,14 @@ passed.**
 - **What would reverse this:** a requirement that the gate match DGF's MCP exactly, or
   evidence that the pre-pass cannot reproduce NJsonSchema's semantics. Either points to the
   .NET alternative above.
+
+## Errata
+
+Corrections of fact that do not change what this ADR decides. See
+[the ADR contract](README.md) §"Errata".
+
+- **2026-09-23** — §Context rested the NJsonSchema-inheritance claim on DGF's own source comment
+  alone, and never measured the vendored set. It now states the count: the
+  `allOf` + `$ref` + `additionalProperties: false` pattern occurs 97 times in 64 of the 69 files
+  under `knowledge/schemas/json/`. The decision is unchanged; the count shows the pre-pass
+  touches most of the set, not an edge case. Source: a recursive scan of those files.

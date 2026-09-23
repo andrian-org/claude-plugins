@@ -80,6 +80,9 @@ write a superseding ADR.
 
 A superseded ADR takes no errata. Corrections to it belong in its successor's Context.
 
+A `proposed` ADR is a draft. It decides nothing yet, so it may be edited freely, without
+errata, until it is accepted, rejected or superseded.
+
 ## Section contract
 
 ```markdown

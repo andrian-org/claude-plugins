@@ -29,8 +29,8 @@ Evidence, read 2026-09-23:
 
 - **Configuration dominates the authored surface.** A workspace's behaviour lives under `FM/`
   (`_PROCESS`, `_WORKFLOW`, `_COMPONENTS`, `_DATA`, `_LOOKUP`, `_PROFILE`), per
-  `src/Core/DGF.Kernel/WorkspaceSettings.cs`. The shipped samples hold 23 processes and dozens of
-  workflows under `src/samples/workspaces/*/FM/`.
+  `src/Core/DGF.Kernel/WorkspaceSettings.cs`. The shipped samples hold 23 processes and 318
+  workflows (`_workflow.xml` files) under `src/samples/workspaces/*/FM/`.
 - **The configuration has a generation policy.** DGF's
   `docs/wiki/AI-Authoring/format-coverage.md:138` sets Wave-1 policy: *"AI generates XML for all
   five legacy artifact types, regardless of partial JSON parity."*

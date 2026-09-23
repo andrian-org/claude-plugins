@@ -86,17 +86,19 @@ declared, because it is not a state — it is the instruction to stop.
 **The XSD lags the runtime deserializer.** The two failing samples use constructs that
 `XmlSerializer` binds:
 
-- `webasm/FM/_PROCESS/PrintDeliver/process.xml` and `dgf/FM/_PROCESS/DGF.Demo.EService/process.xml`
-  use `State/@ftitle` (3 times), `State/@type="StoredProcedure"` (not in `StateTypeEnum`), and
+- `webasm/FM/_PROCESS/PrintDeliver/process.xml` uses `State/@type="StoredProcedure"` (not in
+  `StateTypeEnum`; `State.Type` is a plain `string`, `State.cs` L50-51) and
   `<StoredProcedureActivity>` inside `OnInit` (the XSD allows only `UpdateRecord` and `Task`).
+- `dgf/FM/_PROCESS/DGF.Demo.EService/process.xml` uses `State/@ftitle`, 3 times.
 - The runtime model binds attributes and elements the XSD lacks:
   `src/Core/DGF.Domain/Process/StateProcess/State.cs` L13 `fdesc`, L16 `ftitle`, L37
   `OnTimeout`; `Process.cs` L20 `hideDesc`; `AbstractStateEvent.cs` L10
   `StoredProcedureActivity`.
 
-**"Handler resolution" was aimed at the wrong registry.** All 172 `action` values in the
-samples are `WORKFLOW:` references such as `WORKFLOW:/Step1.CaseOfficer.Draft` or
-`WORKFLOW:/BASE:AX.StartWalkinCase`. They name workflows under `_WORKFLOW`, not components,
+**"Handler resolution" was aimed at the wrong registry.** The samples hold 198 `action`
+attributes. 172 are `WORKFLOW:` references such as `WORKFLOW:/Step1.CaseOfficer.Draft` or
+`WORKFLOW:/BASE:AX.StartWalkinCase`, and the other 26 are empty (`action=""`). None names
+anything else. The `WORKFLOW:` values name workflows under `_WORKFLOW`, not components,
 so they resolve against the workflow tree of the workspace and of `webasm` — not the
 component registry ADR 0002 made this check wait for. The samples hold 44 `BASE:`-bearing
 attributes: 40 `@action`, 1 `@validationFlow`, 1 `Process/@table`, 2 `Field/@value`.
@@ -142,6 +144,9 @@ All run on files under the workspaces root, without a database or the engine.
 | **workflow-reference resolution** | every `WORKFLOW:` value in `@action` on `OnStart`, `State` and `Transition` resolves under `FM/_WORKFLOW` of the owning workspace, or — when `BASE:`-prefixed — of `webasm` | blocking |
 | **validation-flow resolution** | `Process/@validationFlow` resolves the same way | blocking |
 | **change-state target resolution** | every workflow `<StateProcess mode="CHANGE_STATE">` has a `process` that resolves (`BASE:` into `webasm`), and its `state` and each `;`-separated `applyforstates` entry names a declared state of that process or `End` | blocking |
+
+An empty `@action` names nothing, so workflow-reference resolution skips it. It is neither a
+pass nor a failure.
 
 Workflow-reference resolution replaces ADR 0002's "handler resolution" and absorbs most of
 its "process `BASE:` references" row. Of the 44 `BASE:`-bearing attributes in the samples,
@@ -233,9 +238,14 @@ field ignore it, so `schema_version` stays `1`. It is implemented under roadmap 
 ### Follow-ups
 
 - **Known-good corpus (milestone 8).** The 23 samples must produce zero errors; warnings are
-  allowed and listed. The samples are an **incomplete** workspaces root — their workflows
-  target `ZIMS4_*` processes that are not in `src/samples/` — so the corpus run declares
-  those as expected-external and reports them. It must not pass them silently.
+  allowed and listed. The samples are an **incomplete** workspaces root. Their 21
+  `CHANGE_STATE` steps target 14 distinct processes, and 8 of those are not in
+  `src/samples/`: `ZIMS3_Appeal`, `ZIMS3_InvestigationBorder`, `ZIMS4_Investigation`,
+  `ZIMS4_Prosecution`, `ZIMS4_Removal`, `ZIMS4_ReportOrder`, `ZIMS4_Revocation`, `ZIMS4_Visa`.
+  The other 6 are present and must be fully checked. The corpus run reports the absent 8 as
+  expected-external. That list comes from **resolution** — a target that does not resolve —
+  and is never written as a name prefix: `ZIMS4_Inspection`, `ZIMS4_InspectionBorder` and
+  `ZIMS4_Permits` share the prefix and are present. Absent targets must not pass silently.
 - **Known-bad corpus (milestone 8).** One fixture per blocking row above. A validator with
   no failing fixture has not been tested.
 - Write the divergence list as a stamped fact under `knowledge/` (milestone 8).
@@ -245,3 +255,24 @@ field ignore it, so `schema_version` stays `1`. It is implemented under roadmap 
 - Decide the `SubProcess` check once its reference semantics are found in the engine.
 - Decide whether `Process/@table` `BASE:` references get a resolution check against
   `_DATA`, and whether any `Field/@value` form is a statically resolvable reference.
+
+## Errata
+
+Corrections of fact that do not change what this ADR decides. See
+[the ADR contract](README.md) §"Errata". All re-read from the DGF repository at `aa1d5c4c2`.
+
+- **2026-09-23** — §Follow-ups said the samples' workflows "target `ZIMS4_*` processes that are
+  not in `src/samples/`". Their 21 `CHANGE_STATE` steps target 14 distinct processes, and only 8
+  are absent — two of them `ZIMS3_*`. Six are present, including `ZIMS4_Inspection`,
+  `ZIMS4_InspectionBorder` and `ZIMS4_Permits`. The follow-up now names the 8 absent processes
+  and requires the expected-external list to come from resolution, never from a name prefix. A
+  prefix-based list would have exempted resolvable targets from change-state resolution.
+  Source: every `<StateProcess mode="CHANGE_STATE">` under `src/samples/workspaces/*/FM/_WORKFLOW`,
+  checked against `src/samples/workspaces/*/FM/_PROCESS/`.
+- **2026-09-23** — §Context said "all 172 `action` values" are `WORKFLOW:` references. The
+  samples hold 198 `action` attributes: 172 `WORKFLOW:` and 26 empty. §2 now states that an empty
+  `@action` is skipped. The rule — resolve every `WORKFLOW:` value — is unchanged. Source: every
+  `action` attribute in the 23 sample `process.xml` files.
+- **2026-09-23** — §Context credited both XSD-failing samples with all three divergences.
+  `PrintDeliver` has `type="StoredProcedure"` and `<StoredProcedureActivity>`;
+  `DGF.Demo.EService` has the three `ftitle` attributes. Source: those two files.

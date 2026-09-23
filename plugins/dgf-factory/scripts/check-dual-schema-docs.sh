@@ -260,8 +260,26 @@ adr_files() {
     find "${PLUGIN_ROOT}/${ADR_DIR}" -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]-*.md' 2>/dev/null | sort
 }
 
+# One flat key from an ADR's YAML frontmatter only — never from the body — with
+# a trailing `# comment` stripped. The ADR README's frontmatter template carries
+# such comments, so an ADR copied from it must parse, not fail.
+fm_value() {
+    awk -v key="$1" '
+        NR == 1 && $0 != "---" { exit }
+        NR == 1 { next }
+        /^---[[:space:]]*$/ { exit }
+        index($0, key ":") == 1 {
+            v = substr($0, length(key) + 2)
+            sub(/[[:space:]]+#.*$/, "", v)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+            print v
+            exit
+        }
+    ' "$2"
+}
+
 adr_status() {
-    sed -n 's/^status:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' "$1" | head -1
+    fm_value status "$1"
 }
 
 # Every ADR link written anywhere in this plugin's own markdown, as source<TAB>target.
@@ -324,7 +342,7 @@ check_decision_records() {
             fi
         done
 
-        id_val="$(printf '%s\n' "${fm}" | sed -n 's/^id:[[:space:]]*"\{0,1\}\([^"]*[^"[:space:]]\)"\{0,1\}[[:space:]]*$/\1/p' | head -1)"
+        id_val="$(fm_value id "${file}" | tr -d '"')"
         if [ -n "${id_val}" ] && [ "${id_val}" != "${prefix}" ]; then
             error "${rel} frontmatter id '${id_val}' does not match filename prefix '${prefix}'"
         fi
@@ -413,7 +431,7 @@ adr_file_for_id() {
 # existing ADRs use is accepted — [] / [0002] / [0002, 0003]. Anything else prints
 # MALFORMED so the caller can report it rather than skip it silently.
 adr_supersedes() {
-    line="$(sed -n 's/^supersedes:[[:space:]]*//p' "$1" | head -1)"
+    line="$(fm_value supersedes "$1")"
     [ -n "${line}" ] || return 0
     if ! printf '%s\n' "${line}" | grep -qE '^\[([0-9]{4}([[:space:]]*,[[:space:]]*[0-9]{4})*)?\][[:space:]]*$'; then
         printf 'MALFORMED\n'
@@ -463,6 +481,13 @@ check_successor_links() {
     fi
     if ! adr_supersedes "${succ}" | grep -qx "${id}"; then
         error "${rel} is superseded-by-${succ_id}, but $(relpath "${succ}") does not list ${id} in 'supersedes'"
+        return 0
+    fi
+    # A proposed ADR decides nothing, so it cannot replace a decision: the old one
+    # would be retired with no live decision in its place.
+    succ_status="$(adr_status "${succ}")"
+    if [ "${succ_status}" = "proposed" ]; then
+        error "${rel} is superseded-by-${succ_id}, but $(relpath "${succ}") is still 'proposed' — accept it first"
         return 0
     fi
     trace "${rel}: successor $(relpath "${succ}") lists ${id}"
@@ -638,7 +663,7 @@ EOF
 # that README.md §1 defines: dgf_version, read_date, a per-source sha256, and —
 # when a range is declared — both since and until. That frontmatter is nested
 # (sources is a list of maps, applies is a map), and the only frontmatter
-# parsing this script does is adr_status(), one sed for one flat key. So the
+# parsing this script does is fm_value(), one flat key at a time. So the
 # check lives in a Python helper and this section only invokes it, exactly as
 # section 6 does with doctor.py. One implementation; milestone 8's drift check
 # is its second caller.
