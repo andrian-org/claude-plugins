@@ -36,6 +36,9 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(SCRIPT_DIR, "..", "templates", "api-specification-template.docx")
+# The signing block, lifted verbatim from the published WCF (t) specification. WordprocessingML
+# body elements only, with no relationships, so it splices into any render of the template.
+SIGNATURE_BLOCK = os.path.join(SCRIPT_DIR, "..", "templates", "contacts-and-signature.xml")
 
 # Shared with apply_gateway_route.py, which writes the same URLs into the document's `servers`.
 from environments import ENVIRONMENTS
@@ -147,6 +150,10 @@ def code(text):
 
 def note(text):
     doc_ops.append(("note", text))
+
+
+def raw(xml):
+    doc_ops.append(("raw", xml))
 
 
 # =============================================================================== markdown parser
@@ -304,6 +311,29 @@ def parse_markdown(text):
     return ops
 
 
+def executive_summary_only(ops):
+    """Keeps the first section of info.description and drops every later Heading 2.
+
+    A tenant's Description often continues past the summary into submission models, message
+    primers and error catalogues. Those render as further numbered top-level sections, which
+    puts reference material ahead of the Endpoints section and duplicates what the endpoint and
+    schema tables already state. The specification carries the Executive Summary only, under
+    that heading whatever the Description titled its opening section. Level-3 headings inside
+    it become bold lead-ins, so the summary adds no TOC entries.
+    """
+    kept = [("heading", 2, "Executive Summary")]
+    for i, op in enumerate(ops):
+        if op[0] == "heading":
+            if i == 0:
+                continue
+            if op[1] == 2:
+                break
+            kept.append(("para", f"**{op[2]}**"))
+            continue
+        kept.append(op)
+    return kept if len(kept) > 1 else []
+
+
 # =============================================================================== OpenAPI walkers
 
 def render_type(schema, components):
@@ -378,22 +408,58 @@ def scrub_package(path, doc_title):
             zf.writestr(name, data)
 
 
-SECTION_PREAMBLE = {
-    "Consume": "The endpoints below are served by other systems and tenants, and reached "
-               "through this tenant's own route. The data originates elsewhere; this tenant "
-               "passes the request on and returns the answer as the source supplied it.",
-    "Provide": "The endpoints below are served by this tenant, backed by its own institution's "
-               "system.",
+# The document's chapters, in order. Nothing else is rendered at Heading 2.
+CHAPTERS = ("Executive Summary", "Glossary", "Endpoints", "Schemas", "API Environments",
+            "Contacts and Signature")
+
+# Definitions for the acronyms that recur across ZamConnect tenants. A term is listed in a
+# document's Glossary only when it actually appears in that document's text; an acronym not in
+# this table is left out rather than given an invented expansion.
+GLOSSARY = {
+    "BRN": "Business Registration Number",
+    "DEV": "Development environment",
+    "DOC": "Department of Cooperatives",
+    "JSON": "JavaScript Object Notation",
+    "NAIR": "National Academic Information Register",
+    "NAPSA": "National Pension Scheme Authority",
+    "NBR": "National Business Register",
+    "NIR": "National Identity Register",
+    "NLR": "National Land Register",
+    "NRC": "National Registration Card",
+    "PACRA": "Patents and Companies Registration Agency",
+    "PRD": "Production environment",
+    "REST": "Representational State Transfer",
+    "SRS": "Societies Registration System",
+    "STG": "Staging environment",
+    "TPIN": "Taxpayer Identification Number",
+    "URL": "Uniform Resource Locator",
+    "ZDA": "Zambia Development Agency",
+    "ZDI": "Zambia Department of Immigration",
+    "ZRA": "Zambia Revenue Authority",
 }
 
 
-def build_endpoints(openapi, route_prefix, section_heading="Endpoints", sections=None, only=None):
-    """Render the endpoint reference, optionally split into Consume and Provide.
+def build_glossary(tenant, title, openapi):
+    text = " ".join([json.dumps(openapi), str(doc_ops), str(ENVIRONMENTS)])
+    rows = [["**Term**", "**Definition**"],
+            ["API", "Application Programming Interface"],
+            ["ZamConnect", "The Government Service Bus of Zambia: the secured gateway through "
+                           "which this API is published"],
+            [tenant, title]]
+    rows += [[term, meaning] for term, meaning in sorted(GLOSSARY.items())
+             if term != tenant and re.search(rf"\b{term}\b", text)]
+    heading(2, "Glossary")
+    table(rows, widths=[1.5, 5.0])
+
+
+def build_endpoints(openapi, route_prefix, sections=None, only=None):
+    """Render the endpoint reference under the single Endpoints chapter.
 
     `sections` maps an OpenAPI path to "Consume" or "Provide" - the OpenAPI document itself
     carries no such marker, because the split is read from the client each module injects and
-    nothing in the HTTP surface reflects it. `only` drops the other section, which is what makes
-    the (c) and (p) documents projections of the (t) one rather than separate renders.
+    nothing in the HTTP surface reflects it. `only` keeps that section's endpoints, which is what
+    makes the (c) and (p) documents projections of the (t) one rather than separate renders. The
+    split decides which endpoints a document carries, never its chapter structure.
     """
     paths = openapi.get("paths", {})
     if paths and all(p.startswith("/t/") for p in paths):
@@ -405,28 +471,19 @@ def build_endpoints(openapi, route_prefix, section_heading="Endpoints", sections
                         f"given in the API Environments section. Paths are shown relative to the "
                         f"gateway route `/t/{route_prefix}`.")
 
+    path_list = list(paths)
     if sections:
-        grouped = {}
-        for p in paths:
-            grouped.setdefault(sections.get(p, section_heading), []).append(p)
-        order = [s for s in ("Consume", "Provide") if s in grouped]
-        order += [s for s in grouped if s not in order]
+        # Consume before Provide, so the (t) document reads in the same order as (c) then (p).
+        path_list.sort(key=lambda p: sections.get(p) != "Consume")
         if only:
-            order = [s for s in order if s == only]
-            if not order:
+            path_list = [p for p in path_list if sections.get(p) == only]
+            if not path_list:
                 sys.exit(f"!! --only-section {only} leaves no endpoints; skip this role instead "
                          f"of shipping a document with an empty section")
-    else:
-        grouped = {section_heading: list(paths)}
-        order = [section_heading]
 
-    components = openapi.get("components", {})
-    for section in order:
-        heading(2, section)
-        para(address_note)
-        if section in SECTION_PREAMBLE:
-            para(SECTION_PREAMBLE[section])
-        _build_operations(openapi, grouped[section], components)
+    heading(2, "Endpoints")
+    para(address_note)
+    _build_operations(openapi, path_list, openapi.get("components", {}))
 
 
 def _build_operations(openapi, path_list, components):
@@ -445,8 +502,12 @@ def _build_operations(openapi, path_list, components):
             description = normalize_description(op.get("description", ""))
             if description:
                 for sub_op in parse_markdown(description):
-                    if sub_op[0] == "heading" and sub_op[1] == 2 and sub_op[2] == "Executive Summary":
-                        continue  # this is a fragment, not a new top-level section
+                    if sub_op[0] == "heading":
+                        # A heading inside an operation's description would open a chapter or
+                        # an entry of its own in the TOC; it stays prose under this endpoint.
+                        if sub_op[2] != "Executive Summary":
+                            para(f"**{sub_op[2]}**")
+                        continue
                     doc_ops.append(sub_op)
 
             param_rows = [PARAM_HDR]
@@ -525,6 +586,9 @@ def build_schemas(openapi, keep=None):
         schemas = {n: s for n, s in schemas.items() if n in keep}
     if not schemas:
         return
+    # The error envelope leads, since every endpoint's failure responses point at it; the
+    # remaining schemas follow alphabetically.
+    schemas = dict(sorted(schemas.items(), key=lambda kv: (kv[0] != "ProblemDetails", kv[0].lower())))
     components = openapi.get("components", {})
 
     heading(2, "Schemas")
@@ -558,7 +622,7 @@ def build_schemas(openapi, keep=None):
         # on the schema, so an error code can never be invented here.
         definitions = schema.get("x-problem-definitions")
         if definitions:
-            heading(3, f"{name} definitions")
+            heading(3, f"{name}Definitions")
             para("Every problem this API can return, and the title each is reported under. "
                  "Branch on the title, not on the detail, which names the rejected value and "
                  "therefore differs per occurrence.")
@@ -578,31 +642,15 @@ def build_environments():
         para(f"**Base URL:** <{url}>")
 
 
-CONTACT_HDR = ["**First Name**", "**Last Name**", "**Position**", "**E-mail**", "**Phone**"]
-CONTACT_WIDTHS = [1.3, 1.3, 1.6, 1.8, 1.3]
-
-
-def build_contacts(client_name):
+def build_contacts():
     """The signing block, left deliberately empty.
 
     It is filled in at signing. Rendering named individuals and their contact details here
     would put them into a document going to a third party, on every re-render.
     """
     heading(2, "Contacts and Signature")
-    para("The representatives named below agree to the interface described in this document. "
-         "The tables are completed and signed at the point of agreement.")
-
-    heading(3, "Client representatives")
-    para(client_name)
-    table([CONTACT_HDR, [""] * 5], CONTACT_WIDTHS)
-    para()
-    para("Signature: ______________________________    Date: ______________________")
-
-    heading(3, "DotGov representatives")
-    para("dotGov Solutions LLC")
-    table([CONTACT_HDR, [""] * 5], CONTACT_WIDTHS)
-    para()
-    para("Signature: ______________________________    Date: ______________________")
+    with open(SIGNATURE_BLOCK, encoding="utf-8") as fh:
+        raw(fh.read())
 
 
 def patch_numpages_field(docx_path, page_count):
@@ -655,10 +703,6 @@ def main():
     parser.add_argument("--date", default=date.today().strftime("%B %-d, %Y") if os.name != "nt"
                         else date.today().strftime("%B %d, %Y").replace(" 0", " "))
     parser.add_argument("--route", default=None, help="Gateway route prefix, default: tenant lowercased")
-    parser.add_argument("--endpoints-heading", default="Endpoints",
-                        help="Heading 2 the endpoint reference sits under when --sections is not "
-                             "given. Pass 'Consume' or 'Provide' for a tenant whose whole "
-                             "surface plays one role")
     parser.add_argument("--sections", default=None,
                         help="JSON file mapping each OpenAPI path to 'Consume' or 'Provide'. The "
                              "OpenAPI document carries no such marker - the split is read from "
@@ -709,7 +753,7 @@ def main():
 
     description = normalize_description(info.get("description", ""))
     if description:
-        doc_ops.extend(parse_markdown(description))
+        doc_ops.extend(executive_summary_only(parse_markdown(description)))
 
     sections = None
     if args.sections:
@@ -723,13 +767,18 @@ def main():
     elif args.only_section:
         sys.exit("!! --only-section requires --sections")
 
-    build_endpoints(openapi, route_prefix, args.endpoints_heading, sections, args.only_section)
+    build_glossary(args.tenant, title, openapi)
+    build_endpoints(openapi, route_prefix, sections, args.only_section)
 
     rendered_paths = [p for p in openapi.get("paths", {})
                       if not args.only_section or (sections or {}).get(p) == args.only_section]
     build_schemas(openapi, reachable_schemas(openapi, rendered_paths) if args.only_section else None)
     build_environments()
-    build_contacts(f"{title} ({args.tenant})")
+    build_contacts()
+
+    chapters = [op[2] for op in doc_ops if op[0] == "heading" and op[1] == 2]
+    if [c for c in chapters if c not in CHAPTERS] or chapters != [c for c in CHAPTERS if c in chapters]:
+        sys.exit(f"!! chapters {chapters} are not a subset of {list(CHAPTERS)} in that order")
 
     # --- load template, apply token substitution --------------------------------------------
     shutil.copyfile(TEMPLATE, args.output_docx)
@@ -919,6 +968,12 @@ def main():
             r = p.add_run("Note: ")
             r.bold = True
             add_rich(p, op[1])
+        elif kind == "raw":
+            from lxml import etree
+            wrapper = etree.fromstring(
+                f'<w:body xmlns:w="{qn("w:p").split("}")[0][1:]}">{op[1]}</w:body>')
+            for child in list(wrapper):
+                append(child)
 
     # --- rebuild the Table of Contents ---------------------------------------------------------
     sdt = d.element.body.find(".//" + qn("w:sdt"))

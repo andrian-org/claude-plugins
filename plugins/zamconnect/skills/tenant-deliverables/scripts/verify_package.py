@@ -25,6 +25,10 @@ from xml.etree import ElementTree as ET
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 MARKER = {"consumer": "(c)", "provider": "(p)", "tenant": "(t)"}
 ROLE_OF = {"(c)": "Consumer", "(p)": "Provider", "(t)": "Tenant"}
+# The chapter set openapi_to_docx.py renders. Executive Summary is optional: it exists only when
+# the tenant's OpenApiInfo.Description does.
+CHAPTERS = ("Executive Summary", "Glossary", "Endpoints", "Schemas", "API Environments",
+            "Contacts and Signature")
 REASON_PHRASES = {"OK", "Created", "No Content", "Bad Request", "Not Found",
                   "Conflict", "Internal Server Error", "Not Implemented"}
 
@@ -129,14 +133,13 @@ def check_docx(path: Path, version: str | None) -> list[str]:
     if unstyled:
         fails.append(f"{unstyled} table(s) with no style instead of Table Grid")
 
-    # Section scope: (c) must not carry Provide, (p) must not carry Consume, (t) needs what it has.
-    h2 = [h.strip() for h in heads if h.strip() in ("Consume", "Provide", "Endpoints")]
-    if marker == "(c)" and "Provide" in h2:
-        fails.append("Consumer document carries a Provide section")
-    if marker == "(p)" and "Consume" in h2:
-        fails.append("Provider document carries a Consume section")
-    if marker and not h2:
-        fails.append("no Consume/Provide/Endpoints section")
+    h2 = ["".join(t.text or "" for t in p.iter(W + "t")).strip()
+          for p in root.iter(W + "p") if style_of(p) == "Heading2"]
+    if h2 != [c for c in CHAPTERS if c in h2] or set(h2) - set(CHAPTERS):
+        fails.append(f"chapters {h2} are not {list(CHAPTERS)}")
+    missing = [c for c in CHAPTERS[1:] if c not in h2]
+    if missing:
+        fails.append(f"missing chapter(s) {missing}")
 
     blank = 0
     for t in root.iter(W + "tbl"):

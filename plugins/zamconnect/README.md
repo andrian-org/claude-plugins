@@ -61,6 +61,83 @@ commit it:
 | `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
 | `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
 
+## Arguments and flags
+
+### `/tenant-init`
+
+`<TenantName> [--controllers] [--port <https>] [--no-pipeline] [--auto]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<TenantName>` | Tenant project name (required) |
+| `--controllers` | Scaffold MVC controllers instead of Carter modules (the default) |
+| `--port <https>` | HTTPS port for the tenant |
+| `--no-pipeline` | Stop after the scaffold; do not drive the rest of the chain |
+| `--auto` | Run the whole chain without gates |
+
+### `/tenant-integration`
+
+`<TenantName> [--source <url|path|wsdl>...] [--expose <METHOD /route>...] [--protocol rest|soap]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<TenantName>` | Existing tenant (required) |
+| `--source <url\|path\|wsdl>` | Integration source: Postman collection, OpenAPI spec, REST base URL, WSDL or prose docs; repeatable |
+| `--expose <METHOD /route>` | Endpoints the tenant should expose; repeatable |
+| `--protocol rest\|soap` | Override the REST/SOAP classification derived from the source |
+
+### `/integrate-shared`
+
+`[<TenantName>] [--source <SYS> ...] [--endpoint <key> ...] [--base-path <path>] [--tag <Tag>] [--mode inherit|common|routes] [--all] [--new] [--list]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<TenantName>` | Target tenant; prompted for if omitted |
+| `--source <SYS>` | `NIR\|NBR\|DOC\|SRS\|ZDI\|NLR\|ZDA\|NAIR\|ZRA\|MOH`; repeatable. Skips the source menu |
+| `--endpoint <key>` | Individual operations by catalogue key; repeatable. Skips the endpoint menu |
+| `--base-path <path>` | Route group prefix. Default: none (tenant root) |
+| `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
+| `--mode inherit\|common\|routes` | Wiring mode. Default chosen by the skill |
+| `--all` | Every operation in the catalogue — equivalent to `--mode inherit` |
+| `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
+| `--list` | Print the catalogue and stop. No files written |
+
+`--source` and `--endpoint` combine: sources expand to all their operations, then `--endpoint` adds individual ones.
+
+### `/tenant-tests`
+
+`<TenantName> [--module <Name> ...] [--live] [--no-scaffold]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<TenantName>` | Tenant to test (required) |
+| `--module <Name>` | Cover only these modules/controllers; repeatable. Default: all |
+| `--live` | Also generate the `[Explicit]`, `[Category("Staging")]` fixture that calls the real upstream |
+| `--no-scaffold` | Test project already exists — add fixtures only |
+
+### `/tenant-audit`
+
+`[<TenantName>|--all] [--only <check>] [--fix]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<TenantName>` | Tenant to audit |
+| `--all` | Audit every tenant under `src/Tenants/`. Default when no tenant is given |
+| `--only <check>` | `registration\|slugs\|config\|secrets\|spec\|tests\|docs`; repeatable |
+| `--fix` | Apply the fixable repairs instead of only reporting them |
+
+### `/tenant-deliverables`
+
+`<Tenant> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<Tenant>` | Tenant to document (required) |
+| `--route <r>` | Gateway route, without `/t/`. Default: tenant code lowercased (e.g. `mcti/zabs`, `govzm/ZamPass` when it differs) |
+| `--roles` | Documents to render. Default: `tenant` always, `consumer`/`provider` when the tenant consumes/provides |
+| `--out <dir>` | Output directory holding the five role folders. Default: `src/Tenants/<Tenant>/Deliverables/` |
+| `--version <X.Y>` | Document version. Bump only when the contract changed |
+
 ## Agents
 
 | Agent | Use |
