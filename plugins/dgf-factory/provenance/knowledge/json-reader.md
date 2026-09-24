@@ -62,6 +62,16 @@ sources:
     sha256: 20110b272c9ee5cdfee28c1ad53be68c42744a7fa21217d0c80e27402c612501
   - path: docs/wiki/AI-Authoring/format-coverage.md
     sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+  - path: src/Components/DGF.Components.Shared/Enums/LinkTarget.cs
+    sha256: 772eb6bea7081b4acd01c1f5642cd9bb2b9e8565ee3e0a26dca6a9fad690e748
+  - path: src/Components/DGF.Components.Shared/ListData/Paging.cs
+    sha256: 6a126ad9a269f208500b5b71b0ed5d79304c8634d56493f163ef02e28399682e
+  - path: src/Components/DGF.Components.Shared/DataSources/DataSourceParameterBase.cs
+    sha256: eb8d4ad65c2404619d03a929bb7359f2f8aa231a90eb218f7d0db06fda15df83
+  - path: src/Core/DGF.HttpClients/Extensions/DiExtensions.cs
+    sha256: cb3080bc7475d1dac56cb85d0e0921cd1b9e295522d9ea2b278861022e87caa0
+  - path: src/Components/DGF.Components.Shared/Enums/ComponentSize.cs
+    sha256: d3bfd8e1407dbf50df811e47de93b42590c88cadb1c25e57e70b78b33b021adc
 ---
 # Provenance — `knowledge/json-reader.md`
 
@@ -79,3 +89,15 @@ prefix, ignoring case) was applied to each `ComponentType` member. `DatePickerCo
 `DateTimePickerConfiguration` are both in `DGF.DateTimeComponents`, so the name order inside that
 assembly decides `Date`. `AccordionConfiguration` is referenced by `DGF.API.csproj` and absent from
 the exporter output (`format-coverage.md` row 61).
+
+How the reader facts in §1 were confirmed (2026-09-24): a .NET 10.0.302 file-based app built a
+`JsonSerializerOptions` with the same settings as `ConfigureJsonOptions` (case-insensitive names,
+comments skipped, `JsonStringEnumConverter(CamelCase)`, a copy of DGF's `BooleanConverter`) and
+deserialized small documents. Observed: a string `"20"` for an `int` throws; `{}` for a `List<>`
+throws; a trailing comma throws; comments are skipped; enum names are read in any case with
+surrounding whitespace ignored, and as integers or integer strings, undefined integers included;
+a `[JsonStringEnumMemberName("_blank")]` member reads `"_blank"` and `1` and rejects `"_BLANK"`,
+`"Blank"` and `"blank"`; with `name` and `Name` (or `name` twice) the last value wins; `bool`
+reads `"true"`, `"TRUE"`, `" true "`, `1`, `0`, `2.5` and rejects `"yes"` and `null`; `bool?` reads
+`null`. The probe is scratch, not committed; re-run it when DGF's serializer setup changes.
+

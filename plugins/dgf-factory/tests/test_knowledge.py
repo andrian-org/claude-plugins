@@ -13,6 +13,7 @@ EXPECTED_ROWS = {
     "component-classes": 67,
     "datasource-discriminators": 9,
     "component-folders": 6,
+    "enum-member-names": 4,
     "parity": 67,
     "process-divergence": 26,
 }

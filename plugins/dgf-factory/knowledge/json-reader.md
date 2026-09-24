@@ -23,16 +23,37 @@ Component JSON is read with System.Text.Json and one options object, set up in D
 
 | Setting | Effect on reading |
 |---|---|
-| `PropertyNameCaseInsensitive = true` | A JSON property binds a member whatever its case: `placeholder`, `Placeholder` and `PLACEHOLDER` are one property. Two keys that differ only in case bind the same member, and one value replaces the other |
+| `PropertyNameCaseInsensitive = true` | A JSON property binds a member whatever its case: `placeholder`, `Placeholder` and `PLACEHOLDER` are one property. Two keys that differ only in case bind the same member, and the **last** one wins; so does an exact duplicate key |
 | `ReadCommentHandling = Skip` | `//` and `/* */` comments are skipped |
 | `IncludeFields = true` | Public fields bind like properties |
-| `JsonStringEnumConverter(CamelCase)` | Every enum accepts a member name in any case, or an integer, whatever its schema's `type` says |
+| `JsonStringEnumConverter(CamelCase)` | Every enum accepts a member name in any case with surrounding whitespace ignored, an integer, or an integer written as a string, whatever its schema's `type` says. An integer that names no member is read as that raw value. A member with a custom JSON name is read differently — see below |
 | `AllowTrailingCommas` — not set | A trailing comma is a parse error |
 | `NumberHandling` — not set | A number written as a string (`"5"`) is not read as a number; only the converters below widen a type |
 | `UnmappedMemberHandling` — not set | An unknown property is skipped silently |
 
 A member marked `[JsonIgnore]`, or one without a setter, is never read: a JSON property of that
 name is skipped like an unknown one. One leading UTF-8 byte-order mark is ignored.
+
+**`[Required]` is not enforced.** A property marked with the DataAnnotations `[Required]`
+attribute — for example `DataSourceParameterBase.SourceName` — is read as its default when it is
+missing; the reader enforces only the C# `required` keyword and `[JsonRequired]`, and no
+configuration member uses either. The generated schemas list the `[Required]` properties under
+`required`, so a missing one breaks the class's declared contract without failing the read.
+
+**Custom enum member names.** A member marked `[JsonStringEnumMemberName("…")]` is read only by
+that name, **case-sensitively**, or by its integer. Its C# name is rejected, in any case. The
+generated schemas list the C# names in `x-enumNames`, not these. One enum uses the attribute:
+
+<!-- machine-read: enum-member-names -->
+| JSON name | Enum | Member |
+|---|---|---|
+| `_self` | `LinkTarget` | `Self` |
+| `_blank` | `LinkTarget` | `Blank` |
+| `_parent` | `LinkTarget` | `Parent` |
+| `_top` | `LinkTarget` | `Top` |
+
+`[EnumMember(Value = "…")]`, which `ComponentSize` and `ImageSize` carry, is a different
+attribute, and System.Text.Json does not read it.
 
 Registered converters, and the JSON each accepts on reading:
 
@@ -66,7 +87,9 @@ member is typed `IComponentConfiguration`. `ComponentConverter` reads it:
    first whose name starts with `<Type>` — **bound by prefix**. If none matches, it logs an error
    and returns `null`.
 4. The object is then deserialized as that class, with the options in §1. A generic class is
-   closed over `double`.
+   closed over `double`, so every member typed by its type parameter reads a JSON number. If the
+   class fails to deserialize — a string where a number is expected, an enum value that is no
+   member — the converter logs the error and returns `null`: **the component vanishes.**
 
 `Bound by` below records which rule selects the class; `none` means no class matches, so the
 runtime drops a component of that type. The schema is the vendored file for the selected class.

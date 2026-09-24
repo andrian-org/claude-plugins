@@ -41,6 +41,11 @@ TABLES = {
         ("Folder", "Loader", "Selection"),
         {"Selection": {"by-type", "by-discriminator", "fragment-by-type", "none"}},
     ),
+    "enum-member-names": (
+        "json-reader.md",
+        ("JSON name", "Enum", "Member"),
+        {},
+    ),
     "parity": (
         "schema-families.md",
         ("#", "Row", "ComponentType", "Schema", "Runtime", "XML-only part"),

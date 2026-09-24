@@ -1,0 +1,5 @@
+{
+  "type": "text",
+  "name": "t",
+  "metaData": {"dataSources": {"people": {"type": "tabel"}}, "requireUser": "guest"}
+}

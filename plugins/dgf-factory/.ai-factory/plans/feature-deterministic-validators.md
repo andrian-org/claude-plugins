@@ -589,7 +589,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
 ### Phase 4: JSON family and the config validator
 
-- [ ] **Task 11: Write the pre-pass and its fixtures first** (ADR 0015; ADR 0007 §4's "tested first").
+- [x] **Task 11: Write the pre-pass and its fixtures first** (ADR 0015; ADR 0007 §4's "tested first").
   - **Fixtures first:** `tests/fixtures/unit/prepass/`, holding a minimal synthetic schema. It is a three-level
     NJsonSchema-shaped `allOf` chain with `x-abstract` bases and `additionalProperties: false` on every branch.
     Instances:
@@ -615,7 +615,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   Files: `scripts/lib/{prepass,json_reader}.py`, `tests/test_prepass.py`, `tests/test_json_reader.py`,
   `tests/fixtures/unit/prepass/*`.
 
-- [ ] **Task 12: Write the runtime-faithful JSON validator and schema resolution.** (depends on 11)
+- [x] **Task 12: Write the runtime-faithful JSON validator and schema resolution.** (depends on 11)
   - **`scripts/lib/json_validate.py`.** Use `jsonschema.validators.extend` on `Draft4Validator` or
     `Draft7Validator`, chosen by the schema's own `$schema`; an unknown dialect → exit `3`. Override
     `properties`, `required`, `additionalProperties` (→ `UNKNOWN_PROPERTY`, a warning), `enum` (DD5), `type` (only
@@ -647,7 +647,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   Files: `scripts/lib/{json_validate,json_resolve}.py`, `tests/test_json_validate.py`, `tests/test_json_resolve.py`,
   `tests/fixtures/unit/json/*`.
 
-- [ ] **Task 13: Write family detection, the XSD layer, the parity gate and `scripts/validate_config.py`.**
+- [x] **Task 13: Write family detection, the XSD layer, the parity gate and `scripts/validate_config.py`.**
   (depends on 12)
   - **`scripts/lib/family.py`** implements DD8: bytes in, BOM sniffed on the raw bytes, and lxml handed the
     original bytes. It never decodes XML first (E21).
