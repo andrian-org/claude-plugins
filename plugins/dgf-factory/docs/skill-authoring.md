@@ -81,6 +81,27 @@ returns `tail`'s status, so capture the real code before piping.
 Scripts define a single `fail(code, message)` exit path rather than scattering exits.
 Errors go to stderr, normal output to stdout.
 
+### Reading a validator's output
+
+The validators under `scripts/` print, in this order, so a skill never has to guess what ran:
+
+1. a header line;
+2. `FAMILY: json|xsd|unresolved <file>` for each file;
+3. `CHECKS RUN: <ids>` — only these were checked;
+4. `NOT RUN: <id> (<reason>)`, repeated — never report these as passed;
+5. one line per finding: `ERROR|WARN|INFO <CODE> <file>[:<line>] <message>`;
+6. a summary, then the verdict: `CLEAN`, `WARNINGS` or `BLOCKED`.
+
+`route_means.py` answers a question rather than checking files, so it prints a single
+`ROUTE: json|xml <where> — <reason>` line in place of 2–4.
+
+Each finding code has one fixed severity, and the exit code is the worst across all files,
+with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and
+keeps `NOT RUN` visible. When `lxml` or `jsonschema` is missing, every validator that needs
+them exits `3` with the install command. That is a setup problem to report, never a pass. The check ids
+(`xsd-structure`, `dead-transition`, `json-schema`, `runtime-parity`, …) are stable, so a
+gate block can carry them.
+
 ## Gate blocks
 
 Quality skills keep their human-readable Markdown report, then append exactly one fenced

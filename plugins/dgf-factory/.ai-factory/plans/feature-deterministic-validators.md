@@ -944,7 +944,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
 ### Phase 8: Documentation and propagation
 
-- [ ] **Task 21: Documentation checkpoint (`/aif-docs`) and owner-routed propagation.** (depends on all)
+- [x] **Task 21: Documentation checkpoint (`/aif-docs`) and owner-routed propagation.** (depends on all)
   - **Through `/aif-docs`:**
     - `docs/getting-started.md`: the install command (ADR 0015 §6), the `.venv` workflow, running the validators,
       the unit tests, `tools/run_known_good.py` and `tools/check_drift.py`. Remove "not here yet" line L77, correct
@@ -971,6 +971,21 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
       Record any owner run that cannot happen in this session under Follow-ups, as the previous plan did.
 
   Files: as reported by `/aif-docs` and the owner commands. Logging: n/a (prose).
+
+  **As implemented (2026-09-24):**
+  - **`/aif-docs`** ("Update existing docs") changed `README.md` (status, a pointer to the validators),
+    `docs/getting-started.md` (a Validators section with install, `.venv`, the four scripts, tests, tools and `uv`;
+    29 skills; build-order step 2; the stale "not here yet" bullet), `docs/dgf-schemas.md` (§7 as implemented plus
+    §7.1–7.5; §8 and §2 pointers; §9.4 names `check_drift.py`; sections not renumbered, since the ledger cites §10),
+    `docs/architecture.md` (the tree and the `scripts/lib/` table), `docs/skill-authoring.md` ("Reading a validator's
+    output") and `AGENTS.md` (tree, entry points, the ADR 0011 citation). The review found 90 links and 0 broken.
+  - **`/aif`** (owner run, factual deltas only) updated `DESCRIPTION.md`: Current State, three verified-facts rows,
+    the 0006→0014 and 0007→0015 relinks, and `process.xml` in place of `_process.xml`. It also updated
+    `rules/base.md` §"DGF Schema Handling": ADR 0011, the parity gate on `knowledge/schema-families.md` §6, and the
+    reader-semantics and XSD-lag rules.
+  - **`/aif-architecture`** (owner run) updated `ARCHITECTURE.md`: the tree as built, the machine-read-table and
+    tool-import dependency rules, the parity-gate comment, two anti-patterns, and `process.xml`.
+  - **`/aif-roadmap` could not run in this session.** It is user-invocable only, so its three edits are a Follow-up.
 
 <!-- Commit checkpoint: task 21 -->
 
@@ -1011,6 +1026,12 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - `format-coverage.md` marks `Workflow` ✗, but `WorkflowLoaderService` reads `_COMPONENTS/Workflow/` (json-reader.md
     §4); the MCP serves a stale 65-row copy of the page.
   - Carried forward: `process.xsd` lag and `xs:keyref`; `profile.xsd` L20-21.
+- **Run `/aif-roadmap` (user-invoked; Task 21 could not).** Three edits to `.ai-factory/ROADMAP.md`:
+  1. Milestone "Deterministic Validators": relink ADR 0006 → 0014 and 0007 → 0015, add ADR 0016, and "ADR 0006's
+     process checks" → "ADR 0014's".
+  2. Milestone "Gate Contract Wired": relink 0006 → 0014.
+  3. Mark "Deterministic Validators" `[x]` in the Completed table, dated 2026-09-24. Evidence: commits
+     `76cad9d`..`85185e2` plus the Task 21 commit, a CLEAN known-good run and drift check, and 234 unit tests.
 - **Drift check, first run** (Task 20, 2026-09-24): `tools/check_drift.py` against the DGF checkout at `aa1d5c4c2`
   is **CLEAN** — 7 ledgers, 243 cited sources, no drift. HEAD matches the schema ledger's `dgf_commit`, and every
   stamp is `dgf_version` 1.1.11, the checkout's.

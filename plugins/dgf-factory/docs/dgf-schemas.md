@@ -58,6 +58,9 @@ Legend: `✓` supported · `◐` partial · `✗` not supported today.
 | `Query` | ✓ | **◐** | Reads JSON for the filter panel; SP execution still uses legacy XML datasource configs in places. |
 | `Uploader` | ✓ | **◐** | Reads JSON; large-file workflow and virus scan still XML. |
 
+The table above lists only the `✗` and `◐` rows. All 67 rows ship in
+`knowledge/schema-families.md` §6, which is what the validators read (§7).
+
 **The worked consequence:** a `Workflow` configuration can validate cleanly against
 `WorkflowConfiguration.schema.json` while the runtime never reads that JSON. A validator
 that reports success on that basis is producing a false positive. Family resolution is
@@ -183,26 +186,115 @@ Do not plan against them.
 
 ## 7. Family detection contract
 
-A consumer resolves the family **before** parsing:
+A consumer resolves the family **before** parsing. `scripts/validate_config.py` implements
+this contract ([ADR 0011](adr/0011-schema-parity-authority.md)). It reads every file as bytes,
+honouring a UTF-8 or UTF-16 byte-order mark:
 
 | Signal | Family |
 |---|---|
-| XML declaration or a known XSD root element | XSD |
-| Parses as a JSON object | JSON |
-| Neither, or both plausible | **Unresolved** |
+| Begins with an XML declaration, or parses as XML whose root is a vendored XSD's root | XSD |
+| Parses as a JSON **object**, after one UTF-8 BOM and `//` / `/* */` comments are removed | JSON |
+| Neither | **Unresolved** |
 
 Contract, using the project exit codes from `.ai-factory/rules/base.md`:
 
-| Outcome | Exit | Behaviour |
+| Outcome | Exit | Finding |
 |---|---|---|
-| Family resolved, valid, runtime parses this family | `0` | Success. |
-| Family resolved, valid, runtime does **not** parse this family | `2` | Warn `schema-valid but not runtime-supported`, naming the component and the format the runtime expects. |
-| Family resolved, invalid against that family's schema | `1` | Blocked. Report findings verbatim. |
-| Valid against neither family | `1` | Blocked. Report which families were attempted. |
-| Family unresolved or ambiguous | `3` | Usage error. **Never** fall back to JSON. |
+| Family resolved, valid, the runtime reads this family | `0` | — |
+| Valid JSON, but the runtime does not read JSON for this component (parity `✗`) | `2` | `PARITY_NOT_RUNTIME` — "schema-valid but not runtime-supported" |
+| Valid JSON, read only in part (parity `◐`) | `2` | `PARITY_PARTIAL`, naming the XML-only part |
+| Family resolved, invalid against that family's schema | `1` | `SCHEMA_INVALID` (JSON), `XSD_INVALID` (`process.xml`); other legacy grammars warn (§7.2) |
+| An XML declaration, but not well-formed | `1` | `XML_MALFORMED` |
+| Family unresolved | `3` | `FAMILY_UNRESOLVED`, with both parse errors. **Never** falls back to JSON |
+| Family resolved, but no schema can be selected | `3` | `SCHEMA_UNSELECTABLE` — no `type`, no folder rule, no `--component-type`; a `<view>` outside its folders and no `--view-kind` |
 
 Silently defaulting to JSON is the failure mode this contract exists to prevent: it makes
 every legacy XML configuration look like malformed JSON rather than a different format.
+
+Parity is read from the shipped table, `knowledge/schema-families.md` §6, which holds all 67
+rows of `format-coverage.md`. It applies to the component a JSON file holds, not to its
+nested children. A legacy XML artifact is what the runtime reads, so it raises no parity
+finding.
+
+### 7.1 How a JSON configuration is read
+
+The validators read JSON the way DGF's System.Text.Json setup does, not the way the schemas
+describe it ([ADR 0015](adr/0015-validator-runtime-and-json-reader.md)). The facts live in
+`knowledge/json-reader.md`.
+
+| Rule | Consequence |
+|---|---|
+| NJsonSchema's `allOf` inheritance is merged before validation | Inherited properties and `required` apply, and `additionalProperties: false` closes the merged class |
+| Property names match in any case | `Name` and `name` are the same property; two keys that differ only in case are `SCHEMA_INVALID` |
+| The discriminator key is exactly `type`; its value is read in any case | `"type": "dataTable"` selects `DataTable`; a `Type` key is `SCHEMA_INVALID` |
+| A child typed `IComponentConfiguration` or `IDataSource` is checked against the class its own `type` selects | nested components are validated too |
+| Enum names are read in any case, trimmed, or as integers | except a member with a custom JSON name (`LinkTarget`'s `_blank`), read only by that name |
+| A boolean reads `true`/`false` strings and numbers; a number never reads a string | `"20"` for an integer is `SCHEMA_INVALID` — the runtime throws, and the component vanishes |
+| A comment is skipped; a trailing comma is a parse error | a trailing comma makes the file `FAMILY_UNRESOLVED` |
+| An unknown property is ignored | `UNKNOWN_PROPERTY`, a warning |
+| `required` is DGF's contract | a missing required property is `SCHEMA_INVALID` |
+| `format` is annotation-only | `NOT RUN: json-format` |
+
+Which schema a file under `FM/_COMPONENTS/` is read against is decided by its folder
+(`knowledge/json-reader.md` §4). `DataSource/` goes by discriminator, `Template/` by its own
+`type`, and a `<Type>/` folder by `type`, with `TYPE_FOLDER_MISMATCH` when the two disagree.
+`Endpoints/`, the root site maps and folders no loader reads are `NO_SCHEMA`.
+
+### 7.2 How a legacy XML artifact is checked
+
+- **The root element selects the grammar.** The three view grammars share the root `view` and
+  are told apart by the folder: `_views/`, `_lookupviews/` or `_gridforms/`, or the file
+  directly in one for an empty name. `--view-kind` overrides.
+- **`process.xml` is checked in two passes** ([ADR 0014](adr/0014-process-verification-runtime-resolution.md) §1).
+  A failure on a construct the runtime binds and the XSD lacks — the `process-divergence` table
+  in `knowledge/process-model.md` — is `XSD_RUNTIME_DIVERGENCE`, a warning naming the binding.
+  Any other failure is `XSD_INVALID` and blocks.
+- **Every other grammar lags the runtime**, so its failures are `XSD_LAGS_RUNTIME` warnings
+  until it has a divergence list of its own ([ADR 0016](adr/0016-legacy-xsd-lag.md)).
+- `profile.xsd` does not compile, so a `Tree` document is `XSD_NOT_COMPILABLE` and not validated.
+
+### 7.3 Component types and component file references
+
+`scripts/resolve_components.py` checks what the schemas cannot:
+
+- **JSON component types** — the file's own and every nested child's — against the
+  `ComponentType` enum in the vendored schemas. A value that is no member is
+  `UNKNOWN_COMPONENT` (blocking). A member with no configuration class is `NO_CONFIG_CLASS` (a
+  warning: the runtime drops it). A member outside the 34 dispatchable services is `NO_SERVICE`
+  (INFO).
+- **Form component types** (`component/@type` in `_form.xml`). `form.xsd`'s `componentTypeValue`
+  list disagrees with DGF's legacy form mapper in both directions. So a value the list holds
+  passes, a `ComponentType` member it omits is `XSD_LAGS_RUNTIME`, and anything else is
+  `UNKNOWN_COMPONENT`, even though other form XSD failures only warn.
+- **Component file references** (`knowledge/json-reader.md` §2.1). The `path` on a direct
+  `content` child of a layout component, and a `ReferenceComponent`'s
+  `componentType`/`componentName`, must name an existing `_COMPONENTS/<Type>/<name>.json`,
+  matched by exact name. `BASE:` reads `webasm`'s. A missing file is
+  `COMPONENT_FILE_UNRESOLVED`, a case-only match `CASE_ONLY_MATCH`. A `webasm` file's name
+  without `BASE:` is read from whichever application runs it, so it is
+  `COMPONENT_FILE_APP_DEPENDENT` unless every application has the file.
+
+### 7.4 Processes
+
+`scripts/validate_process.py` verifies a process beyond its structure
+([ADR 0014](adr/0014-process-verification-runtime-resolution.md) §2–3):
+
+- **Dead transitions**, with `End` exempt, block.
+- **Unreachable states** warn.
+- **References must resolve**: every `WORKFLOW:` action (MultiTask actions included), the
+  `validationFlow`, and every workflow's `CHANGE_STATE` target process and states.
+
+References resolve by the engine's own rules (`knowledge/process-model.md` §2): one path per
+form, exact case, no fallback. One that depends on which application runs a `webasm` process
+is `WORKFLOW_APP_DEPENDENT`, naming the applications.
+
+### 7.5 Which family a new configuration is written in
+
+`scripts/route_means.py <name>` answers
+[ADR 0010](adr/0010-dgf-implement-scope.md) §1's order of means from the tables. A legacy
+artifact type, `Form` included, is XML, and so is a `✗` component. A `✓` component is JSON,
+and a `◐` component is JSON with an exit-`2` warning naming its XML-only part. A component with
+no parity row is exit `3`: the route is never guessed.
 
 ---
 
@@ -210,7 +302,9 @@ every legacy XML configuration look like malformed JSON rather than a different 
 
 `Services/SchemaIndexService.cs` documents three cases the obvious
 `<X>Configuration.schema.json` glob does not cover. A resolver must reproduce this
-behaviour rather than globbing.
+behaviour rather than globbing. The shipped copies of these rules are the machine-read tables
+in `knowledge/json-reader.md`: `component-classes` (§2), `datasource-discriminators` (§3) and
+`component-folders` (§4). The validators read those tables, not this page.
 
 - **Standalone allow-list.** Cross-cutting contracts that are not per-component configs are
   registered by exact name. Today: `componentValidator.schema.json`.
@@ -295,7 +389,8 @@ The maintainer ledger `provenance/knowledge/schemas/MANIFEST.md`, whose frontmat
 
 - DGF commit SHA the set was vendored from (`dgf_commit`)
 - Per file: the upstream path, the upstream `sha256`, the vendored path, and the shipped
-  `sha256`. The drift check compares the upstream digest against a DGF checkout.
+  `sha256`. The drift check, `tools/check_drift.py <dgf-root>`, compares the upstream digest
+  against a DGF checkout.
   `tools/check_knowledge_stamps.py` compares the shipped digest against the shipped file, so
   a hand edit to a vendored schema fails without any checkout.
 - Which files came from `Schemas/Json/`, which from `Schemas/XSD/`, and which from the
@@ -354,3 +449,6 @@ scaffolding or greenfield skill is written.
 - [Architecture Blueprint](blueprint.md) — the design this knowledge feeds
 - [ADR 0011](adr/0011-schema-parity-authority.md) — the decision record for the family-first, parity-checked rule this page defines
 - [ADR 0015](adr/0015-validator-runtime-and-json-reader.md) — how the validators read a JSON configuration: merged NJsonSchema inheritance, the runtime's case-insensitive names and enums, dispatch by `type`, unknown properties as warnings
+- [ADR 0014](adr/0014-process-verification-runtime-resolution.md) — what "process verified" means: structure with a runtime-divergence allowance, and references resolved the engine's way
+- [ADR 0016](adr/0016-legacy-xsd-lag.md) — why failures against the legacy grammars other than `process.xsd` warn rather than block
+- [Getting Started → Validators](getting-started.md#validators) — installing and running the scripts that implement §7

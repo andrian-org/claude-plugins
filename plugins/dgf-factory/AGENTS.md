@@ -19,7 +19,8 @@ framework facts, and [docs/adr/](docs/adr/README.md) for the decisions that shap
 ## Tech Stack
 
 - **Primary medium:** Markdown (skills written prompt-as-program)
-- **Scripting:** Node.js (`.mjs`), Python 3
+- **Scripting:** Node.js (`.mjs`), Python 3.9+ — the validators use `lxml` and `jsonschema`,
+  hash-pinned in `scripts/requirements.txt`
 - **Packaging:** Claude Code plugin — `.claude-plugin/plugin.json` + marketplace entry
 - **Target framework:** DotGov Framework — .NET 10, Angular 19.2, SQL Server + EF Core
 - **Build system:** none — there is no compile step
@@ -38,18 +39,32 @@ plugins/dgf-factory/
 │       ├── SKILL.md            #     the prompt-program
 │       └── scripts/doctor.py   #     the structural validator it calls
 ├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
-│   ├── README.md               #   the stamping convention (the only unstamped file)
-│   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity
+│   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
+│   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
 │   ├── component-catalogue.md  #   34 dispatchable components; why 4 other counts differ
 │   ├── composition-specs.md    #   workspace layout, 5 legacy artifacts, events, XML-always policy
 │   ├── naming-conventions.md   #   directory/file/type names a generator must reproduce exactly
+│   ├── json-reader.md          #   how the runtime reads component JSON: options, dispatch, folders, file refs
+│   ├── process-model.md        #   process.xsd vs the runtime model; how references resolve
 │   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (dialects, membership)
+├── scripts/                    # SHIPPED validators skills call — exit 0/1/2/3, one output format (docs/skill-authoring.md)
+│   ├── validate_config.py      #   family, schema (read the runtime's way) and parity, both families
+│   ├── resolve_components.py   #   component types (JSON and forms) and component file references
+│   ├── validate_process.py     #   process structure + semantics; workflow CHANGE_STATE targets
+│   ├── route_means.py          #   ADR 0010's order of means: JSON or legacy XML for a new config
+│   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
+│   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace, process_checks
+├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
 ├── tools/                      # NOT SHIPPED — repo-maintenance tools contributors run
-│   ├── check-dual-schema-docs.sh  # documentation, decision-record, manifest and stamp contracts
+│   ├── check-dual-schema-docs.sh  # doc, decision-record, manifest and stamp contracts; section 8 runs the tests
 │   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
-│   └── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
+│   ├── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
+│   ├── run_known_good.py          # every validator over DGF's samples; each error must be excused
+│   ├── known-good-exceptions.txt  # the evidenced excuses, and the warning baseline
+│   ├── check_drift.py             # the provenance ledgers' digests against a DGF checkout
+│   └── requirements.in            # the validator dependencies, compiled with uv
 ├── docs/                       # Detailed documentation, one topic per page
 │   ├── adr/                    #   architecture decision records — README.md is the index
 │   ├── getting-started.md      #   prerequisites, repo layout, build order
@@ -71,9 +86,9 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: the rest of the `skills/dgf-*/` corpus, `agents/`, and the dual-schema
-validator scripts and drift check (milestone 8). The manifest and the `/dgf-doctor` walking
-skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7.
+Not yet created: the rest of the `skills/dgf-*/` corpus and `agents/`. The manifest and the
+`/dgf-doctor` walking skeleton landed with roadmap milestone 6, the `knowledge/` base with
+milestone 7, and the validators, both corpora and the drift check with milestone 8.
 
 ## Key Entry Points
 
@@ -82,6 +97,10 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 | [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | The manifest. Component paths are left to their defaults — declaring one restates it. |
 | [skills/dgf-doctor/SKILL.md](skills/dgf-doctor/SKILL.md) | The first prompt-as-program. The house style the next slices copy. |
 | [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability (including DGF paths in shipped files), line endings; emits the gate block |
+| [scripts/validate_config.py](scripts/validate_config.py) | The dual-family config validator: family first, the runtime's JSON reader, the parity gate |
+| [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
+| [scripts/lib/report.py](scripts/lib/report.py) | Every finding code and the exit code it forces — the single source of severity |
+| [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to `tools/known-good-exceptions.txt` |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
 | [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What the vendored schema set holds: directories, dialects, membership |
 | [provenance/knowledge/schemas/MANIFEST.md](provenance/knowledge/schemas/MANIFEST.md) | Maintainer-only: the DGF commit, upstream and shipped `sha256` per file, the path rewrite, the re-vendor process |
@@ -171,7 +190,9 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
   config *and* legacy XML. Any task touching component schemas — validating, generating,
   inspecting — resolves the family first and handles both; never default to JSON. And
   never treat a passing JSON validation as proof the runtime reads JSON: `Workflow` and
-  `ProcessFlow` validate against schemas the runtime ignores. See
+  `ProcessFlow` validate against schemas the runtime ignores
+  ([ADR 0011](docs/adr/0011-schema-parity-authority.md)). `scripts/validate_config.py`
+  implements the rule; use it, not a hand-rolled check. See
   [docs/dgf-schemas.md](docs/dgf-schemas.md).
 - **Single-writer artifacts.** Each `.ai-factory/` artifact has exactly one owning
   command; everything else treats it as read-only input.

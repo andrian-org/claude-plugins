@@ -29,10 +29,33 @@ plugins/dgf-factory/
 ├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
 ├── scripts/                     # SHARED INFRASTRUCTURE — cross-slice validators
+│   ├── validate_config.py       #   family, schema and parity, both families
+│   ├── resolve_components.py    #   component types and component file references
+│   ├── validate_process.py      #   process structure and semantics, change-state targets
+│   ├── route_means.py           #   JSON or legacy XML for a new configuration
+│   ├── requirements.txt         #   lxml + jsonschema, exact pins with hashes
+│   └── lib/                     #   what the four share (below)
 ├── .mcp.json                    # MCP servers
-├── tools/                       # NOT SHIPPED — repo-maintenance checks and the schema vendoring tool
+├── tests/                       # NOT SHIPPED — unittest suite, fixtures, the known-bad corpus
+├── tools/                       # NOT SHIPPED — repo-maintenance checks, vendoring, known-good run, drift check
 └── provenance/                  # NOT SHIPPED — the DGF sources of each knowledge file
 ```
+
+`scripts/lib/` is one module per concern, so a validator stays a short composition:
+
+| Module | Concern |
+|---|---|
+| `report.py` | Findings, reports, the finding codes and their exit codes, the rendered verdict, the `DEBUG` trace |
+| `deps.py` | The import guard: missing `lxml` or `jsonschema` is exit `3` with the install command |
+| `knowledge.py` | The loader for the machine-read tables in `knowledge/` (stdlib only; `doctor.py` loads it too) |
+| `cli.py` | Argument parsing that exits `3`, and the directory walk |
+| `family.py` | Family detection from bytes |
+| `json_reader.py`, `prepass.py` | The runtime-faithful JSON reader, and the NJsonSchema inheritance merge |
+| `json_resolve.py`, `json_validate.py` | Which schema a JSON file is read against, and validation with the runtime's reader semantics |
+| `xsd.py` | Grammar selection, the two-pass `process.xml` check, legacy-grammar lag |
+| `parity.py` | The runtime-parity gate |
+| `workspace.py` | The workspaces-root model and the engine's reference resolution, exact-case |
+| `process_checks.py` | Dead transitions, unreachable states, workflow and change-state references |
 
 Folder names are Claude Code plugin names rather than the reference pattern's
 `src/[Module]/Slices/` names. Auto-discovery only loads components from the plugin's
@@ -49,8 +72,12 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | a dual-schema component validator |
-| Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py` |
+| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py` |
+| Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
+
+A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators as a
+library over DGF's samples. The reverse never happens. A shipped script imports nothing from
+`tools/` or `tests/`.
 
 A shipped file names no path into the DGF repository. A maintenance tool may, because it
 runs against a DGF checkout that only a maintainer has.
