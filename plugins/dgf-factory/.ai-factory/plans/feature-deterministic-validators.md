@@ -420,7 +420,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   coupling between a knowledge file and the code that reads it. Vocabulary such as `by-type` or `enum-relaxed`
   describes DGF, not the validator.
 
-- [ ] **Task 5: Write the machine-read-table contract, then correct `knowledge/naming-conventions.md` and the same
+- [x] **Task 5: Write the machine-read-table contract, then correct `knowledge/naming-conventions.md` and the same
   facts where they are repeated** (DD2, E16, E17).
   - **The contract comes first,** because this task introduces the first machine-read table. Write DD2 into
     `knowledge/README.md` as a new §7, "Machine-read tables". Cover the marker, exact headers, what the loader
@@ -448,7 +448,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   Files: `knowledge/naming-conventions.md`, `knowledge/composition-specs.md`, `knowledge/schema-families.md`,
   `provenance/knowledge/{naming-conventions,composition-specs,schema-families}.md`. Logging: n/a (prose).
 
-- [ ] **Task 6: Write `knowledge/json-reader.md` — how the runtime reads a component JSON file** (structural,
+- [x] **Task 6: Write `knowledge/json-reader.md` — how the runtime reads a component JSON file** (structural,
   E2–E7). (depends on 5)
   - **§1 Reader options.** List every `ConfigureJsonOptions` setting that changes what is **accepted**. Read each
     registered converter's `Read` method (`BooleanConverter`, `DictionaryJsonConverter`,
@@ -470,7 +470,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
   Files: `knowledge/json-reader.md`, `provenance/knowledge/json-reader.md`. Logging: n/a (prose).
 
-- [ ] **Task 7: Extend the parity table to all 67 rows.** (depends on 5, 6)
+- [x] **Task 7: Extend the parity table to all 67 rows.** (depends on 5, 6)
   - Replace `knowledge/schema-families.md` §6's three-row summary with the `<!-- machine-read: parity -->` table
     `| # | Row | ComponentType | Schema | Runtime | XML-only part |`, holding **every** `format-coverage.md` row in
     its own order and numbering (E1).
@@ -486,7 +486,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
   Files: `knowledge/schema-families.md`, `provenance/knowledge/schema-families.md`. Logging: n/a (prose).
 
-- [ ] **Task 8: Write `knowledge/process-model.md` — the divergence list and reference resolution** (structural,
+- [x] **Task 8: Write `knowledge/process-model.md` — the divergence list and reference resolution** (structural,
   ADR 0014).
   - **§1** is `<!-- machine-read: process-divergence -->` `| Construct | Kind | XSD owner | Binding |`.
     - `Kind` is `attribute`, `element` or `enum-relaxed`.

@@ -1,6 +1,6 @@
 ---
 dgf_version: "1.1.11"
-read_date: 2026-09-22
+read_date: 2026-09-24
 review_date: 2026-09-22
 ---
 
@@ -22,34 +22,42 @@ From DGF's `WorkspaceSettings` class. Every workspace has an `FM` directory
 | Constant | Value | Holds |
 |---|---|---|
 | `Fm` | `FM` | The root for everything below |
-| `Process` | `_PROCESS` | `_process.xml` state-machine definitions |
-| `Workflow` | `_WORKFLOW` | `_workflow.xml` sequences |
-| `Components` | `_COMPONENTS` | Component configuration |
+| `Process` | `_PROCESS` | `process.xml` state-machine definitions, one folder per process |
+| `Workflow` | `_WORKFLOW` | `_workflow.xml` sequences, one folder per workflow |
+| `Components` | `_COMPONENTS` | Component configuration, DataSources, endpoints and site maps |
 | `Lookup` | `_LOOKUP` | Lookup definitions |
 | `Data` | `_DATA` | Data table definitions |
 | `Profile` | `_PROFILE` | Profile tree definitions |
-| `DataSources` | `_DataSources` | DataSource definitions — note the mixed case |
-| `SiteMaps` | `_SiteMaps` | Site maps — mixed case |
-| `Endpoints` | `_EndPoints` | Endpoint definitions — mixed case |
-| `StoragePath` | `_STORAGE` | Workspace storage |
 | `Services` | `Services` | No underscore |
 
-Resolved paths: `FmPath = <WorkspaceRootPath>/FM`, and each artifact path is
+Resolved paths: `FmPath = <WorkspaceRootPath>/FM`, and each path above is
 `Path.Combine(FmPath, <constant>)`.
+
+**One constant sits outside `FM`.** `StoragePath = "_STORAGE"` is joined to the workspace root,
+not to `FM`: `WorkspaceStoragePath = Path.Combine(WorkspaceRootPath, StoragePath)`.
+
+**Three constants are declared and used by nothing.** `DataSources = "_DataSources"`,
+`SiteMaps = "_SiteMaps"` and `Endpoints = "_EndPoints"` exist in `WorkspaceSettings`, but no code
+builds a path from them. DataSources are read from `_COMPONENTS/DataSource/` (`DataSourceLoader`),
+endpoints from `_COMPONENTS/Endpoints/` (`EndpointFactory`), and site maps from `_COMPONENTS/`
+itself (`ComponentFileLoadService`).
 
 ### 1.1 The base workspace
 
 `BaseWorkspaceName = "webasm"`. `FmBasePath = <WorkspacesRootPath>/webasm/FM` resolves in
 the **base** workspace, where `FmPath` resolves in the **selected** one.
 
-Two artifact paths have explicit base variants in the source:
+Five artifact paths have explicit base variants in the source:
 
 - `BaseWorkflowPath = Path.Combine(FmBasePath, Workflow)`
+- `ProcessBasePath = Path.Combine(FmBasePath, Process)`
+- `DataBasePath = Path.Combine(FmBasePath, Data)`
+- `ComponentsBasePath = Path.Combine(FmBasePath, Components)`
 - `ProfileBasePath = Path.Combine(FmBasePath, Profile)`
 
-So a workflow or profile placed in `webasm` is reachable from every application that
-inherits from it. This file states only what the source shows; whether other artifact
-kinds inherit the same way is not asserted here.
+So an artifact of these kinds placed in `webasm` is reachable from every application that
+inherits from it, when it is referenced with a `BASE:` prefix. This file states only what the
+source shows; `_LOOKUP` and `Services` have no base variant.
 
 ## 2. The five legacy artifacts — XML-only, no JSON equivalent
 
@@ -61,16 +69,42 @@ JSON equivalent today. The runtime reads only XML."*
 |---|---|---|
 | `_form.xml` | `form.xsd` | XML-only (Form JSON parity is partial) |
 | `_workflow.xml` | `workflow.xsd` | XML-only. Largest remaining migration. |
-| `_process.xml` | `process.xsd` | XML-only. |
+| `process.xml` | `process.xsd` | XML-only. |
 | `settings.xml` | `settings.xsd` | XML-only. Entity field declarations. |
-| `view.xml` (3 subtypes) | `table-view.xsd`, `lookup-view.xsd`, `grid-form.xsd` | XML-only |
+| `_view.xml` and `_grid.xml` (3 subtypes) | `table-view.xsd`, `lookup-view.xsd`, `grid-form.xsd` | XML-only |
+
+The Artifact column gives each filename as the runtime loader opens it. The format-coverage page
+itself writes `_process.xml` and `view.xml`; the loaders open `process.xml`, `_view.xml` and
+`_grid.xml`, and the loader wins (`naming-conventions.md` §2).
 
 `options.xsd` and `profile.xsd` exist but are **outside Wave-1 validator scope** — legacy
 `<options>` lists and profile tree definitions respectively.
 
+### 2.1 Where each legacy grammar's file lives
+
+One row per grammar file. Folders are relative to the workspace root; the three view grammars
+share the root element `view` and are told apart only by the folder their file sits in.
+
+<!-- machine-read: legacy-artifacts -->
+| Artifact | Filename | Folder | Grammar |
+|---|---|---|---|
+| `process` | `process.xml` | `FM/_PROCESS/<process>/` | `process.xsd` |
+| `workflow` | `_workflow.xml` | `FM/_WORKFLOW/<workflow>/` | `workflow.xsd` |
+| `form` | `_form.xml` | `FM/_DATA/<table>/_forms/<form>/` | `form.xsd` |
+| `settings` | `settings.xml` | `FM/_DATA/<table>/` | `settings.xsd` |
+| `table-view` | `_view.xml` | `FM/_DATA/<table>/_views/<view>/` | `table-view.xsd` |
+| `lookup-view` | `_view.xml` | `FM/_DATA/<table>/_lookupviews/<view>/` | `lookup-view.xsd` |
+| `grid-form` | `_grid.xml` | `FM/_DATA/<table>/_gridforms/<grid>/` | `grid-form.xsd` |
+| `options` | `_options.xml` | `FM/_DATA/<table>/` | `options.xsd` |
+
+A workflow may also be process-local, at `FM/_PROCESS/<process>/<workflow>/_workflow.xml`. A form
+name may contain `/`, so a `_form.xml` can sit more than one folder below `_forms/`. `profile.xsd`
+has no row: it declares attributes named `xmlns:xsi` and `xmlns:xsd`, which are not valid XSD
+names, so it does not compile, and no loader for its files was read.
+
 Note the asymmetry with `schema-families.md` §6: `Workflow` and `ProcessFlow` *do* have
 generated JSON schemas (`WorkflowConfiguration`, `ProcessFlowConfiguration`), yet the
-runtime reads `_workflow.xml` and `_process.xml` exclusively. A schema existing is not the
+runtime reads `_workflow.xml` and `process.xml` exclusively. A schema existing is not the
 runtime reading it.
 
 ## 3. Wiring components together — events and the DataFetcher

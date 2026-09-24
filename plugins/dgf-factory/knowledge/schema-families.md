@@ -1,7 +1,7 @@
 ---
 dgf_version: "1.1.11"
-read_date: 2026-09-22
-review_date: 2026-09-22
+read_date: 2026-09-24
+review_date: 2026-09-24
 ---
 
 # Schema families — how a validator resolves, selects and trusts a DGF schema
@@ -96,27 +96,123 @@ re-vendor and update `review_date`.*
 
 Legend, verbatim from the source: **`✓ supported · ◐ partial · ✗ not supported today`**.
 
-| Parity | Components | What it means for a validator |
-|---|---|---|
-| `✗` — schema exists, runtime does **not** parse JSON | **`Workflow`**, **`ProcessFlow`** | A JSON config that validates against `WorkflowConfiguration.schema.json` is still not read by the runtime, which parses `_workflow.xml` / `_process.xml` exclusively. Schema-valid is **not** success — exit `2`, `schema-valid but not runtime-supported` |
-| `◐` — runtime parses JSON, but a sub-behaviour still falls back to XML | `Booking`, `CorporateAccount`, `EligibilityCriteria`, `Form`, `PayComponent`, `Query`, `Uploader` | Valid and read, but not fully migrated. Exit `2` at minimum, naming the component |
-| `✓` — full parity | every other component with a schema | Exit `0` on a valid config |
+The table holds **every** row of the page's modern-JSON table, in the page's own order and
+numbering. `Row` is the page's own name for it. `ComponentType` is the enum member the row
+describes, read from `ComponentConverter`'s class selection (`json-reader.md` §2); it is `—` for
+the site map, the six DataSource kinds and the struck `Accordion`, which are not dispatched as
+components. `Schema` is the vendored file. `Runtime` is the page's symbol. `XML-only part` is the
+row's own words for every `◐` and `✗` row.
+
+<!-- machine-read: parity -->
+| # | Row | ComponentType | Schema | Runtime | XML-only part |
+|---|---|---|---|---|---|
+| 1 | Badge | `Badge` | `BadgeConfiguration.schema.json` | ✓ | |
+| 2 | Booking | `Booking` | `BookingConfiguration.schema.json` | ◐ | Partial — booking workflow still triggers XML workflow steps. |
+| 3 | Breadcrumb | `Breadcrumb` | `BreadcrumbConfiguration.schema.json` | ✓ | |
+| 4 | Button | `Button` | `ButtonConfiguration.schema.json` | ✓ | |
+| 5 | Calendar | `Calendar` | `CalendarConfiguration.schema.json` | ✓ | |
+| 6 | Card | `Card` | `CardConfiguration.schema.json` | ✓ | |
+| 7 | Carousel | `Carousel` | `CarouselConfiguration.schema.json` | ✓ | |
+| 8 | Checkbox | `Checkbox` | `CheckboxConfiguration.schema.json` | ✓ | |
+| 9 | CodeViewer | `CodeViewer` | `CodeViewerConfiguration.schema.json` | ✓ | |
+| 10 | ComboBox | `ComboBox` | `ComboBoxConfiguration.schema.json` | ✓ | |
+| 11 | Container | `Container` | `ContainerConfiguration.schema.json` | ✓ | |
+| 12 | CorporateAccount | `CorporateAccount` | `CorporateAccountConfiguration.schema.json` | ◐ | Reads JSON; some validation paths still XML-only. |
+| 13 | DataFetcher | `DataFetcher` | `DataFetcherConfiguration.schema.json` | ✓ | |
+| 14 | DataTable | `DataTable` | `DataTableConfiguration.schema.json` | ✓ | |
+| 15 | DatePicker | `Date` | `DatePickerConfiguration.schema.json` | ✓ | |
+| 16 | DateTimePicker | `DateTime` | `DateTimePickerConfiguration.schema.json` | ✓ | |
+| 17 | EligibilityCriteria | `EligibilityCriteria` | `EligibilityCriteriaConfiguration.schema.json` | ◐ | Reads JSON; underlying file-upload workflow still XML. |
+| 18 | Footer | `Footer` | `FooterConfiguration.schema.json` | ✓ | |
+| 19 | Form | `Form` | `FormConfiguration.schema.json` | ◐ | **Read** — runtime parses JSON Form config, but most consumer apps still author `_form.xml` because the JSON-form path lacks parity for: custom cells (`control_xxx`), `<slavegrid>` (EditableGrid), some `<binding>` patterns. Wave-1 §4 ships `build_form_xml` to produce XML deterministically while JSON parity matures. |
+| 20 | Header | `Header` | `HeaderConfiguration.schema.json` | ✓ | |
+| 21 | Icon | `Icon` | `IconConfiguration.schema.json` | ✓ | |
+| 22 | Iframe | `Iframe` | `IframeConfiguration.schema.json` | ✓ | |
+| 23 | Image | `Image` | `ImageConfiguration.schema.json` | ✓ | |
+| 24 | InputGroup | `InputGroup` | `InputGroupConfig.schema.json` | ✓ | |
+| 25 | Link | `Link` | `LinkConfiguration.schema.json` | ✓ | |
+| 26 | ListBox | `ListBox` | `ListBoxConfiguration.schema.json` | ✓ | |
+| 27 | Login | `Login` | `LoginConfiguration.schema.json` | ✓ | |
+| 28 | Number | `Number` | `NumberConfiguration.schema.json` | ✓ | |
+| 29 | Page | `Page` | `PageConfiguration.schema.json` | ✓ | |
+| 30 | PayComponent | `Pay` | `PayComponentConfiguration.schema.json` | ◐ | JSON config consumed; payment-gateway workflow still XML. |
+| 31 | PdfViewer | `PdfViewer` | `PdfViewerConfiguration.schema.json` | ✓ | |
+| 32 | PhoneNumber | `PhoneNumber` | `PhoneNumberConfiguration.schema.json` | ✓ | |
+| 33 | PowerBi | `PowerBi` | `PowerBiConfiguration.schema.json` | ✓ | |
+| 34 | ProcessFlow | `ProcessFlow` | `ProcessFlowConfiguration.schema.json` | ✗ | Schema exists but runtime parses legacy `_process.xml`. JSON path planned for Wave 2/3. |
+| 35 | ProcessMonitor | `ProcessMonitor` | `ProcessMonitorComponentConfiguration.schema.json` | ✓ | |
+| 36 | ProfileMenu | `ProfileMenu` | `ProfileMenuConfiguration.schema.json` | ✓ | |
+| 37 | Query | `Query` | `QueryConfiguration.schema.json` | ◐ | Reads JSON for filter panel; SP execution still uses legacy XML datasource configs in some cases. |
+| 38 | RadioGroup | `RadioGroup` | `RadioGroupConfiguration.schema.json` | ✓ | |
+| 39 | Range | `Range` | `RangeConfiguration.schema.json` | ✓ | |
+| 40 | ReferenceComponent | `ReferenceComponent` | `ReferenceComponentConfiguration.schema.json` | ✓ | |
+| 41 | RoleSwitcher | `RoleSwitcher` | `RoleSwitcherConfiguration.schema.json` | ✓ | |
+| 42 | Route | `Route` | `RouteConfiguration.schema.json` | ✓ | |
+| 43 | Router | `Router` | `RouterConfiguration.schema.json` | ✓ | |
+| 44 | Row | `Row` | `RowConfig.schema.json` | ✓ | |
+| 45 | Section | `Section` | `SectionConfig.schema.json` | ✓ | |
+| 46 | SelectButton | `SelectButton` | `SelectButtonConfiguration.schema.json` | ✓ | |
+| 47 | Separator | `Separator` | `SeparatorConfiguration.schema.json` | ✓ | |
+| 48 | SignaturePadSig100 | `SignaturePadSig100` | `SignaturePadSig100Configuration.schema.json` | ✓ | |
+| 49 | SiteMap | — | `SiteMapConfiguration.schema.json` | ✓ | |
+| 50 | Tab | `Tab` | `TabConfiguration.schema.json` | ✓ | |
+| 51 | TeamSwitcher | `TeamSwitcher` | `TeamSwitcherConfiguration.schema.json` | ✓ | |
+| 52 | Text | `Text` | `TextConfiguration.schema.json` | ✓ | |
+| 53 | TextArea | `Textarea` | `TextAreaConfiguration.schema.json` | ✓ | |
+| 54 | TextBox | `TextBox` | `TextBoxConfiguration.schema.json` | ✓ | |
+| 55 | TimePicker | `Time` | `TimePickerConfiguration.schema.json` | ✓ | |
+| 56 | Toggle | `Toggle` | `ToggleConfiguration.schema.json` | ✓ | |
+| 57 | TreeTable | `TreeTable` | `TreeTableConfiguration.schema.json` | ✓ | |
+| 58 | TreeView | `TreeView` | `TreeViewConfiguration.schema.json` | ✓ | |
+| 59 | Uploader | `Uploader` | `UploaderConfiguration.schema.json` | ◐ | Reads JSON; large-file workflow + virus scan still XML. |
+| 60 | Workflow | `Workflow` | `WorkflowConfiguration.schema.json` | ✗ | Schema exists but runtime parses `_workflow.xml` exclusively. JSON workflow path is the largest remaining migration. |
+| 61 | ~~Accordion~~ | — | — | — | |
+| 62 | ApiDataSource | — | `ApiDataSource.schema.json` | ✓ | |
+| 63 | CodeDataSource | — | `CodeDataSource.schema.json` | ✓ | |
+| 64 | DocumentDataSource | — | `DocumentDataSource.schema.json` | ✓ | |
+| 65 | RawSqlDataSource | — | `RawSqlDataSource.schema.json` | ✓ | |
+| 66 | StaticOptionsDataSource | — | `StaticOptionsDataSource.schema.json` | ✓ | |
+| 67 | TableDataSource | — | `TableDataSource.schema.json` | ✓ | |
+
+What each symbol means for a JSON configuration of that component:
+
+| Parity | Meaning |
+|---|---|
+| `✗` | The schema exists and the runtime does **not** read JSON for this component; it reads the legacy XML. A JSON config that validates is still not read. Schema-valid is not runtime-supported |
+| `◐` | The runtime reads the JSON, but the part named in `XML-only part` still runs from XML. Valid and read, not fully migrated |
+| `✓` | The runtime reads the JSON in full |
+
+**Rows the page has that no component carries.** Row 49 (`SiteMap`) is the site map file under
+`_COMPONENTS/`, rows 62–67 are the DataSource kinds (`json-reader.md` §3), and row 61
+(`Accordion`) is struck through on the page: *"Deprecated — no `IComponentConfiguration` schema
+exists; removed from SchemaExporter output. Row kept for history."*
+
+**Members the page has no row for.** Eight `ComponentType` members have no parity statement at
+all: `Search`, `RadioButton`, `WorkflowNew`, `DropdownTree`, `Option`, `Internal`, `Template` and
+`Accordion`. Seven of them have no configuration class (`json-reader.md` §2), and `Accordion`'s row
+is struck. Nothing states which format the runtime reads for them.
+
+**The hosted MCP may serve an older copy of the page.** On 2026-09-24 the MCP's copy had 65 rows,
+without `Carousel` and `SignaturePadSig100`, and numbered them differently. The rows and numbers
+above are the page as read from DGF's repository the same day.
 
 Five legacy artifact types have **no JSON path at all**, separate from the `✗` rows above:
-`_form.xml`, `_workflow.xml`, `_process.xml`, `settings.xml`, `view.xml` (three subtypes).
-Their current generation policy is recorded in `composition-specs.md`.
+`_form.xml`, `_workflow.xml`, `process.xml`, `settings.xml`, and the three view subtypes
+(`_view.xml` under `_views/` and `_lookupviews/`, `_grid.xml` under `_gridforms/`). These are the
+filenames the runtime loaders open (`naming-conventions.md` §2). Their current generation policy
+is recorded in `composition-specs.md`.
 
 **Never state that a component is JSON-capable without this table behind it.** The parity
 column in `format-coverage.md` is the only authority; a schema in `schemas/json/` is not.
 
 ## Not in this file
 
-DataSource discriminator resolution (`table`, `rawsql`, `static`, …) is resolver behaviour
-that mirrors DGF's `DataSourceConverter`. It belongs to the config validators and is not
-stamped here until that source has been read and digested.
+How the runtime reads a JSON file — case-insensitive names, enum names, dispatch by `type`, and
+the DataSource discriminators — is in `json-reader.md`, not here.
 
 ## See Also
 
 - [`README.md`](README.md) — the stamping convention this file follows
 - [`schemas/MANIFEST.md`](schemas/MANIFEST.md) — per-file dialect and membership for the vendored set
 - [`composition-specs.md`](composition-specs.md) — the five legacy artifacts and the XML-always policy
+- [`json-reader.md`](json-reader.md) — how the runtime reads a JSON file, and which class each `ComponentType` binds

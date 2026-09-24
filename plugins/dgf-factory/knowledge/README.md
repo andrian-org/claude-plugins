@@ -180,6 +180,45 @@ it has nothing to stamp and no ledger. Everything else under `knowledge/` — in
 is checked. The schema set's ledger also records each vendored file's upstream and shipped
 digests, because ADR 0012 rewrites DGF paths in the shipped copies.
 
+## 7. Machine-read tables
+
+Some tables in this directory are read by the plugin's scripts as well as by people. Such a
+table is marked, and its shape is a contract:
+
+```markdown
+<!-- machine-read: parity -->
+| # | Row | ComponentType | Schema | Runtime | XML-only part |
+|---|---|---|---|---|---|
+| 1 | `Badge` | `Badge` | `BadgeConfiguration.schema.json` | ✓ | |
+```
+
+- **The marker.** A script reads a table only when the line **immediately** above its header
+  row is `<!-- machine-read: <table-id> -->`. The comment is invisible when rendered. An unmarked
+  table is prose, and no script reads it.
+- **Exact headers.** The loader declares, per table id, the header cells it expects, in order.
+  A renamed, added, dropped or reordered column is a malformed table — never a best guess.
+- **Cells.** Leading and trailing whitespace is stripped, then **one** pair of surrounding
+  backticks. Nothing else is interpreted: bold, links and escaped pipes are read literally. An
+  empty cell is the empty string.
+- **Keys.** The first column is the key. Two rows with the same key are a malformed table.
+- **Extent.** The table ends at the first line that is not a table row. A blank line ends it.
+- **A malformed table blocks.** A script that reads one refuses to run and exits `3`, naming
+  the table id; `doctor.py` loads every marked table and reports a malformed one as the error
+  `KNOWLEDGE_TABLE`. A script never falls back to a stale copy or skips the table.
+
+Edit a marked table like any other fact — with its stamp and provenance ledger updated in the
+same change — and keep its header exactly as it is. The marker is the only coupling between a
+knowledge file and the code that reads it: the file still states DGF facts and names no script.
+
+| Table id | File |
+|---|---|
+| `legacy-artifacts` | [`composition-specs.md`](composition-specs.md) §2 |
+| `component-classes` | [`json-reader.md`](json-reader.md) §2 |
+| `datasource-discriminators` | [`json-reader.md`](json-reader.md) §3 |
+| `component-folders` | [`json-reader.md`](json-reader.md) §4 |
+| `parity` | [`schema-families.md`](schema-families.md) §6 |
+| `process-divergence` | [`process-model.md`](process-model.md) §1 |
+
 ## See Also
 
 - [ADR 0013 — Stamp every fact, gate only behavioural ones — provenance in a maintainer ledger](../docs/adr/0013-version-gating-provenance-ledger.md)
