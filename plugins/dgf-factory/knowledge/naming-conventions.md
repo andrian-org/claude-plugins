@@ -57,15 +57,20 @@ loader wins.
 
 ## 3. Component type names
 
-The `type` value in a component configuration is a `ComponentType` enum member name,
-**PascalCase, exact** — `ComboBox`, `DataFetcher`, `EligibilityCriteria`, `PowerBi`,
+The `type` value in a component configuration names a `ComponentType` enum member. The
+members are spelled in PascalCase — `ComboBox`, `DataFetcher`, `EligibilityCriteria`, `PowerBi`,
 `SignaturePadSig100`. The full set of 67 is in `component-catalogue.md`; a name outside it
 is not a component.
 
-Case matters in the *authoring* surface even where DGF's own lookups are lenient:
-`SchemaIndexService` lowercases its index key, so `combobox` resolves a schema — but the
-runtime's `ComponentType` is an enum, and `nameof(ComponentType.ComboBox)` is the registered
-key. Emit the enum spelling.
+The runtime reads the value **in any case**, surrounding whitespace ignored: the converter
+parses it with `Enum.TryParse(..., ignoreCase: true)` (`json-reader.md` §2), and component
+services are registered under the lower-cased member name. `SchemaIndexService` also
+lowercases its index key. So `comboBox`, `combobox` and `ComboBox` all select the same member.
+The **key** is the exception: it must be exactly `type`.
+
+Case does matter wherever the member name becomes a path. A component file is read from
+`_COMPONENTS/<ComponentType>/`, spelled as the member, so the folder must be exactly `ComboBox`
+on a case-sensitive filesystem (`json-reader.md` §4).
 
 ## 4. Generated JSON schema filenames
 

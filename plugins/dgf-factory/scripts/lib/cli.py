@@ -27,10 +27,29 @@ def artifact_names():
     return {row["Filename"] for row in knowledge.load("legacy-artifacts")}
 
 
+def read_as_component_json(path):
+    """True for a *.json a walk should validate: under FM/_COMPONENTS/, or outside any FM/.
+
+    Component JSON is read only from a workspace's FM/_COMPONENTS/ (knowledge/json-reader.md
+    §4); a JSON file elsewhere under FM/ is read by no loader, so it is not configuration.
+    A file outside every FM/ is a draft, validated by its own `type`.
+    """
+    parts = Path(path).parts
+    if "FM" not in parts:
+        return True
+    last_fm = len(parts) - 1 - parts[::-1].index("FM")
+    below = parts[last_fm + 1:]
+    return len(below) > 1 and below[0] == "_COMPONENTS"
+
+
 def collect(paths, want_json=True, want_xml=True):
-    """Files named on the command line, directories walked for validator inputs."""
+    """Files named on the command line, directories walked for validator inputs.
+
+    A named file is always returned. A walk returns the legacy artifact files and
+    the *.json files read_as_component_json() accepts.
+    """
     names = artifact_names() if want_xml else set()
-    found = []
+    found, skipped = [], 0
     for raw in paths:
         path = Path(raw)
         if path.is_file():
@@ -41,9 +60,16 @@ def collect(paths, want_json=True, want_xml=True):
         for dirpath, dirnames, filenames in os.walk(path):
             dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
             for name in sorted(filenames):
-                if name in names or (want_json and name.endswith(".json")):
-                    found.append(Path(dirpath) / name)
-    report.debug("cli.collect", "collected", files=len(found))
+                candidate = Path(dirpath) / name
+                if name in names:
+                    found.append(candidate)
+                elif want_json and name.endswith(".json"):
+                    if read_as_component_json(candidate):
+                        found.append(candidate)
+                    else:
+                        skipped += 1
+                        report.debug("cli.collect", "skipped: read by no loader", file=candidate)
+    report.debug("cli.collect", "collected", files=len(found), skipped_json=skipped)
     return found
 
 

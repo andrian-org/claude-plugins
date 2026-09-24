@@ -56,6 +56,7 @@ The reflection scan is a **filter**, not the naming source. Both stages live in 
 Name → service type → registering module, derived from the call sites. Several services are
 `partial class` split across two files; each counts once.
 
+<!-- machine-read: dispatchable -->
 | `ComponentType` | Service | Component extension module |
 |---|---|---|
 | `Booking` | `BookingComponentService` | `DGF.DateTimeComponents` |

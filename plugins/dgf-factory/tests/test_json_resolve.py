@@ -29,6 +29,23 @@ class Tables(unittest.TestCase):
         self.assertEqual(json_resolve.component_member(" dataTable "), "DataTable")
         self.assertIsNone(json_resolve.component_member("dataTabel"))
 
+    def test_members_are_the_vendored_enum(self):
+        from lib import knowledge
+        members = json_resolve.component_types()
+        self.assertEqual(len(members), 68)
+        self.assertEqual(set(members) - {"None"}, set(knowledge.index("component-classes")))
+
+    def test_none_parses_and_binds_no_class(self):
+        self.assertEqual(json_resolve.component_member("none"), "None")
+        self.assertEqual(json_resolve.class_for("None"), (None, "none"))
+
+    def test_served_by_type(self):
+        self.assertTrue(json_resolve.served_by_type(WS + "Page/home.json"))
+        self.assertFalse(json_resolve.served_by_type(WS + "Template/t.json"))
+        self.assertFalse(json_resolve.served_by_type(WS + "DataSource/d.json"))
+        self.assertFalse(json_resolve.served_by_type(WS + "sitemap.json"))
+        self.assertFalse(json_resolve.served_by_type("/loose/home.json"))
+
     def test_datasource_discriminators(self):
         self.assertEqual(json_resolve.datasource_for("rawsql"), ("RawSql", "RawSqlDataSource.schema.json"))
         self.assertEqual(json_resolve.datasource_for("StoredProcedure")[1], "RawSqlDataSource.schema.json")

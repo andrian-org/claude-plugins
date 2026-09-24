@@ -91,17 +91,41 @@ def interface_schema():
     raise LookupError("no vendored schema defines IComponentConfiguration")
 
 
+_MEMBERS = []
+
+
+def component_types():
+    """The ComponentType members, `None` included, as the vendored schemas declare the enum.
+
+    Each schema carries its own copy of the enum and a stale file can lag, so the
+    members are the union across the set, in declaration order.
+    """
+    if not _MEMBERS:
+        for path in sorted(SCHEMA_DIR.glob("*.schema.json")):
+            declared = (raw_schema(path.name).get("definitions") or {}).get("ComponentType") or {}
+            for member in declared.get("enum") or []:
+                if isinstance(member, str) and member not in _MEMBERS:
+                    _MEMBERS.append(member)
+        report.debug("json_resolve.component_types", "enum", members=len(_MEMBERS))
+    return _MEMBERS
+
+
 def component_member(value):
     """The ComponentType member `value` parses as — any case, surrounding space ignored."""
     if not isinstance(value, str):
         return None
-    row = knowledge.index("component-classes", fold=True).get(value.strip().lower())
-    return row["ComponentType"] if row else None
+    folded = value.strip().lower()
+    return next((member for member in component_types() if member.lower() == folded), None)
 
 
 def class_for(member):
-    """(schema filename or None, bound by) for a ComponentType member."""
-    row = knowledge.index("component-classes")[member]
+    """(schema filename or None, bound by) for a ComponentType member.
+
+    A member absent from the `component-classes` table (`None`) matches no class.
+    """
+    row = knowledge.index("component-classes").get(member)
+    if row is None:
+        return None, "none"
     schema = row["Configuration schema"]
     return (None if schema == knowledge.NONE else schema), row["Bound by"]
 
@@ -133,6 +157,17 @@ def components_path(path):
         if parts[index_] == "_COMPONENTS" and parts[index_ - 1] == "FM":
             return parts[index_ + 1:]
     return None
+
+
+def served_by_type(path):
+    """True when `path` sits in a `<ComponentType>/` folder, served by type and name."""
+    below = components_path(path)
+    if not below or len(below) < 2:
+        return False
+    rule = knowledge.index("component-folders").get(below[0])
+    if rule is None and component_member(below[0]) == below[0]:
+        rule = knowledge.index("component-folders")["(any other ComponentType name)"]
+    return rule is not None and rule["Selection"] == "by-type"
 
 
 def _type_value(document, selection, what):

@@ -73,6 +73,7 @@ Select the validator dialect from each file's `$schema`. Never assume one for th
 
 Verified root elements, read from the first top-level `xs:element` in each XSD:
 
+<!-- machine-read: correspondence -->
 | XSD | Root | JSON counterpart | Relationship |
 |---|---|---|---|
 | `form.xsd` | `form` | `FormConfiguration.schema.json` | True pair; both have dedicated validators |

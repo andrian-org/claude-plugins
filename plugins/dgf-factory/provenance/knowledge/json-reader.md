@@ -72,6 +72,30 @@ sources:
     sha256: cb3080bc7475d1dac56cb85d0e0921cd1b9e295522d9ea2b278861022e87caa0
   - path: src/Components/DGF.Components.Shared/Enums/ComponentSize.cs
     sha256: d3bfd8e1407dbf50df811e47de93b42590c88cadb1c25e57e70b78b33b021adc
+  - path: src/Components/DGF.Components.Shared/ComponentsBase/Configuration/Contracts/ILayoutComponent.cs
+    sha256: fac5508047c4380f7b3ef3ce1b898f62010a97ed9124fb7cdf3a553d18735a0d
+  - path: src/Components/Extensions/DGF.ReferenceComponent/Models/ReferenceComponentConfiguration.cs
+    sha256: 3733f7881294809b88db6f1755d7f19e77ac9b99c7f358e75576e370910b5bae
+  - path: src/Components/Extensions/DGF.ReferenceComponent/Services/ReferenceComponentServiceInternal.cs
+    sha256: 6cce4a6e2ff3d371187ba382c1ea04219022bd158d358eb162cf9acf88f2ee3f
+  - path: src/Components/DGF.Components.Services/Components/ComponentSchemaManager.cs
+    sha256: 3d1c40601c3038a2707c3243b98f1232df54383b7464c1b38c8ab7addb84e9c7
+  - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
+    sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
+  - path: src/Components/Extensions/DGF.Page/Models/Configuration/PageConfiguration.cs
+    sha256: ac6d9cdeb9823c53cd503c5d2c458ff6f970e3e0ff973afea67f37021b42eaf8
+  - path: src/Components/Extensions/DGF.Form/Models/Configuration/FormConfiguration.cs
+    sha256: 964a5e94c40f05cc21b536cabbfabed53af48e32f9c9bc6155e4efaa71cbf18a
+  - path: src/Components/Extensions/DGF.LayoutComponents/ContainerComponent/Models/Configuration/ContainerConfiguration.cs
+    sha256: ec68d7ce26ac0e9e954ba5fc0be6bbb547673552fef19e8a870c7a7bd89dab08
+  - path: src/Components/Extensions/DGF.LayoutComponents/RowComponent/Models/Configuration/RowConfig.cs
+    sha256: a03ffe385b19cc170a697a46308580fecfa9a6c156dae476b00e0762c12d2f63
+  - path: src/Components/Extensions/DGF.LayoutComponents/SectionComponent/Models/Configuration/SectionConfig.cs
+    sha256: 21edbf1ffb078f44c4a9aefa521de11fa1216d1966920470925c3f27edfd11ce
+  - path: src/Components/Extensions/DGF.Router/Models/Configuration/RouteConfiguration.cs
+    sha256: 2cd68f32ce545b8a9d40b8584dfefe1ec4426099057c2943eed8791b5ddf60f1
+  - path: src/Components/Extensions/DGF.Sitemap/Models/Configuration/FooterConfiguration.cs
+    sha256: 9d0c8deb8052f1416b095b2600256944ac211a4a7b735cb9b32ebdcccf8cb1ae
 ---
 # Provenance — `knowledge/json-reader.md`
 
@@ -101,3 +125,12 @@ a `[JsonStringEnumMemberName("_blank")]` member reads `"_blank"` and `1` and rej
 reads `"true"`, `"TRUE"`, `" true "`, `1`, `0`, `2.5` and rejects `"yes"` and `null`; `bool?` reads
 `null`. The probe is scratch, not committed; re-run it when DGF's serializer setup changes.
 
+How §2.1 was derived (2026-09-24): `SiteMapManager.GetComponentByNameAndTypeAsync` is the only
+caller that replaces a child by its `Path` (the loop over an `ILayoutComponent`'s `Content`); its
+callers are `ComponentSchemaManager` (a component served by type and name) and
+`ReferenceComponentServiceInternal`, plus its own reference resolution. The layout classes are
+every class whose base list names `ILayoutComponent`. `ComponentFileLoadService.GetFileRootPath`
+builds the path from `ComponentsPath` or, for `BASE:`, `ComponentsBasePath` (`WorkspaceSettings`),
+and `JsonSerializationService.DeserializeFromFileAsync` returns `default` for a missing file.
+Measured on the samples: no top-level `content` child carries a `path`; 80 of 82
+`ReferenceComponent` targets exist, and the two that do not name `Page/appealPage` in `zims`.

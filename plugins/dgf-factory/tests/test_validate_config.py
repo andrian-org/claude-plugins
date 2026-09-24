@@ -139,6 +139,20 @@ class ValidateConfig(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("FAMILY:"), 2)
 
+    def test_directory_walk_skips_json_no_loader_reads(self):
+        root = helpers.make_root(self.tmp, {
+            APP + "_COMPONENTS/Page/home.json": '{"type": "page", "name": "home"}',
+            APP + "_DATA/T/_forms/F/_form.json": '{"fields": []}',
+            APP + "_PROFILE/P/_settings.json": '{}',
+        })
+        code, out, _ = helpers.run_cli("validate_config.py", root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.count("FAMILY:"), 1, out)
+
+    def test_named_json_outside_components_is_still_checked(self):
+        result = self.run_on({APP + "_DATA/T/_forms/F/_form.json": '{"fields": []}'})
+        self.assert_result(result, 3, "SCHEMA_UNSELECTABLE")
+
 
 if __name__ == "__main__":
     unittest.main()

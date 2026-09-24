@@ -684,7 +684,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
 ### Phase 5: Components and route
 
-- [ ] **Task 14: Write `scripts/resolve_components.py` — component-type legality in both families.** (depends on 13)
+- [x] **Task 14: Write `scripts/resolve_components.py` — component-type legality in both families.** (depends on 13)
   - **JSON.** Walk every object that has a `type` key, reached through a property the pre-pass-merged schema types as
     `IComponentConfiguration` (not every `type` key; DataSource and endpoint `type`s are different enums). Check its
     value case-insensitively against the `ComponentType` enum read from the vendored schemas' `definitions` (67
@@ -712,7 +712,38 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   `provenance/knowledge/component-catalogue.md` (`read_date` untouched unless a fact changes),
   `scripts/lib/knowledge.py`, `tests/test_resolve_components.py`.
 
-- [ ] **Task 15: Write `scripts/route_means.py` — ADR 0010 §1 as a script.** (depends on 13)
+  **As implemented (2026-09-24)** — deviations from the task text, each on evidence:
+  - **D5 (Andrian Mamei, 2026-09-24): form component types use a hybrid rule.** DGF's legacy form mapper
+    (`FormCellMapper.GetInternalComponentAsync`) binds a type through a registered service that accepts a form cell
+    (case-insensitive), then the exact strings `Text`, `Icon`, `dataFetcher` and `DataFetcher`, and drops anything
+    else. `form.xsd`'s `componentTypeValue` disagrees in both directions: it lists `button`, `eligibility`, `textBox`
+    and `uploader`, which bind nothing, and omits `comboBox`, `dataTable`, `radioGroup`, `booking` and `icon`, which
+    bind. So a listed value passes; a `ComponentType` member that is not listed is `XSD_LAGS_RUNTIME` (2, ADR 0016); a
+    value that is neither is `UNKNOWN_COMPONENT` (1). The samples' 234 uses are all listed. Task 21 carries D5 into
+    `docs/dgf-schemas.md`.
+  - **Component file references are verified**, so `COMPONENT_FILE_UNRESOLVED` exists. `path` on a direct `content`
+    child of a layout class served by type and name, and every `ReferenceComponent`'s `componentType` /
+    `componentName`, resolve to `_COMPONENTS/<Type>/<name>.json` (`SiteMapManager.GetComponentByNameAndTypeAsync`,
+    `ComponentFileLoadService.GetFileRootPath`). `ref` is not a file reference. Recorded in `json-reader.md` §2.1 with
+    its ledger. Two machine-read tables are added: `dispatchable` (planned) and `layout-components` (new: the eight
+    `ILayoutComponent` classes, because the schemas cannot tell them apart from `Breadcrumb` and `Pay`).
+  - **New code `COMPONENT_FILE_APP_DEPENDENT` (2)**: a `webasm` file's name without `BASE:` reads the selected
+    application's `_COMPONENTS`, so it follows D2 and never blocks.
+  - **`ComponentType` legality comes from the vendored enum** (68 values, `None` included; one stale schema carries
+    63). `None` parses and binds no class, so it is `NO_CONFIG_CLASS` in both `validate_config.py` and here.
+  - **`scripts/lib/workspace.py` started early** with the model and the exact-case lookup (`owning_workspace`,
+    `workspaces_root`, `applications`, `exact_child`, `exact_file`); Task 16 adds the resolvers.
+  - **The directory walk skips JSON no loader reads**: `*.json` under `FM/` but outside `FM/_COMPONENTS/` (9 sample
+    files: `_form.json`, `_triggers.json`, `_settings.json`). A named file is still checked. This fixes 9
+    `SCHEMA_UNSELECTABLE` exits in both CLIs.
+  - **`knowledge/naming-conventions.md` §3 corrected**: the runtime reads `type` in any case; only the key and the
+    folder name are exact.
+  - **Samples** (3,116 files): 2 `COMPONENT_FILE_UNRESOLVED` (`zims` DataTables → absent `Page/appealPage`), 1
+    `COMPONENT_FILE_APP_DEPENDENT` (`webasm` Page `WorkplaceActiveCorporate` → `dataTableWorkPlaceActiveCorporate`
+    without `BASE:`), 19 `NO_SCHEMA` (Endpoints, site maps, `Forms/`, nested `Accordion`), 366 `NO_SERVICE`, and no
+    `UNKNOWN_COMPONENT`. Task 19 settles the two errors.
+
+- [x] **Task 15: Write `scripts/route_means.py` — ADR 0010 §1 as a script.** (depends on 13)
   - **Input:** `<name>`, a `ComponentType` member (case-insensitive) or a legacy artifact name from
     `legacy-artifacts` (`form`, `workflow`, `process`, `settings`, `view`, grid).
   - **Rule, in order:**
@@ -728,6 +759,15 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - **Logging:** `debug("route_means.main", name=…, row=…, legacy=…)`.
 
   Files: `scripts/route_means.py`, `tests/test_route_means.py`.
+
+  **As implemented (2026-09-24):**
+  - **A ✗ row names its artifact.** Rule 2 follows the row's schema to its XSD counterpart and that XSD's legacy
+    artifact, so `ProcessFlow` routes to `FM/_PROCESS/<process>/process.xml`. That needs the §5 correspondence map as
+    a machine-read table, `correspondence` (the tenth id). The row's XML-only part is still quoted verbatim, DGF's
+    `_process.xml` included.
+  - **Legacy names are the table's own:** `table-view`, `lookup-view` and `grid-form`, not `view` or `grid`. A bare
+    `view` names three artifacts, so it has no route (exit `3`), never a guess.
+  - **Stdlib only.** The route reads knowledge tables and nothing else, so it runs without `lxml` or `jsonschema`.
 
 <!-- Commit checkpoint: tasks 14-15 -->
 
@@ -917,9 +957,21 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - `workflow.xsd` lacks `StateProcess`, `ForeachRecord` and more (E15).
   - `format-coverage.md` labels `_process.xml` and `view.xml` (E16).
   - `zims/FM/_COMPONENTS/Forms/` is read by no loader (E7).
+  - `form.xsd`'s `componentTypeValue` disagrees with the legacy form mapper in both directions (D5, Task 14).
+  - Sample defects found by Task 14: two `zims` DataTables reference the absent `Page/appealPage`; `webasm`'s
+    `WorkplaceActiveCorporate` page references `dataTableWorkPlaceActiveCorporate` without `BASE:`, so no application
+    finds it; nine JSON files under `_DATA/` and `_PROFILE/` are read by no loader.
+  - ``NumberConfiguration`1.schema.json`` carries a stale 63-member `ComponentType` enum (the other 60 carry 68).
+  - `format-coverage.md` marks `Workflow` ✗, but `WorkflowLoaderService` reads `_COMPONENTS/Workflow/` (json-reader.md
+    §4); the MCP serves a stale 65-row copy of the page.
   - Carried forward: `process.xsd` lag and `xs:keyref`; `profile.xsd` L20-21.
 - **Per-grammar divergence lists** (ADR 0016), workflow first.
-- **Deferred reference checks:** `Process/@table`, `OpenHandler`, `SubProcess` (ADR 0014); component file references
-  if Task 14 could not verify them.
+- **Deferred reference checks:** `Process/@table`, `OpenHandler`, `SubProcess` (ADR 0014). Component types inside a
+  site map (`SiteMapConfiguration` has no schema, so `resolve_components.py` reports `NOT RUN`). A `type` written as
+  an integer string, which the runtime reads as that member and the validators report unknown (the vendored enum
+  carries names only). The legacy form mapper's field-type remapping (`Picklist`/`Lookup`/`EditableGrid`/`Image`),
+  which needs the table's `settings.xml`.
+- **Out-of-order state-event activities** in `process.xml`: `XmlSerializer` accepts them and `process.xsd` rejects
+  them, and the `process-divergence` table does not cover them yet.
 - **The developer-facing version gate** (ADR 0013 §4 first table): how it learns a developer's DGF version is still
   undecided.

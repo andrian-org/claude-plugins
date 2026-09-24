@@ -69,6 +69,15 @@ class Grammars(unittest.TestCase):
         self.assertEqual(xsd.grammar_for("view", "/tmp/_view.xml", "lookup")[0], "lookup-view.xsd")
         self.assertIsNone(xsd.grammar_for("view", "/tmp/_view.xml")[0])
 
+    def test_form_component_type_enumeration(self):
+        from lib import xsd
+        listed = xsd.enumeration("form.xsd", "componentTypeValue")
+        self.assertEqual(len(listed), 15)
+        self.assertIn("query", listed)
+        self.assertNotIn("comboBox", listed)
+        with self.assertRaises(LookupError):
+            xsd.enumeration("form.xsd", "noSuchType")
+
     def test_profile_does_not_compile(self):
         from lib import xsd
         self.assertIsNone(xsd.schema("profile.xsd"))

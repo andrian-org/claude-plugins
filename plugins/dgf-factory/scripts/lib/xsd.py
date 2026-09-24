@@ -77,6 +77,15 @@ def uncompilable_reason(xsd_file):
     return _UNCOMPILABLE.get(xsd_file, "")
 
 
+def enumeration(xsd_file, simple_type):
+    """The xs:enumeration values of a named top-level xs:simpleType, in order."""
+    tree = etree.parse(str(XSD_DIR / xsd_file))
+    for declared in tree.getroot().iterfind(_q("simpleType")):
+        if declared.get("name") == simple_type:
+            return [e.get("value") for e in declared.iter(_q("enumeration"))]
+    raise LookupError(f"{xsd_file} declares no simpleType `{simple_type}`")
+
+
 def _view_folders():
     """{folder marker such as `_views`: grammar}, from the legacy-artifacts table."""
     found = {}

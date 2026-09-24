@@ -14,6 +14,9 @@ EXPECTED_ROWS = {
     "datasource-discriminators": 9,
     "component-folders": 6,
     "enum-member-names": 4,
+    "layout-components": 8,
+    "dispatchable": 34,
+    "correspondence": 7,
     "parity": 67,
     "process-divergence": 26,
 }

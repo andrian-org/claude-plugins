@@ -228,11 +228,16 @@ def _selection_errors(selection):
         yield DgfError(message, code=code)
 
 
+_REACHED = None  # (instance, selection) per dispatched child, while components() runs
+
+
 def _dispatch_component(validator, instance):
     if instance is None:
         return
     selection = json_resolve.Selection(kind="none")
     selection = json_resolve._component(instance, selection)
+    if _REACHED is not None:
+        _REACHED.append((instance, selection))
     yield from _selection_errors(selection)
     report.debug("json_validate.dispatch", "component", type=selection.member, kind=selection.kind,
                  schema=selection.schema if isinstance(selection.schema, str) else selection.kind)
@@ -293,6 +298,28 @@ def _validate_selected(selection, instance):
         yield from validator_for(selection.schema, json_resolve.merged_schema(selection.schema)).iter_errors(instance)
     elif selection.kind == "interface":
         yield from validator_for("(interface)", selection.schema).iter_errors(instance)
+
+
+def components(document, selection):
+    """[(child, selection)] for every child the runtime reads as IComponentConfiguration.
+
+    The walk is the validator's own, so a child is reached exactly where the
+    merged schema types a member as the interface, and a child whose own `type`
+    is unknown is not descended — the runtime drops it with its children. A child
+    reached through two alternatives is returned once. Raises UnknownDialect.
+    """
+    global _REACHED
+    _REACHED = []
+    try:
+        for _ in _validate_selected(selection, document):
+            pass
+        reached = _REACHED
+    finally:
+        _REACHED = None
+    unique = {}
+    for instance, child in reached:
+        unique.setdefault(id(instance), (instance, child))
+    return list(unique.values())
 
 
 # --- findings -----------------------------------------------------------------

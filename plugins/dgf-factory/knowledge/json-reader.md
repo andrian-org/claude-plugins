@@ -177,8 +177,45 @@ Notes on the table:
   schema**: DGF removed it from the exporter's output and marks the component deprecated.
 - **`Header`**: `HeaderConfiguration`'s constructor passes `ComponentType.Footer` to its base. It is
   still selected by name for `Header`. This is an upstream defect.
-- 67 members are listed; `None` is omitted. `Template` has no class: a template file is a
-  fragment typed by its own `type` (§4).
+- 67 members are listed; `None` is omitted. It parses, but no class name matches or starts with
+  it, so a component typed `None` vanishes like one whose type has no class. `Template` has no
+  class: a template file is a fragment typed by its own `type` (§4).
+
+### 2.1 Component file references
+
+Two members name another component file by type and name. Both resolve through the same lookup:
+
+- **`path` on a direct child.** When a component file is served by type and name, and its class
+  is a layout class (below), each **direct** child in `content` with a non-blank `path` is
+  replaced by the component read from that path, under the child's own type. Deeper descendants
+  are not replaced, and neither is a child of a template fragment. A class whose schema has a
+  `content` array but which is not a layout class — `Breadcrumb`, `Pay` — is not expanded.
+- **`ReferenceComponent`.** `componentType`, read as a `ComponentType` (§1), and `componentName`
+  name the component that replaces the reference, either while the page is served (`autoResolve`)
+  or when the client asks for it.
+
+The lookup reads `_COMPONENTS/<ComponentType>/<name>.json`, with the folder spelled as the member.
+A name that starts with `BASE:`, in any case, reads the rest of the name in `webasm`'s
+`_COMPONENTS`. Any other name reads the selected workspace's `_COMPONENTS`, so a file in `webasm`
+reads it from whichever application is selected. There is no fallback between the two. A missing
+file reads as nothing, and the component it would have supplied vanishes without an error.
+
+The layout classes are the ones that implement `ILayoutComponent`:
+
+<!-- machine-read: layout-components -->
+| ComponentType | Class |
+|---|---|
+| `Page` | `PageConfiguration` |
+| `Form` | `FormConfiguration` |
+| `Container` | `ContainerConfiguration` |
+| `Row` | `RowConfig` |
+| `Section` | `SectionConfig` |
+| `Route` | `RouteConfiguration` |
+| `Header` | `HeaderConfiguration` |
+| `Footer` | `FooterConfiguration` |
+
+`ref` is not a file reference: this lookup never reads it. The base class documents it as naming
+another component's data source.
 
 ## 3. DataSource dispatch
 

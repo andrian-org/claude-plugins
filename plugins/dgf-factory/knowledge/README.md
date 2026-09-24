@@ -217,6 +217,9 @@ knowledge file and the code that reads it: the file still states DGF facts and n
 | `datasource-discriminators` | [`json-reader.md`](json-reader.md) §3 |
 | `component-folders` | [`json-reader.md`](json-reader.md) §4 |
 | `enum-member-names` | [`json-reader.md`](json-reader.md) §1 |
+| `layout-components` | [`json-reader.md`](json-reader.md) §2.1 |
+| `dispatchable` | [`component-catalogue.md`](component-catalogue.md) §3 |
+| `correspondence` | [`schema-families.md`](schema-families.md) §5 |
 | `parity` | [`schema-families.md`](schema-families.md) §6 |
 | `process-divergence` | [`process-model.md`](process-model.md) §1 |
 

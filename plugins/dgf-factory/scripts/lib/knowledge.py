@@ -46,6 +46,21 @@ TABLES = {
         ("JSON name", "Enum", "Member"),
         {},
     ),
+    "layout-components": (
+        "json-reader.md",
+        ("ComponentType", "Class"),
+        {},
+    ),
+    "dispatchable": (
+        "component-catalogue.md",
+        ("ComponentType", "Service", "Component extension module"),
+        {},
+    ),
+    "correspondence": (
+        "schema-families.md",
+        ("XSD", "Root", "JSON counterpart", "Relationship"),
+        {},
+    ),
     "parity": (
         "schema-families.md",
         ("#", "Row", "ComponentType", "Schema", "Runtime", "XML-only part"),

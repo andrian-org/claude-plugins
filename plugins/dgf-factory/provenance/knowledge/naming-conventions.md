@@ -30,6 +30,10 @@ sources:
     sha256: d0f6f004156c4ba2b07960f263a1033cb6d95dd7799e44f85e77168bea3f060d
   - path: src/Components/DGF.Components.Shared/ComponentFileLoadService.cs
     sha256: 5d5ca13b8dd3f5b2192535776c2d5c0245c361677dc168247478733f17ad3b1d
+  - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
+    sha256: 772d63668a13942df8b43bf4937fc255d12a5049129fbcb3816c75ca16ea78fd
+  - path: src/Components/DGF.Services.Extensions/ComponentServiceProvider.cs
+    sha256: 34530516d18b7b4b113c6c23eb172a7d7815a27e18215b9e1cb3c3d1efe12194
 ---
 # Provenance — `knowledge/naming-conventions.md`
 
