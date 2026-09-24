@@ -149,8 +149,9 @@ binary is needed.
 recorded in [`docs/adr/`](adr/README.md): the estate is brownfield-dominant and a skill's unit
 of work is the whole workspaces root ([0004](adr/0004-authoring-entry-point.md)); process
 verification is structural-plus-our-own-semantics, with no headless execution
-([0006](adr/0006-process-verification-revised.md), superseding 0002); validators run on Python
-with `lxml` and `jsonschema` ([0007](adr/0007-validator-runtime.md)); version gates are
+([0014](adr/0014-process-verification-runtime-resolution.md), superseding 0006 and 0002); validators run on Python
+with `lxml` and `jsonschema`, reading JSON the way the runtime does
+([0015](adr/0015-validator-runtime-and-json-reader.md), superseding 0007); version gates are
 necessary, so every fact is stamped and behavioural facts carry a range
 ([0013](adr/0013-version-gating-provenance-ledger.md), superseding 0008 and 0003); shipped
 files carry no DGF repository paths ([0012](adr/0012-no-dgf-paths-in-shipped-files.md)); and seven conventions ship as

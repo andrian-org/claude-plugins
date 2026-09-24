@@ -138,10 +138,11 @@ skeleton landed with roadmap milestone 6; the `knowledge/` base with milestone 7
 - **Decisions live in `docs/adr/`.** [docs/adr/README.md](docs/adr/README.md) is the index.
   Before reopening a settled question — delivery model, what "process verified" means, version
   gating, the validator runtime, the unit of work, the default rule set — read the ADR that
-  closed it. Process verification and version gating are decided by
-  [ADR 0006](docs/adr/0006-process-verification-revised.md) and
-  [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); 0002, 0003 and 0008 are
-  superseded history.
+  closed it. Process verification, the validator runtime and version gating are decided by
+  [ADR 0014](docs/adr/0014-process-verification-runtime-resolution.md),
+  [ADR 0015](docs/adr/0015-validator-runtime-and-json-reader.md) and
+  [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); 0002, 0003, 0006, 0007 and 0008
+  are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

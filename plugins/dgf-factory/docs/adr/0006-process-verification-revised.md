@@ -1,8 +1,8 @@
 ---
 id: 0006
 title: Process verification — structure with a runtime-divergence allowance, semantics by our own validators
-status: accepted
-date: 2026-09-23
+status: superseded-by-0014
+date: 2026-09-24
 deciders: [Andrian Mamei]
 supersedes: [0002]
 tags: [validation, process, gates]

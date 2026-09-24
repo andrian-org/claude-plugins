@@ -15,14 +15,17 @@ person to read the code.
 | [0003](0003-version-gating.md) | Stamp every fact, gate only behavioural ones | superseded-by-0008 | 2026-09-23 | blueprint open question #6 — replaced by 0008 |
 | [0004](0004-authoring-entry-point.md) | Brownfield-first, scoped to the whole workspaces root | accepted | 2026-09-21 | blueprint open question #3 |
 | [0005](0005-default-team-rules.md) | Seven shipped defaults for dotGov DGF systems | accepted | 2026-09-21 | blueprint open question #7 |
-| [0006](0006-process-verification-revised.md) | Process verification — structure with a runtime-divergence allowance, semantics by our own validators | accepted | 2026-09-23 | blueprint open question #5; the semantic checks of milestone 8 |
-| [0007](0007-validator-runtime.md) | Validators run on Python with lxml and jsonschema | accepted | 2026-09-23 | validator runtime and dependencies |
+| [0006](0006-process-verification-revised.md) | Process verification — structure with a runtime-divergence allowance, semantics by our own validators | superseded-by-0014 | 2026-09-24 | blueprint open question #5 — replaced by 0014 |
+| [0007](0007-validator-runtime.md) | Validators run on Python with lxml and jsonschema | superseded-by-0015 | 2026-09-24 | validator runtime and dependencies — replaced by 0015 |
 | [0008](0008-version-gating-revised.md) | Stamp every fact, gate only behavioural ones (revised) | superseded-by-0013 | 2026-09-23 | blueprint open question #6 — replaced by 0013 |
 | [0009](0009-plan-ledger-scope.md) | One plan ledger at workspaces-root scope, partitioned by affected workspaces | accepted | 2026-09-23 | plan-ledger contention (ADR 0004 follow-up): `affects_workspaces` per plan, multi-workspace plans allowed |
 | [0010](0010-dgf-implement-scope.md) | /dgf-implement composes configuration, modern JSON first, and writes JS or CSS only where configuration cannot | accepted | 2026-09-23 | blueprint open question #4: JSON under `FM/_COMPONENTS/` first, XML only without a JSON alternative, a little JS/CSS only where configuration cannot |
-| [0011](0011-schema-parity-authority.md) | Resolve the schema family first; format-coverage.md is the only runtime-parity authority | proposed | 2026-09-23 | dual-schema and parity rule; due before milestone 8's parity check |
+| [0011](0011-schema-parity-authority.md) | Resolve the schema family first; format-coverage.md is the only runtime-parity authority | accepted | 2026-09-24 | dual-schema and parity rule; shipped files read parity from `knowledge/schema-families.md` §6 |
 | [0012](0012-no-dgf-paths-in-shipped-files.md) | Shipped files carry no DGF repository paths | accepted | 2026-09-23 | no DGF path under `SHIPPED_DIRS`; doctor blocks on one; maintainer tools move to `tools/` |
 | [0013](0013-version-gating-provenance-ledger.md) | Stamp every fact, gate only behavioural ones — provenance in a maintainer ledger | accepted | 2026-09-23 | blueprint open question #6; fact sources move to `provenance/`, digest checks become maintainer checks |
+| [0014](0014-process-verification-runtime-resolution.md) | Process verification — structure with a runtime-divergence allowance, semantics resolved the way the runtime resolves them | accepted | 2026-09-24 | blueprint open question #5; the semantic checks of milestone 8: references resolve by the engine's rules, one path per form, exact case; app-dependent references warn |
+| [0015](0015-validator-runtime-and-json-reader.md) | Validators run on Python with lxml and jsonschema, and read JSON the way the runtime does | accepted | 2026-09-24 | validator runtime and dependencies; JSON read like the runtime (merged inheritance, case-insensitive names and enums, dispatch by `type`); unknown properties warn |
+| [0016](0016-legacy-xsd-lag.md) | Legacy XSDs other than process lag the runtime; their failures warn until each has a divergence list | accepted | 2026-09-24 | XSD failures in workflow, form, settings, the view grammars and options are warnings (`XSD_LAGS_RUNTIME`); process alone blocks, with a divergence allowance |
 
 ## Numbering
 
@@ -132,4 +135,4 @@ ADR; and each index row's Status cell matches its ADR's frontmatter.
 
 - [Architecture Blueprint](../blueprint.md) — the open questions these ADRs close
 - [DGF Knowledge Sourcing](../dgf-knowledge.md) — the citation rule these ADRs inherit
-- [DGF Schemas](../dgf-schemas.md) — the two schema families ADRs 0006, 0007 and 0013 depend on
+- [DGF Schemas](../dgf-schemas.md) — the two schema families ADRs 0013, 0014 and 0015 depend on
