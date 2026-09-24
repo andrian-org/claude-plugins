@@ -2,7 +2,7 @@
 name: tenant-init
 description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
 argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run]"
-allowed-tools: Read Write Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) AskUserQuestion Skill
+allowed-tools: Read Write Edit Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) Bash(sort *) Bash(uniq *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
 
@@ -11,6 +11,8 @@ disable-model-invocation: false
 Scaffold a new tenant under `src/Tenants/<TenantName>/`. Produce the boilerplate only — **no Modules, Models, Controllers, Endpoints, or Mappers** unless the user asks for them in the same request. The boilerplate is spec-ready from the start (step 3), so the integration never has to retrofit it.
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Read it first.
+
+Repo facts shared with the other skills — usings, config casing, token naming, file hygiene, committed secrets, the live route reference — are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` and cited below by section id (C1–C8). Never trust a count in either file; re-derive it.
 
 ## Inputs
 
@@ -41,9 +43,10 @@ Read these before generating; they are the canonical shapes.
 ```bash
 ls src/Tenants | grep -i "TenantName"
 grep -n "TenantName" src/ZamConnect.sln
+grep -n -i "t_<slug>\|/t/<slug>/\| <TENANT> |" docs/zamconnect-test-routes.md
 ```
 
-Stop and ask if either hits.
+`<slug>` is the tenant name lowercased with no separators (step 5), `<TENANT>` the tenant name uppercased (step 6). Stop and ask if any hits. A hit in the routes doc (C8) means the gateway already has that route, cluster or scope — importing step 6 would overwrite it.
 
 ### 1a. Intake
 
@@ -66,7 +69,7 @@ Record the answers as flags for the equivalent command, for example `/tenant-ini
 grep -h applicationUrl src/Tenants/*/Properties/launchSettings.json | grep -o "[0-9][0-9][0-9][0-9][0-9]" | sort -n | uniq
 ```
 
-Choose an unused consecutive pair (https, http). Repo convention is a high 5-digit pair, e.g. `53390;53391`.
+Choose an unused consecutive pair (https, http). Repo convention is a high 5-digit pair next to the existing ones; the scan is the only source — never reuse a port from an example.
 
 ### 2a. Review before writing
 
@@ -78,8 +81,8 @@ Scaffold PQPS (Carter, spec-ready):
   .azure/tenant.azure-pipelines.pqps.yaml
   src/.dockercompose/docker-compose.yml   + core-pqps
   src/ZamConnect.sln                      + Tenants/PQPS
-Dev ports 53390 / 53391 · gateway route /t/pqps · title "Plant Quarantine and Phytosanitary Service (PQPS)"
-Command: /tenant-init PQPS --full-name "Plant Quarantine and Phytosanitary Service" --integrates soap --port 53390
+Dev ports 53398 / 53399 · gateway route t_pqps → /t/pqps (cluster PQPS, scope pqps) · title "Plant Quarantine and Phytosanitary Service (PQPS)"
+Command: /tenant-init PQPS --full-name "Plant Quarantine and Phytosanitary Service" --integrates soap --port 53398
 ```
 
 Options: `Apply (Recommended)` · `Adjust` · `Cancel`. `Adjust` asks one `multiSelect` — `Dev ports`, `Pipeline slug`, `Style`, `Full name` — and re-asks only the ones picked. Ports and slug are the values most often overridden: offer the next two free pairs and the hyphenated / unhyphenated slug as options, never "type it in Other".
@@ -100,6 +103,8 @@ Properties/launchSettings.json
 Swagger/OpenApiDocumentation.cs
 GATEWAY-CONFIG.md
 ```
+
+File hygiene per C6: `.editorconfig` asks for CRLF + UTF-8 BOM on `.cs`; `core.autocrlf` fixes line endings on commit and BOM is optional (APIS has none).
 
 #### `<TenantName>.csproj`
 
@@ -131,6 +136,8 @@ GATEWAY-CONFIG.md
 
 For `--controllers`: drop the `Carter` package and the `Shared` project reference, and add `<CodeAnalysisRuleSet>..\..\.sonarlint\zamconnectcsharp.ruleset</CodeAnalysisRuleSet>` (MOA shape).
 
+The csproj sets neither `ImplicitUsings` nor `Nullable`, like most tenants (C1). So every `.cs` template below carries its full `using` block — a missing one is a build error — and every file except the top-level-statement `Program.cs` has a file-scoped `namespace <TenantName>.<Folder>;`. Don't add either property. If the developer adds them, or a later skill works on an existing tenant, check the csproj with the C1 greps: `<Nullable>enable</Nullable>` makes `string?` / `T?` the rule for optional members.
+
 #### `Program.cs` (Carter style)
 
 ```csharp
@@ -140,7 +147,6 @@ using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using <TenantName>.Swagger;
 using Carter;
 using Internal.Extensions.Extensions.Logging;
 using Internal.Extensions.Extensions.Rest;
@@ -226,14 +232,16 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions { AllowCachingRespons
 app.MapMetrics();
 
 app.MapCarter();
-app.UseOpenTelemetryPrometheusScrapingEndpoint();
+app.UseOpenTelemetryPrometheusScrapingEndpoint("/metrics/otel");
 
 app.Run();
 
 public partial class Program;
 ```
 
-`Title` is `"<Full name> (<TenantName>)"` when the full name is known. When it's `pending` or the code was chosen, write `"<TenantName>"`; step 2 or the developer replaces it later. `public partial class Program;` is there so `tenant-tests` can bind `WebApplicationFactory<Program>` without editing the tenant later.
+Insert `using <TenantName>.Swagger;` at its alphabetical position after the `System*` block (`base.md` rule: `System*` first, then alphabetical, no groups) — between `Microsoft.OpenApi.Models` and `Prometheus` for `PQPS`, after `Prometheus` for `TT`.
+
+`Title` is `"<Full name> (<TenantName>)"` when the full name is known. When it's `pending` or the code was chosen, write `"<TenantName>"`; step 2 or the developer replaces it later. `public partial class Program;` is harmless and kept for older `WebApplicationFactory<Program>` test patterns; it is not required — .NET 10 generates a public `Program`, and existing test projects (PQPS, ZamData) compile without it.
 
 For `--controllers`, follow `src/Tenants/MOA/Program.cs`: swap `AddCarter`/`MapCarter` for `AddControllers`/`MapControllers`, and add `AddHttpClient()`, `AddHttpContextAccessor()`, `UseRouting()`, and `options.EnableAnnotations()` inside the same `AddSwaggerGen` block. The Swagger block and the observability lines are the same either way.
 
@@ -259,18 +267,20 @@ Do not add `RegisterGatewayEndpoint` or `EServicesShared` (MOH extras) unless th
 
 #### Observability
 
-Every tenant gets the same four-part baseline, all of it already present in the `Program.cs` above. `src/Tenants/ZamData/Program.cs` and `src/Admin/AdminAPI/Program.cs` are the canonical shapes — read them if anything below is unclear.
+A new tenant gets this four-part baseline, all of it already present in the `Program.cs` above. It is the target for new tenants, not a description of existing ones — most tenants (CEEC, MOH, MOA, APIS among them) don't call `ConfigureOpenTelemetry`, and AdminAPI doesn't call `MapMetrics()`. Don't copy observability lines from a neighbour; re-derive with `grep -L "ConfigureOpenTelemetry" src/Tenants/*/Program.cs`.
 
 | Part | Line | What it gives |
 |---|---|---|
 | Structured logs | `builder.Host.UseConfiguredSerilog()` + `app.UseBaseLogger()` | Serilog with the repo's enrichers; request logging with the W3C trace id set by the `Activity.ForceDefaultIdFormat` lines |
 | Traces + metrics | `builder.ConfigureOpenTelemetry()` | ASP.NET Core and `HttpClient` instrumentation, runtime meters, resource attributes, OTLP export |
-| Scrape endpoints | `app.UseHttpMetrics()`, `app.MapMetrics()`, `app.UseOpenTelemetryPrometheusScrapingEndpoint()` | prometheus-net HTTP metrics on `/metrics` plus the OTEL Prometheus exporter |
-| Liveness | `AddHealthChecks().ForwardToPrometheus()` + `MapHealthChecks("/health/live")` | The probe the Helm chart calls, with its result exported as a gauge |
+| Scrape endpoints | `app.UseHttpMetrics()`, `app.MapMetrics()`, `app.UseOpenTelemetryPrometheusScrapingEndpoint("/metrics/otel")` | prometheus-net HTTP and health-check series on `/metrics`; OTel meters on `/metrics/otel` |
+| Liveness | `AddHealthChecks().ForwardToPrometheus()` + `MapHealthChecks("/health/live")` | Served, and exported as a gauge — but the universal chart has probes disabled (`values.tenant.yaml`: `healthCheckEnabled: false`), so nothing in Kubernetes calls it |
+
+**Give the OTel scraper its own path.** On its default path, `UseOpenTelemetryPrometheusScrapingEndpoint()` answers `/metrics` itself before the routed `MapMetrics()` endpoint runs, so `/metrics` shows only OTel output and every prometheus-net series (`UseHttpMetrics`, `ForwardToPrometheus`) becomes unreachable. Keep `"/metrics/otel"`, or drop the line if nothing scrapes OTel meters.
 
 No packages to add: `ConfigureOpenTelemetry` lives in `Internal.Extensions.Extensions.Telemetry` (`src/Core/Internal/Extensions/Extensions/Telemetry/OpenTelemetryExtensions.cs`) and every OpenTelemetry package arrives transitively through the `Internal.csproj` reference the tenant already has.
 
-**Configuration is environment-driven — do not add OTEL keys to `appsettings.json`.** `ConfigureOpenTelemetry` reads three variables and nothing else:
+**Configuration is environment-driven — do not add OTEL keys to `appsettings.json`.** `ConfigureOpenTelemetry` reads three keys through `builder.Configuration[...]`; in practice they arrive as environment variables. The OTLP exporter also honours the standard `OTEL_EXPORTER_OTLP_*` variables (protocol, headers) once the endpoint is set.
 
 | Variable | Unset behaviour |
 |---|---|
@@ -280,17 +290,21 @@ No packages to add: `ConfigureOpenTelemetry` lives in `Internal.Extensions.Exten
 
 Nothing in this repo sets those three; they come from the cluster, so name them in the report as a deployment prerequisite alongside the `__Token__` variables.
 
-One caveat: `MapMetrics()` claims `/metrics` as a routed endpoint, so the OTEL scraping middleware on its default path is shadowed by it. That matches ZamData and AdminAPI and is what the existing dashboards scrape — keep it. Only if you want the OTEL-native metric set exposed separately, give it its own path: `app.UseOpenTelemetryPrometheusScrapingEndpoint("/metrics/otel")`.
+Logs probably don't reach OTLP even with the endpoint set: `UseConfiguredSerilog` calls `UseSerilog` without `writeToProviders`, which defaults to `false`, so Serilog most likely bypasses the OpenTelemetry logging provider. Traces and metrics are unaffected. Confirm on a running tenant before stating it either way.
 
 #### `appsettings.json`
 
-4-space indent. `RegisterEndpoints` matches `Endpoints:<ClientClassName>` sections against `IRestEndpoint` class names in the assembly; keep the section even with no client class yet so the integration has a named slot. Secrets stay as `__Placeholder__` tokens replaced at deploy time.
+4-space indent. `RegisterEndpoints` matches `Endpoints:<ClientClassName>` sections against `IRestEndpoint` class names in the assembly; a section with no matching class is inert, yet every `__Token__` in it still becomes a required deploy variable (C4). So scaffold no placeholder client:
+
+- Default: `"Endpoints": {}`.
+- `--integrates shared`: one `Gateway` section, the key `RegisterGatewayEndpoint` binds (MOH shape) — shown below.
+- An agency client is added by `tenant-integration`, which names the section after the real client class.
 
 ```json
 {
     "AllowedHosts": "*",
     "Endpoints": {
-        "ZamConnect": {
+        "Gateway": {
             "AuthenticationScheme": "Basic",
             "BaseUrl": "__Endpoints.APIGATEWAY.BaseUrl__",
             "Username": "__Credentials.<TenantName>Tenant.Username__",
@@ -306,11 +320,6 @@ One caveat: `MapMetrics()` claims `/metrics` as a routed endpoint, so the OTEL s
                 "Yarp": "Information"
             }
         },
-        "WriteTo": [
-            {
-                "Name": "Console"
-            }
-        ],
         "Properties": {
             "ApplicationName": "<tenantname-lowercase>"
         }
@@ -318,13 +327,15 @@ One caveat: `MapMetrics()` claims `/metrics` as a routed endpoint, so the OTEL s
 }
 ```
 
-`appsettings.Development.json` is the same file with `BaseUrl` set to `https://api.test.gsb.gov.zm/`.
+- Tokens follow C4: gateway callback = `__Endpoints.APIGATEWAY.BaseUrl__` + `__Credentials.<Folder>Tenant.Username|Password__`, `<Folder>` the exact folder name. Each one needs a variable in `GSB.<TENANT>.<ENV>` and in `projects-variables`.
+- Key and token are `Username`, never `UserName` (C3); the C# property is `UserName`, binding is case-insensitive.
+- No `WriteTo` block: `UseConfiguredSerilog` already hard-codes a JSON console sink (`LogConfigurationExtensions.cs`) on top of `ReadFrom.Configuration`, so a `Console` entry in `WriteTo` adds a second console sink and every line is written twice. Existing tenants (CEEC) still carry it — don't copy it.
 
-Never commit a real username or password — leave the `__Credentials.*__` tokens in both files.
+`appsettings.Development.json` mirrors `appsettings.json` with only `BaseUrl` set to `https://api.test.gsb.gov.zm/`; credentials stay `__Credentials.*__` tokens. That is the CEEC shape, not the norm — many tenants' Development files differ and commit literal credentials (C7). Never use another tenant's Development file as the template for credential values.
 
 #### `Dockerfile`
 
-Build context is `src/`, so every path is relative to it. Copy the four core csproj files first for restore-layer caching, even when the tenant does not reference `Database`.
+Build context is `src/`, so every path is relative to it. Copy the three core csproj files (Internal, Database, Shared) first for restore-layer caching, even when the tenant does not reference `Database`.
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
@@ -356,7 +367,7 @@ COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "<TenantName>.dll"]
 ```
 
-Port 80 serves the app, 9090 is the Prometheus scrape port.
+Port 80 serves the app and `/metrics`. Nothing binds 9090; `EXPOSE 80 9090` is kept for parity with every tenant Dockerfile.
 
 #### `Properties/launchSettings.json`
 
@@ -383,7 +394,7 @@ Create `.azure/tenant.azure-pipelines.<slug>.yaml`. `<slug>` is the lowercase te
 ls .azure/tenant.azure-pipelines.*.yaml
 ```
 
-Every tenant file is the same 15 lines:
+Tenant files share one shape:
 
 ```yaml
 trigger:
@@ -407,11 +418,19 @@ extends:
 
 Add `buildArguments: "--build-arg PAT=$(DOTGOV_ENGINEERING_NUGET_PAT)"` only if the Dockerfile restores from a private feed (see `tenant.azure-pipelines.zam-mobile.yaml`). Otherwise omit it — it defaults to empty.
 
-The pipeline file alone does not create the build: the `GSB.<TENANT>.<ENV>` variable groups and the ADO pipeline definition pointing at this YAML are set up outside the repo. Say so in the report, and name what those groups must supply — `tenant.deployment-jobs.yaml` reads `helmReleaseName`, `helmNamespace`, `helmChart`, `helmChartVersion`, `REPLICAS`, `dockerId`, plus one variable per `__Token__` in `appsettings.json`.
+The pipeline file alone does not create the build: the `GSB.<TENANT>.<ENV>` variable groups and the ADO pipeline definition pointing at this YAML are set up outside the repo. Say so in the report, and name where each variable the deploy reads comes from:
+
+| Source | Variables |
+|---|---|
+| Inline in `tenant.pipeline.yaml` | `helmChart`, `helmChartVersion`, `helmVersion`, `dockerId` (per branch) |
+| `GSB.COMMON.<ENV>` (exists) | `REPLICAS`, `containerRegistry`, `POOL`, `environment`, `helmRepo`, `helmUsername`, `helmPassword`, `kubeReleaseName` |
+| `GSB.<TENANT>.<ENV>` (new, per tenant) | `helmReleaseName`, `helmNamespace`, and one variable per `__Token__` in `appsettings.json` (C4) |
+
+`variables.common.yaml@PipelineTemplates` is used by the gateway pipelines only; tenant pipelines don't load it.
 
 Two consequences worth stating up front:
 
-- **`helmReleaseName` names the Kubernetes service.** The chart deploys `core-$(helmReleaseName)` and sets `apps[0].serviceName` / `containerName` to it. That value must equal the compose service key from step 5 and the cluster address in step 6, or the gateway route points at nothing.
+- **`helmReleaseName` names the Kubernetes service.** The chart deploys `core-$(helmReleaseName)` and sets `apps[0].serviceName` / `containerName` to it. `helmReleaseName` must be the compose slug (step 5, never hyphenated), so the service equals the compose service key from step 5 and the cluster address in step 6, or the gateway route points at nothing.
 - **Deployment substitutes tokens with `actionOnMissing: fail`.** Every `__Placeholder__` left in `appsettings.json` must have a matching variable in the group for that environment or the deploy fails outright. Only `appsettings.json` is published as the settings artifact — `appsettings.Development.json` never leaves the repo, so its values are local-only.
 
 ### 5. Add the docker-compose service
@@ -419,6 +438,8 @@ Two consequences worth stating up front:
 Append a service to the `## Tenants` block in `src/.dockercompose/docker-compose.yml`, at the end of the tenant list — immediately before the `#region Core` marker that starts `admin-ui`. Service key and image are `core-<slug>`, where `<slug>` is the tenant name lowercased with no separators (`CloudAdmin` -> `core-cloudadmin`, `ZamMobile` -> `core-zammobile`) — note this differs from the pipeline slug of step 4, which may hyphenate.
 
 This slug is the one that matters. `core-<slug>` must match the deployed Kubernetes service `core-$(helmReleaseName)` and the cluster address in step 6; all three are the same string.
+
+Two existing services break the pattern — don't take either as the "closest neighbour": `core-ecounncil` (typo for `ecouncil`) and `test-tenant` (no `core-` prefix, hyphenated).
 
 ```yaml
   core-<slug>:
@@ -435,56 +456,74 @@ Two-space indent, blank line between services. No `ports:` — tenants are not p
 
 ### 6. Write the gateway config handoff
 
-Create `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` — the YARP scope, cluster and route the gateway admin must register. These are **not** applied by this skill; the file is the handoff artefact.
+Create `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` — the scope, cluster and route the gateway needs, as one package the AdminAPI can import. This skill does **not** apply it; the file is the handoff artefact.
 
-Naming:
+Naming follows the live routes (C8):
 
-- **Scope** — tenant name lowercased, no separators (`TestPluginTenant` -> `testplugintenant`). Same as the compose `<slug>`.
-- **Cluster address** — `http://core-<slug>`, matching both the docker-compose service key from step 5 and the deployed service `core-$(helmReleaseName)`.
-- **`clusterId` / `routeId`** — the scope value.
+| Field | Value | Example `TestPluginTenant` |
+|---|---|---|
+| Route `name` / `routeId` | `t_<slug>` | `t_testplugintenant` |
+| Path | `/t/<slug>/{**url}` | `/t/testplugintenant/{**url}` |
+| Cluster `name` / `clusterId` | `<TENANT>` — tenant name uppercased | `TESTPLUGINTENANT` |
+| Cluster address | `http://core-<slug>` — the compose key (step 5) and `core-$(helmReleaseName)` | `http://core-testplugintenant` |
+| `authorizationPolicy` | `Basic` | |
+| `metadata.Scope` | `<slug>` | `testplugintenant` |
+
+No `order`. Without `authorizationPolicy` the gateway doesn't authenticate the route; without `metadata.Scope` any authenticated user passes the scope check (`RouteScopeValidationExtension.cs`). Both are required.
 
 ~~~~markdown
 # <TenantName> Gateway Config
 
-## Scope
-
-```
-<scope>
-```
-
-## Cluster
+Import with `POST /Import/routes` on the AdminAPI (Admin policy). The body is the JSON below as-is
+(`RouteConfigurationPackageDto`). The import creates the `<slug>` scope from `metadata.Scope`, then the
+cluster, then the route; an existing route or cluster with the same id is overwritten.
 
 ```json
 {
-    "clusterId": "<scope>",
-    "destinations": {
-        "Route1": {
-            "address": "http://core-<slug>"
-        }
-    }
-}
-```
-
-## Route
-
-```json
-{
-    "routeId": "<scope>",
-    "match": {
-        "methods": [
-            "GET"
-        ],
-        "path": "/t/<scope>/{**url}"
-    },
-    "order": 1,
-    "clusterId": "<scope>",
-    "transforms": [
+    "clusters": [
         {
-            "PathPattern": "/{**url}"
+            "name": "<TENANT>",
+            "configJson": {
+                "clusterId": "<TENANT>",
+                "destinations": {
+                    "Route1": {
+                        "address": "http://core-<slug>"
+                    }
+                }
+            }
+        }
+    ],
+    "routes": [
+        {
+            "name": "t_<slug>",
+            "configJson": {
+                "routeId": "t_<slug>",
+                "match": {
+                    "methods": [
+                        "GET"
+                    ],
+                    "path": "/t/<slug>/{**url}"
+                },
+                "clusterId": "<TENANT>",
+                "authorizationPolicy": "Basic",
+                "metadata": {
+                    "Scope": "<slug>"
+                },
+                "transforms": [
+                    {
+                        "PathPattern": "/{**url}"
+                    }
+                ]
+            }
         }
     ]
 }
 ```
+
+Every consumer's gateway user needs the `<slug>` scope, or the gateway answers 403.
+
+Registering by hand through `POST /Routes` instead: create the scope first with `POST /Scopes {"name": "<slug>"}` —
+the route validator rejects a scope that doesn't exist.
 ~~~~
 
 `methods` lists only the verbs the tenant actually exposes; with no modules yet default to `GET` and tell the user to widen it when the business surface lands.
@@ -514,12 +553,18 @@ grep -n "Tenants/<TenantName>/Dockerfile" src/.dockercompose/docker-compose.yml
 And that the observability baseline is intact:
 
 ```bash
-grep -n "UseConfiguredSerilog\|ConfigureOpenTelemetry\|ForwardToPrometheus\|MapMetrics\|health/live" src/Tenants/<TenantName>/Program.cs
+grep -n "UseConfiguredSerilog\|ConfigureOpenTelemetry\|ForwardToPrometheus\|MapMetrics\|metrics/otel\|health/live" src/Tenants/<TenantName>/Program.cs
 ```
 
-Five hits. `ConfigureOpenTelemetry` missing is the one that fails silently — the tenant still builds, serves and reports healthy, it just never appears in the traces.
+Six hits, one per line of the template. `metrics/otel` missing means the OTel scraper sits on `/metrics` and hides the prometheus-net series. `ConfigureOpenTelemetry` missing is the one that fails silently — the tenant still builds, serves and reports healthy, it just never appears in the traces.
 
-And that `core-<slug>` is spelled identically in the compose service key, the compose `container_name`, and the `GATEWAY-CONFIG.md` cluster address.
+And that `core-<slug>` is spelled identically in the compose service key, the compose `container_name`, and the `GATEWAY-CONFIG.md` cluster address — and that the package is importable:
+
+```bash
+grep -n '"authorizationPolicy": "Basic"\|"Scope": "<slug>"\|"routeId": "t_<slug>"\|"clusterId": "<TENANT>"' src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+Five hits (`clusterId` appears in the cluster and the route); no `"order"`.
 
 And that the spec-ready baseline is there:
 
@@ -536,9 +581,10 @@ Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contrac
 
 One line per file created, then the solution entry and the build result, then the equivalent command (R7). Close by naming what was deliberately left out so the user can ask for it:
 
-- ADO pipeline definition + `GSB.<TENANT>.<ENV>` variable groups, including `helmReleaseName` (must be `<slug>`), `OTEL_SERVICE_NAME` (set it to `core-<slug>`) and `OTEL_EXPORTER_OTLP_ENDPOINT`, and a variable for every `__Token__` in `appsettings.json` — all created outside the repo. `values.tenant.yaml` is generic and needs no per-tenant edit; the release is parameterised entirely through `--set` in `tenant.deployment-jobs.yaml`
-- Gateway scope/cluster/route registration in the gateway admin (values generated in `GATEWAY-CONFIG.md`)
+- ADO pipeline definition + `GSB.<TENANT>.<ENV>` variable groups — `helmReleaseName` (must be the compose `<slug>`), `helmNamespace`, `OTEL_SERVICE_NAME` (set it to `core-<slug>`), `OTEL_EXPORTER_OTLP_ENDPOINT`, and a variable for every `__Token__` in `appsettings.json`, mirrored in `projects-variables` (C4) — all created outside the repo. `REPLICAS` and the registry/pool/helm-repo variables come from the existing `GSB.COMMON.<ENV>`; `helmChart`, `helmChartVersion`, `helmVersion`, `dockerId` are inline in `tenant.pipeline.yaml`. `values.tenant.yaml` is generic and needs no per-tenant edit; the release is parameterised through `--set` in `tenant.deployment-jobs.yaml`
+- Gateway import: `POST /Import/routes` with the package in `GATEWAY-CONFIG.md`, then the `<slug>` scope on every consumer's gateway user
 - Business surface: `Modules/`, `Endpoints/`, `Models/`, `Mapper/`
+- Test project `src/Tests/<TenantName>.Tests` — required by `AGENTS.md` and `.ai-factory/rules/base.md`; `/tenant-tests <TenantName>` creates it
 
 ## Hand-off to the pipeline
 
@@ -559,3 +605,4 @@ No credential ever goes into this skill, into anything it generates, or into its
 - In generated config, a secret is a `__Token__` placeholder. Name the variable group, pipeline variable or secret store that supplies the real value, and leave the value out.
 - A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
 - Never copy a credential out of a file you read, even when the repository already commits it. Finding one in the repo is a finding to report, not a value to reuse.
+- Never use another tenant's `appsettings.Development.json` as the template for credential values — many commit literal credentials (C7). A generated Development file keeps `__Token__` placeholders for credentials; only a test `BaseUrl` may be real.

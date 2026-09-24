@@ -58,7 +58,7 @@ commit it:
 | `/tenant-pipeline <Tenant>` | Runs the whole chain below as one guided flow — a gate per step, a saved state, resume, and stale-marking when an earlier step is re-run |
 | `/tenant-integration <Tenant>` | Builds the integration surface of an existing tenant: the upstream `RestEndpoint`/`SoapEndpoint` client, models, mappers, and the routes the tenant exposes. Takes a Postman collection, OpenAPI spec, REST base URL, WSDL or prose API docs as the source — offered from the files it finds in the repo, with protocol and auth detected from them |
 | `/integrate-shared [<Tenant>]` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu |
-| `/tenant-audit [<Tenant>\|--all]` | Read-only drift audit: registration in solution/pipeline/compose, slug consistency across compose/Helm/gateway, `Endpoints:<Name>` config for every client, leaked credentials, and presence of docs, Postman collection and tests. `--fix` repairs the fixable ones |
+| `/tenant-audit [<Tenant>\|--all]` | Read-only drift audit: registration in solution/pipeline/compose, slug consistency across compose/Helm/gateway routes, `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client, literal credentials in `appsettings.json` plus the committed Development-credential baseline, spec readiness, regression guards (.NET 10, no Newtonsoft/AutoMapper), and presence of docs, Postman collection and tests. `--fix` repairs the fixable ones |
 | `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
 | `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
 
@@ -102,7 +102,7 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 | `--source <url\|path>` | Integration source: Postman collection, OpenAPI spec, REST base URL, WSDL or prose docs; repeatable. Without it, the skill offers the sources it finds in the repo |
 | `--expose <METHOD /route>` | Endpoints the tenant should expose; repeatable. Default: every upstream operation |
 | `--protocol rest\|soap` | Override the REST/SOAP classification derived from the source |
-| `--auth` / `--auth-header` | Upstream auth (`Basic`, `JWT`, `Custom`, `RA`, `ClientCertificate`, `None`) and, for `Custom`, the header name. Default: detected from the source |
+| `--auth` / `--auth-header` | Upstream auth — REST: `Basic`, `JWT`, `Custom`, `RA`, `None`; SOAP: `Basic`, `ClientCertificate`, `None` — and, for `Custom`, the header name. Default: detected from the source |
 | `--system <Name>` | Upstream system name — client class, models folder, config token. Default: derived from the source title |
 | `--role provide\|consume` | Where the routes' data comes from; feeds the Consume/Provide split of the deliverables. Default `provide` |
 | `--dto`, `--modules`, `--timeout` | DTO strategy, module grouping, REST timeout |
@@ -121,7 +121,7 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 | `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
 | `--mode inherit\|common\|routes` | Wiring mode. Default chosen by the skill |
 | `--dto shared\|tenant` | Shared response models (default) or tenant DTOs plus a mapper |
-| `--all` | Every operation in the catalogue — equivalent to `--mode inherit` |
+| `--all` | Every operation in the catalogue, in `routes` mode. `inherit` maps only the subset `EServicesSharedModule` exposes |
 | `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
 | `--list` | Print the catalogue and stop. No files written |
 
@@ -158,7 +158,7 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 | Argument / flag | Meaning |
 |---|---|
 | `<Tenant>` | Tenant to document (required) |
-| `--route <r>` | Gateway route, without `/t/`. Default: from `GATEWAY-CONFIG.md`, else the tenant code lowercased (e.g. `mcti/zabs`, `govzm/ZamPass` when it differs) |
+| `--route <r>` | Gateway route, without `/t/`. Default: from `GATEWAY-CONFIG.md` (`/tenant-pipeline` also falls back to `docs/zamconnect-test-routes.md`), else the tenant code lowercased (e.g. `mcti/zabs`, `govzm/ZamPass` when it differs) |
 | `--roles` | Documents to render. Default: `tenant` always, `consumer`/`provider` when the tenant consumes/provides |
 | `--out <dir>` | Output directory holding the five role folders. Default: `src/Tenants/<Tenant>/Deliverables/` |
 | `--version <X.Y>` | Document version. Default `1.0` for a new package, the current version for an existing one. Bump only when the contract changed |
@@ -226,7 +226,7 @@ What `Proceed` does, and what `Customize…` adds, per step:
 | 4 `tenant-tests` | Full coverage matrix, every module, no live fixture | Coverage level, modules, live staging fixture |
 | 6 `tenant-deliverables` | Route from `GATEWAY-CONFIG.md`, version `1.0` (or the current one), derived roles, author `dotGov Solutions LLC` | Version, roles, author, output folder |
 
-Step 5, the audit, has no gate because it is read-only. It offers the repairs it can make as a pick-list afterwards. Every option in every question is a complete answer: sources are offered as the files found in the repo, never as source types. Type a URL or path in **Other** when the one you need isn't listed.
+Step 5, the audit, has no gate: the pipeline runs it with `--report-only`, even under `--auto`, and lists the fixable findings as a `/tenant-audit <Tenant> --fix` command in the closing summary. Every option in every question is a complete answer: sources are offered as the files found in the repo, never as source types. Type a URL or path in **Other** when the one you need isn't listed.
 
 Each step shows a review — the files it will write, the routes, and the equivalent command — before it writes anything.
 

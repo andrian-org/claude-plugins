@@ -36,7 +36,7 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | 2 | `integration` | `tenant-integration` | always | `<T> --gate 2/6`, plus `--protocol rest` or `--protocol soap` only when the intake answer `integrates` names exactly one of them |
 | 3 | `shared` | `integrate-shared` | always. `--recommend proceed` when `integrates` contains `shared`, otherwise `--recommend skip` | `<T> --gate 3/6` |
 | 4 | `tests` | `tenant-tests` | the tenant exposes at least one route (see below) | `<T> --gate 4/6` |
-| 5 | `audit` | `tenant-audit` | always. It's read-only, so it has **no gate** | `<T>` |
+| 5 | `audit` | `tenant-audit` | always. Run read-only, so it has **no gate** | `<T> --report-only` (also under `--auto`) |
 | 6 | `deliverables` | `tenant-deliverables` | the tenant exposes at least one route | `<T> --gate 6/6 --route <route>` |
 
 "Exposes at least one route" is checked on disk, not taken from state, so it also holds for an existing tenant run with `--from`:
@@ -48,8 +48,15 @@ grep -rlE "Map(Get|Post|Put|Patch|Delete)\(|\[Http(Get|Post|Put|Patch|Delete)" s
 When the check finds nothing, record the step as `skipped` with the reason "no routes" and don't
 gate it. There is nothing to test or document.
 
-`<route>` for step 6 is the path in `src/Tenants/<T>/GATEWAY-CONFIG.md` (`/t/<route>/{**url}`),
-without `/t/`. Never make the developer retype it.
+`<route>` for step 6 is the gateway path without `/t/`, resolved in this order:
+
+1. `src/Tenants/<T>/GATEWAY-CONFIG.md` — `routes[].configJson.match.path` of the import package
+   (`/t/<route>/{**url}`); a pre-0.4 file has the bare route object instead, same `match.path`
+2. `docs/zamconnect-test-routes.md` — the live route whose `clusterId` is `<T>` uppercased. Routes
+   often differ from the tenant name, so never guess from the folder name while this doc has a match
+
+Never make the developer retype it. With neither source, leave `--route` off and let
+`tenant-deliverables` apply its own default.
 
 Pass every answer already in state as a flag (R1): `--source`, `--auth`, `--system`, `--role` for
 step 2, `--version` / `--author` for step 6, and so on. The step then asks only what's still open.
@@ -74,8 +81,10 @@ step 2, `--version` / `--author` for step 6, and so on. The step then asks only 
    `ran` to `stale`. Their output was built from the surface that just changed.
 5. **Close** (below).
 
-With `--auto`, invoke each step with `--auto` instead of `--gate`. Step 3 runs only when the intake
-included `shared`. Everything else follows the same conditions.
+With `--auto`, invoke each step with `--auto` instead of `--gate`, except step 5: the audit always
+gets `--report-only`, because its `--auto` writes repairs (e.g. a pipeline file step 1 deliberately
+skipped). Its fixable findings go in the closing summary as `/tenant-audit <T> --fix`. Step 3 runs
+only when the intake included `shared`. Everything else follows the same conditions.
 
 ## Closing
 

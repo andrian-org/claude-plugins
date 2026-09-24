@@ -65,10 +65,56 @@ def classify(params: str, tenant: str, config_clients: set[str]) -> tuple[str, s
 
 
 ROUTE_RE = re.compile(r'"path"\s*:\s*"/t/([^/"]+(?:/[^/"{]+)*)/\{')
+PATH_RE = re.compile(r'^/t/([^/{]+(?:/[^/{]+)*)')
+FENCE_RE = re.compile(r"```(?:json)?[ \t]*\r?\n(.*?)```", re.S)
 MAP_RE = re.compile(r'\.Map(Get|Post|Put|Patch|Delete)\(\s*"([^"]*)"')
 GROUP_RE = re.compile(r'MapGroup\(\s*"([^"]*)"')
 HTTP_ATTR_RE = re.compile(r'\[Http(Get|Post|Put|Patch|Delete)\(?"?([^")\]]*)"?\)?\]')
 CTRL_ROUTE_RE = re.compile(r'\[Route\(\s*"([^"]+)"\s*\)\]')
+
+
+def ci(d: dict, key: str):
+    """Case-insensitive key lookup - an AdminAPI export is camelCase, hand-written files vary."""
+    if not isinstance(d, dict):
+        return None
+    for k, v in d.items():
+        if k.lower() == key.lower():
+            return v
+    return None
+
+
+def gateway_route(text: str) -> tuple[str | None, list[str]]:
+    """Route prefix (without /t/) from GATEWAY-CONFIG.md, and warnings about the route found.
+
+    Current format: a RouteConfigurationPackageDto (`clusters[].configJson`, `routes[].configJson`),
+    either as the whole file or in a fenced JSON block - the body of `POST /Import/routes`.
+    Older scaffolds wrote separate Scope / Cluster / Route blocks; the regex fallback reads those.
+    """
+    candidates = [text] + FENCE_RE.findall(text)
+    for chunk in candidates:
+        try:
+            doc = json.loads(chunk)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        routes = ci(doc, "routes")
+        if not isinstance(routes, list):
+            continue
+        for r in routes:
+            cfg = ci(r, "configJson") or {}
+            path = str(ci(ci(cfg, "match") or {}, "path") or "")
+            m = PATH_RE.match(path)
+            if not m:
+                continue
+            warnings = []
+            if not ci(cfg, "authorizationPolicy"):
+                warnings.append("route has no authorizationPolicy - the gateway would not authenticate it")
+            if not ci(ci(cfg, "metadata") or {}, "Scope"):
+                warnings.append("route has no metadata.Scope - any authenticated user would pass")
+            return m.group(1), warnings
+    m = ROUTE_RE.search(text)
+    if m:
+        return m.group(1), ["GATEWAY-CONFIG.md is the pre-package format - regenerate it as an import package"]
+    return None, []
 
 
 def main() -> int:
@@ -99,10 +145,11 @@ def main() -> int:
     out.append(f"shape: {shape}   project: {tdir.is_dir()}   container: {has_container}")
 
     # --- route -------------------------------------------------------------------------------
-    gateway_cfg = read(tdir / "GATEWAY-CONFIG.md")
-    route_match = ROUTE_RE.search(gateway_cfg)
-    route = route_match.group(1) if route_match else tenant.lower()
-    out.append(f"route: /t/{route}" + ("" if route_match else "   (GUESSED from tenant code - confirm against gateway config)"))
+    found, route_warnings = gateway_route(read(tdir / "GATEWAY-CONFIG.md"))
+    route = found or tenant.lower()
+    out.append(f"route: /t/{route}" + ("" if found else "   (GUESSED from tenant code - confirm against "
+                                        "docs/zamconnect-test-routes.md)"))
+    out.extend(f"  !! {w}" for w in route_warnings)
 
     # --- configuration (first: the Endpoints:<Name> sections decide the Consume/Provide split) --
     config_lines: list[str] = []
