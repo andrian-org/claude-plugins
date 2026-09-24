@@ -3,7 +3,6 @@
 import copy
 import json
 import unittest
-from pathlib import Path
 
 from tests import helpers
 from lib import prepass

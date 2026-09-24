@@ -202,9 +202,9 @@ table is marked, and its shape is a contract:
   contain `|`, escaped or not. An empty cell is the empty string, and `—` is read as itself.
 - **Keys.** The first column is the key. Two rows with the same key are a malformed table.
 - **Extent.** The table ends at the first line that is not a table row. A blank line ends it.
-- **A malformed table blocks.** A script that reads one refuses to run and exits `3`, naming
-  the table id; `doctor.py` loads every marked table and reports a malformed one as the error
-  `KNOWLEDGE_TABLE`. A script never falls back to a stale copy or skips the table.
+- **A malformed table blocks.** Anything that reads one refuses to run and exits `3`, naming
+  the table id, and the plugin's installation check loads every marked table and reports a
+  malformed one as a blocking error. Nothing falls back to a stale copy or skips the table.
 
 Edit a marked table like any other fact — with its stamp and provenance ledger updated in the
 same change — and keep its header exactly as it is. The marker is the only coupling between a

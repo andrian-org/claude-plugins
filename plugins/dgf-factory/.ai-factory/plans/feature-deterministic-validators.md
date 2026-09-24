@@ -556,6 +556,10 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   `tests/{__init__,helpers,test_report,test_knowledge,test_deps}.py`, `../../.gitignore`,
   `tools/check-dual-schema-docs.sh` (prune list only).
 
+  **As implemented (2026-09-24, recorded at verify):** the lock command adds `--fork-strategy fewest` to DD13's.
+  Without it, `uv`'s universal resolution picks a different `jsonschema` per interpreter. With it, one version of
+  each package covers every Python from 3.9 up (`tools/requirements.in` header, `docs/getting-started.md`).
+
 - [x] **Task 10: Give `doctor.py` its validator-runtime section.** (depends on 9)
   - **Add the section** "Validator runtime" after "Line endings" and before "Build progress", renumbering as needed.
     The doctor stays stdlib-only (ADR 0015).
@@ -647,6 +651,11 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   Files: `scripts/lib/{json_validate,json_resolve}.py`, `tests/test_json_validate.py`, `tests/test_json_resolve.py`,
   `tests/fixtures/unit/json/*`.
 
+  **As implemented (2026-09-24, recorded at verify):** the .NET probe showed that `LinkTarget`'s
+  `[JsonStringEnumMemberName]` members read only their custom names (`_blank`, …), exact-case. So `json-reader.md`
+  §1 gained the machine-read table `enum-member-names`, not in DD2's list. `json_resolve.merged_schema` annotates
+  those enums from it. With Tasks 14–15's three, the machine-read tables number ten.
+
 - [x] **Task 13: Write family detection, the XSD layer, the parity gate and `scripts/validate_config.py`.**
   (depends on 12)
   - **`scripts/lib/family.py`** implements DD8: bytes in, BOM sniffed on the raw bytes, and lxml handed the
@@ -679,6 +688,10 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
   Files: `scripts/lib/{family,xsd,parity}.py`, `scripts/validate_config.py`, `tests/test_validate_config.py`,
   `tests/test_xsd.py`, `tests/fixtures/unit/xml/*`.
+
+  **As implemented (2026-09-24, recorded at verify):** DD7's "a type with no `parity` row is reported INFO" is the
+  code `NO_PARITY_ROW` (exit `0`), added to `report.CODES` because DD4's table does not list it. `scripts/lib/cli.py`
+  (argument parsing that exits `3`, and the directory walk) is a module DD1's layout does not name.
 
 <!-- Commit checkpoint: tasks 11-13 -->
 
@@ -827,6 +840,10 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - **An app-dependent reference that exists in webasm says so** ("only a `BASE:` name reaches"), as in Task 14.
   - **Non-workflow actions** are reported once per kind (`NOT RUN: form-reference`), without per-file counts, so
     `--all` prints one line, not one per process.
+  - **A `START` step's `state` is an entry too** (recorded at verify). DD11's entry set names only `CHANGE_STATE`,
+    but ADR 0014 §2 decided that every non-empty `state` of a `START` step naming the process is an entry
+    (`process-model.md` §2.6: `START` starts a new instance at `state`). The ADR wins.
+    `test_a_start_state_makes_a_state_reachable` covers it.
   - **`--all` requires `--workspaces-root`**, and a document whose root is neither `Process` nor `Workflow` is
     `SCHEMA_UNSELECTABLE` (exit `3`). `process_checks.check_workflow` returns the unresolved process names for
     Task 19's `EXPECTED_EXTERNAL` comparison.
