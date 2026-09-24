@@ -841,7 +841,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
 ### Phase 7: Corpora and maintainer tools
 
-- [ ] **Task 18: Build the known-bad corpus** (ADR 0014 follow-ups: "a validator with no failing fixture has not been
+- [x] **Task 18: Build the known-bad corpus** (ADR 0014 follow-ups: "a validator with no failing fixture has not been
   tested"). (depends on 13, 14, 17)
   - **Layout.** `tests/fixtures/known-bad/<case>/` holds a minimal synthetic `workspaces/` root (an app and `webasm`)
     and an `expected.json`: `{"cli": "<script>", "args": [...], "exit": N, "codes": ["CODE", ...]}`, in which
@@ -864,7 +864,13 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
   Files: `tests/fixtures/known-bad/**`, `tests/test_known_bad.py`.
 
-- [ ] **Task 19: Write `tools/run_known_good.py`, run it, and settle every error.** (depends on 18)
+  **As implemented (2026-09-24):** 24 cases, the 22 listed plus `component-file-unresolved` (Task 14's blocking code)
+  and `route-no-row` (the route's exit-3 path). Each root has `webasm/FM/.keep`, because git keeps no empty
+  directory. `json-required-missing` uses `Route`, the only class whose merged schema has a top-level `required`
+  (`Path`). "No other error code" means no other exit-1 or exit-3 code; warnings are allowed. The test also asserts
+  that no fixture matches the doctor's `DGF_PATH_PATTERN`.
+
+- [x] **Task 19: Write `tools/run_known_good.py`, run it, and settle every error.** (depends on 18)
   - **Build the tool** per DD12. Usage: `<dgf-root> [--verbose]`. It validates the root as `vendor_schemas.py` does
     (the `src/Directory.Build.props` presence check).
   - **Seed `tools/known-good-exceptions.txt`** with:
@@ -893,7 +899,23 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   Files: `tools/run_known_good.py`, `tools/known-good-exceptions.txt`, `tools/check-dual-schema-docs.sh`, and
   validator fixes with their tests as found.
 
-- [ ] **Task 20: Write `tools/check_drift.py` — the ledgers against a DGF checkout** (ADR 0013 §4–5). (depends on 9)
+  **As implemented (2026-09-24):** the run is **CLEAN** at `aa1d5c4c2` (lxml 6.1.3, libxml2 2.14.6): 71 errors excused
+  by 60 `EXCEPTION` lines, 9 by the 8 `EXPECTED_EXTERNAL` names, no stale entry. The baseline counts head the
+  exceptions file.
+  - **(a) Validator fixes, one:** a `_view.xml` directly in `_views/` exited `3`. The view loaders'
+    `Path.Combine(<kind>, name, <file>)` omits an empty name, so it is the table view named `""`. `xsd.grammar_for`
+    now also accepts the parent as the kind folder (test in `test_xsd.py`); the fact is in
+    `naming-conventions.md` §2 with its ledger note. The earlier walk fix (Task 14) removed 9 `SCHEMA_UNSELECTABLE`.
+  - **(b) Sample defects, 8 classes, each with the runtime path in its reason:** `"20"` for `Paging.PageSize` ×42
+    and `"50"` for `maxLength` ×2 (no `NumberHandling` anywhere in `src/`); `TextStyle` `normal` ×8; `FormActionType`
+    `submit` ×5; `{}` for `filters`/`sortParameters` ×6; an inline DataSource without `type` ×1; two `api` parameters
+    with `isRequired: true` and no `sourceName`, which `ApiSourceService` (L61-70) always rejects ×2; and
+    `referenceComponent` → absent `Page/appealPage` ×2. The `required` class was therefore provable, not
+    contract-only: no STOP was needed.
+  - **Section 8** prefers `.venv/bin/python` (DD13) and, lacking `lxml`/`jsonschema`, still runs the stdlib half and
+    warns, rather than running nothing. `tests/test_run_known_good.py` covers the exceptions-file parser and matching.
+
+- [x] **Task 20: Write `tools/check_drift.py` — the ledgers against a DGF checkout** (ADR 0013 §4–5). (depends on 9)
   - **Usage:** `<dgf-root> [--verbose]`. Stdlib only. Load `tools/check_knowledge_stamps.py` with `importlib` and
     reuse `frontmatter_lines`, `parse_frontmatter`, `sha256_of` and `knowledge_files`. Never re-implement the
     parser.
@@ -913,6 +935,10 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - **Logging:** `debug` per source (`ledger=`, `path=`, `expected=`, `actual=`).
 
   Files: `tools/check_drift.py`, `tests/test_check_drift.py`.
+
+  **As implemented (2026-09-24):** beyond `DRIFT` and `DRIFT_MISSING`, the tool's own codes are `VERSION_MISMATCH`,
+  `VERSION_UNKNOWN` and `LOCAL_EDITS`, all warnings. The uncommitted-changes check covers only the cited files, so an
+  unrelated edit elsewhere in the checkout is not reported. The result is in Follow-ups.
 
 <!-- Commit checkpoint: tasks 18-20 -->
 
@@ -985,6 +1011,9 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - `format-coverage.md` marks `Workflow` ✗, but `WorkflowLoaderService` reads `_COMPONENTS/Workflow/` (json-reader.md
     §4); the MCP serves a stale 65-row copy of the page.
   - Carried forward: `process.xsd` lag and `xs:keyref`; `profile.xsd` L20-21.
+- **Drift check, first run** (Task 20, 2026-09-24): `tools/check_drift.py` against the DGF checkout at `aa1d5c4c2`
+  is **CLEAN** — 7 ledgers, 243 cited sources, no drift. HEAD matches the schema ledger's `dgf_commit`, and every
+  stamp is `dgf_version` 1.1.11, the checkout's.
 - **Per-grammar divergence lists** (ADR 0016), workflow first.
 - **Deferred reference checks:** `Process/@table`, `OpenHandler`, `SubProcess` (ADR 0014). Component types inside a
   site map (`SiteMapConfiguration` has no schema, so `resolve_components.py` reports `NOT RUN`). A `type` written as

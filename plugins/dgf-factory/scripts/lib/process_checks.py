@@ -31,7 +31,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from . import family, report, workspace
+from . import cli, family, report, workspace
 
 END = "End"
 CHANGE_STATE = "CHANGE_STATE"
@@ -271,7 +271,7 @@ def workflow_references(path, process_root, owner, name, root, rep):
         tree = parse(settings)
         if tree is None or tree.getroot().tag != "MultiTaskSettings":
             continue
-        shown = root_relative(settings, root) or str(settings)
+        shown = cli.display(settings)
         for group in tree.getroot().findall("TaskGroup"):
             for attribute in TASK_GROUP_ACTIONS:
                 _action(rep, group.get(attribute), process_ref, owner, root, group.sourceline, skipped, file=shown)

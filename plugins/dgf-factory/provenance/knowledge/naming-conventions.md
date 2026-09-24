@@ -43,3 +43,8 @@ Maintainer-only. Not shipped: `provenance/` is outside the directories `doctor.p
 read. The stamp in that file (`dgf_version`, `read_date`) says which DGF; this ledger says
 from where. The contract is [ADR 0013](../../docs/adr/0013-version-gating-provenance-ledger.md)
 and [`knowledge/README.md`](../../knowledge/README.md) §1.
+
+How §2's empty-name note was derived (2026-09-24): `ViewManager.GetXmlFilePath`,
+`LookUpViewManager.GetXmlFilePath` and `EditableGridManager.GetXmlFilePath` each call
+`Path.Combine(<table path>, "<kind folder>", name, "<file>")`, and .NET's `Path.Combine` omits a
+zero-length segment. The samples hold one such file, `zims/FM/_DATA/ZIMS_D_PermitToVariations/_views/_view.xml`.

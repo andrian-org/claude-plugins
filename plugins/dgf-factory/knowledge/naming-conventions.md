@@ -51,6 +51,10 @@ The two view subtypes share the filename `_view.xml`; the folder above it (`_vie
 `_lookupviews`) is what tells them apart. A generator that emits `_process.xml`, `_settings.xml`,
 `view.xml` or `form.xml` has produced a file the runtime will not find.
 
+The three view loaders build `<kind folder>/<name>/<file>` with `Path.Combine`, which omits an
+empty segment. So a view, lookup view or grid form with an **empty name** is the file directly in
+the kind folder: `_views/_view.xml`, `_lookupviews/_view.xml`, `_gridforms/_grid.xml`.
+
 DGF's own format-coverage page (`get_doc_page('AI-Authoring/format-coverage.md')`) labels two of
 these `_process.xml` and `view.xml`. The loaders open `process.xml` and `_view.xml`, and the
 loader wins.

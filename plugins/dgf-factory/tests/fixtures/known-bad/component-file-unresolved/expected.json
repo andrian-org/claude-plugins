@@ -1,0 +1,10 @@
+{
+  "cli": "resolve_components.py",
+  "args": [
+    "workspaces/app/FM/_COMPONENTS/Page/p.json"
+  ],
+  "exit": 1,
+  "codes": [
+    "COMPONENT_FILE_UNRESOLVED"
+  ]
+}

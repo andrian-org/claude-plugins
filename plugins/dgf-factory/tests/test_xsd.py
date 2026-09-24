@@ -69,6 +69,13 @@ class Grammars(unittest.TestCase):
         self.assertEqual(xsd.grammar_for("view", "/tmp/_view.xml", "lookup")[0], "lookup-view.xsd")
         self.assertIsNone(xsd.grammar_for("view", "/tmp/_view.xml")[0])
 
+    def test_a_view_with_an_empty_name_sits_in_the_kind_folder(self):
+        from lib import xsd
+        base = "/r/app/FM/_DATA/People/"
+        self.assertEqual(xsd.grammar_for("view", base + "_views/_view.xml")[0], "table-view.xsd")
+        self.assertEqual(xsd.grammar_for("view", base + "_lookupviews/_view.xml")[0], "lookup-view.xsd")
+        self.assertEqual(xsd.grammar_for("view", base + "_gridforms/_grid.xml")[0], "grid-form.xsd")
+
     def test_form_component_type_enumeration(self):
         from lib import xsd
         listed = xsd.enumeration("form.xsd", "componentTypeValue")

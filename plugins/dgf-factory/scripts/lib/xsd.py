@@ -105,11 +105,13 @@ def grammar_for(root_tag, path, view_kind=None):
         return candidates[0], ""
     if view_kind:
         return VIEW_KINDS[view_kind], ""
+    # The kind folder is the grandparent — `_views/<view>/_view.xml` — or, for a view
+    # with an empty name, the parent (knowledge/naming-conventions.md §2).
     parts = Path(path).parts
-    marker = parts[-3] if len(parts) >= 3 else ""
-    grammar = _view_folders().get(marker)
-    if grammar:
-        return grammar, ""
+    for marker in (parts[-3] if len(parts) >= 3 else "", parts[-2] if len(parts) >= 2 else ""):
+        grammar = _view_folders().get(marker)
+        if grammar:
+            return grammar, ""
     return None, (f"root `{root_tag}` belongs to {', '.join(candidates)}, and the file is not under "
                   f"_views/, _lookupviews/ or _gridforms/; pass --view-kind table|lookup|grid")
 
