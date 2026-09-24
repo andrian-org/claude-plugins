@@ -773,7 +773,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
 ### Phase 6: Process checks
 
-- [ ] **Task 16: Write `scripts/lib/workspace.py` — the workspaces-root model and resolvers** (DD10). (depends on 9)
+- [x] **Task 16: Write `scripts/lib/workspace.py` — the workspaces-root model and resolvers** (DD10). (depends on 9)
   - **Functions:** `owning_workspace(path)`, `workspaces_root(path, override)`, `applications(root)`,
     `exact_child(dir, name) -> ('ok'|'case-only'|'missing', actual)`, `resolve_workflow_ref(value, process_ref,
     W, root)`, `resolve_validation_flow(value, W, root)`, `resolve_process(name, W, root)`.
@@ -794,7 +794,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
   Files: `scripts/lib/workspace.py`, `tests/test_workspace.py`.
 
-- [ ] **Task 17: Write `scripts/lib/process_checks.py` and `scripts/validate_process.py`.** (depends on 13, 16)
+- [x] **Task 17: Write `scripts/lib/process_checks.py` and `scripts/validate_process.py`.** (depends on 13, 16)
   - **`scripts/validate_process.py`.** Usage: `[--workspaces-root R] (--all | <process.xml|_workflow.xml>...)
     [--verbose]`.
     - For each `process.xml`: structure (`xsd.validate_process_structure`), then, only when structure is not
@@ -816,6 +816,26 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   - **Logging:** `debug` per process (`states=`, `entry=`, `reachable=`) and per reference resolved (see Task 16).
 
   Files: `scripts/lib/process_checks.py`, `scripts/validate_process.py`, `tests/test_validate_process.py`.
+
+  **As implemented (2026-09-24):**
+  - **Resolution is re-read from the engine, not from the DD10 table**: `ResolveUiSettings` (the kind is compared
+    exactly, so `workflow:X` is no reference; `BASE`/`/BASE` pieces are rejoined with every `/` removed),
+    `RenderUiControlAsync` and `WorkflowManager.GetWorkPath` (the position of the first `/` decides), and
+    `ProcessManager.GetWorkPath` (`BASE:` case-sensitive, removed everywhere). Component files use the same resolver
+    with a case-insensitive `BASE:`, so `resolve_components.py` now shares `workspace._resolve`.
+  - **`OnStart/OnTimeout/@state` counts as a transition target**: `OnStart` binds as a `State` (process-model.md §1).
+  - **An app-dependent reference that exists in webasm says so** ("only a `BASE:` name reaches"), as in Task 14.
+  - **Non-workflow actions** are reported once per kind (`NOT RUN: form-reference`), without per-file counts, so
+    `--all` prints one line, not one per process.
+  - **`--all` requires `--workspaces-root`**, and a document whose root is neither `Process` nor `Workflow` is
+    `SCHEMA_UNSELECTABLE` (exit `3`). `process_checks.check_workflow` returns the unresolved process names for
+    Task 19's `EXPECTED_EXTERNAL` comparison.
+  - **Samples** (`--all`, 362 files, lxml 6.1.3): 2 `WORKFLOW_UNRESOLVED` (`ZIMS4_InspectionBorder` ×2), 9
+    `CHANGE_STATE_PROCESS_UNRESOLVED` (8 distinct processes — ADR 0014's 8), 1 `CHANGE_STATE_STATE_UNDECLARED`
+    (`RecordState13`), 15 `UNREACHABLE_STATE`, 5 `XSD_RUNTIME_DIVERGENCE`, 43 `WORKFLOW_APP_DEPENDENT`. **E14
+    correction:** the 43 are 29 found only in `zims` and 14 found in no application. E14 counted 13: the 14th,
+    `webasm/FM/_PROCESS/AccountAuthorization/process.xml:20` → `WORKFLOW:/CaseOfficer.Review`, exists only in
+    `webasm/FM/_WORKFLOW`, which a `/X` name never reads.
 
 <!-- Commit checkpoint: tasks 16-17 -->
 

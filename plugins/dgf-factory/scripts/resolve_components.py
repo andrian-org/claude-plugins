@@ -130,49 +130,25 @@ def references(path, document, selection, occurrences):
     return found
 
 
-def _target(base, member, name):
-    from lib import workspace
-    parts = [workspace.FM, "_COMPONENTS", member] + f"{name}.json".split("/")
-    return workspace.exact_file(base, parts), "/".join([base.name] + parts)
-
-
 def resolve_reference(where, member, name, owner, root, rep):
     """Add the finding, if any, for one component file reference."""
     from lib import workspace
-    if name[:5].lower() == "base:":
-        base, rest = root / workspace.BASE_WORKSPACE, name[5:]
-    elif owner.name == workspace.BASE_WORKSPACE:
-        return _app_dependent(where, member, name, root, rep)
-    else:
-        base, rest = owner, name
-    (status, actual), shown = _target(base, member, rest)
-    report.debug("resolve_components.resolve_reference", "resolved", path=where, name=name, target=shown,
-                 result=status)
-    if status == workspace.CASE_ONLY:
-        rep.add("CASE_ONLY_MATCH", f"{where}: `{name}` reaches `{shown}` only on a case-insensitive filesystem — "
-                                   f"on disk it is `{actual.relative_to(root).as_posix()}`")
-    elif status == workspace.MISSING:
-        rep.add("COMPONENT_FILE_UNRESOLVED", f"{where}: `{name}` names `{shown}`, which does not exist — the "
+    result = workspace.resolve_component_file(name, member, owner, root)
+    if isinstance(result, workspace.CaseOnly):
+        rep.add("CASE_ONLY_MATCH", f"{where}: `{name}` reaches `{result.path}` only on a case-insensitive "
+                                   f"filesystem — on disk it is `{result.actual}`")
+    elif isinstance(result, workspace.Unresolved):
+        rep.add("COMPONENT_FILE_UNRESOLVED", f"{where}: `{name}` names `{result.path}`, which does not exist — the "
                                              f"component it supplies vanishes")
-
-
-def _app_dependent(where, member, name, root, rep):
-    """A name without `BASE:` in a webasm file: each application reads its own copy (D2)."""
-    from lib import workspace
-    resolved, lacking = [], []
-    for app in workspace.applications(root):
-        (status, _), _ = _target(root / app, member, name)
-        (resolved if status == workspace.OK else lacking).append(app)
-    report.debug("resolve_components.resolve_reference", "per application", path=where, name=name,
-                 resolved=",".join(resolved), lacking=",".join(lacking))
-    if resolved and not lacking:
-        return
-    (in_base, _), _ = _target(root / workspace.BASE_WORKSPACE, member, name)
-    hint = " It exists in webasm, which only a `BASE:` name reaches." if in_base == workspace.OK else ""
-    rep.add("COMPONENT_FILE_APP_DEPENDENT",
-            f"{where}: `{name}` in a webasm file reads the selected application's _COMPONENTS/{member}/ — "
-            f"present in {', '.join(resolved) or 'no application'}, absent from "
-            f"{', '.join(lacking) or 'no application'}.{hint}")
+    elif isinstance(result, workspace.AppDependent):
+        # A name without `BASE:` in a webasm file: each application reads its own copy (D2).
+        in_base = workspace.resolve_component_file(workspace.BASE_PREFIX + name, member, owner, root)
+        hint = " It exists in webasm, which only a `BASE:` name reaches." if isinstance(in_base, workspace.Resolved) \
+            else ""
+        rep.add("COMPONENT_FILE_APP_DEPENDENT",
+                f"{where}: `{name}` in a webasm file reads the selected application's _COMPONENTS/{member}/ — "
+                f"present in {', '.join(result.resolved_in) or 'no application'}, absent from "
+                f"{', '.join(result.missing_in) or 'no application'}.{hint}")
 
 
 def check_references(path, document, selection, occurrences, rep):
