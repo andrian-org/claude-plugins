@@ -5,3 +5,8 @@ grefresh.txt
 aztok.txt
 dc.json
 drives.json
+
+# Python: contributor virtual environments and bytecode caches
+.venv/
+__pycache__/
+*.pyc

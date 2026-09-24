@@ -91,10 +91,12 @@ section() {
 
 # Markdown files this plugin owns. The aif-* corpus under .claude/ is
 # installer-managed and must be neither edited nor linted. Plan artifacts are
-# excluded too: they carry the user's verbatim request, which is immutable.
+# excluded too: they carry the user's verbatim request, which is immutable. A
+# contributor's .venv/ holds site-packages Markdown that is not ours either.
 owned_markdown() {
     find "${PLUGIN_ROOT}" \
-        -type d \( -name .claude -o -name .git -o -name node_modules -o -name plans \) -prune \
+        -type d \( -name .claude -o -name .git -o -name node_modules -o -name plans \
+            -o -name .venv -o -name __pycache__ \) -prune \
         -o -type f -name '*.md' -print
 }
 

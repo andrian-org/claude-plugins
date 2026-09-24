@@ -198,8 +198,8 @@ table is marked, and its shape is a contract:
 - **Exact headers.** The loader declares, per table id, the header cells it expects, in order.
   A renamed, added, dropped or reordered column is a malformed table — never a best guess.
 - **Cells.** Leading and trailing whitespace is stripped, then **one** pair of surrounding
-  backticks. Nothing else is interpreted: bold, links and escaped pipes are read literally. An
-  empty cell is the empty string.
+  backticks. Nothing else is interpreted: bold and links are read literally. A cell cannot
+  contain `|`, escaped or not. An empty cell is the empty string, and `—` is read as itself.
 - **Keys.** The first column is the key. Two rows with the same key are a malformed table.
 - **Extent.** The table ends at the first line that is not a table row. A blank line ends it.
 - **A malformed table blocks.** A script that reads one refuses to run and exits `3`, naming

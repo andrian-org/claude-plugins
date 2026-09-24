@@ -512,7 +512,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
 
 ### Phase 3: Runtime foundation
 
-- [ ] **Task 9: Pin the dependencies and write the stdlib foundation modules.** (depends on 6, 7, 8)
+- [x] **Task 9: Pin the dependencies and write the stdlib foundation modules.** (depends on 6, 7, 8)
   - **Dependencies.**
     - Create `tools/requirements.in`, generate `scripts/requirements.txt` with DD13's `uv` command, and commit both.
     - Verify in a fresh `.venv` built on `/usr/bin/python3` (3.9.6) that
@@ -556,7 +556,7 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
   `tests/{__init__,helpers,test_report,test_knowledge,test_deps}.py`, `../../.gitignore`,
   `tools/check-dual-schema-docs.sh` (prune list only).
 
-- [ ] **Task 10: Give `doctor.py` its validator-runtime section.** (depends on 9)
+- [x] **Task 10: Give `doctor.py` its validator-runtime section.** (depends on 9)
   - **Add the section** "Validator runtime" after "Line endings" and before "Build progress", renumbering as needed.
     The doctor stays stdlib-only (ADR 0015).
     1. **Dependency probe.** `importlib.util.find_spec` for `lxml` and `jsonschema`. If either is missing →

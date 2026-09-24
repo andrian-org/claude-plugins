@@ -51,6 +51,16 @@ path into the DGF repository (`DGF_PATH`). A developer's install has no DGF chec
 such a path points at nothing. Report what the script found and stop there — repairing it
 silently hides the fault from the person who has to fix the install.
 
+The same exit code also covers the validators under `scripts/`:
+
+- **`VALIDATOR_DEPS_MISSING`** (warning, exit `2`) — `lxml` or `jsonschema` is not installed,
+  so every validator exits `3` until it is. The warning carries the exact install command;
+  relay it verbatim. The plugin cannot install anything itself, and neither may you.
+- **`REQUIREMENTS_UNPINNED`** (error, exit `1`) — `scripts/requirements.txt` is missing, or a
+  requirement is not pinned to one version with a `sha256` hash.
+- **`KNOWLEDGE_TABLE`** (error, exit `1`) — a machine-read table in `knowledge/` is missing or
+  malformed, so the validators that read it refuse to run.
+
 On `3`, the script was called incorrectly. Show its stderr message; do not retry with
 guessed arguments.
 
@@ -82,6 +92,7 @@ relayed report, never after it.
 - ❌ Write any text after the `dgf-gate-result` block
 - ❌ Claim a check the script did not run
 - ❌ Treat an absent `knowledge/`, `agents/` or unbuilt slice as a fault
+- ❌ Run `pip` or install the validators' dependencies — relay the command instead
 - ❌ Hardcode a path to the script instead of using `${CLAUDE_PLUGIN_ROOT}`
 
 ## Artifact Ownership
