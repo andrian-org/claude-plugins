@@ -1,6 +1,6 @@
 ---
 dgf_version: "1.1.11"
-read_date: 2026-09-22
+read_date: 2026-09-24
 ---
 
 # Naming conventions — the names DGF expects, as rules a generator must honour
@@ -11,46 +11,70 @@ inferred from how a name *looks*.
 
 ## 1. Workspace directories
 
-Under `<workspace>/FM/`, from DGF's `WorkspaceSettings` class. The casing is **not** uniform, and a
-generator must reproduce each constant exactly:
+From DGF's `WorkspaceSettings` class. The casing is **not** uniform, and a generator must
+reproduce each name exactly:
 
-| Kind | Exact name |
+| Where | Exact name |
 |---|---|
-| All-caps with leading underscore | `_PROCESS` `_WORKFLOW` `_COMPONENTS` `_LOOKUP` `_DATA` `_PROFILE` `_STORAGE` |
-| Mixed case with leading underscore | `_DataSources` `_SiteMaps` `_EndPoints` |
-| No underscore | `Services`, and the root `FM` itself |
+| Under `<workspace>/FM/` | `_PROCESS` `_WORKFLOW` `_COMPONENTS` `_LOOKUP` `_DATA` `_PROFILE` `Services` |
+| Directly under `<workspace>/`, **not** under `FM/` | `FM` itself, and `_STORAGE` (`WorkspaceStoragePath` joins it to the workspace root) |
 
-Do not normalise these to one casing. `_DATASOURCES` and `_datasources` are not the
-DataSources directory; `_DataSources` is.
+Do not normalise these to one casing. On Linux, where DGF runs, `_Workflow` is not the workflow
+directory; `_WORKFLOW` is.
+
+**Three constants are declared but used by nothing the engine runs.** `WorkspaceSettings` also
+declares `DataSources = "_DataSources"`, `SiteMaps = "_SiteMaps"` and `Endpoints = "_EndPoints"`,
+and no code reads a path built from them. They are **not** directories a generator should create.
+DataSources load from `_COMPONENTS/DataSource/` (`DataSourceLoader`), endpoints from
+`_COMPONENTS/Endpoints/` (`EndpointFactory`), and site maps from `_COMPONENTS/` itself.
 
 The base workspace is named `webasm` (`BaseWorkspaceName`).
 
 ## 2. Legacy artifact filenames
 
-From `format-coverage.md` §"Legacy XML-only artifacts":
+Each filename as the runtime loader opens it — the loader named in the last column builds the
+path, and nothing else is looked for:
 
-| Artifact | Filename | Note |
-|---|---|---|
-| Form | `_form.xml` | Leading underscore |
-| Workflow | `_workflow.xml` | Leading underscore |
-| Process | `_process.xml` | Leading underscore |
-| Settings | `settings.xml` | **No** underscore |
-| View | `view.xml` | **No** underscore; three grammar subtypes share the name |
+| Artifact | Filename | Folder, under `<workspace>/FM/` | Loader |
+|---|---|---|---|
+| Process | `process.xml` | `_PROCESS/<process>/` | `ProcessManager` |
+| Workflow | `_workflow.xml` | `_WORKFLOW/<workflow>/`, or `_PROCESS/<process>/<workflow>/` for a process-local workflow | `WorkflowManager` |
+| Form | `_form.xml` | `_DATA/<table>/_forms/<form>/` | `FormManager` |
+| Settings | `settings.xml` | `_DATA/<table>/` | `TableManager` |
+| Table view | `_view.xml` | `_DATA/<table>/_views/<view>/` | `ViewManager` |
+| Lookup view | `_view.xml` | `_DATA/<table>/_lookupviews/<view>/` | `LookUpViewManager` |
+| Grid form | `_grid.xml` | `_DATA/<table>/_gridforms/<grid>/` | `EditableGridManager` |
+| Options | `_options.xml` | `_DATA/<table>/` | `StaticOptionReader` |
 
-Three of the five carry a leading underscore and two do not. A generator that emits
-`_settings.xml` or `form.xml` has produced a file the runtime will not find.
+Two of them carry **no** leading underscore — `process.xml` and `settings.xml` — and the rest do.
+The two view subtypes share the filename `_view.xml`; the folder above it (`_views` or
+`_lookupviews`) is what tells them apart. A generator that emits `_process.xml`, `_settings.xml`,
+`view.xml` or `form.xml` has produced a file the runtime will not find.
+
+The three view loaders build `<kind folder>/<name>/<file>` with `Path.Combine`, which omits an
+empty segment. So a view, lookup view or grid form with an **empty name** is the file directly in
+the kind folder: `_views/_view.xml`, `_lookupviews/_view.xml`, `_gridforms/_grid.xml`.
+
+DGF's own format-coverage page (`get_doc_page('AI-Authoring/format-coverage.md')`) labels two of
+these `_process.xml` and `view.xml`. The loaders open `process.xml` and `_view.xml`, and the
+loader wins.
 
 ## 3. Component type names
 
-The `type` value in a component configuration is a `ComponentType` enum member name,
-**PascalCase, exact** — `ComboBox`, `DataFetcher`, `EligibilityCriteria`, `PowerBi`,
+The `type` value in a component configuration names a `ComponentType` enum member. The
+members are spelled in PascalCase — `ComboBox`, `DataFetcher`, `EligibilityCriteria`, `PowerBi`,
 `SignaturePadSig100`. The full set of 67 is in `component-catalogue.md`; a name outside it
 is not a component.
 
-Case matters in the *authoring* surface even where DGF's own lookups are lenient:
-`SchemaIndexService` lowercases its index key, so `combobox` resolves a schema — but the
-runtime's `ComponentType` is an enum, and `nameof(ComponentType.ComboBox)` is the registered
-key. Emit the enum spelling.
+The runtime reads the value **in any case**, surrounding whitespace ignored: the converter
+parses it with `Enum.TryParse(..., ignoreCase: true)` (`json-reader.md` §2), and component
+services are registered under the lower-cased member name. `SchemaIndexService` also
+lowercases its index key. So `comboBox`, `combobox` and `ComboBox` all select the same member.
+The **key** is the exception: it must be exactly `type`.
+
+Case does matter wherever the member name becomes a path. A component file is read from
+`_COMPONENTS/<ComponentType>/`, spelled as the member, so the folder must be exactly `ComboBox`
+on a case-sensitive filesystem (`json-reader.md` §4).
 
 ## 4. Generated JSON schema filenames
 

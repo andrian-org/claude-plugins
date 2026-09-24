@@ -8,11 +8,12 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: knowledge base landed.** The plugin manifest, one walking-skeleton skill
-> (`/dgf-doctor`), and the **DGF knowledge base** exist — stamped facts on both schema
-> families, the component catalogue, composition and naming, plus the vendored JSON/XSD
-> schema set with a per-file digest manifest. The validators that consume it and the rest
-> of the `dgf-*` corpus do not exist yet. The plugin **loads locally** with
+> **Status: deterministic validators landed.** The plugin manifest, one walking-skeleton
+> skill (`/dgf-doctor`), the stamped **DGF knowledge base** with its vendored JSON/XSD schema
+> set, and the **validators** that read it exist. The four validator scripts are config
+> validation in both families, component resolution, process verification and the
+> order-of-means route. They are checked against DGF's own samples and a known-bad corpus.
+> The rest of the `dgf-*` corpus does not exist yet. The plugin **loads locally** with
 > `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
@@ -58,6 +59,9 @@ claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
 It reports `CLEAN`, `WARNINGS` or `BLOCKED`, exits `0`/`2`/`1` accordingly, and closes with
 a `dgf-gate-result` block. Unbuilt milestones are `INFO` lines that never affect the
 verdict, so an unfinished-but-correct plugin still reads `CLEAN`.
+
+The validator scripts that later skills call also run on their own, against any DGF
+workspaces root. See [Getting Started → Validators](docs/getting-started.md#validators).
 
 ### What the pipeline will look like
 

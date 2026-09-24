@@ -9,6 +9,13 @@ green from milestone 6 through 15 and a red result keeps meaning something.
 It is a runtime validator — the /dgf-doctor skill calls it, and so does
 tools/check-dual-schema-docs.sh. It reads and reports; it never edits.
 
+Sections: 1 manifest, 2 component paths, 3 skill slices, 4 portability (machine
+paths and DGF repository paths in shipped files), 5 line endings, 6 validator
+runtime (lxml and jsonschema importable, scripts/requirements.txt pinned with
+hashes, every machine-read knowledge table loads), 7 build progress (INFO only).
+It stays stdlib-only, so it runs before the validators' dependencies are
+installed (ADR 0015 §8); it reports a missing dependency, and installs nothing.
+
 Usage:  doctor.py [<plugin-root>]
         DEBUG=1 doctor.py            # per-check trace
 
@@ -17,12 +24,15 @@ from the working directory.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — no findings
-  1  BLOCKED   — the plugin cannot load, a slice will not register, or a
-                 shipped file names a DGF repository path
-  2  WARNINGS  — it loads, but something needs a human look
+  1  BLOCKED   — the plugin cannot load, a slice will not register, a
+                 shipped file names a DGF repository path, the validator
+                 requirements are unpinned, or a knowledge table is malformed
+  2  WARNINGS  — it loads, but something needs a human look (including
+                 validator dependencies that are not installed)
   3  usage error
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -81,6 +91,11 @@ DGF_PATH_PATTERN = re.compile(
     + ")"
     + "|_?" + "DotGov" + "Framework" + _SEP
 )
+
+# The validators' third-party dependencies (ADR 0015): import name per package.
+VALIDATOR_DEPENDENCIES = ("lxml", "jsonschema")
+PINNED_REQUIREMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*==[^\s;\\]+")
+REQUIREMENT_HASH = re.compile(r"--hash=sha256:[0-9a-f]{64}")
 
 NAME_PATTERN = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*\Z")
 SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
@@ -144,15 +159,31 @@ def read_text(path):
         return None
 
 
+def is_bytecode(path):
+    """Python writes these next to scripts it runs; they are never shipped content."""
+    return "__pycache__" in path.parts or path.suffix == ".pyc"
+
+
 def shipped_files(root):
-    """Every regular file under the shipped directories, in a stable order."""
+    """Every regular file under the shipped directories, in a stable order.
+
+    Bytecode is skipped: running a validator writes scripts/lib/__pycache__ on a
+    contributor's tree and on an installed copy alike, and marshalled bytecode can
+    hold the bytes of a CRLF or a path.
+    """
+    skipped = 0
     for name in SHIPPED_DIRS:
         base = root / name
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
-            if path.is_file():
-                yield path
+            if not path.is_file():
+                continue
+            if is_bytecode(path):
+                skipped += 1
+                continue
+            yield path
+    trace(f"skipped {skipped} bytecode file(s)")
 
 
 def parse_frontmatter(text):
@@ -363,10 +394,107 @@ def check_line_endings(root):
     trace("scanned shipped files for CRLF")
 
 
-# --- 6. build progress (INFO only — never affects the exit code) -------------
+# --- 6. validator runtime ----------------------------------------------------
+
+def check_validator_runtime(root):
+    section("6. Validator runtime")
+    scripts_dir = root / "scripts"
+    if not scripts_dir.is_dir():
+        trace("no scripts/ directory — no validators to check")
+        return
+    check_validator_dependencies(root)
+    check_requirement_pins(root)
+    check_knowledge_tables(root)
+
+
+def install_command(root):
+    user = "" if sys.prefix != sys.base_prefix else " --user"
+    requirements = root / "scripts" / "requirements.txt"
+    return f'python3 -m pip install{user} --require-hashes -r "{requirements}"'
+
+
+def check_validator_dependencies(root):
+    absent = [name for name in VALIDATOR_DEPENDENCIES if importlib.util.find_spec(name) is None]
+    trace(f"dependency probe: missing={','.join(absent) or 'none'} python={sys.version.split()[0]}")
+    if absent:
+        warn("VALIDATOR_DEPS_MISSING", f"scripts{_SEP}requirements.txt",
+             f"{', '.join(absent)} not installed — the validators exit 3 until they are. "
+             f"Install with: {install_command(root)}")
+        return
+    info("validator dependencies — lxml and jsonschema import")
+
+
+def requirement_entries(text):
+    """Logical requirement lines: continuations joined, comments and blanks dropped."""
+    entries, current = [], ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not current and (not stripped or stripped.startswith("#")):
+            continue
+        current += " " + stripped.rstrip("\\").strip()
+        if not stripped.endswith("\\"):
+            entries.append(current.strip())
+            current = ""
+    if current:
+        entries.append(current.strip())
+    return entries
+
+
+def check_requirement_pins(root):
+    rel = f"scripts{_SEP}requirements.txt"
+    path = root / "scripts" / "requirements.txt"
+    if not path.is_file():
+        error("REQUIREMENTS_UNPINNED", rel, f"{rel} is missing — the validators' dependencies are unpinned")
+        return
+    text = read_text(path)
+    if text is None:
+        error("REQUIREMENTS_UNPINNED", rel, f"{rel} is not readable as UTF-8 text")
+        return
+    entries = requirement_entries(text)
+    trace(f"{rel}: {len(entries)} requirement(s)")
+    for entry in entries:
+        name = entry.split()[0]
+        if not PINNED_REQUIREMENT.match(entry):
+            error("REQUIREMENTS_UNPINNED", rel, f"{rel}: `{name}` is not pinned as name==version")
+        elif not REQUIREMENT_HASH.search(entry):
+            error("REQUIREMENTS_UNPINNED", rel, f"{rel}: `{name}` has no --hash=sha256")
+
+
+def load_knowledge_module(root):
+    """scripts/lib/knowledge.py, loaded by path — it imports nothing from its package."""
+    path = root / "scripts" / "lib" / "knowledge.py"
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("dgf_doctor_knowledge", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_knowledge_tables(root):
+    try:
+        module = load_knowledge_module(root)
+    except (OSError, SyntaxError, ImportError) as exc:
+        error("KNOWLEDGE_TABLE", f"scripts{_SEP}lib{_SEP}knowledge.py",
+              f"scripts{_SEP}lib{_SEP}knowledge.py cannot be loaded: {exc}")
+        return
+    if module is None:
+        trace("no scripts/lib/knowledge.py — no machine-read tables to check")
+        return
+    for table_id in module.TABLES:
+        try:
+            rows = module.load(table_id, root / "knowledge")
+        except module.KnowledgeTableError as exc:
+            error("KNOWLEDGE_TABLE", f"knowledge{_SEP}{module.TABLES[table_id][0]}", str(exc))
+            continue
+        trace(f"table {table_id}: {len(rows)} row(s)")
+    info(f"machine-read knowledge tables — {len(module.TABLES)} checked")
+
+
+# --- 7. build progress (INFO only — never affects the exit code) -------------
 
 def report_build_progress(root):
-    section("6. Build progress")
+    section("7. Build progress")
     for name in ("knowledge", "scripts", "agents"):
         state = "present" if (root / name).is_dir() else "not yet built"
         info(f"{name}{_SEP} — {state}")
@@ -390,7 +518,7 @@ def gate_block(status, errors, warnings):
     if status == "fail":
         reason = f"{errors} blocking finding(s) — the plugin is not fit to install"
     elif status == "warn":
-        reason = f"{warnings} portability warning(s) — the plugin loads but is not clean"
+        reason = f"{warnings} warning(s) — the plugin loads but is not clean"
     else:
         reason = "no findings; nothing to fix"
 
@@ -460,6 +588,7 @@ def main(argv):
     check_skill_slices(root)
     check_portability(root)
     check_line_endings(root)
+    check_validator_runtime(root)
     report_build_progress(root)
 
     return report(root)

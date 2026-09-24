@@ -1,0 +1,10 @@
+{
+  "cli": "validate_process.py",
+  "args": [
+    "workspaces/app/FM/_PROCESS/Case/process.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "VALIDATION_FLOW_UNRESOLVED"
+  ]
+}

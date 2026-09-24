@@ -4,7 +4,8 @@
 # NAME/SCOPE MISMATCH, DELIBERATE: this script now guards five contracts — the
 # dual-schema one it was named for, the decision-record one added 2026-09-21, the
 # plugin-manifest one added 2026-09-22, the knowledge-stamp one added the same
-# day, and ADR supersession integrity added 2026-09-23. The filename stays as it
+# day, and ADR supersession integrity added 2026-09-23 — and, since 2026-09-24,
+# runs the validator unit tests (section 8). The filename stays as it
 # is because AGENTS.md, the docs and the plans reference it by name; renaming
 # churns them for no gain. It moved from scripts/ to tools/ on 2026-09-23: it is
 # a maintainer check, and scripts/ ships (ADR 0012).
@@ -91,10 +92,12 @@ section() {
 
 # Markdown files this plugin owns. The aif-* corpus under .claude/ is
 # installer-managed and must be neither edited nor linted. Plan artifacts are
-# excluded too: they carry the user's verbatim request, which is immutable.
+# excluded too: they carry the user's verbatim request, which is immutable. A
+# contributor's .venv/ holds site-packages Markdown that is not ours either.
 owned_markdown() {
     find "${PLUGIN_ROOT}" \
-        -type d \( -name .claude -o -name .git -o -name node_modules -o -name plans \) -prune \
+        -type d \( -name .claude -o -name .git -o -name node_modules -o -name plans \
+            -o -name .venv -o -name __pycache__ \) -prune \
         -o -type f -name '*.md' -print
 }
 
@@ -695,6 +698,48 @@ check_knowledge_stamps() {
     esac
 }
 
+# --- 8. validator tests -------------------------------------------------------
+#
+# The unit tests under tests/ — the validators, their libraries and the
+# known-bad corpus — run with the contributor's .venv/ interpreter when there is
+# one (DD13), else python3. Without lxml and jsonschema the suite still runs, but
+# every test that needs them skips, so this section warns: a pass then proves
+# only the stdlib half. Exit codes map as in section 7.
+#
+# The known-good run, tools/run_known_good.py, is NOT wired in: it needs a DGF
+# checkout, and this check runs without one. Maintainers run it by hand.
+TESTS_DIR='tests'
+
+check_validator_tests() {
+    section '8. Validator tests'
+
+    tests_python='python3'
+    if [ -x "${PLUGIN_ROOT}/.venv/bin/python" ]; then
+        tests_python="${PLUGIN_ROOT}/.venv/bin/python"
+    fi
+    has_deps=0
+    "${tests_python}" -c 'import lxml.etree, jsonschema' >/dev/null 2>&1 || has_deps=$?
+    trace "interpreter ${tests_python} (dependencies import: $([ "${has_deps}" -eq 0 ] && echo yes || echo no))"
+
+    tests_code=0
+    # Capture the status directly, never through a pipe (see section 7).
+    tests_output="$(cd "${PLUGIN_ROOT}" && "${tests_python}" -m unittest discover -s "${TESTS_DIR}" -t . 2>&1)" \
+        || tests_code=$?
+    trace "ran unittest discover (exit ${tests_code})"
+
+    case "${tests_code}" in
+        0) printf '%s\n' "$(printf '%s\n' "${tests_output}" | grep -E '^(Ran|OK)' | tr '\n' ' ')" ;;
+        1) printf '%s\n' "${tests_output}"
+           error "validator unit tests failed (exit 1) — see their output above" ;;
+        *) printf '%s\n' "${tests_output}"
+           error "the unit test run returned an unexpected exit code ${tests_code}" ;;
+    esac
+    if [ "${has_deps}" -ne 0 ]; then
+        warn "lxml and jsonschema do not import in ${tests_python}: the tests that need them were skipped. Create" \
+             ".venv/ and install scripts/requirements.txt into it (docs/getting-started.md)"
+    fi
+}
+
 main() {
     if [ "$#" -gt 0 ]; then
         fail 3 "Usage: $(basename "$0")   (no arguments; set DEBUG=1 for a per-file trace)"
@@ -717,6 +762,7 @@ main() {
     check_adr_supersession
     check_plugin_manifest
     check_knowledge_stamps
+    check_validator_tests
 
     section 'Summary'
     printf 'Files checked: %d\n' "${FILES_SCANNED}"

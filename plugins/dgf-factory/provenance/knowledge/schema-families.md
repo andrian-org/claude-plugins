@@ -22,6 +22,18 @@ sources:
     sha256: afd9befe47332b1cd1a9fdc9d8e893bfcde2b5382babe9cf054c88771c5ff783
   - path: src/Tools/dgf-mcp/Schemas/XSD/workflow.xsd
     sha256: afc3eb4f23c379012f8fb23609f03daedffeaadff08527b0990507c6c41cdff8
+  - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
+    sha256: 772d63668a13942df8b43bf4937fc255d12a5049129fbcb3816c75ca16ea78fd
+  - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
+    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+  - path: src/Core/DGF.Domain/Process/StateProcess/ProcessManager.cs
+    sha256: c99435834fd8d306c833eef6f5cd09dc13fad8c0a02da8786c61bba1c99e3df0
+  - path: src/Core/DGF.Domain/Data/View/ViewManager.cs
+    sha256: a8654d08ea30788938242ef19ad7079704df6e9c5342687b230a72b11df860a5
+  - path: src/Core/DGF.Domain/Data/Lookup/LookUpViewManager.cs
+    sha256: f47230cb79a77e3cad802c066ec597bcb4900463a1e670a4ce0be091c44f5d23
+  - path: src/Core/DGF.Domain/Data/EditableGrid/EditableGridManager.cs
+    sha256: 66941b29b2a35731aca24b532be267570dc666aae1e611bcb528c13591961f98
 ---
 # Provenance — `knowledge/schema-families.md`
 

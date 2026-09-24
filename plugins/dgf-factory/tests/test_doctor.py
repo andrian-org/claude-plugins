@@ -1,0 +1,85 @@
+"""doctor.py against temporary copies of the plugin — never the real tree for faults."""
+
+import json
+import re
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+
+from tests import helpers
+
+DOCTOR = Path("skills") / "dgf-doctor" / "scripts" / "doctor.py"
+GATE = re.compile(r"```dgf-gate-result\n(.*?)\n```", re.S)
+
+
+def gate_ids(stdout):
+    """The finding ids in the last gate block — the only part callers may parse."""
+    blocks = GATE.findall(stdout)
+    payload = json.loads(blocks[-1])
+    return [finding["id"] for finding in payload["blockers"]]
+
+
+class DoctorOnACopy(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.root = Path(self.tmp) / "dgf-factory"
+        shutil.copytree(helpers.PLUGIN_ROOT, self.root,
+                        ignore=shutil.ignore_patterns(".venv", "__pycache__", ".claude", "tests"))
+
+    def run_doctor(self):
+        return helpers.run_cli(self.root / DOCTOR, self.root)
+
+    def test_real_tree_is_clean_or_warns_about_dependencies_only(self):
+        code, out, _ = self.run_doctor()
+        self.assertIn(code, (0, 2), out)
+        if code == 2:
+            self.assertEqual(set(gate_ids(out)), {"VALIDATOR_DEPS_MISSING"}, out)
+
+    def test_requirement_without_hash_blocks(self):
+        (self.root / "scripts" / "requirements.txt").write_text("lxml==6.1.3\n", encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("REQUIREMENTS_UNPINNED", gate_ids(out))
+
+    def test_unpinned_requirement_blocks(self):
+        (self.root / "scripts" / "requirements.txt").write_text(
+            "lxml>=6 \\\n    --hash=sha256:" + "a" * 64 + "\n", encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("REQUIREMENTS_UNPINNED", gate_ids(out))
+
+    def test_missing_requirements_file_blocks(self):
+        (self.root / "scripts" / "requirements.txt").unlink()
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("REQUIREMENTS_UNPINNED", gate_ids(out))
+
+    def test_broken_table_marker_blocks(self):
+        path = self.root / "knowledge" / "json-reader.md"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("<!-- machine-read: component-folders -->", ""), encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("KNOWLEDGE_TABLE", gate_ids(out))
+
+    def test_dgf_path_in_a_shipped_script_blocks(self):
+        dgf_path = "src" + "/" + "Core" + "/DGF.Kernel/WorkspaceSettings.cs"
+        (self.root / "scripts" / "lib" / "planted.py").write_text(
+            f'"""Mirrors {dgf_path}."""\n', encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("DGF_PATH", gate_ids(out))
+
+    def test_bytecode_is_not_scanned(self):
+        cache = self.root / "scripts" / "lib" / "__pycache__"
+        cache.mkdir(exist_ok=True)
+        (cache / "x.cpython-39.pyc").write_bytes(b"\x00\x01\r\n\x02")
+        code, out, _ = self.run_doctor()
+        self.assertNotIn("CRLF", gate_ids(out), out)
+        self.assertIn(code, (0, 2), out)
+
+
+if __name__ == "__main__":
+    unittest.main()

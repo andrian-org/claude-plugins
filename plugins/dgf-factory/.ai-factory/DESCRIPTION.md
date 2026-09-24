@@ -27,29 +27,42 @@ Setup stage. The repository currently contains:
 - `skills/dgf-doctor/` — the walking-skeleton slice: `SKILL.md` plus `scripts/doctor.py`,
   which exercises auto-discovery, `${CLAUDE_PLUGIN_ROOT}`, the exit-code contract and the
   `dgf-gate-result` block without needing any DGF facts
-- `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention), four stamped
-  facts files (`schema-families`, `component-catalogue`, `composition-specs`,
-  `naming-conventions`), and `schemas/` — the vendored set (69 JSON + 9 XSD + grammar
-  reference + 3 standalone contracts, ~3.5 MB) with a `MANIFEST.md` of dialects and
-  membership. Shipped, so it names no DGF repository path
+- `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
+  machine-read table contract), six stamped facts files (`schema-families`,
+  `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,
+  `process-model`) carrying ten machine-read tables the validators load, and `schemas/` — the
+  vendored set (69 JSON + 9 XSD + grammar reference + 3 standalone contracts, ~3.5 MB) with a
+  `MANIFEST.md` of dialects and membership. Shipped, so it names no DGF repository path
 - `provenance/` — **not shipped.** One ledger per knowledge file, recording the DGF files its
   facts were read from with a `sha256` each; the schema ledger adds the DGF commit and each
   vendored file's upstream and shipped digests
 - `tools/` — **not shipped.** `check-dual-schema-docs.sh` (the repo-maintenance contract check,
-  seven sections), `check_knowledge_stamps.py` (stamps, ledgers and vendored digests) and
-  `vendor_schemas.py` (re-vendors DGF's schema set, rewriting DGF paths on the way in)
-- `scripts/` — shipped, and empty until milestone 8's validators land
-- `docs/adr/` — 13 decision records, 0001–0013; the index is `docs/adr/README.md`
+  eight sections; section 8 runs the unit tests), `check_knowledge_stamps.py` (stamps, ledgers
+  and vendored digests), `vendor_schemas.py` (re-vendors DGF's schema set, rewriting DGF paths
+  on the way in), `run_known_good.py` with `known-good-exceptions.txt` (every validator over
+  DGF's samples, each error excused with evidence — CLEAN at DGF `aa1d5c4c2`), `check_drift.py`
+  (the ledgers' digests against a DGF checkout — CLEAN, 7 ledgers, 243 sources) and
+  `requirements.in`
+- `scripts/` — shipped. The four validators skills call: `validate_config.py` (family, schema
+  read the runtime's way, parity), `resolve_components.py` (component types, component file
+  references), `validate_process.py` (process structure and semantics, `CHANGE_STATE`
+  targets) and `route_means.py` (ADR 0010's order of means). With them, their shared `lib/` and
+  `requirements.txt`: `lxml` 6.1.3 and `jsonschema` 4.25.1, exact pins with hashes, Python 3.9
+  floor
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, and the 24-case known-bad
+  corpus (one per blocking finding and exit-3 path)
+- `docs/adr/` — 16 decision records, 0001–0016; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: the rest of the `dgf-*` skill corpus, the deterministic dual-schema
-validators and the drift check (milestone 8), and the marketplace entry.
+Not yet created: the rest of the `dgf-*` skill corpus and the marketplace entry.
 
 ## Tech Stack
 
 - **Primary medium:** Markdown — skills are written prompt-as-program (numbered steps,
   explicit gates, mandatory outputs, STOP conditions), not prose descriptions
-- **Scripting:** Node.js (`.mjs`) and Python 3 for deterministic validators and helpers
+- **Scripting:** Node.js (`.mjs`) and Python 3.9+ for deterministic validators and helpers;
+  the validators need `lxml` and `jsonschema`, hash-pinned in `scripts/requirements.txt` and
+  compiled from `tools/requirements.in` with `uv`
 - **Packaging:** Claude Code plugin — `.claude-plugin/plugin.json` + marketplace entry
 - **Target framework (the domain being encoded):** DotGov Framework — .NET 10 / Angular 19
 - **Build system:** none. There is no compile step; the artifacts are Markdown and scripts
@@ -72,18 +85,21 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 | Modern JSON schemas: generated from `IComponentConfiguration` classes, committed and MCP-served | `src/Tools/dgf-mcp/Schemas/Json/` (69 files), `Schemas/Json/README.md` |
 | Legacy XML schemas: 9 XSDs plus an auto-generated grammar reference | `src/Tools/dgf-mcp/Schemas/XSD/`, `Schemas/XmlReference/form.reference.json` |
 | The MCP validation surface is **split by family** | `list_available_{json,xsd}_schemas`, `validate_component_config` vs `validate_*_xml` |
-| **Schema availability is not runtime parity** — `Workflow` and `ProcessFlow` have JSON schemas but the runtime reads only `_workflow.xml` / `_process.xml` | `docs/wiki/AI-Authoring/format-coverage.md` |
+| **Schema availability is not runtime parity** — `Workflow` and `ProcessFlow` have JSON schemas but the runtime reads only `_workflow.xml` / `process.xml` (the page itself says `_process.xml`; the loader opens `process.xml`) | `docs/wiki/AI-Authoring/format-coverage.md`; `ProcessManager.cs` |
 | Current AI generation policy is **XML for all five legacy artifact types** (form, workflow, process, settings, view), dated Wave 1 | `docs/wiki/AI-Authoring/format-coverage.md` |
 | `docs/schemas/` holds only 3 hand-authored standalone contracts, not the generated set | `componentValidator`, `dataFetcherConfiguration`, `eventBase` |
 | Hosted DGF documentation MCP | `https://dgf-mcp.dotgov.uk/mcp` |
 | Auth: JWT Bearer + OIDC (Azure AD + DGPass); tests: xUnit/FluentAssertions/Moq + Jest/Playwright | `AGENTS.md` tech stack |
 | DGF version source of truth is **`1.1.11`**, set only under `Condition="'$(Configuration)' == 'ClientDebug'"` despite a comment claiming all configurations share it | `src/Directory.Build.props` L30-34 |
 | **Nothing first-party version-stamps DGF knowledge** — no `version` on the XSDs, none in the generated JSON schemas, no compatibility matrix; release notes are the only version-aware surface | `Schemas/XSD/`, `Schemas/Json/`, `docs/wiki/Release-notes/` |
-| Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0006](../docs/adr/0006-process-verification-revised.md) |
+| Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) |
 | A process **cannot be executed headlessly** — stepping one needs a case record and therefore the database | `DGF.OM/Process/StateProcess/InstanceHandler.cs` `GetProcessMapAsync` |
 | Workspaces inherit from a **base workspace** (`webasm`): `FmPath` resolves in the selected workspace, `FmBasePath` in the base, so a base artifact is live in every application | `src/Core/DGF.Kernel/WorkspaceSettings.cs` |
-| Neither Python's nor Node's standard library validates XSD or JSON Schema, and a plugin cannot install its own dependencies — so validators run on Python with `lxml` + `jsonschema`, installed by the user and detected as missing (exit `3`) | verified 2026-09-23 — see [ADR 0007](../docs/adr/0007-validator-runtime.md) |
+| Neither Python's nor Node's standard library validates XSD or JSON Schema, and a plugin cannot install its own dependencies — so validators run on Python with `lxml` + `jsonschema`, installed by the user and detected as missing (exit `3`). `lxml` bundles its own libxml2 (2.14.6), not the system `xmllint`'s | verified 2026-09-24 — see [ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md) |
 | Modern components are JSON files under `<workspace>/FM/_COMPONENTS/<Type>/<name>.json`, loaded only as `.json`; a `BASE:` prefix resolves the same path in `webasm` | `src/Components/DGF.Components.Shared/ComponentFileLoadService.cs:14-25` — see [ADR 0010](../docs/adr/0010-dgf-implement-scope.md) |
+| The runtime reads component JSON with **System.Text.Json**, one options object: property names case-insensitive, comments skipped, `JsonStringEnumConverter` (enum names in any case), no `NumberHandling` (a number never reads from a string), and unknown properties silently ignored. The `type` key alone is exact-case | `src/DGF.API/ConfigureServices.cs:238-258`; `src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs` — `knowledge/json-reader.md`, [ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md) |
+| `WorkflowManager.GetWorkPath` has **one branch per name form and no fallback**; existence is `File.Exists` on the built path, case-sensitive on Linux. A process `action`'s bare name is process-local | `src/Core/DGF.OM/Workflow/WorkflowManager.cs:15-40`; `StateProcessClient.cs` `ResolveUiSettings` — `knowledge/process-model.md` §2, [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) |
+| The vendored XSDs **lag the runtime**: against DGF's samples, `process.xsd` fails 2/23 files and `workflow.xsd` 211/341. Only `process.xsd` has a runtime-divergence list; failures against the other legacy grammars are warnings until each has one | lxml 6.1.3 over `src/samples/workspaces`, 2026-09-24 — [ADR 0016](../docs/adr/0016-legacy-xsd-lag.md) |
 
 **Correction to the blueprint:** Part 2 was written from a one-sentence description
 that characterised DGF as having "workflows and BPMN-like processes". No BPMN engine
@@ -92,7 +108,7 @@ process specification exists, is wrong. DGF ships formal, machine-checkable proc
 workflow grammars: `process.xsd` (root `Process` → `OnStart`, `States`) and
 `workflow.xsd` (root `Workflow` → `Sequence`, `Input`), which are state-machine-shaped
 rather than BPMN. `format-coverage.md` confirms both are the *live runtime formats* —
-`_process.xml` and `_workflow.xml` are XML-only today. The proposed `/dgf-process` skill
+`process.xml` and `_workflow.xml` are XML-only today. The proposed `/dgf-process` skill
 should therefore be re-derived from those two XSDs, alongside `eventBase.schema.json`
 and `dataFetcherConfiguration.schema.json`.
 
@@ -102,7 +118,8 @@ have committed schemas, and the DGF MCP exposes headless validators for each) an
 other five are recorded in [`docs/adr/`](../docs/adr/README.md): **#3** authoring entry point
 and scope ([0004](../docs/adr/0004-authoring-entry-point.md)), **#7** default team rules
 ([0005](../docs/adr/0005-default-team-rules.md)), **#5** process verification
-([0006](../docs/adr/0006-process-verification-revised.md), superseding 0002), **#6** version
+([0014](../docs/adr/0014-process-verification-runtime-resolution.md), superseding 0006, which
+superseded 0002), **#6** version
 gating ([0013](../docs/adr/0013-version-gating-provenance-ledger.md), superseding 0008 and
 0003), and **#4**, decided on 2026-09-23 ([0010](../docs/adr/0010-dgf-implement-scope.md)):
 `/dgf-implement` composes configuration. It uses modern JSON under `FM/_COMPONENTS/` first,
@@ -135,6 +152,8 @@ validator generates false negatives on every legacy XML configuration. And it mu
 **parity-aware**: a validator that reports success because a `Workflow` config matched
 `WorkflowConfiguration.schema.json` generates a false positive, because the runtime reads
 only `_workflow.xml`. See [`docs/dgf-schemas.md`](../docs/dgf-schemas.md).
+`scripts/validate_config.py` does both, and reads JSON the way the runtime does
+([ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md)).
 
 Artifact root is `.dgf-factory/`, mirroring `.ai-factory/`.
 
@@ -176,11 +195,13 @@ in [ADR 0001](../docs/adr/0001-independent-plugin-with-ai-factory-derived-archit
   covers both families — modern JSON and legacy XSD — or explicitly scopes itself to one
   and says why. Defaulting to JSON is the failure mode to design against.
 - **Parity-aware claims.** Never state that a component is JSON-capable without citing its
-  runtime column in `format-coverage.md`. A schema existing is not the runtime reading it.
+  runtime column in `format-coverage.md`, shipped as `knowledge/schema-families.md` §6 (all 67
+  rows, [ADR 0011](../docs/adr/0011-schema-parity-authority.md)). A schema existing is not the
+  runtime reading it.
 - **Token budget.** Declaring playwright and chrome-devtools costs roughly 12,000 tokens of
   tool schema per session, so browser MCP servers are not declared in this project. This is
   also why browser-driven checks stay out of the gates — see
-  [ADR 0006](../docs/adr/0006-process-verification-revised.md) §4.
+  [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) §5.
 - **Line endings.** LF enforced repo-wide via `.gitattributes` — CRLF breaks shebangs and
   heredocs in plugin scripts.
 - **Portability.** Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`, never absolute paths.

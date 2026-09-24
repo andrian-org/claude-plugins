@@ -29,8 +29,8 @@ the folder vocabulary is translated.
 
 - **Project type:** Claude Code plugin — a corpus of Markdown prompt-programs plus
   deterministic validator scripts. No compile step, no runtime, no database.
-- **Tech stack:** Markdown (prompt-as-program), Python 3 and Node.js (`.mjs`) for
-  validators, packaged as a Claude Code plugin.
+- **Tech stack:** Markdown (prompt-as-program), Python 3.9+ (`lxml`, `jsonschema`) and
+  Node.js (`.mjs`) for validators, packaged as a Claude Code plugin.
 - **Key factor:** **feature independence is very high.** Every skill is auto-discovered
   and fires on its own description; nothing calls a skill as a function. Slices that own
   their material end-to-end match that reality, while a technical-layer split would
@@ -82,7 +82,9 @@ plugins/dgf-factory/
 │   ├── component-catalogue.md          #   the 34 IComponentService<TSource> registrations, and why 4 other counts differ
 │   ├── composition-specs.md            #   declarative XML/JSON composition + EventBase verbs
 │   ├── naming-conventions.md
-│   ├── schema-families.md              #   JSON vs XSD: parity, correspondence, resolution
+│   ├── schema-families.md              #   JSON vs XSD: parity (67 rows), correspondence, resolution
+│   ├── json-reader.md                  #   how the runtime reads component JSON; dispatch, folders, file refs
+│   ├── process-model.md                #   process.xsd vs the runtime model; reference resolution
 │   └── schemas/                        #   vendored copies, version-stamped
 │       ├── MANIFEST.md                 #     DGF version, date, per-file dialect and membership
 │       ├── json/                       #     generated *.schema.json (modern component config)
@@ -90,19 +92,38 @@ plugins/dgf-factory/
 │       └── standalone/                 #     hand-authored contracts from DGF docs/schemas/
 │
 ├── scripts/                            # ── SHARED INFRASTRUCTURE ── cross-slice validators
-│   ├── validate_config.py              #   dual-dispatch: JSON Schema or XSD, by family
-│   ├── resolve_components.py           #   every referenced component exists
-│   └── lib/
-│       ├── detect_family.py            #   JSON vs XSD resolution + runtime-parity lookup
-│       └── gate_result.py              #   emits the dgf-gate-result block
+│   ├── validate_config.py              #   family first, schema read the runtime's way, parity gate
+│   ├── resolve_components.py           #   component types legal; referenced component files exist
+│   ├── validate_process.py             #   process structure + semantics; CHANGE_STATE targets
+│   ├── route_means.py                  #   ADR 0010's order of means: JSON or legacy XML
+│   ├── requirements.txt                #   lxml + jsonschema, exact pins with hashes
+│   └── lib/                            #   one module per concern
+│       ├── report.py                   #     findings, codes → exit codes, verdict, DEBUG trace
+│       ├── deps.py                     #     missing lxml/jsonschema → exit 3 with the install command
+│       ├── knowledge.py                #     machine-read table loader — stdlib, no package imports
+│       ├── cli.py                      #     argument parsing (usage = exit 3), the directory walk
+│       ├── family.py                   #     JSON vs XSD resolution, from bytes
+│       ├── json_reader.py, prepass.py  #     the runtime's JSON reader; NJsonSchema allOf merge
+│       ├── json_resolve.py             #     which schema a JSON file is read against
+│       ├── json_validate.py            #     jsonschema extended with the reader semantics + dispatch
+│       ├── xsd.py                      #     grammar selection, two-pass process.xml, XSD lag
+│       ├── parity.py                   #     the runtime-parity gate
+│       ├── workspace.py                #     workspaces-root model, exact-case reference resolution
+│       ├── process_checks.py           #     dead transitions, reachability, workflow/change-state refs
+│       └── gate_result.py              #     emits the dgf-gate-result block (milestone 10)
 │
 ├── .mcp.json                           # MCP servers (DGF docs MCP only)
 │
 │   ── NOT SHIPPED ── everything below is maintainer material
+├── tests/                              # ── TESTS ── unittest suite; fixtures/unit/, fixtures/known-bad/
 ├── tools/                              # ── MAINTENANCE ── run by contributors, never by a skill
-│   ├── check-dual-schema-docs.sh       #   documentation and decision-record contracts
+│   ├── check-dual-schema-docs.sh       #   doc, decision-record, manifest, stamp contracts; runs tests/
 │   ├── check_knowledge_stamps.py       #   stamps, ledgers, vendored-schema digests
-│   └── vendor_schemas.py               #   re-vendors DGF's schemas, rewriting DGF paths
+│   ├── vendor_schemas.py               #   re-vendors DGF's schemas, rewriting DGF paths
+│   ├── run_known_good.py               #   every validator over DGF's samples, held to the exceptions file
+│   ├── known-good-exceptions.txt       #   evidenced excuses + the warning baseline
+│   ├── check_drift.py                  #   provenance ledgers' digests against a DGF checkout
+│   └── requirements.in                 #   the validator dependencies, compiled with uv
 ├── provenance/                         # ── PROVENANCE ── where each knowledge fact came from
 │   └── knowledge/                      #   one ledger per knowledge file, same relative path
 │       └── schemas/MANIFEST.md         #     DGF commit, upstream + shipped sha256 per file
@@ -111,10 +132,10 @@ plugins/dgf-factory/
 └── .ai-factory/                        # pipeline artifacts
 ```
 
-The tree is the target shape. Today only `skills/dgf-doctor/`, `knowledge/`, `tools/`,
-`provenance/` and the files around them exist. The other slices, `agents/`, and the shared
-validators in `scripts/` arrive with roadmap milestones 8 onward, and `scripts/` is absent
-until then.
+The tree is the target shape. Today `skills/dgf-doctor/`, `knowledge/`, `scripts/` (all but
+`lib/gate_result.py`), `tests/`, `tools/`, `provenance/` and the files around them exist.
+The other slices and `agents/` arrive with roadmap milestones 9 onward, and
+`lib/gate_result.py` with the gate block in milestone 10.
 
 Root `knowledge/` and `scripts/` are not auto-discovered — they are plain files, reached
 from a slice by `${CLAUDE_PLUGIN_ROOT}/knowledge/...` and
@@ -142,6 +163,13 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   `${CLAUDE_PLUGIN_ROOT}/scripts/`
 - ✅ A shared script reads `knowledge/schemas/json/`, `knowledge/schemas/xsd/` and
   `knowledge/schemas/standalone/`
+- ✅ A shared script reads a knowledge fact only through a **machine-read table**, found by
+  its `<!-- machine-read: <id> -->` marker and loaded by `scripts/lib/knowledge.py`
+  (`knowledge/README.md` §7). The marker is the only coupling. The knowledge file still names
+  no script, and a malformed table is exit `3`, never a fallback
+- ✅ A slice's own script may load a shared library module by path: `doctor.py` loads
+  `scripts/lib/knowledge.py` to check every table. That is why `knowledge.py` is stdlib-only
+  and imports nothing from its own package
 - ✅ A slice hands work to another slice by **invoking it as a command** (`/dgf-verify`)
   or by **writing an artifact** the other slice reads
 - ❌ A slice reads another slice's `references/`, `scripts/` or `templates/` directly —
@@ -154,10 +182,13 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   authored in modern JSON **and** legacy XML; a single-family consumer silently passes
   everything in the other family.
 - ✅ A maintenance tool in `tools/` reads `knowledge/`, `provenance/` and a DGF checkout,
-  and may import a shipped script to share one definition — `vendor_schemas.py` imports
-  `doctor.py`'s `DGF_PATH_PATTERN`
-- ❌ A shipped file reads, calls or links anything in `tools/` or `provenance/`. They are
-  not part of what a developer runs, and the direction is maintainer → shipped only.
+  and may import a shipped script to share one definition. `vendor_schemas.py` imports
+  `doctor.py`'s `DGF_PATH_PATTERN`; `run_known_good.py` imports `scripts/lib/` and the
+  validator modules to run them over DGF's samples; `check_drift.py` loads
+  `check_knowledge_stamps.py`'s ledger parser instead of re-implementing it
+- ❌ A shipped file reads, calls, imports or links anything in `tools/`, `tests/` or
+  `provenance/`. They are not part of what a developer runs, and the direction is maintainer →
+  shipped only.
 - ❌ A shipped file names a DGF repository path — `src/…`, `docs/wiki/…`, a checkout
   folder. Cite the knowledge base, a DGF docs MCP call (`get_doc_page('<page>')`) or a DGF
   type name. `doctor.py` blocks on it as `DGF_PATH`.
@@ -333,7 +364,10 @@ def main() -> None:
         errors, warnings = validate_xsd(raw, SCHEMAS / 'xsd')
 
     # Schema-valid is not the same as runtime-supported: Workflow and ProcessFlow
-    # validate against JSON schemas the runtime never reads.
+    # validate against JSON schemas the runtime never reads. The gate reads the shipped
+    # parity table, knowledge/schema-families.md §6 — all 67 format-coverage.md rows
+    # (ADR 0011) — for the top-level component only: a ✗ row is PARITY_NOT_RUNTIME and a
+    # ◐ row PARITY_PARTIAL, both exit 2. XML artifacts are what the runtime reads.
     warnings += runtime_parity_warnings(raw, family)
 
     for error in errors:
@@ -355,6 +389,11 @@ if __name__ == '__main__':
 
 Note the direction: `scripts/` reads `knowledge/`, never the reverse, and never a slice.
 
+The sketch shows the shape only. The real `scripts/validate_config.py` is a composition of
+`scripts/lib/` modules. It reads bytes rather than text, strips JSON comments, and resolves
+the family by declaration or by vendored root element (`docs/dgf-schemas.md` §7). It also
+reads JSON the way the runtime does (ADR 0015).
+
 ## Anti-Patterns
 
 - ❌ **DGF facts inlined in a `SKILL.md`.** The moment a component name, a verb or a
@@ -370,7 +409,13 @@ Note the direction: `scripts/` reads `knowledge/`, never the reverse, and never 
   defaulting to JSON is not.
 - ❌ **Treating a passing JSON validation as runtime support.** `Workflow` and
   `ProcessFlow` validate against their JSON schemas while the runtime reads only
-  `_workflow.xml` and `_process.xml`. Schema availability is not runtime parity.
+  `_workflow.xml` and `process.xml`. Schema availability is not runtime parity.
+- ❌ **Validating JSON with a strict, case-sensitive validator.** The runtime matches property
+  and enum names in any case and ignores unknown properties, so a strict check fails configs
+  the runtime serves. Read it the runtime's way ([ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md)).
+- ❌ **Excusing a validator gap in `tools/known-good-exceptions.txt`.** An exception records a
+  sample defect with its runtime code path; a validator that disagrees with the runtime is
+  fixed instead.
 - ❌ **Inferring the JSON counterpart of an XSD from its filename.** The correspondence is
   partial and evidence-based — `options.xsd` is *not* `StaticOptionsDataSource`. Use the
   map in [`docs/dgf-schemas.md`](../docs/dgf-schemas.md).

@@ -1,8 +1,8 @@
 ---
 id: 0007
 title: Validators run on Python with lxml and jsonschema
-status: accepted
-date: 2026-09-23
+status: superseded-by-0015
+date: 2026-09-24
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [validation, runtime, dependencies]

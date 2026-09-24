@@ -1,0 +1,10 @@
+{
+  "cli": "validate_config.py",
+  "args": [
+    "workspaces/app/FM/_COMPONENTS/DataSource/d.json"
+  ],
+  "exit": 1,
+  "codes": [
+    "UNKNOWN_DISCRIMINATOR"
+  ]
+}

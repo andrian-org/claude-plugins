@@ -1,8 +1,8 @@
 ---
 id: 0011
 title: Resolve the schema family first; format-coverage.md is the only runtime-parity authority
-status: proposed
-date: 2026-09-23
+status: accepted
+date: 2026-09-24
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [schemas, parity, policy]
@@ -10,10 +10,11 @@ tags: [schemas, parity, policy]
 
 # 0011 — Resolve the schema family first; `format-coverage.md` is the only runtime-parity authority
 
-**Status: proposed.** This rule has been in force since the "Verified DGF Fact Base" milestone
-(2026-09-19) as a contract in [DGF Schemas](../dgf-schemas.md) and a rule in `AGENTS.md`, but no
-ADR records it or says when it must be revisited. It must be accepted **before milestone 8's
-parity check is written**, because that check hard-codes the authority this ADR names.
+**Status: accepted** (2026-09-24, Andrian Mamei). This rule has been in force since the
+"Verified DGF Fact Base" milestone (2026-09-19) as a contract in [DGF Schemas](../dgf-schemas.md)
+and a rule in `AGENTS.md`, but no ADR recorded it or said when it must be revisited. It is
+accepted **before milestone 8's parity check is written**, because that check reads the authority
+this ADR names.
 
 ## Context
 
@@ -67,8 +68,8 @@ other source, and the XML-always policy is reviewed on every re-vendor through t
 ### B. Wait for the MCP capability matrix
 
 Query parity from the MCP once Wave 1.5 lands. It is the right long-term answer, but it does
-not exist, has no date, and [ADR 0006](0006-process-verification-revised.md) §3 already rules
-out a network dependency in the gate.
+not exist, has no date, and [ADR 0014](0014-process-verification-runtime-resolution.md) §4 already
+rules out a network dependency in the gate.
 
 ### C. Derive parity from the runtime
 
@@ -78,7 +79,8 @@ shows that "the runtime can parse it" and "you should author it" are different q
 
 ## Decision
 
-**Recommended, not yet accepted:**
+**`format-coverage.md` is the only runtime-parity authority; shipped files read its rows from the
+shipped parity table, and every task resolves the schema family before it parses.**
 
 - **Every task touching component configuration resolves the schema family before parsing,
   and handles both families.** An unknown family is exit `3`; a document valid against neither
@@ -86,7 +88,14 @@ shows that "the runtime can parse it" and "you should author it" are different q
 - **A schema pass is never reported as runtime support.** A config valid in a family the
   runtime does not read for that component is exit `2`, `schema-valid but not runtime-supported`.
 - **`docs/wiki/AI-Authoring/format-coverage.md` is the only authority for runtime parity.** It is
-  cited per row and tracked by digest.
+  cited per row and tracked by digest in the provenance ledgers.
+- **Shipped files read parity from the shipped copy.** A developer's install has no DGF checkout,
+  and a shipped file names no DGF path ([ADR 0012](0012-no-dgf-paths-in-shipped-files.md)). So
+  validators and skills read the runtime-parity table in `knowledge/schema-families.md` §6, which
+  holds every `format-coverage.md` row verbatim, and cite the page as
+  `get_doc_page('AI-Authoring/format-coverage.md')`. The table is re-read from the page, and its
+  `review_date` renewed, on every re-vendor. This is the reading
+  [ADR 0010](0010-dgf-implement-scope.md)'s 2026-09-23 erratum already applies to its route.
 - **XML-always for the five legacy artifact types holds until DGF's Wave 1.5.** Its
   `review_date` is renewed on every re-vendor. A change to the page's digest, or the capability
   matrix appearing as an MCP tool, reopens this ADR.
@@ -112,7 +121,8 @@ written to prevent.
 
 ### Follow-ups
 
-- **Accept, amend or reject before milestone 8's parity check is written.**
+- Extend `knowledge/schema-families.md` §6 to every `format-coverage.md` row before the parity
+  check reads it (milestone 8).
 - On acceptance, cite this ADR from the `AGENTS.md` rule and from `.ai-factory/rules/base.md`
   §"DGF Schema Handling".
 - No new tracking is needed. `docs/wiki/AI-Authoring/format-coverage.md` is already a `sources`
