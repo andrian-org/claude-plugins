@@ -112,6 +112,14 @@ class ResolveComponents(unittest.TestCase):
                                     APP + "_COMPONENTS/Text/intro.json": '{"type": "text", "name": "intro"}'})
         self.assertEqual(code, 0, out)
 
+    def test_a_rooted_path_is_unresolved(self):
+        # Path.Combine discards the workspace before a rooted segment, so `/intro` never loads.
+        child = {"type": "text", "name": "t", "path": "/intro"}
+        result = self.run_on({APP + "_COMPONENTS/Page/p.json": page(child),
+                              APP + "_COMPONENTS/Text/intro.json": '{"type": "text", "name": "intro"}'})
+        self.assert_result(result, 1, "COMPONENT_FILE_UNRESOLVED")
+        self.assertIn("rooted", result[1])
+
     def test_path_is_not_expanded_deeper_or_in_a_template(self):
         deep = {"type": "row", "content": [{"type": "text", "path": "absent"}]}
         self.assertEqual(self.run_on({APP + "_COMPONENTS/Page/p.json": page(deep)})[0], 0)

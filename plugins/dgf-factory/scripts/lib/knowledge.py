@@ -4,7 +4,7 @@ The contract is knowledge/README.md §7: a table is read only when the line
 immediately above its header row is `<!-- machine-read: <table-id> -->`; its
 header cells must be exactly the ones declared here; cells are stripped of
 whitespace and one pair of surrounding backticks; the first column is a unique
-key; the table ends at the first line that is not a table row. Any deviation is
+key; the table ends at a blank line, and any other non-row line is malformed. Any deviation is
 a KnowledgeTableError, which a validator turns into exit 3 and doctor.py into the
 error KNOWLEDGE_TABLE.
 
@@ -144,8 +144,13 @@ def _parse(table_id, lines, headers, allowed):
 
     rows, keys = [], set()
     for offset, line in enumerate(lines[start + 2:], start + 3):
-        if not _is_row(line):
+        if not line.strip():
             break
+        if not _is_row(line):
+            # Markdown still renders a row that lost its closing pipe; stopping here would
+            # silently drop it and every row after it.
+            raise KnowledgeTableError(table_id, f"line {offset} is not a `| … |` row — a table ends at a "
+                                                f"blank line")
         cells = _cells(line)
         if len(cells) != len(headers):
             raise KnowledgeTableError(table_id, f"line {offset} has {len(cells)} cells, expected {len(headers)}")
@@ -178,6 +183,8 @@ def load(table_id, knowledge_dir=None):
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
         raise KnowledgeTableError(table_id, f"cannot read {filename}: {exc.strerror}") from exc
+    except UnicodeDecodeError as exc:
+        raise KnowledgeTableError(table_id, f"{filename} is not UTF-8: {exc}") from exc
     rows = _parse(table_id, lines, headers, allowed)
     _debug("loaded", table=table_id, file=filename, rows=len(rows))
     _CACHE[cache_key] = rows

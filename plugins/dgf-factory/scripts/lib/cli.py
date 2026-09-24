@@ -32,9 +32,10 @@ def read_as_component_json(path):
 
     Component JSON is read only from a workspace's FM/_COMPONENTS/ (knowledge/json-reader.md
     §4); a JSON file elsewhere under FM/ is read by no loader, so it is not configuration.
-    A file outside every FM/ is a draft, validated by its own `type`.
+    A file outside every FM/ is a draft, validated by its own `type`. Split from the
+    absolute path, so a walk started inside FM/ sees the same folders.
     """
-    parts = Path(path).parts
+    parts = Path(os.path.abspath(path)).parts
     if "FM" not in parts:
         return True
     last_fm = len(parts) - 1 - parts[::-1].index("FM")

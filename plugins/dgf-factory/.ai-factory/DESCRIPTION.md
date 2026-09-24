@@ -49,7 +49,7 @@ Setup stage. The repository currently contains:
   targets) and `route_means.py` (ADR 0010's order of means). With them, their shared `lib/` and
   `requirements.txt`: `lxml` 6.1.3 and `jsonschema` 4.25.1, exact pins with hashes, Python 3.9
   floor
-- `tests/` — **not shipped.** 234 `unittest` tests, unit fixtures, and the 24-case known-bad
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, and the 24-case known-bad
   corpus (one per blocking finding and exit-3 path)
 - `docs/adr/` — 16 decision records, 0001–0016; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`

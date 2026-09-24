@@ -148,6 +148,17 @@ class ValidateConfig(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("FAMILY:"), 1, out)
 
+    def test_the_verdict_does_not_depend_on_the_working_directory(self):
+        root = helpers.make_root(self.tmp, {APP + "_COMPONENTS/Page/t.json": '{"type": "text", "name": "t"}',
+                                            APP + "_DATA/T/_forms/F/_form.json": '{"fields": []}'})
+        inside = root / APP / "_COMPONENTS"
+        code, out, _ = helpers.run_cli("validate_config.py", "Page/t.json", cwd=inside)
+        self.assertEqual(code, 2, out)
+        self.assertIn(" TYPE_FOLDER_MISMATCH ", out)
+        code, out, _ = helpers.run_cli("validate_config.py", ".", cwd=root / APP)
+        self.assertEqual(code, 2, out)
+        self.assertEqual(out.count("FAMILY:"), 1, out)
+
     def test_named_json_outside_components_is_still_checked(self):
         result = self.run_on({APP + "_DATA/T/_forms/F/_form.json": '{"fields": []}'})
         self.assert_result(result, 3, "SCHEMA_UNSELECTABLE")

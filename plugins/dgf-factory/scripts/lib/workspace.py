@@ -44,7 +44,7 @@ def owning_workspace(path):
 def workspaces_root(path, override=None):
     """The workspaces root: `override`, else the owning workspace's parent, else None."""
     if override:
-        return Path(override)
+        return Path(os.path.abspath(override))
     owner = owning_workspace(path)
     return owner.parent if owner is not None else None
 
@@ -102,12 +102,14 @@ def exact_file(base, parts):
 
 @dataclass(frozen=True)
 class Resolved:
-    path: str  # relative to the workspaces root
+    path: str         # relative to the workspaces root; `<app>/…` when `apps` is set
+    apps: tuple = ()  # a webasm reference found in every application: each of them
 
 
 @dataclass(frozen=True)
 class Unresolved:
     path: str
+    reason: str = ""  # why the engine cannot load it, when the path alone does not say
 
 
 @dataclass(frozen=True)
@@ -126,6 +128,9 @@ class AppDependent:
 BASE_PREFIX = "BASE:"
 BASE_SCOPE = "base"
 SELECTED_SCOPE = "selected"
+ROOTED_SCOPE = "rooted"  # a remainder starting with `/`: Path.Combine discards the workspace
+ROOTED_REASON = ("a name starting with `/` is rooted, so Path.Combine drops the workspace path and the engine "
+                 "looks outside every workspace")
 
 
 def is_base(owner):
@@ -133,19 +138,34 @@ def is_base(owner):
 
 
 def _segments(name):
-    """A name's path segments, as Path.Combine joins them: empty segments collapse."""
+    """A relative name's path segments: empty segments collapse, as Path.Combine joins them.
+
+    A name that starts with `/` is not relative — the location functions route it
+    to ROOTED_SCOPE before splitting.
+    """
     return [segment for segment in name.split("/") if segment]
+
+
+def _relative(path, root):
+    try:
+        return Path(path).relative_to(root).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
 
 
 def _resolve(scope, parts, owner, root, module_fn, **trace):
     """Look `parts` up in webasm (BASE_SCOPE) or in the selected workspace (SELECTED_SCOPE)."""
-    root = Path(root)
+    root = Path(os.path.abspath(root))
+    if scope == ROOTED_SCOPE:
+        result = Unresolved("/" + "/".join(parts), ROOTED_REASON)
+        report.debug(module_fn, "rooted", result="Unresolved", **trace)
+        return result
     if scope == BASE_SCOPE or not is_base(owner):
         base = root / BASE_WORKSPACE if scope == BASE_SCOPE else Path(owner)
         shown = "/".join([base.name] + parts)
         status, actual = exact_file(base, parts)
         result = (Resolved(shown) if status == OK else
-                  CaseOnly(shown, actual.relative_to(root).as_posix()) if status == CASE_ONLY else
+                  CaseOnly(shown, _relative(actual, root)) if status == CASE_ONLY else
                   Unresolved(shown))
         report.debug(module_fn, "resolved", candidates=[shown], result=type(result).__name__, **trace)
         return result
@@ -153,7 +173,7 @@ def _resolve(scope, parts, owner, root, module_fn, **trace):
     for app in applications(root):
         (resolved_in if exact_file(root / app, parts)[0] == OK else missing_in).append(app)
     shown = "/".join(["<app>"] + parts)
-    result = (Resolved(shown.replace("<app>", resolved_in[0], 1)) if resolved_in and not missing_in else
+    result = (Resolved(shown, tuple(resolved_in)) if resolved_in and not missing_in else
               AppDependent(shown, resolved_in, missing_in))
     report.debug(module_fn, "per application", candidates=[shown], resolved=",".join(resolved_in),
                  missing=",".join(missing_in), result=type(result).__name__, **trace)
@@ -205,10 +225,15 @@ def workflow_location(name):
     slash = name.find("/")
     if slash > 0:
         if name.startswith(BASE_PREFIX):
-            return BASE_SCOPE, [FM, "_PROCESS"] + _segments(name[len(BASE_PREFIX):]) + ["_workflow.xml"]
+            rest = name[len(BASE_PREFIX):]
+            if rest.startswith("/"):
+                return ROOTED_SCOPE, _segments(rest) + ["_workflow.xml"]
+            return BASE_SCOPE, [FM, "_PROCESS"] + _segments(rest) + ["_workflow.xml"]
         return SELECTED_SCOPE, [FM, "_PROCESS"] + _segments(name) + ["_workflow.xml"]
     if slash == 0:
         name = name[1:]
+        if name.startswith("/"):
+            return ROOTED_SCOPE, _segments(name) + ["_workflow.xml"]
     elif name.startswith(BASE_PREFIX):
         return BASE_SCOPE, [FM, "_WORKFLOW"] + _segments(name[len(BASE_PREFIX):]) + ["_workflow.xml"]
     return SELECTED_SCOPE, [FM, "_WORKFLOW"] + _segments(name) + ["_workflow.xml"]
@@ -223,8 +248,11 @@ def resolve_workflow_name(name, owner, root, module_fn="workspace.resolve_workfl
 def resolve_workflow_ref(value, process_ref, owner, root):
     """Resolve a process `action` (or a MultiTask action); None when it is not a workflow reference."""
     kind, name = presentation(value)
-    if kind != "WORKFLOW" or not name:
+    if kind != "WORKFLOW":
         return None
+    if not name:
+        # RenderUiControlAsync reads name[0], which throws on an empty name.
+        return Unresolved("", "has an empty workflow name — the engine throws on it")
     loaded = action_workflow_name(name, process_ref)
     return resolve_workflow_name(loaded, owner, root, "workspace.resolve_workflow_ref", action=value)
 
@@ -239,7 +267,12 @@ def resolve_validation_flow(value, owner, root):
 def process_location(name):
     """(scope, parts under the workspace) for a process name, as ProcessManager.GetWorkPath builds it."""
     if name.startswith(BASE_PREFIX):
-        return BASE_SCOPE, [FM, "_PROCESS"] + _segments(name.replace(BASE_PREFIX, "")) + ["process.xml"]
+        rest = name.replace(BASE_PREFIX, "")
+        if rest.startswith("/"):
+            return ROOTED_SCOPE, _segments(rest) + ["process.xml"]
+        return BASE_SCOPE, [FM, "_PROCESS"] + _segments(rest) + ["process.xml"]
+    if name.startswith("/"):
+        return ROOTED_SCOPE, _segments(name) + ["process.xml"]
     return SELECTED_SCOPE, [FM, "_PROCESS"] + _segments(name) + ["process.xml"]
 
 
@@ -258,7 +291,12 @@ def component_location(name, member):
     (knowledge/json-reader.md §2.1).
     """
     if name[:len(BASE_PREFIX)].lower() == BASE_PREFIX.lower():
-        return BASE_SCOPE, [FM, "_COMPONENTS", member] + _segments(name[len(BASE_PREFIX):] + ".json")
+        rest = name[len(BASE_PREFIX):]
+        if rest.startswith("/"):
+            return ROOTED_SCOPE, _segments(rest + ".json")
+        return BASE_SCOPE, [FM, "_COMPONENTS", member] + _segments(rest + ".json")
+    if name.startswith("/"):
+        return ROOTED_SCOPE, _segments(name + ".json")
     return SELECTED_SCOPE, [FM, "_COMPONENTS", member] + _segments(name + ".json")
 
 

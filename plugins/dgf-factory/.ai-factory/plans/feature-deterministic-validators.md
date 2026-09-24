@@ -1048,7 +1048,48 @@ with `python3 tools/check_knowledge_stamps.py` → 0 and the doctor → `DGF_PAT
      process checks" → "ADR 0014's".
   2. Milestone "Gate Contract Wired": relink 0006 → 0014.
   3. Mark "Deterministic Validators" `[x]` in the Completed table, dated 2026-09-24. Evidence: commits
-     `76cad9d`..`85185e2` plus the Task 21 commit, a CLEAN known-good run and drift check, and 234 unit tests.
+     `76cad9d`..`85185e2` plus the Task 21 commit, a CLEAN known-good run and drift check, and 252 unit tests.
+- **Code review, 2026-09-24 (`/aif-review`, three reviewers; every critical finding re-reproduced).**
+  - **Ten critical defects were fixed, each with a regression test.** The suite is 252 tests, and the known-good run
+    is still CLEAN with unchanged counts.
+    1. A webasm reference found in every application is now checked in each (`Resolved.apps`).
+    2. Pass 2 of the process check accepts any child order, as `XmlSerializer` does. An added element reuses the
+       grammar's own type (`OnInit` → `OnInitType`).
+    3. Names that `Path.Combine` treats as rooted (`/Case`, `BASE:/X`, `//X`) are `Unresolved`.
+    4. `WORKFLOW:` with an empty name is `WORKFLOW_UNRESOLVED`.
+    5. A relative `--workspaces-root` no longer crashes.
+    6. Folder rules and view kinds come from the absolute path, so a verdict no longer depends on the cwd.
+    7. Case-variant keys block only in class-bound objects, not in the runtime's case-sensitive dictionaries. An
+       exact duplicate is named as such.
+    8. Malformed integer strings (`--5`, `²`) are invalid, not a crash.
+    9. A table row without a closing pipe is a malformed table, not its end. `knowledge/README.md` §7 records the
+       contract change.
+    10. A non-UTF-8 knowledge file is a `KnowledgeTableError` (exit 3), not a traceback.
+  - **Suggestions left open.**
+    - Uncaught exceptions still exit 1: `RecursionError` from nesting beyond about 120 levels, and a broken symlink
+      in a walk. Add a top-level guard to exit 3, and check the runtime's JSON `MaxDepth` of 64 as a stamped fact.
+    - `metaData.dataSources: null` blocks.
+    - An integer-string `type` and an unlisted integer for an integer enum are both reported against
+      `json-reader.md` §1–2.
+    - A `//` comment ends only at `\n`, not also at `\r`.
+    - A whitespace-only `validationFlow` blocks.
+    - A lowercase `workflow:` kind passes silently.
+    - The two process passes are matched on (line, path) rather than (line, construct).
+    - Two unreachable-state graph bugs: a state named `OnStart`, and duplicate state names, where the engine uses
+      the first.
+    - A folder named `FM` confuses owner detection, and a wrong `--workspaces-root` is not rejected.
+    - A `..` segment gets no specific message, and a root holding only webasm gets a meaningless warning.
+    - Exception keys match any substring, and there is no per-entry count.
+    - Section 8 passes on 0 tests, and sections 6 and 8 use different interpreters.
+    - The requirement-pin check accepts empty or comment-hashed files.
+    - `--help` exits 3 in two tools.
+    - The install command names `python3`, not `sys.executable`, and suggests `--user` under PEP 668.
+    - The doctor probes the dependencies with `find_spec` instead of importing them.
+    - `exact_child` needs a per-run directory cache (18.7 s → 3.1 s on 8,800 files).
+    - The pre-pass has two latent shapes that would lose constraints after a re-vendor.
+    - `json_resolve.index()` is dead code.
+  - **Pre-existing, outside this branch:** the doctor's shipped-file scan flags binaries as CRLF and skips non-UTF-8
+    text in the `DGF_PATH` check (`df86985`).
 - **Drift check, first run** (Task 20, 2026-09-24): `tools/check_drift.py` against the DGF checkout at `aa1d5c4c2`
   is **CLEAN** — 7 ledgers, 243 cited sources, no drift. HEAD matches the schema ledger's `dgf_commit`, and every
   stamp is `dgf_version` 1.1.11, the checkout's.

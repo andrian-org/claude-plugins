@@ -32,6 +32,30 @@ class Validate(unittest.TestCase):
         self.assertEqual(self.codes(rep), ["SCHEMA_INVALID"])
         self.assertIn("differ only in case", rep.findings[0].message)
 
+    def check_text(self, text, where):
+        from lib import json_reader, json_resolve, json_validate, report
+        document = json_reader.parse_text(text)
+        rep = report.Report(where, "json")
+        json_validate.validate(document, json_resolve.select(WS + where, document), rep)
+        return rep
+
+    def test_case_variant_keys_in_a_dictionary_are_separate_entries(self):
+        # metaData, events and propertyConverters are case-sensitive Dictionary<string, …> at runtime.
+        rep = self.check_text('{"type": "text", "name": "t", "metaData": {"region": 1, "Region": 2}, '
+                              '"events": {"onChange": [], "OnChange": []}}', "Text/t.json")
+        self.assertNotIn("SCHEMA_INVALID", self.codes(rep), [f.message for f in rep.findings])
+
+    def test_an_exact_duplicate_key_is_named_as_such(self):
+        rep = self.check_text('{"type": "text", "name": "t", "name": "u"}', "Text/t.json")
+        self.assertEqual(self.codes(rep), ["SCHEMA_INVALID"])
+        self.assertIn("appears more than once", rep.findings[0].message)
+
+    def test_malformed_integer_strings_are_invalid_not_a_crash(self):
+        for value in ("--5", "²", "1_000"):
+            with self.subTest(value=value):
+                rep = self.check_text(json.dumps({"type": "link", "name": "l", "target": value}), "Link/l.json")
+                self.assertEqual(self.codes(rep), ["SCHEMA_INVALID"])
+
     def test_error_two_levels_down_through_dispatch(self):
         rep = self.check("nested-dispatch-error.json", "Template/s.json")
         self.assertEqual(self.codes(rep), ["SCHEMA_INVALID"])

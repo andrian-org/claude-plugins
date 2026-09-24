@@ -120,6 +120,36 @@ class ProcessStructure(unittest.TestCase):
         self.assertFalse(usable)
         self.assertIn("XSD_INVALID", codes)
 
+    def structure_of(self, process_body):
+        from lxml import etree
+        from lib import report, xsd
+        rep = report.Report("inline", "xsd")
+        xml = ('<Process title="C" table="T" keyName="id" allowBack="false" allowHistory="true" '
+               f'assignTasks="false">{process_body}</Process>')
+        usable = xsd.validate_process_structure(etree.ElementTree(etree.fromstring(xml)), rep)
+        return usable, sorted({f.code for f in rep.findings})
+
+    def test_any_child_order_the_runtime_reads_is_not_blocked(self):
+        # XmlSerializer reads child elements in any order; pass 2 must accept every placement.
+        states = ('<States><State name="A"><OnTimeout interval="1.00:00:00" state="End" />'
+                  '<Transitions><Transition state="End" /></Transitions></State></States>')
+        on_start = ('<OnStart action=""><OnInit><UpdateRecord /></OnInit>'
+                    '<Transitions><Transition state="A" /></Transitions></OnStart>')
+        activities = ('<States><State name="A"><OnInit><Task state="NEW" /><UpdateRecord /></OnInit>'
+                      '<Transitions><Transition state="End" /></Transitions></State></States>')
+        plain = '<OnStart action=""><Transitions><Transition state="A" /></Transitions></OnStart>'
+        for body in (plain + states, on_start + states, plain + activities):
+            with self.subTest(body=body):
+                self.assertEqual(self.structure_of(body), (True, ["XSD_RUNTIME_DIVERGENCE"]))
+
+    def test_an_added_element_keeps_its_own_type(self):
+        body = ('<OnStart action=""><OnInit><Bogus /></OnInit><Transitions><Transition state="A" />'
+                '</Transitions></OnStart><States><State name="A"><Transitions><Transition state="End" />'
+                '</Transitions></State></States>')
+        usable, codes = self.structure_of(body)
+        self.assertFalse(usable)
+        self.assertIn("XSD_INVALID", codes)
+
     def test_vendored_xsd_is_untouched(self):
         from lib import xsd
         xsd.extended_process_schema()

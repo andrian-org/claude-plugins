@@ -158,6 +158,43 @@ class ValidateProcess(unittest.TestCase):
         self.assert_result(result, 2, "WORKFLOW_APP_DEPENDENT")
         self.assertIn("present in a, absent from b", result[1])
 
+    def test_a_webasm_move_is_checked_in_every_application(self):
+        files = {BASE + "_WORKFLOW/Move/_workflow.xml": workflow_xml({"process": "Case", "state": "B"}),
+                 APP + PROCESS: process_xml({"A": {}, "B": {}}),
+                 OTHER + PROCESS: process_xml({"A": {}})}
+        result = self.run_on(files)
+        self.assert_result(result, 1, "CHANGE_STATE_STATE_UNDECLARED")
+        self.assertIn("`b/FM/_PROCESS/Case/process.xml`", result[1])
+
+    def test_a_webasm_move_reaches_the_state_in_every_application(self):
+        root = helpers.make_root(self.tmp, {BASE + "_WORKFLOW/Move/_workflow.xml": workflow_xml({"process": "Case",
+                                                                                                 "state": "B"}),
+                                            APP + PROCESS: process_xml({"A": {}, "B": {}}),
+                                            OTHER + PROCESS: process_xml({"A": {}, "B": {}})})
+        code, out, _ = helpers.run_cli("validate_process.py", "--all", "--workspaces-root", root / "ws")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("UNREACHABLE_STATE", out)
+
+    def test_a_rooted_process_name_is_unresolved(self):
+        files = {APP + "_WORKFLOW/Move/_workflow.xml": workflow_xml({"process": "/Case", "state": "A"}),
+                 APP + PROCESS: process_xml({"A": {}})}
+        result = self.run_on(files)
+        self.assert_result(result, 1, "CHANGE_STATE_PROCESS_UNRESOLVED")
+        self.assertIn("rooted", result[1])
+
+    def test_an_empty_workflow_name_is_unresolved(self):
+        result = self.run_on({APP + PROCESS: process_xml({"A": {"action": "WORKFLOW:"}})})
+        self.assert_result(result, 1, "WORKFLOW_UNRESOLVED")
+        self.assertNotIn("NOT RUN: workflow-reference", result[1])
+
+    def test_a_relative_workspaces_root_does_not_crash(self):
+        root = helpers.make_root(self.tmp, {APP + PROCESS: process_xml({"A": {"action": "WORKFLOW:/w"}}),
+                                            APP + "_WORKFLOW/W/_workflow.xml": EMPTY_WORKFLOW})
+        code, out, err = helpers.run_cli("validate_process.py", "--all", "--workspaces-root", "ws", cwd=root)
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(" CASE_ONLY_MATCH ", out)
+        self.assertNotIn("Traceback", err)
+
     # --- structure ----------------------------------------------------------------------
 
     def test_invalid_structure_skips_the_semantic_checks(self):

@@ -12,6 +12,7 @@ command: one vendored filename contains a backtick.
 """
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -151,8 +152,12 @@ class Selection:
 
 
 def components_path(path):
-    """The parts of `path` below <workspace>/FM/_COMPONENTS, or None outside it."""
-    parts = Path(path).parts
+    """The parts of `path` below <workspace>/FM/_COMPONENTS, or None outside it.
+
+    Split from the absolute path: a path relative to a directory inside FM/ does
+    not name the FM/ it sits in, and the folder rules must not depend on the cwd.
+    """
+    parts = Path(os.path.abspath(path)).parts
     for index_ in range(len(parts) - 1, 0, -1):
         if parts[index_] == "_COMPONENTS" and parts[index_ - 1] == "FM":
             return parts[index_ + 1:]

@@ -167,6 +167,29 @@ class Resolvers(unittest.TestCase):
         self.assertEqual(result, workspace.CaseOnly("a/FM/_WORKFLOW/mixed/_workflow.xml",
                                                     "a/FM/_WORKFLOW/Mixed/_Workflow.xml"))
 
+    def test_a_webasm_reference_found_everywhere_keeps_every_application(self):
+        result = self.ref("WORKFLOW:/Shared", "BASE:Review", self.base)
+        self.assertEqual(result, workspace.Resolved("<app>/FM/_WORKFLOW/Shared/_workflow.xml", ("a", "b")))
+
+    def test_rooted_names_never_resolve(self):
+        # Path.Combine discards everything before a rooted segment, as the engine's .NET does.
+        for result in (workspace.resolve_process("/Case", self.app, self.root),
+                       workspace.resolve_process("BASE:/BQ", self.app, self.root),
+                       self.ref("WORKFLOW:BASE:/Base", "Case", self.app),
+                       self.ref("WORKFLOW://OnlyA", "Case", self.app),
+                       workspace.resolve_component_file("/home", "Page", self.app, self.root),
+                       workspace.resolve_component_file("base:/home", "Page", self.app, self.root)):
+            self.assertIsInstance(result, workspace.Unresolved)
+            self.assertEqual(result.reason, workspace.ROOTED_REASON)
+
+    def test_an_empty_workflow_name_is_unresolved(self):
+        result = self.ref("WORKFLOW:", "Case", self.app)
+        self.assertIsInstance(result, workspace.Unresolved)
+        self.assertIn("empty workflow name", result.reason)
+
+    def test_a_relative_root_override_is_made_absolute(self):
+        self.assertTrue(workspace.workspaces_root("/x/app/FM/p.xml", "ws").is_absolute())
+
     def test_component_file_base_prefix_in_any_case(self):
         self.assertEqual(workspace.component_location("base:x", "Page"),
                          ("base", ["FM", "_COMPONENTS", "Page", "x.json"]))

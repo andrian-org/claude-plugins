@@ -81,6 +81,19 @@ class MalformedTables(unittest.TestCase):
     def test_unknown_table_id(self):
         self.assert_malformed("no-such-table", "unknown table id")
 
+    def test_a_row_missing_its_closing_pipe_is_malformed_not_the_end(self):
+        path = self.dir / "schema-families.md"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        index = next(i for i, line in enumerate(lines) if line.startswith("| 19 | Form"))
+        lines[index] = lines[index].rstrip().rstrip("|")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self.assert_malformed("parity", "is not a `| … |` row")
+
+    def test_a_file_that_is_not_utf8_is_malformed_not_a_crash(self):
+        path = self.dir / "composition-specs.md"
+        path.write_bytes(path.read_bytes().replace("—".encode(), b"\x97", 1))
+        self.assert_malformed("legacy-artifacts", "is not UTF-8")
+
 
 if __name__ == "__main__":
     unittest.main()

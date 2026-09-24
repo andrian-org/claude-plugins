@@ -18,6 +18,7 @@ The vendored XSDs are never modified. Requires lxml.
 """
 
 import copy
+import os
 import re
 from pathlib import Path
 
@@ -107,7 +108,7 @@ def grammar_for(root_tag, path, view_kind=None):
         return VIEW_KINDS[view_kind], ""
     # The kind folder is the grandparent — `_views/<view>/_view.xml` — or, for a view
     # with an empty name, the parent (knowledge/naming-conventions.md §2).
-    parts = Path(path).parts
+    parts = Path(os.path.abspath(path)).parts
     for marker in (parts[-3] if len(parts) >= 3 else "", parts[-2] if len(parts) >= 2 else ""):
         grammar = _view_folders().get(marker)
         if grammar:
@@ -141,17 +142,22 @@ def extended_process_schema():
         return _EXTENDED
     tree = copy.deepcopy(etree.parse(str(XSD_DIR / PROCESS)))
     types = {ct.get("name"): ct for ct in tree.getroot().iter(_q("complexType")) if ct.get("name")}
+    unordered = []
     for row in knowledge.load("process-divergence"):
         owner = types.get(row["XSD owner"])
         if owner is None:
             raise knowledge.KnowledgeTableError("process-divergence", f"no complexType `{row['XSD owner']}`")
-        _apply(owner, row["Construct"].split("/")[-1].lstrip("@"), row["Kind"])
+        _apply(owner, row["Construct"].split("/")[-1].lstrip("@"), row["Kind"], types)
+        if row["Kind"] == "element" and owner not in unordered:
+            unordered.append(owner)
+    for owner in unordered:
+        _any_order(owner)
     _EXTENDED = etree.XMLSchema(tree)
     report.debug("xsd.extended_process_schema", "built", rows=len(knowledge.load("process-divergence")))
     return _EXTENDED
 
 
-def _apply(owner, name, kind):
+def _apply(owner, name, kind, types):
     if kind == "attribute":
         attribute = etree.SubElement(owner, _q("attribute"))
         attribute.set("name", name)
@@ -169,9 +175,27 @@ def _apply(owner, name, kind):
         owner.insert(0, sequence)
     element = etree.SubElement(sequence, _q("element"))
     element.set("name", name)
-    element.set("type", "xs:anyType")
-    element.set("minOccurs", "0")
-    element.set("maxOccurs", "unbounded")
+    # Reuse the grammar's own type for the element where it has one (`OnInit` →
+    # `OnInitType`), so the added element's contents are still checked.
+    element.set("type", f"{name}Type" if f"{name}Type" in types else "xs:anyType")
+
+
+def _any_order(owner):
+    """Let an owner's child elements appear in any order and any number.
+
+    XmlSerializer reads a class's child elements in any order, and a list member
+    in any number (knowledge/process-model.md §1), so pass 2 must not reject a
+    placement the runtime accepts. An element that no row adds is still unknown.
+    """
+    sequence = owner.find(_q("sequence"))
+    choice = etree.Element(_q("choice"))
+    choice.set("minOccurs", "0")
+    choice.set("maxOccurs", "unbounded")
+    for element in list(sequence):
+        for bound in ("minOccurs", "maxOccurs"):
+            element.attrib.pop(bound, None)
+        choice.append(element)
+    owner.replace(sequence, choice)
 
 
 _ATTRIBUTE = re.compile(r"attribute '([^']+)'")

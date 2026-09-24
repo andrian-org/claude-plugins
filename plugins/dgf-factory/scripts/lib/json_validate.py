@@ -22,6 +22,8 @@ knowledge/json-reader.md (ADR 0015 §4):
 deps.require() must have run before this module is imported.
 """
 
+import re
+
 import jsonschema
 from jsonschema import ValidationError
 from jsonschema.validators import extend
@@ -63,9 +65,14 @@ def _match(instance, name):
 
 # --- keyword overrides --------------------------------------------------------
 
+_BOUND = None  # ids of objects a class schema binds, while validate() runs
+
+
 def _properties(validator, properties, instance, schema):
     if not validator.is_type(instance, "object"):
         return
+    if _BOUND is not None and getattr(instance, "case_duplicates", None):
+        _BOUND.add(id(instance))
     for name, subschema in properties.items():
         key = _match(instance, name)
         if key is not None:
@@ -119,11 +126,18 @@ def _prefixed(errors, segments):
         yield error
 
 
+_ASCII_INT = re.compile(r"-?[0-9]+")
+
+
 def _as_int(value):
-    """An integer, or an integer written as a string, as the enum reader takes it."""
+    """An integer, or an integer written as a string, as the enum reader takes it.
+
+    ASCII digits with at most one leading minus only: `str.isdigit` also accepts
+    superscripts such as `²`, which `int()` then rejects.
+    """
     if isinstance(value, int) and not isinstance(value, bool):
         return value
-    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+    if isinstance(value, str) and _ASCII_INT.fullmatch(value.strip()):
         return int(value.strip())
     return None
 
@@ -342,10 +356,10 @@ def _flatten(error):
 
 
 def case_duplicates(value, path=()):
-    """(json path, keys) for every object whose keys collide once case is ignored."""
+    """(json path, keys, object) for every object whose keys collide once case is ignored."""
     if isinstance(value, json_reader.JsonObject):
         if value.case_duplicates:
-            yield json_path(path), value.case_duplicates
+            yield json_path(path), value.case_duplicates, value
         for key, child in value.items():
             yield from case_duplicates(child, path + (key,))
     elif isinstance(value, list):
@@ -353,23 +367,40 @@ def case_duplicates(value, path=()):
             yield from case_duplicates(child, path + (index,))
 
 
+def _duplicate_message(path, keys):
+    if len(keys) == 1:
+        return f"{path}: key `{keys[0]}` appears more than once — the runtime keeps the last value"
+    return (f"{path}: keys differ only in case ({', '.join(keys)}) — the runtime binds one member, so one value "
+            f"silently replaces the other")
+
+
 def validate(document, selection, rep):
-    """Add the findings for `document`, already selected, to Report `rep`."""
+    """Add the findings for `document`, already selected, to Report `rep`.
+
+    Duplicate keys are reported only in objects a class schema binds. A
+    dictionary (`metaData`, `events`, `propertyConverters`, …) keeps keys that
+    differ in case as separate entries, so they are not a defect there.
+    """
+    global _BOUND
     for code, message in selection.findings:
         rep.add(code, message)
-    for path, keys in case_duplicates(document):
-        rep.add("SCHEMA_INVALID", f"{path}: keys differ only in case ({', '.join(keys)}) — the runtime binds one "
-                                  f"member, so one value silently replaces the other")
     if selection.kind not in ("component", "datasource", "interface"):
         return
     rep.ran("json-schema")
     rep.skipped("json-format", "annotation-only, ADR 0015")
     seen = set()
+    _BOUND = set()
     try:
         errors = list(_validate_selected(selection, document))
+        bound = _BOUND
     except UnknownDialect as exc:
         rep.add("SCHEMA_UNSELECTABLE", f"schema dialect `{exc}` is not draft-04 or draft-07")
         return
+    finally:
+        _BOUND = None
+    for path, keys, obj in case_duplicates(document):
+        if id(obj) in bound:
+            rep.add("SCHEMA_INVALID", _duplicate_message(path, keys))
     for raw in errors:
         for error in _flatten(raw):
             code = getattr(error, "dgf_code", "SCHEMA_INVALID")

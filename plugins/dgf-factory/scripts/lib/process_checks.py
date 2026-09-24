@@ -207,8 +207,9 @@ def entry_states(root):
 
 
 def _resolved_paths(result):
+    """Every process file a resolved reference reaches: one per application for a webasm one."""
     if isinstance(result, workspace.Resolved):
-        return [result.path]
+        return [result.path.replace("<app>", app, 1) for app in result.apps] or [result.path]
     if isinstance(result, workspace.AppDependent):
         return [result.path.replace("<app>", app, 1) for app in result.resolved_in]
     return []
@@ -223,7 +224,9 @@ def report_reference(rep, result, what, unresolved_code, line, file=None, in_bas
     app-dependent reference resolves that way, the finding says so.
     """
     if isinstance(result, workspace.Unresolved):
-        rep.add(unresolved_code, f"{what} names `{result.path}`, which does not exist", line=line, file=file)
+        detail = (f"names `{result.path}`: {result.reason}" if result.reason and result.path else
+                  result.reason or f"names `{result.path}`, which does not exist")
+        rep.add(unresolved_code, f"{what} {detail}", line=line, file=file)
     elif isinstance(result, workspace.CaseOnly):
         rep.add("CASE_ONLY_MATCH", f"{what} reaches `{result.path}` only on a case-insensitive filesystem — on disk "
                                    f"it is `{result.actual}`", line=line, file=file)

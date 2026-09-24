@@ -138,8 +138,9 @@ def resolve_reference(where, member, name, owner, root, rep):
         rep.add("CASE_ONLY_MATCH", f"{where}: `{name}` reaches `{result.path}` only on a case-insensitive "
                                    f"filesystem — on disk it is `{result.actual}`")
     elif isinstance(result, workspace.Unresolved):
-        rep.add("COMPONENT_FILE_UNRESOLVED", f"{where}: `{name}` names `{result.path}`, which does not exist — the "
-                                             f"component it supplies vanishes")
+        why = result.reason or "which does not exist"
+        rep.add("COMPONENT_FILE_UNRESOLVED", f"{where}: `{name}` names `{result.path}`, {why} — the component it "
+                                             f"supplies vanishes")
     elif isinstance(result, workspace.AppDependent):
         # A name without `BASE:` in a webasm file: each application reads its own copy (D2).
         in_base = workspace.resolve_component_file(workspace.BASE_PREFIX + name, member, owner, root)
