@@ -1,0 +1,15 @@
+{
+  "cli": "check_change.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--plan",
+    "workspaces/.dgf-factory/plans/feature-x.md",
+    "--changed",
+    "M:app/FM/_PROCESS/Case/process.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "DEAD_TRANSITION"
+  ]
+}

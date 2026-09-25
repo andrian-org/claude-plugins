@@ -62,15 +62,6 @@ def exists(root, rel):
     return workspace.exact_file(root, plan.segments(rel))[0] == workspace.OK
 
 
-def known_workspaces(root):
-    """Every workspace name under `root`: the applications, plus `webasm` when it has an FM/."""
-    names = set(workspace.applications(root))
-    if workspace.exact_child(root, BASE)[0] == workspace.OK and \
-            workspace.exact_child(root / BASE, workspace.FM)[0] == workspace.OK:
-        names.add(BASE)
-    return names
-
-
 def affects(parsed):
     value = parsed.header.get("affects_workspaces")
     return value if isinstance(value, list) else []
@@ -521,7 +512,7 @@ def check(plan_path, root, overlap=False):
         rep.add("PLAN_FORMAT_UNSUPPORTED", f"`plan_format: {head.get('plan_format')}` — this plugin reads format "
                                            f"{SUPPORTED_FORMAT} only", line=parsed.header_lines.get("plan_format"))
         return rep, lines
-    known = known_workspaces(root)
+    known = workspace.workspace_names(root)
     lines.append(f"AFFECTS: {', '.join(affects(parsed)) or '(none)'}")
     lines += [task_line(task) for task in parsed.tasks]
     done, total = parsed.progress()

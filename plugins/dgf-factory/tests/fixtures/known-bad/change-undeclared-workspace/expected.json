@@ -1,0 +1,16 @@
+{
+  "cli": "check_change.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--plan",
+    "workspaces/.dgf-factory/plans/feature-x.md",
+    "--changed",
+    "M:other/FM/_PROCESS/Case/process.xml",
+    "--skip-validators"
+  ],
+  "exit": 1,
+  "codes": [
+    "CHANGE_UNDECLARED_WORKSPACE"
+  ]
+}

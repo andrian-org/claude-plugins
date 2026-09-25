@@ -62,6 +62,14 @@ def applications(root):
     return found
 
 
+def workspace_names(root):
+    """Every workspace under `root` by name: the applications, plus webasm when it has an FM/."""
+    names = set(applications(root))
+    if exact_child(root, BASE_WORKSPACE)[0] == OK and exact_child(Path(root) / BASE_WORKSPACE, FM)[0] == OK:
+        names.add(BASE_WORKSPACE)
+    return names
+
+
 def exact_child(directory, name):
     """(OK | CASE_ONLY | MISSING, the entry's actual name or None) for `name` in `directory`."""
     try:

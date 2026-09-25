@@ -774,7 +774,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
 
 ### Phase 4: Change scripts
 
-- [ ] **Task 10: Add `check_change.py` — scope, means and planned checks.** (depends on 7)
+- [x] **Task 10: Add `check_change.py` — scope, means and planned checks.** (depends on 7)
   - `scripts/lib/runner.py` (new): move `run_validators` out of `tools/run_known_good.py:144-167` unchanged in
     behaviour, as `run(root, files=None)`. `tools/run_known_good.py` imports it. Its output on DGF's samples must be
     unchanged: run `python3 tools/run_known_good.py <dgf-root>` before and after, and compare the verdicts and
@@ -795,7 +795,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
   - Files: `scripts/lib/runner.py`, `tools/run_known_good.py`, `scripts/check_change.py`,
     `tests/test_check_change.py`, `tests/test_run_known_good.py` (still passes), `tests/fixtures/known-bad/change-*/`.
 
-- [ ] **Task 11: Add the merge-base baseline, and dry-run it on DGF's samples.** (depends on 10)
+- [x] **Task 11: Add the merge-base baseline, and dry-run it on DGF's samples.** (depends on 10)
   - `scripts/lib/baseline.py` (new): DD8. `compare(head_reports, base_reports, head_root, base_root) → (new,
     pre_existing, fixed)`, with the key and multiset rules. `check_change.py --base` materialises the base tree
     through `git.materialise`, runs `lib.runner` at both trees on the same scope, prints the new findings with their
@@ -1132,3 +1132,23 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   workspaces root (only the ZIMS one is commented out).
 - **Task 3 — E17 line numbers.** The UI version is stamped at `src/DGF.UI/Dockerfile:1, 30, 36-42`,
   not `:27-30`; `app-settings.type.ts:9`, not `:8`. ADR 0019 cites the corrected lines.
+- **Task 10 — the runner moved unchanged.** `tools/run_known_good.py <dgf-root>` printed byte-identical
+  output before and after `scripts/lib/runner.py` took over (CLEAN; 71 excused by `EXCEPTION`, 9 by
+  `EXPECTED_EXTERNAL`). One addition: the runner drops validate_config's
+  `NOT RUN: process-semantics (run validate_process.py)` for a file it also gave to validate_process,
+  since that pointer is then satisfied; the known-good tool never printed it.
+- **Task 11 — each validator pass runs with the working directory at its tree's root**, so a finding's
+  file, and every path a message shows through `cli.display()`, is root-relative at both trees. The
+  key then only has to strip absolute root forms (`baseline.root_forms`: absolute and symlink-resolved
+  only — a relative form such as `.` would be stripped from every message).
+- **Task 11 — dry run on DGF's samples** (`aa1d5c4c2`, 2026-09-25). A copy of `src/samples/workspaces`
+  in the scratchpad, `git init -b main`, committed, branch `feature/dry-run`; plan
+  `.dgf-factory/plans/feature-dry-run.md` with `affects_workspaces: [dgf]` and one checked config task on
+  `dgf/FM/_PROCESS/DGF.Demo.EService/process.xml`; that file's signing transition retitled, and a
+  `<Transition state="Archive">` added to `Issue`.
+  `check_change.py --workspaces-root <copy> --plan <plan> --base main` → **exit 1**. New: exactly one
+  error, `DEAD_TRANSITION dgf/FM/_PROCESS/DGF.Demo.EService/process.xml:120`. Pre-existing: 2552, among
+  them ADR 0014's two true defects (`WORKFLOW_UNRESOLVED` at `ZIMS4_InspectionBorder/process.xml` L5
+  and L20, `CHANGE_STATE_STATE_UNDECLARED` at `Expert.MoveTaskTo/_workflow.xml` L15). Fixed: 0. No
+  `CHANGE_*` finding. 3116 files validated per tree. **Wall-clock 5.2 s** for the materialise and both
+  runs (one known-good run alone is 2.1 s), far under the 60 s threshold, so no caching follow-up.
