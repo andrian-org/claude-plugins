@@ -86,6 +86,30 @@ class Rendering(unittest.TestCase):
         self.assertEqual(lines[4], "WARN UNKNOWN_PROPERTY f.json:3 `x` is ignored by the runtime")
         self.assertEqual(lines[-1], "WARNINGS")
 
+    def test_a_finding_with_control_characters_renders_as_one_line(self):
+        rep = report.Report("app/FM/a\nERROR FAKE x.json")
+        rep.add("UNKNOWN_PROPERTY", "key `a\nCLEAN`\r \x1b[31mred\x7f \x85     end", line=2)
+        buf = io.StringIO()
+        report.render([rep], buf, lines=["PLAN: p\nCLEAN"])
+        rendered = [line for line in buf.getvalue().splitlines() if line.startswith("WARN ")]
+        self.assertEqual(rendered, ["WARN UNKNOWN_PROPERTY app/FM/a\\x0aERROR FAKE x.json:2 key `a\\x0aCLEAN`\\x0d "
+                                    "\\x1b[31mred\\x7f \\x85 \\u2028 \\u2029 end"])
+        self.assertIn("PLAN: p\\x0aCLEAN", buf.getvalue().splitlines())
+        self.assertEqual(buf.getvalue().splitlines().count("CLEAN"), 0)  # the verdict is WARNINGS; nothing forged it
+
+    def test_a_not_run_reason_renders_as_one_line(self):
+        rep = report.Report("f.json", "json")
+        rep.skipped("plan-overlap", "git failed: a\nb")
+        buf = io.StringIO()
+        report.render([rep], buf)
+        self.assertIn("NOT RUN: plan-overlap (git failed: a\\x0ab)", buf.getvalue().splitlines())
+
+    def test_plain_and_non_ascii_text_is_unchanged(self):
+        for text in ("`x` is ignored by the runtime", "Ünïcødé — naïve café", "tab nbsp"):
+            with self.subTest(text):
+                self.assertEqual(report.one_line(text), text)
+        self.assertEqual(report.one_line("a\tb"), "a\\x09b")
+
     def test_usage_error_renders_blocked(self):
         rep = report.Report("f.txt")
         rep.add("FAMILY_UNRESOLVED", "neither")

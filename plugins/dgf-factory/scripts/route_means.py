@@ -123,7 +123,7 @@ def main(argv):
     print(f"{report.BOLD}Order-of-means route{report.NC}")
     if found is not None:
         family, where, reason = found
-        print(f"ROUTE: {family} {where} — {reason}")
+        print(report.one_line(f"ROUTE: {family} {where} — {reason}"))
     for finding in rep.findings:
         print(finding.render())
     print()

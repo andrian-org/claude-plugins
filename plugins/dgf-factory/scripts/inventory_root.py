@@ -187,7 +187,7 @@ def main(argv):
         report.fail(report.EXIT_USAGE, f"ERROR KNOWLEDGE_TABLE {exc}")
     print(f"{report.BOLD}{HEADER}{report.NC}")
     for line in lines:
-        print(line)
+        print(report.one_line(line))
     for finding in rep.findings:
         print(finding.render())
     print()

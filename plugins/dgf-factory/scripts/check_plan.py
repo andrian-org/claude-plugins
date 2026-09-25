@@ -466,27 +466,41 @@ def collect_candidates(root, this):
     return groups, len(refs)
 
 
+SHOWN_MAX = 120  # an overlap path or ref longer than this is cut: other branches' names are not ours (D5)
+
+
+def _shown(text):
+    return text if len(text) <= SHOWN_MAX else text[:SHOWN_MAX - 1] + "…"
+
+
 def _labels(labels):
     unique = list(dict.fromkeys(labels))
-    shown = ", ".join(unique[:3])
+    shown = ", ".join(_shown(label) for label in unique[:3])
     return shown + (f" and {len(unique) - 3} more" if len(unique) > 3 else "")
+
+
+def _why_unreadable(exc):
+    if isinstance(exc, UnicodeDecodeError):
+        return "is not UTF-8"
+    return f"does not parse at line {exc.line}" if exc.line else "does not parse"
 
 
 def _active_workspaces(group, rep):
     """The union of `affects_workspaces` over the active versions; unreadable versions are INFO."""
     union, active = set(), False
     for content, labels in group["versions"].items():
+        where = f"`{_shown(group['rel'])}` at {_labels(labels)}"
         try:
             other = plan.parse_text(content.decode("utf-8"), group["rel"])
         except (plan.PlanFormatError, UnicodeDecodeError) as exc:
-            rep.add("PLAN_OVERLAP_UNREADABLE", f"`{group['rel']}` at {_labels(labels)} does not parse ({exc}); "
-                                               f"skipped")
+            # Another branch's text is never quoted into the output: the model reads it (D5).
+            report.debug("check_plan.overlap", "unreadable", path=group["rel"], error=str(exc))
+            rep.add("PLAN_OVERLAP_UNREADABLE", f"{where} {_why_unreadable(exc)}; skipped")
             continue
         listed = affects(other)
         done, total = other.progress()
         if not listed:
-            rep.add("PLAN_OVERLAP_UNREADABLE", f"`{group['rel']}` at {_labels(labels)} has no `affects_workspaces`; "
-                                               f"skipped")
+            rep.add("PLAN_OVERLAP_UNREADABLE", f"{where} has no `affects_workspaces`; skipped")
         elif done < total:
             active = True
             union |= set(listed)
@@ -527,7 +541,7 @@ def check_overlap(parsed, root, rep, lines):
         labels = _labels([label for labels in group["versions"].values() for label in labels])
         named = ", ".join(f"`{ws}`" for ws in shared if ws != BASE)
         base = "`webasm`, which is shared with every plan" if BASE in union | this_set else ""
-        rep.add("PLAN_OVERLAP", f"`{group['rel']}` at {labels} is active and shares "
+        rep.add("PLAN_OVERLAP", f"`{_shown(group['rel'])}` at {labels} is active and shares "
                                 f"{' and '.join(part for part in (named, base) if part)}")
 
 

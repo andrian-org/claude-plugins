@@ -133,8 +133,33 @@ class Finding:
         return _LABELS[self.severity]
 
     def render(self):
-        where = self.file if self.line is None else f"{self.file}:{self.line}"
-        return f"{_COLOURS[self.label]}{self.label}{NC} {self.code} {where} {self.message}"
+        where = one_line(self.file if self.line is None else f"{self.file}:{self.line}")
+        return f"{_COLOURS[self.label]}{self.label}{NC} {self.code} {where} {one_line(self.message)}"
+
+
+def one_line(text):
+    """`text` with every control and line-separator character escaped, so it prints as one line.
+
+    A finding's file or message can carry text the plugin did not write — a path
+    from another branch, a JSON key, a name read from a workspace. Escaping C0
+    controls, DEL, C1 controls and U+2028/U+2029 as `\\xNN`/`\\uNNNN` keeps one
+    finding on one line, so such text can neither forge a line of this output
+    nor move the terminal's cursor. Plain text is returned unchanged.
+    """
+    text = str(text)
+    if not any(_breaks_a_line(ch) for ch in text):
+        return text
+    return "".join(_escaped(ch) if _breaks_a_line(ch) else ch for ch in text)
+
+
+def _breaks_a_line(ch):
+    code = ord(ch)
+    return code < 0x20 or 0x7F <= code <= 0x9F or code in (0x2028, 0x2029)
+
+
+def _escaped(ch):
+    code = ord(ch)
+    return f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}"
 
 
 @dataclass
@@ -202,11 +227,11 @@ def render(reports, stream=None, header="Validation", lines=None, summary=None):
     if lines is None:
         lines = [f"FAMILY: {rep.family or 'unresolved'} {rep.file}" for rep in reports]
     for line in lines:
-        out(line)
+        out(one_line(line))
     checks = _ordered_union(r.checks_run for r in reports)
     out(f"CHECKS RUN: {', '.join(checks) if checks else '(none)'}")
     for check_id, reason in _ordered_union(r.not_run for r in reports):
-        out(f"NOT RUN: {check_id} ({reason})")
+        out(f"NOT RUN: {check_id} ({one_line(reason)})")
 
     findings = [f for r in reports for f in r.findings]
     for found in findings:

@@ -104,7 +104,7 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
 
 ### Phase 2: What reaches the model (M1)
 
-- [ ] **Task 3: Render every report line as one line.**
+- [x] **Task 3: Render every report line as one line.**
   - Files: `scripts/lib/report.py`, `tests/test_report.py`.
   - `report.py`: add `one_line(text)` per D4. Apply it in `Finding.render` to `where` and `message` (before the
     colour codes are added), and in `render()` to each of `lines` and each `NOT RUN` reason. Leave the header,
@@ -114,7 +114,7 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
     with `\x0a`, `\x0d`, `\x1b`, `\x7f`, `\x85`, `\u2028`; a file path with `\n` likewise; plain ASCII and non-ASCII
     text (`Ünïcødé`, `—`) render unchanged; a `lines` entry and a `NOT RUN` reason with `\n` are one line.
 
-- [ ] **Task 4: Report other branches' unreadable plans without quoting them.** (depends on 3)
+- [x] **Task 4: Report other branches' unreadable plans without quoting them.** (depends on 3)
   - Files: `scripts/check_plan.py`, `tests/test_check_plan.py`.
   - `check_plan.py`: in `_active_workspaces`, `PLAN_OVERLAP_UNREADABLE` becomes
     ``"`<rel>` at <refs> does not parse at line <N>; skipped"`` (or `does not parse; skipped` without a line) for a

@@ -185,7 +185,7 @@ def list_lines(plans_dir, fast_plan):
 def emit(lines, rep):
     print(f"{report.BOLD}{HEADER}{report.NC}")
     for line in lines:
-        print(line)
+        print(report.one_line(line))
     for finding in rep.findings:
         print(finding.render())
     print()
