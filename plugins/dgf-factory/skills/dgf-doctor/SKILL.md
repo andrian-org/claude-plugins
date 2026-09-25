@@ -1,9 +1,9 @@
 ---
 name: dgf-doctor
 description: Check that the dgf-factory plugin is installed correctly and report what it can see. Use for "is dgf-factory working", "plugin not loading", "check plugin install", "dgf doctor", "why is the skill not firing".
-allowed-tools: Read Bash(python3 *)
+allowed-tools: Read Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/*)
 disable-model-invocation: false
-version: 0.1.0
+version: 0.1.1
 ---
 
 # DGF Doctor — Plugin Installation Check

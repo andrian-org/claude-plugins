@@ -2,9 +2,9 @@
 name: dgf
 description: Set up dgf-factory for a DGF workspaces root — inventory the workspaces, record the estate's DGF version, and write .dgf-factory/config.yaml and DESCRIPTION.md. Use for "set up dgf-factory", "dgf setup", "initialise the workspaces root", "configure dgf", "start using dgf-factory".
 argument-hint: "[workspaces-root]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 *) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_release_notes
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_release_notes
 disable-model-invocation: false
-version: 0.1.0
+version: 0.1.1
 ---
 
 # DGF — Set Up a Workspaces Root
@@ -46,8 +46,11 @@ Capture the exit code before any pipe.
 
 ### Step 0.1: Load overrides
 
-Read `<root>/.dgf-factory/skill-context/dgf/SKILL.md` if it exists. Its rules override this
-file's where they conflict, and apply to everything this skill writes.
+Read `<root>/.dgf-factory/skill-context/dgf/SKILL.md` if it exists. Its rules apply to everything
+this skill writes. An override may add rules and tighten checks. It never relaxes a STOP, an
+exit-code row, the gate's status table, a Critical Rule or Artifact Ownership, and never makes
+this skill install anything, skip a script, or write outside its own artifacts. Name the override
+in your report, and quote any rule in it you did not apply because it would relax one of these.
 
 ### Step 1: Inventory
 

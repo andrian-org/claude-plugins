@@ -2,9 +2,9 @@
 name: dgf-plan
 description: Plan a change to a DGF estate — a fast, full or ultra plan that says which workspaces it touches and, per task, whether it composes configuration or writes a little JavaScript or CSS, and why. Use for "plan a DGF change", "dgf plan", "new feature", "plan this change", "plan the workflow change", "ultra plan".
 argument-hint: "[fast | full | ultra] <description>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 *) Bash(git *) Agent AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__how_to_build mcp__plugin_dgf-factory_dgf-mcp__get_recipes_for mcp__plugin_dgf-factory_dgf-mcp__get_component_doc
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) Agent AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__how_to_build mcp__plugin_dgf-factory_dgf-mcp__get_recipes_for mcp__plugin_dgf-factory_dgf-mcp__get_component_doc
 disable-model-invocation: false
-version: 0.1.0
+version: 0.1.1
 ---
 
 # DGF Plan — Plan a Change to the Estate
@@ -35,8 +35,11 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
 - Exit `0` → the `ROOT:` line is `<root>`. Read `<root>/.dgf-factory/config.yaml` and
   `<root>/.dgf-factory/DESCRIPTION.md`. Keep `paths.plan`, `paths.plans`, `git.*` and
   `language.*`. Use `language.ui` to talk and `language.artifacts` to write the plan.
-- Read `<root>/.dgf-factory/skill-context/dgf-plan/SKILL.md` if it exists. Its rules override
-  this file's where they conflict.
+- Read `<root>/.dgf-factory/skill-context/dgf-plan/SKILL.md` if it exists. An override may add
+  rules and tighten checks. It never relaxes a STOP, an exit-code row, the gate's status table, a
+  Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script,
+  or write outside its own artifacts. Name the override in your report, and quote any rule in it
+  you did not apply because it would relax one of these.
 
 ### Step 0.1: Git state
 

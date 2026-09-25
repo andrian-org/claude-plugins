@@ -129,7 +129,7 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
 
 ### Phase 3: What the skills allow (M2, L2)
 
-- [ ] **Task 5: Overrides only tighten, and the skill says which one it loaded.**
+- [x] **Task 5: Overrides only tighten, and the skill says which one it loaded.**
   - Files: `skills/dgf/SKILL.md`, `skills/dgf-plan/SKILL.md`, `skills/dgf-implement/SKILL.md`,
     `skills/dgf-verify/SKILL.md`, `skills/dgf-commit/SKILL.md`, `tests/test_skill_contracts.py`.
   - Replace each skill's override sentence with the D6 text, word for word in all five:
@@ -145,7 +145,7 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
     "It never relaxes a STOP, an exit-code row, the gate's status table, a Critical Rule or Artifact Ownership",
     and none still says "override this file's where they conflict" on its own.
 
-- [ ] **Task 6: Narrow `python3` to the plugin's scripts, and drop git from `/dgf-verify`.**
+- [x] **Task 6: Narrow `python3` to the plugin's scripts, and drop git from `/dgf-verify`.**
   - Files: every `skills/*/SKILL.md` frontmatter, `tests/test_skill_contracts.py`.
   - Replace `Bash(python3 *)` with `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)` in `/dgf`, `/dgf-plan`,
     `/dgf-implement`, `/dgf-verify`, `/dgf-commit`; with `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/*)`
