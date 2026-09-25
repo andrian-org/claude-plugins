@@ -17,6 +17,21 @@ hashes, every machine-read knowledge table loads), 7 build progress (INFO only).
 It stays stdlib-only, so it runs before the validators' dependencies are
 installed (ADR 0015 §8); it reports a missing dependency, and installs nothing.
 
+Sections 1–6 are checks, and all six are required: one that cannot run — no
+usable manifest, no skills/, no scripts/ — is `NOT RUN` with its reason, never
+a silent pass. (A copy without scripts/ is reported so only by another copy's
+doctor: its own has no builder, and exits 3.) The summary prints `CHECKS RUN:`
+and `NOT RUN:` lines.
+
+The output ends with one `dgf-gate-result` block, built by scripts/lib/gate_result.py
+(ADR 0020): gate `doctor`; errors in `blockers`; warnings, and a
+`not-run-<section>` entry per section that did not run, in `warnings`;
+`blocking` only on a fail; `checks_run` naming the sections that ran; and
+`suggested_next.command` always null, since a broken install is fixed by hand.
+There is no `schema_family`, `affected_components` or `affected_processes`: the
+doctor reads no estate. The builder is loaded by path from this script's own
+plugin, never from the root it checks.
+
 Usage:  doctor.py [<plugin-root>]
         DEBUG=1 doctor.py            # per-check trace
 
@@ -30,8 +45,11 @@ Exit codes (contract, see .ai-factory/rules/base.md):
                  DGF repository path or a plugin path that does not exist, the validator
                  requirements are unpinned, or a knowledge table is malformed
   2  WARNINGS  — it loads, but something needs a human look (including
-                 validator dependencies that are not installed)
-  3  usage error
+                 validator dependencies that are not installed), or a section
+                 could not run
+  3  usage error, or this plugin's own scripts/lib/gate_result.py is missing or
+     does not load — no block is printed, and a caller reads that as a gate
+     that did not run
 """
 
 import importlib.util
@@ -118,8 +136,15 @@ TEMPLATE_MARKERS = ("<", "*", "{", "$", "\u2026", "...")
 # block-scalar indicator, or holding `: ` or ` #`.
 YAML_UNSAFE_START = tuple("[{*&!%@`|>")
 
+# The six checks, all required (ADR 0020 §4). Build progress is INFO, not a check.
+SECTIONS = ("manifest", "component-paths", "skill-slices", "portability", "line-endings", "validator-runtime")
+GATE_ID = "doctor"
+BUILDER_API = ("GateContractError", "build", "entry", "not_run", "render")
+
 FINDINGS = []
 INFOS = []
+CHECKS_RUN = []
+NOT_RUN = []  # (section id, reason) pairs
 
 
 def fail(code, message):
@@ -146,6 +171,17 @@ def info(summary):
 def trace(message):
     if os.environ.get("DEBUG") or os.environ.get("LOG_LEVEL") == "debug":
         print(f"  · {message}")
+
+
+def ran(section_id):
+    if section_id not in CHECKS_RUN:
+        CHECKS_RUN.append(section_id)
+
+
+def not_run(section_id, reason):
+    """A required section that could not run — reported, never passed silently."""
+    NOT_RUN.append((section_id, reason))
+    trace(f"NOT RUN: {section_id} ({reason})")
 
 
 def section(title):
@@ -226,6 +262,7 @@ def parse_frontmatter(text):
 def check_manifest(root):
     """Returns the parsed manifest, or None when it cannot be used."""
     section("1. Manifest")
+    ran("manifest")
     rel = f".claude-plugin{_SEP}plugin.json"
     path = root / ".claude-plugin" / "plugin.json"
     trace(f"manifest: {path}")
@@ -290,8 +327,9 @@ def check_manifest_fields(root, manifest, rel):
 def check_component_paths(root, manifest):
     section("2. Component paths")
     if manifest is None:
-        trace("skipped — no usable manifest")
+        not_run("component-paths", "no usable manifest")
         return
+    ran("component-paths")
 
     declared = [key for key in COMPONENT_KEYS if key in manifest]
     if not declared:
@@ -335,8 +373,9 @@ def check_skill_slices(root):
     section("3. Skill slices")
     skills_dir = root / "skills"
     if not skills_dir.is_dir():
-        trace("no skills/ directory")
+        not_run("skill-slices", f"no skills{_SEP} directory")
         return
+    ran("skill-slices")
 
     slices = sorted(path for path in skills_dir.iterdir() if path.is_dir())
     if not slices:
@@ -408,6 +447,7 @@ def check_frontmatter_yaml(rel, fields):
 
 def check_portability(root):
     section("4. Portability")
+    ran("portability")
     for path in shipped_files(root):
         text = read_text(path)
         if text is None:
@@ -464,6 +504,7 @@ def check_plugin_paths(root, rel, lineno, line):
 
 def check_line_endings(root):
     section("5. Line endings")
+    ran("line-endings")
     for path in shipped_files(root):
         try:
             if b"\r\n" in path.read_bytes():
@@ -480,8 +521,9 @@ def check_validator_runtime(root):
     section("6. Validator runtime")
     scripts_dir = root / "scripts"
     if not scripts_dir.is_dir():
-        trace("no scripts/ directory — no validators to check")
+        not_run("validator-runtime", f"no scripts{_SEP} directory — no validators to check")
         return
+    ran("validator-runtime")
     check_validator_dependencies(root)
     check_requirement_pins(root)
     check_knowledge_tables(root)
@@ -540,12 +582,16 @@ def check_requirement_pins(root):
             error("REQUIREMENTS_UNPINNED", rel, f"{rel}: `{name}` has no --hash=sha256")
 
 
-def load_knowledge_module(root):
-    """scripts/lib/knowledge.py, loaded by path — it imports nothing from its package."""
-    path = root / "scripts" / "lib" / "knowledge.py"
+def load_lib_module(root, name):
+    """scripts/lib/<name>.py under `root`, loaded by path — it imports nothing from its package.
+
+    None when the file is absent. knowledge.py and gate_result.py are both
+    stdlib-only for this reason: a relative import cannot resolve here.
+    """
+    path = root / "scripts" / "lib" / f"{name}.py"
     if not path.is_file():
         return None
-    spec = importlib.util.spec_from_file_location("dgf_doctor_knowledge", path)
+    spec = importlib.util.spec_from_file_location(f"dgf_doctor_{name}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -553,7 +599,7 @@ def load_knowledge_module(root):
 
 def check_knowledge_tables(root):
     try:
-        module = load_knowledge_module(root)
+        module = load_lib_module(root, "knowledge")
     except (OSError, SyntaxError, ImportError) as exc:
         error("KNOWLEDGE_TABLE", f"scripts{_SEP}lib{_SEP}knowledge.py",
               f"scripts{_SEP}lib{_SEP}knowledge.py cannot be loaded: {exc}")
@@ -588,42 +634,64 @@ def report_build_progress(root):
 
 # --- reporting ---------------------------------------------------------------
 
-def gate_block(status, errors, warnings):
-    """The machine-readable verdict. Emitted last, and nothing may follow it.
+def load_gate_builder():
+    """scripts/lib/gate_result.py from this script's own plugin — never from the root it checks.
 
-    `schema_family` is deliberately absent: this gate reads no DGF configuration,
-    and naming a family it never resolved is the false claim the gate contract
-    exists to prevent.
+    The builder is the doctor's machinery, not the thing checked. When it is
+    missing or does not load, exit 3 with no block: a caller reads a missing
+    block as a gate that did not run.
     """
+    own_root = Path(__file__).resolve().parents[3]
+    path = own_root / "scripts" / "lib" / "gate_result.py"
+    try:
+        module = load_lib_module(own_root, "gate_result")
+    except Exception as exc:  # whatever the file raises while it loads, the builder did not load
+        fail(3, f"{path} cannot be loaded: {exc!r} — the gate block cannot be built; reinstall the plugin")
+    if module is None:
+        fail(3, f"{path} is missing — the gate block cannot be built; reinstall the plugin")
+    absent = [name for name in BUILDER_API if not hasattr(module, name)]
+    if absent:
+        fail(3, f"{path} has no {', '.join(absent)} — the gate block cannot be built; reinstall the plugin")
+    trace(f"gate: loaded {path}")
+    return module
+
+
+def gate_block(gate, status, errors):
+    """The machine-readable verdict, built by gate_result.py. Emitted last; nothing may follow it.
+
+    `schema_family`, `affected_components` and `affected_processes` are left
+    out: this gate reads no DGF configuration, and a field it never computed
+    must not read as "none" (ADR 0020 §7).
+    """
+    blockers = [gate.entry(f["id"], f["severity"], f["summary"], file=f["file"])
+                for f in FINDINGS if f["severity"] == "error"]
+    warnings = [gate.entry(f["id"], f["severity"], f["summary"], file=f["file"])
+                for f in FINDINGS if f["severity"] == "warning"]
+    warnings += [gate.not_run(section_id, reason) for section_id, reason in NOT_RUN]
     if status == "fail":
-        reason = f"{errors} blocking finding(s) — the plugin is not fit to install"
+        reason = f"{errors} blocking finding(s) — the plugin is not fit to install; fix them by hand and re-run"
     elif status == "warn":
-        reason = f"{warnings} warning(s) — the plugin loads but is not clean"
+        reason = f"{len(warnings)} warning(s) — the plugin loads but is not clean; fix them by hand and re-run"
     else:
         reason = "no findings; nothing to fix"
-
-    payload = {
-        "schema_version": 1,
-        "gate": "verify",
-        "status": status,
-        "blocking": True,
-        "blockers": FINDINGS,
-        "affected_files": sorted({f["file"] for f in FINDINGS}),
-        "affected_processes": [],
-        "affected_components": [],
-        "suggested_next": {"command": "/dgf-fix", "reason": reason},
-    }
-    print("\n```dgf-gate-result")
-    print(json.dumps(payload, indent=2))
-    print("```")
+    try:
+        payload = gate.build(GATE_ID, blockers, warnings, None, reason, checks_run=CHECKS_RUN, required=SECTIONS)
+    except gate.GateContractError as exc:
+        fail(3, f"the doctor built a contradictory gate block: {exc}")
+    print()
+    print(gate.render(payload))
 
 
 def report(root):
+    gate = load_gate_builder()
     errors = sum(1 for f in FINDINGS if f["severity"] == "error")
     warnings = sum(1 for f in FINDINGS if f["severity"] == "warning")
 
     section("Summary")
     print(f"Root:     {root}")
+    print(f"CHECKS RUN: {', '.join(CHECKS_RUN) if CHECKS_RUN else '(none)'}")
+    for section_id, reason in NOT_RUN:
+        print(f"NOT RUN: {section_id} ({reason})")
     print(f"Errors:   {errors}")
     print(f"Warnings: {warnings}")
     print(f"Info:     {len(INFOS)}")
@@ -631,14 +699,14 @@ def report(root):
     if errors:
         print(f"\n{RED}BLOCKED{NC}")
         code, status = 1, "fail"
-    elif warnings:
+    elif warnings or NOT_RUN:
         print(f"\n{YELLOW}WARNINGS{NC}")
         code, status = 2, "warn"
     else:
         print(f"\n{GREEN}CLEAN{NC}")
         code, status = 0, "pass"
 
-    gate_block(status, errors, warnings)
+    gate_block(gate, status, errors)
     return code
 
 
