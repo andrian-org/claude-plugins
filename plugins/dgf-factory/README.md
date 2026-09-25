@@ -43,7 +43,7 @@ pipeline that builds it is already installed there. See
 - **Planner/executor split** — a strong model writes an indexed phase bundle once; a cheap model
   executes it many times, and is forbidden from re-deciding architecture
 - **A learning loop** — every DGF gotcha caught in practice becomes a patch, and patches distil
-  into project-specific skill overrides
+  into project-specific skill overrides that can only tighten a skill, never relax its gates
 
 ## Example
 
