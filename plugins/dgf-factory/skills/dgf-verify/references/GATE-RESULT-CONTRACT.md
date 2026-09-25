@@ -30,7 +30,7 @@ compatible with the `aif-gate-result` contract.
 | `schema_version` | `1` |
 | `gate` | `"verify"` |
 | `status` | `pass`, `warn` or `fail` — computed from the table below, never judged |
-| `blocking` | `true`: a `fail` stops a commit, a merge or a hand-off |
+| `blocking` | `true` exactly when `status` is `fail` — a `fail` stops a commit, a merge or a hand-off; `false` for `pass` and `warn`, as in AI Factory's contract |
 | `blockers` | the findings that make the status what it is: `{id, severity, file, summary}` |
 | `affected_files` | every file the gate cites — blockers' files, and the plan — root-relative, sorted, no duplicates |
 | `suggested_next` | `{command, reason}`, `command` from the allowlist below |

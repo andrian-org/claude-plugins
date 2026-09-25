@@ -114,7 +114,7 @@ directly inside the bundle, with an optional `#anchor`.
 
 ## Phase file template
 
-```markdown
+````markdown
 # Phase N: <Name>
 
 Plan: [index.md](index.md)
@@ -171,7 +171,7 @@ Expected: no new `ERROR`; the named `PRE_EXISTING` findings, if any, unchanged.
 
 - <an observable, independently checkable result: the reference resolves, the state is
   reachable, the component renders with the new property>
-```
+````
 
 This is the command `/dgf-implement` runs after the task when the estate uses git. Without
 git it passes `--changed` with the task's files instead of `--base`, and for a task with
@@ -196,14 +196,16 @@ Before saving a bundle, every task must have:
    the evidence cannot settle goes under `## Open Questions` in `index.md`, and the bundle is
    not implementation-ready until it is answered.
 
-And the bundle must pass:
+And the bundle must pass `check_plan.py <index.md> --workspaces-root <root>`, exit `0` or `2`.
+It checks the header, the tasks, every file's class and route, every Phase Index and task link,
+and that:
 
-- `check_plan.py <index.md> --workspaces-root <root>` exits `0` or `2` — it checks the header,
-  the tasks, every file's class and route, and every Phase Index and task link.
 - Every phase file is linked from `## Phase Index`; none is an orphan.
 - Every indexed task has exactly one `## Task N` section, and every section's task is indexed.
 - No phase file contains a task checkbox.
-- The Commit Plan groups agree with the phase and task numbering.
+
+No script checks the Commit Plan yet. Read it before saving: its groups must agree with the
+phase and task numbering.
 
 ## Consumer contract
 

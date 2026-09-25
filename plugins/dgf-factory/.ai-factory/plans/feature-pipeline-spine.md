@@ -1242,3 +1242,18 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   under the system interpreter without `lxml`; doctor CLEAN with all nine expected slices reported (six
   present); stamps, drift (255 sources) and the known-good run CLEAN, the last byte-identical to before
   the runner moved; the docs check at its known dependency-warning baseline.
+- **After Task 20 — `/aif-verify` against the three new rules (2026-09-25).** All six rules hold.
+  `PLAN-FORMAT.md`'s worked example walks through every spine script on a scratch estate with git:
+  `locate_plan` 0, `check_plan --overlap` 0, `route_means DataSource` json, then per task
+  `validate_config` 0 and `check_change --files` 0, the gate `check_change --base main` 0 (two
+  `PRE_EXISTING`, none new), and the commit check `--skip-validators` 0. `ULTRA-FORMAT.md`'s
+  template bundle, with two phase files, passes `check_plan.py`. Fixed: the ultra phase
+  template's fence closed at its inner bash block and left the rest of the file inside an
+  unclosed fence; `blocking` is now `true` exactly when `status` is `fail`, as in AI Factory's
+  contract; the worked example's `ROUTE:` line is now the exact line. Still open:
+  - No script checks that a Commit Plan's groups agree with the task numbering. `ULTRA-FORMAT.md`
+    now says so; a `plan-commits` check in `check_plan.py` would decide it.
+  - The doctor's gate block always emits `"blocking": true` and suggests `/dgf-fix`, even on a
+    pass (since milestone 6). Milestone 10's `scripts/lib/gate_result.py` should build that block too.
+  - Rule 4 (walk a skill's worked example through its scripts) is kept by hand. A test that runs
+    `PLAN-FORMAT.md`'s worked example through `check_plan.py` would keep it automatically.

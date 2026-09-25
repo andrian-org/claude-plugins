@@ -186,7 +186,7 @@ follow-up: no behavioural fact carries one yet.
 `schema_version`, `gate`, `status`, `blocking`, `blockers`, `affected_files` and
 `suggested_next`. Status is computed from the scripts' exits — any `3` or `1` is `fail`, any
 `2` or a required check reported `NOT RUN` is `warn`, otherwise `pass` — and `--strict` makes a
-new warning `fail`. The contract is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
+new warning `fail`. `blocking` is `true` only when the status is `fail`. The contract is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
 
 Four fields are **not yet emitted**: `schema_family`, `checks_run`, `affected_components` and
 `affected_processes`. They arrive with milestone 10, with the `scripts/lib/gate_result.py` that

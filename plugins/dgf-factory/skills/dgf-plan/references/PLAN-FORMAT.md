@@ -163,7 +163,7 @@ Show the inspection fee on the ZIMS application form, and hide it until payment 
 
 | Artifact | Workspace | State | Family | Route evidence |
 |---|---|---|---|---|
-| `webasm/FM/_COMPONENTS/DataSource/InspectionFee.json` | webasm | new | json | `` ROUTE: json <workspace>/FM/_COMPONENTS/DataSource/<name>.json — `DataSource` is a loader folder: DataSourceLoader reads it as JSON `` |
+| `webasm/FM/_COMPONENTS/DataSource/InspectionFee.json` | webasm | new | json | `` ROUTE: json <workspace>/FM/_COMPONENTS/DataSource/<name>.json — `DataSource` is a loader folder: DataSourceLoader reads it as JSON (knowledge/json-reader.md §4) `` |
 | `zims/FM/_DATA/Inspection/_forms/Apply/_form.xml` | zims | existing | xml | on disk as `_form.xml` |
 | `zims/FM/_DATA/Inspection/_forms/Apply/_form.js` | zims | new | code | a form's own script (`code-places`, `form-script`) |
 
