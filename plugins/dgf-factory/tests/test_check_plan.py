@@ -148,11 +148,11 @@ class Tasks(Base):
 class Ultra(Base):
     HEADER = ["plan_format: 1", "mode: ultra", "branch: feature/x", "created: 2026-09-25", "affects_workspaces: [zims]"]
 
-    def bundle(self, index_body, phases=("phase-1.md",)):
+    def bundle(self, index_body, phases=("phase-1.md",), phase_text="# Phase 1\n\n## Task 1: task 1\n\nDetail.\n"):
         bundle = self.root / ".dgf-factory" / "plans" / "feature-x"
         bundle.mkdir(parents=True)
         for name in phases:
-            (bundle / name).write_text("# Phase\n", encoding="utf-8")
+            (bundle / name).write_text(phase_text, encoding="utf-8")
         index = bundle / "index.md"
         index.write_text(plan_text(header=self.HEADER, body=index_body,
                                    tasks=[task(1).replace("task 1", "[task 1](phase-1.md#task-1)")]),
@@ -171,7 +171,25 @@ class Ultra(Base):
         self.assertEqual(self.codes(path=index), ["PLAN_ULTRA_BROKEN"])
 
     def test_no_phase_index(self):
-        self.assertEqual(self.codes(path=self.bundle("")), ["PLAN_ULTRA_BROKEN"])
+        # No Phase Index: the phase file is also an orphan, and Task 1 has no section.
+        self.assertEqual(set(self.codes(path=self.bundle(""))), {"PLAN_ULTRA_BROKEN"})
+
+    INDEX = "## Phase Index\n\n- [Phase 1](phase-1.md)\n\n"
+
+    def test_an_orphan_phase_file(self):
+        index = self.bundle(self.INDEX, phases=("phase-1.md", "phase-9.md"))
+        self.assertEqual(self.codes(path=index), ["PLAN_ULTRA_BROKEN"])
+        self.assertIn("phase-9.md", self.message("PLAN_ULTRA_BROKEN"))
+
+    def test_a_task_without_its_section(self):
+        index = self.bundle(self.INDEX, phase_text="# Phase 1\n\n## Task 2: another\n")
+        self.assertEqual(self.codes(path=index), ["PLAN_ULTRA_BROKEN", "PLAN_ULTRA_BROKEN"])
+        self.assertIn("Task 1", self.message("PLAN_ULTRA_BROKEN"))
+
+    def test_a_checkbox_in_a_phase_file(self):
+        index = self.bundle(self.INDEX, phase_text="# Phase 1\n\n## Task 1: task 1\n\n- [ ] Task 1: again\n")
+        self.assertEqual(self.codes(path=index), ["PLAN_ULTRA_BROKEN"])
+        self.assertIn("checkbox", self.message("PLAN_ULTRA_BROKEN"))
 
 
 class Files(Base):

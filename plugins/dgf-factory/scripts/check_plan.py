@@ -9,7 +9,9 @@ Reads one plan entrypoint — a fast `PLAN.md`, a full plan, or an ultra bundle'
                 when `webasm` is listed, and the file stem = branch with / → -
   plan-tasks    checkbox tasks with unique ids, known dependencies, a `kind`,
                 a `reason` for `kind: code`, and `files` or `deletes`; for
-                ultra, every phase link a direct child of the bundle
+                ultra, every phase link a direct child of the bundle, no
+                orphan phase file, one `## Task N` section per task, and no
+                checkbox outside `index.md`
   plan-files    each path's class (config, code, excluded, other), its
                 workspace declared, its class matching the task's kind, and no
                 new file where nothing loads one
@@ -47,6 +49,8 @@ BASE = workspace.BASE_WORKSPACE
 COMPONENTS = "_COMPONENTS"
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
 _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
+_SECTION = re.compile(r"## Task (\d+)\b")
+_CHECKBOX_TASK = re.compile(r"\s*- \[[ xX]\] (?:\*\*)?Task \d+:")
 
 
 def build_parser():
@@ -236,6 +240,39 @@ def _check_bundle(parsed, rep):
             rep.add("PLAN_ULTRA_BROKEN", f"`{target}` is not a file directly inside the bundle", line=line)
         elif workspace.exact_child(bundle, name)[0] != workspace.OK or not (bundle / name).is_file():
             rep.add("PLAN_ULTRA_BROKEN", f"`{target}` names `{name}`, which the bundle does not hold", line=line)
+    phases = [t.split("#", 1)[0] for t, _ in parsed.phase_links if (bundle / t.split("#", 1)[0]).is_file()
+              and "/" not in t.split("#", 1)[0]]
+    _check_orphans(bundle, phases, rep)
+    _check_sections(bundle, phases, parsed.tasks, rep)
+
+
+def _check_orphans(bundle, phases, rep):
+    for path in sorted(bundle.glob("*.md")):
+        if path.name != "index.md" and path.name not in phases:
+            rep.add("PLAN_ULTRA_BROKEN", f"`{path.name}` is in the bundle but `## Phase Index` does not link it")
+
+
+def _check_sections(bundle, phases, tasks, rep):
+    """Each indexed task has exactly one `## Task N` section, and no phase file holds a checkbox task."""
+    sections = {}
+    for name in dict.fromkeys(phases):
+        for number, line in enumerate((bundle / name).read_text(encoding="utf-8").splitlines(), 1):
+            heading = _SECTION.match(line)
+            if heading:
+                sections.setdefault(int(heading.group(1)), []).append(name)
+            if _CHECKBOX_TASK.match(line):
+                rep.add("PLAN_ULTRA_BROKEN", f"`{name}` line {number} holds a task checkbox — progress lives only "
+                                             f"in `index.md`")
+    ids = {task.id for task in tasks}
+    for task in tasks:
+        found = sections.get(task.id, [])
+        if len(found) != 1:
+            where = "no phase file has" if not found else f"{', '.join(found)} have"
+            rep.add("PLAN_ULTRA_BROKEN", f"Task {task.id}: {where} a `## Task {task.id}` section — it needs "
+                                         f"exactly one", line=task.line)
+    for number, names in sorted(sections.items()):
+        if number not in ids:
+            rep.add("PLAN_ULTRA_BROKEN", f"`## Task {number}` in {names[0]} is not a task in `index.md`")
 
 
 # --- plan-files -------------------------------------------------------------------
