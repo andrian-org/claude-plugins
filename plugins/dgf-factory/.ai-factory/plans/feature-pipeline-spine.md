@@ -598,7 +598,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
 
 ### Phase 1: Decisions
 
-- [ ] **Task 1: Write ADR 0017 — the plan file format.**
+- [x] **Task 1: Write ADR 0017 — the plan file format.**
   Create `docs/adr/0017-plan-file-format.md`, status `accepted`, date 2026-09-25, deciders `[Andrian Mamei]`,
   `supersedes: []`, following `docs/adr/README.md` §"Section contract".
   - *Title:* "The plan file: a frontmatter header, per-task kind, reason and files, and edit-only global scripts".
@@ -621,7 +621,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
     0010**: follow-ups are not decisions, and the contract permits only errata.
   - Files: `docs/adr/0017-plan-file-format.md`.
 
-- [ ] **Task 2: Write ADR 0018 — gates block on what the branch introduced.**
+- [x] **Task 2: Write ADR 0018 — gates block on what the branch introduced.**
   Create `docs/adr/0018-change-relative-gates.md`, `accepted`, 2026-09-25.
   - *Title:* "A gate blocks on what the branch introduced: findings are compared with the merge-base".
   - *Context:* ADR 0004's whole-root scope and brownfield default; ADR 0014's two true sample defects;
@@ -637,7 +637,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
     passes; the gate depends on `git`.
   - Files: `docs/adr/0018-change-relative-gates.md`.
 
-- [ ] **Task 3: Write ADR 0019 — the estate's DGF version is declared at setup.**
+- [x] **Task 3: Write ADR 0019 — the estate's DGF version is declared at setup.**
   Create `docs/adr/0019-declared-dgf-version.md`, `accepted`, 2026-09-25.
   - *Context:* E17, plus ADR 0013's follow-up "Decide how the version gate learns a developer's DGF version"
     (`docs/adr/0013-version-gating-provenance-ledger.md:259-260`).
@@ -650,7 +650,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
   - *Consequences:* a declared value can be wrong or go stale, and nothing checks it against a deployment.
   - Files: `docs/adr/0019-declared-dgf-version.md`.
 
-- [ ] **Task 4: Index the three ADRs and pass the decision-record checks.** (depends on 1, 2, 3)
+- [x] **Task 4: Index the three ADRs and pass the decision-record checks.** (depends on 1, 2, 3)
   - Add rows 0017–0019 to `docs/adr/README.md` §Index, with Status `accepted` and a *Decides* cell each. Extend its
     §"See Also" if it names ADR groups.
   - Run `tools/check-dual-schema-docs.sh`. Sections 5 and 5b must pass. Record the verdict, and fix any
