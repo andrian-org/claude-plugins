@@ -26,7 +26,7 @@ skills/dgf-component/
 name: dgf-component
 description: Scaffold, inspect or validate a DGF component against the catalogue. Use for "add component", "check component", "is this component valid".
 argument-hint: "[scaffold | inspect | validate] <component-name>"
-allowed-tools: Read Write Glob Grep Bash(python3 *) AskUserQuestion
+allowed-tools: Read Write Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
 disable-model-invocation: false
 version: 1.0.0
 ---
@@ -37,7 +37,7 @@ version: 1.0.0
 | `name` | Matches the directory name. kebab-case. |
 | `description` | **Carries the trigger phrases.** It is the only thing deciding whether the skill fires — write it for matching, not for elegance. Include the literal phrases a user would type. |
 | `argument-hint` | Present whenever the skill takes arguments |
-| `allowed-tools` | An allowlist, not a formality. Narrow `Bash` to command prefixes — `Bash(git *)`, `Bash(python3 *)` — rather than granting bare `Bash`. |
+| `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `${CLAUDE_PLUGIN_ROOT}` is substituted inside Bash rules, so a skill that runs the plugin's scripts lists `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)`, never `Bash(python3 *)`, which also pre-approves `python3 -c …`. A skill that runs no git command lists no git rule. `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`: a rule with `*` before the subcommand draws a startup warning. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
 | `version` | Semver. Bump when behaviour changes. |
 
 ## Body structure
@@ -91,6 +91,10 @@ The validators under `scripts/` print, in this order, so a skill never has to gu
 4. `NOT RUN: <id> (<reason>)`, repeated — never report these as passed;
 5. one line per finding: `ERROR|WARN|INFO <CODE> <file>[:<line>] <message>`;
 6. a summary, then the verdict: `CLEAN`, `WARNINGS` or `BLOCKED`.
+
+Every finding is exactly one line. Control and line-separator characters in a file name or a
+message — text that can come from a workspace or another branch — print escaped (`\x0a`,
+` `), so no content can forge a line or a verdict.
 
 `route_means.py` answers a question rather than checking files, so it prints a single
 `ROUTE: json|xml <where> — <reason>` line in place of 2–4.
@@ -186,6 +190,7 @@ many times.
 
 - [ ] `description` contains the phrases a user would actually type
 - [ ] `allowed-tools` is narrowed to what the skill really needs
+- [ ] A skill-context override is read with the shared limit sentence: it may only tighten
 - [ ] Every DGF fact is cited from `knowledge/`, not inlined in the prompt
 - [ ] Every statically checkable rule is a script, not an instruction
 - [ ] Exit codes follow the table above

@@ -102,8 +102,8 @@ headings, followed by field bullets indented two spaces:
 | `Task N:` | a unique integer; `(depends on N, M)` names existing tasks and forms no cycle |
 | `kind:` | mandatory: `config` or `code` |
 | `reason:` | mandatory for `code`: the configuration route tried, and why it cannot express the change, citing the component doc, the schema or the `EventBase` verb list. "Quicker in JavaScript" is not a reason. Optional for `config` |
-| `files:` | the files the task creates or edits, comma-separated, relative to the workspaces root with `/`; the first segment is a workspace listed in `affects_workspaces` |
-| `deletes:` | the files the task removes |
+| `files:` | the files the task creates or edits, comma-separated, relative to the workspaces root with `/`; the first segment is a workspace listed in `affects_workspaces`. Never absolute, never a drive, never a `\`, and never an empty, `.` or `..` segment — `check_plan.py` blocks such a path as `PLAN_PATH_INVALID` |
+| `deletes:` | the files the task removes, under the same rule |
 
 A task needs `files:`, `deletes:` or both. Other indented lines under a task — notes, steps —
 are allowed and ignored by the scripts.

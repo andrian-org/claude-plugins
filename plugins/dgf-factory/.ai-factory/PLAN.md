@@ -160,7 +160,7 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
 
 ### Phase 4: Documentation and proof
 
-- [ ] **Task 7: Document the path rule, one-line output and override limits.** (depends on 1–6)
+- [x] **Task 7: Document the path rule, one-line output and override limits.** (depends on 1–6)
   - Files: `skills/dgf-plan/references/PLAN-FORMAT.md`, `docs/pipeline.md`, `docs/skill-authoring.md`,
     `.ai-factory/ARCHITECTURE.md` (only if it lists the finding codes or the frontmatter example).
   - `PLAN-FORMAT.md` `files:` row: "never absolute, never a `.` or `..` segment, no `\` (`PLAN_PATH_INVALID`)".
@@ -174,7 +174,7 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
     ship a skill" list gains "an override may only tighten".
   - Logging: n/a.
 
-- [ ] **Task 8: Re-run the reproduction and every check; record the results.** (depends on 7)
+- [x] **Task 8: Re-run the reproduction and every check; record the results.** (depends on 7)
   - Re-run the H1 reproduction on a scratch estate in the scratchpad (root as a subdirectory of the repo; task path
     `webasm/FM/../../../outside.json`): `check_plan.py` must exit 1 with `PLAN_PATH_INVALID`;
     `check_change.py --files webasm/FM/../../../outside.json` must exit 3. Re-walk PLAN-FORMAT.md's worked example
@@ -187,7 +187,34 @@ From `/aif-security-checklist` on 2026-09-25 (gate `fail`, one blocker):
 
 ## Results
 
-<filled in by Task 8>
+Run on 2026-09-25 after Tasks 1–7 (commits `70d0528`, `07dc320`, `cd154b9`, then this one).
+
+| Check | Result |
+|---|---|
+| H1 reproduction — root a subdirectory of the repo, task path `webasm/FM/../../../outside.json` | `check_plan.py` exit 1: `ERROR PLAN_PATH_INVALID … climbs out with ..` (was exit 0) |
+| same path as `check_change.py --files` | exit 3: `--files takes paths relative to the workspaces root; … climbs out with ..` |
+| L1 — `check_change.py --base=--output=pwned` | exit 3, before git runs; no `pwned` file written |
+| M1 — another branch's plan with an injection string in its header | unit test: the message names the path and `line 6`, and contains none of the text |
+| PLAN-FORMAT.md's worked example (RULES.md rule 4) | `check_plan.py --overlap` 0; `check_change.py --base main` 0, new 0, pre-existing 2; `route_means.py DataSource` → json |
+| venv suite | 448 tests, OK (was 427) |
+| `/usr/bin/python3` 3.9.6, no lxml or jsonschema | 448 tests, OK, 137 skipped |
+| `doctor.py` | CLEAN |
+| `tools/check-dual-schema-docs.sh` (venv on `PATH`) | exit 0, CLEAN |
+| `tools/check_knowledge_stamps.py` | CLEAN |
+| `tools/check_drift.py` | CLEAN |
+| `tools/run_known_good.py` | CLEAN, byte-identical to the run before Task 3 |
+
+Surprises and deviations:
+
+- `check_plan.py`'s module docstring would have held a lone `\`, an invalid escape in a normal string; it says
+  "backslash" instead.
+- `split_paths()` strips one leading `./` before the check, so `././x` is reported as `./x` with "has a `.`
+  segment" — intended (D1), and the test says so.
+- `inventory_root.py`, `locate_plan.py` and `route_means.py` print their own lines rather than through `render()`;
+  they pass them through `report.one_line()` too, so D4 holds for every script under `scripts/`.
+- `.ai-factory/ARCHITECTURE.md`'s frontmatter example still shows `Bash(python3 *)`. It is `/aif-architecture`'s
+  artifact and the change is a convention, not a structure change, so it was left for that command.
+- The doctor's `DEBUG=1 python3 …` line matches no rule, as it matched none before: it prompts, as it did.
 
 ## Out of scope
 

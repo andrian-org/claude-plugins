@@ -45,7 +45,7 @@ their branches, and the overlap check reads other branches' plans.
 | `DESCRIPTION.md` | `/dgf` | `/dgf-plan`, `/dgf-implement` |
 | `PLAN.md` | `/dgf-plan` (fast plans) | `/dgf-implement` (checkboxes only), `/dgf-verify`, `/dgf-commit` |
 | `plans/<stem>.md`, `plans/<stem>/` | `/dgf-plan` (full plans, ultra bundles) | the same |
-| `skill-context/<skill>/SKILL.md` | a person, for now | the matching skill, which applies it as an override |
+| `skill-context/<skill>/SKILL.md` | a person, for now | the matching skill, which applies it as an override that may only tighten: it never relaxes a STOP, an exit-code row, the gate's status table, a Critical Rule or Artifact Ownership, and the skill names the override it read |
 | `patches/` | milestone 11 (`/dgf-fix`) | `/dgf-implement`, read if present |
 
 `config.yaml` is written from `skills/dgf/references/config-template.yaml`:
@@ -99,7 +99,10 @@ Each task is a checkbox with field bullets:
 ```
 
 `kind` is `config` or `code`; `code` needs a `reason`. `files` and `deletes` are relative to
-the workspaces root. Every path falls in one class:
+the workspaces root, with `/`. A path that is absolute, names a drive, uses `\`, or has an
+empty, `.` or `..` segment is `PLAN_PATH_INVALID` (exit `1`): `webasm/FM/../../x.json` would
+otherwise read as `webasm` configuration while naming a file outside the root, where the change
+gate never looks. Every other path falls in one class:
 
 | Class | Paths | In a plan |
 |---|---|---|
@@ -141,11 +144,14 @@ to run the validators. Each takes `--verbose`.
 | `0` | found | a root with a base workspace, validators ready | sound | inside the plan; nothing new |
 | `1` | `ROOT_NOT_SET_UP`, `ROOT_AMBIGUOUS`, `PLAN_NOT_FOUND`, `PLAN_AMBIGUOUS` | — | a plan defect (`PLAN_*`) | `CHANGE_UNDECLARED_WORKSPACE`, `CHANGE_OUT_OF_SCOPE`, `CHANGE_CODE_UNPLANNED`, `CHANGE_CODE_FILE_NEW`, or a new blocking validator finding |
 | `2` | `PLAN_FALLBACK` | `BASE_WORKSPACE_ABSENT`, `VALIDATOR_DEPS_MISSING` | `PLAN_OVERLAP`, `PARITY_PARTIAL`, `PLAN_NOT_AUTHORED` | an unplanned or untouched file, a new validator warning |
-| `3` | usage | `ROOT_NO_WORKSPACE` | `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` | usage, an unreadable plan, `DEPENDENCY_MISSING` |
+| `3` | usage | `ROOT_NO_WORKSPACE` | `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` | usage — including a `--files` or `--changed` path that leaves the root, and a `--base` that starts with `-` — an unreadable plan, `DEPENDENCY_MISSING` |
 
 The overlap check reads `.dgf-factory/plans/` at the tip of every local and remote-tracking
 branch. It never fetches, so remote branches are as fresh as the last `git fetch`; `/dgf-plan`
 offers one. Overlap is a warning, never a block ([ADR 0009](adr/0009-plan-ledger-scope.md)).
+Another branch's plan is named, never quoted: `PLAN_OVERLAP_UNREADABLE` gives its path, its
+refs and the line that failed to parse, because anyone who can push a branch writes that text,
+and the model reads the script's output. A path or ref over 120 characters is cut.
 
 ## Change-relative gates
 

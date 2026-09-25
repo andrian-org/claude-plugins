@@ -1257,3 +1257,16 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
     pass (since milestone 6). Milestone 10's `scripts/lib/gate_result.py` should build that block too.
   - Rule 4 (walk a skill's worked example through its scripts) is kept by hand. A test that runs
     `PLAN-FORMAT.md`'s worked example through `check_plan.py` would keep it automatically.
+- **After Task 20 — the security findings (2026-09-25).** `/aif-security-checklist` found one
+  high, two medium and two low findings; `.ai-factory/PLAN.md` settled them (commits `70d0528`,
+  `07dc320`, `cd154b9` and the docs commit after them): `PLAN_PATH_INVALID` for plan paths that
+  leave the root, one-line report output, other branches' plans named but never quoted,
+  overrides that only tighten, refs that start with `-` refused, and `python3` pre-approved only
+  for the plugin's scripts. Still open:
+  - `/dgf`, `/dgf-plan`, `/dgf-implement` and `/dgf-commit` keep `Bash(git *)`: they run
+    `git -C "<root>" <subcommand>`, and a narrower rule needs a `*` before the subcommand, which
+    Claude Code warns about at startup. A prompt-injected instruction could still run any git
+    command in those four without a prompt. Claude Code never auto-approves writes to `.git`,
+    `.claude/` or `.mcp.json`.
+  - `.ai-factory/rules/base.md` and `.ai-factory/ARCHITECTURE.md` still show `Bash(python3 *)` as
+    the example of a narrowed rule; `/aif` and `/aif-architecture` own them.
