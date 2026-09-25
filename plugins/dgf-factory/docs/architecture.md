@@ -37,8 +37,9 @@ plugins/dgf-factory/
 │   ├── route_means.py           #   JSON or legacy XML for a new configuration
 │   ├── locate_plan.py           #   the workspaces root and the active plan
 │   ├── inventory_root.py        #   each workspace, counted; what is not one
-│   ├── check_plan.py            #   a plan's header, tasks, file classes, routes and overlaps
+│   ├── check_plan.py            #   a plan's header, tasks, Commit Plan, file classes, routes, overlaps
 │   ├── check_change.py          #   a branch's change against its plan and the merge-base
+│   ├── verify_gate.py           #   the verify gate: every check, the computed status, one block
 │   ├── requirements.txt         #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                     #   what the scripts share (below)
 ├── .mcp.json                    # MCP servers
@@ -62,14 +63,14 @@ plugins/dgf-factory/
 | `parity.py` | The runtime-parity gate |
 | `workspace.py` | The workspaces-root model and the engine's reference resolution, exact-case |
 | `process_checks.py` | Dead transitions, unreachable states, workflow and change-state references |
-| `plan.py` | The plan file's flat header and tasks, and each path's class — config, code, excluded, other |
+| `plan.py` | The plan file's flat header, tasks and Commit Plan; each path's class — config, code, excluded, other — and the artifact it is |
 | `git.py` | The read-only git calls — changed files, refs, and a commit's tree written blob by blob |
 | `runner.py` | Every validator over a root or some of its files; `tools/run_known_good.py` uses the same runner |
 | `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
+| `gate_result.py` | Builds, validates and renders every `dgf-gate-result` block, its status computed from its entries ([ADR 0020](adr/0020-gate-block-contract.md)); stdlib only, and imports nothing from its package, so `doctor.py` loads it by path |
 
-`lib/gate_result.py`, which will build the `dgf-gate-result` block with its DGF-specific
-fields, arrives with milestone 10. Until then `/dgf-verify` assembles the block from the
-scripts' exit codes.
+`verify_gate.py` is the verify gate: it runs `check_plan.py`'s and `check_change.py`'s checks
+in-process and builds the one block `/dgf-verify` relays. No prompt assembles a gate block.
 
 Folder names are Claude Code plugin names rather than the reference pattern's
 `src/[Module]/Slices/` names. Auto-discovery only loads components from the plugin's
@@ -86,7 +87,7 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py` |
+| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py` |
 | Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
 
 A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators over DGF's

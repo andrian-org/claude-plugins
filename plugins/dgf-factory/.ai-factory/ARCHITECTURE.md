@@ -73,7 +73,7 @@ plugins/dgf-factory/
 │   ├── dgf-implement/                  # Slice: the execution state machine (exists)
 │   │   ├── SKILL.md
 │   │   └── references/                 #   IMPLEMENTATION-GUIDE.md
-│   ├── dgf-verify/                     # Slice: emits dgf-gate-result (exists)
+│   ├── dgf-verify/                     # Slice: relays verify_gate.py's dgf-gate-result (exists)
 │   │   ├── SKILL.md
 │   │   └── references/                 #   GATE-RESULT-CONTRACT.md
 │   └── dgf-commit/                     # Slice: conventional commits scoped by workspace (exists)
@@ -104,8 +104,9 @@ plugins/dgf-factory/
 │   ├── route_means.py                  #   ADR 0010's order of means: JSON or legacy XML
 │   ├── locate_plan.py                  #   the workspaces root and the active plan (ADR 0017)
 │   ├── inventory_root.py               #   each workspace, counted; what is not a workspace
-│   ├── check_plan.py                   #   a plan's header, tasks, file classes, routes, overlaps
+│   ├── check_plan.py                   #   a plan's header, tasks, Commit Plan, file classes, routes, overlaps
 │   ├── check_change.py                 #   a change against its plan and the merge-base (ADR 0018)
+│   ├── verify_gate.py                  #   the verify gate: every check, the status computed, one block
 │   ├── requirements.txt                #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                            #   one module per concern
 │       ├── report.py                   #     findings, codes → exit codes, verdict, DEBUG trace
@@ -120,11 +121,11 @@ plugins/dgf-factory/
 │       ├── parity.py                   #     the runtime-parity gate
 │       ├── workspace.py                #     workspaces-root model, exact-case reference resolution
 │       ├── process_checks.py           #     dead transitions, reachability, workflow/change-state refs
-│       ├── plan.py                     #     the plan file's flat header, tasks, and each path's class
+│       ├── plan.py                     #     the plan file's header, tasks, Commit Plan; each path's class and artifact
 │       ├── git.py                      #     read-only git calls; a commit's tree written blob by blob
 │       ├── runner.py                   #     every validator over a root or some of its files
 │       ├── baseline.py                 #     which findings a branch introduced (merge-base comparison)
-│       └── gate_result.py              #     emits the dgf-gate-result block (milestone 10)
+│       └── gate_result.py              #     builds every dgf-gate-result block — stdlib, no package imports
 │
 ├── .mcp.json                           # MCP servers (DGF docs MCP only)
 │
@@ -147,11 +148,12 @@ plugins/dgf-factory/
 ```
 
 The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices (`dgf`,
-`dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), `knowledge/`, `scripts/` (all but
-`lib/gate_result.py`), `tests/`, `tools/`, `provenance/` and the files around them exist.
-`dgf-component` and the other DGF-specific slices, and `agents/`, arrive with later roadmap
-milestones; `lib/gate_result.py` with the gate block's DGF-specific fields in milestone 10.
-Until then `/dgf-verify` assembles the block from the scripts' exit codes.
+`dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), `knowledge/`, `scripts/`, `tests/`,
+`tools/`, `provenance/` and the files around them exist. `dgf-component` and the other
+DGF-specific slices, and `agents/`, arrive with later roadmap milestones. Every gate block is
+built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `/dgf-verify`,
+`doctor.py` for `/dgf-doctor` — and the skill relays it
+([ADR 0020](../docs/adr/0020-gate-block-contract.md)).
 
 Root `knowledge/` and `scripts/` are not auto-discovered — they are plain files, reached
 from a slice by `${CLAUDE_PLUGIN_ROOT}/knowledge/...` and
@@ -184,8 +186,9 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   (`knowledge/README.md` §7). The marker is the only coupling. The knowledge file still names
   no script, and a malformed table is exit `3`, never a fallback
 - ✅ A slice's own script may load a shared library module by path: `doctor.py` loads
-  `scripts/lib/knowledge.py` to check every table. That is why `knowledge.py` is stdlib-only
-  and imports nothing from its own package
+  `scripts/lib/knowledge.py` to check every table, and `scripts/lib/gate_result.py` — from its
+  own plugin, never the root it checks — to build its gate block. That is why both are
+  stdlib-only and import nothing from their own package
 - ✅ A slice hands work to another slice by **invoking it as a command** (`/dgf-verify`)
   or by **writing an artifact** the other slice reads
 - ❌ A slice reads another slice's `references/`, `scripts/` or `templates/` directly —

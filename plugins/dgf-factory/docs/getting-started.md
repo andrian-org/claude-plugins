@@ -43,7 +43,7 @@ relative to it.
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
 | `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` | The pipeline spine — set up, plan, implement, verify, commit. `dgf`, `dgf-plan`, `dgf-implement` and `dgf-verify` carry `references/` too. See [Pipeline Spine](pipeline.md) |
 | `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); six stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
-| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`. Their shared `lib/`, and the hash-pinned `requirements.txt`. Shipped |
+| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, and the verify gate `verify_gate.py`. Their shared `lib/` — `lib/gate_result.py` builds every gate block — and the hash-pinned `requirements.txt`. Shipped |
 | `tests/` | Not shipped. The `unittest` suite and its fixtures, including the known-bad corpus under `fixtures/known-bad/` |
 | `provenance/` | Not shipped. One ledger per knowledge file: the DGF files its facts were read from, each with a `sha256` |
 | `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts; section 8 runs the unit tests |
@@ -133,6 +133,7 @@ per finding and a verdict, and exits `0`, `1`, `2` or `3` (see
 | `inventory_root.py` | Each workspace and its counts, and what is not a workspace |
 | `check_plan.py` | Whether a plan is well formed, in scope and routed, and which other plans overlap it |
 | `check_change.py` | Whether a branch's change stays inside its plan, and which validator findings it introduced |
+| `verify_gate.py` | The gate: all of the above in one run, the status computed, and one `dgf-gate-result` block |
 
 Their flags and exit codes are in [Pipeline Spine → The scripts](pipeline.md#the-scripts).
 
@@ -199,6 +200,12 @@ Cut a branch in the copy (`git -C /tmp/estate checkout -b feature/try`), write a
 .venv/bin/python scripts/check_change.py --workspaces-root /tmp/estate --plan /tmp/estate/.dgf-factory/plans/feature-try.md --base main
 ```
 
+Then gate it, as `/dgf-verify` does — every check in one run, ending with the block:
+
+```bash
+.venv/bin/python scripts/verify_gate.py --workspaces-root /tmp/estate --plan /tmp/estate/.dgf-factory/plans/feature-try.md --base main
+```
+
 `check_change.py` reports the samples' own findings as `INFO PRE_EXISTING` and only what the
 branch introduced as `ERROR` or `WARN`. To drive the same flow through the skills, load the
 plugin with `--plugin-dir` and run `/dgf /tmp/estate`, then `/dgf-plan`, `/dgf-implement`,
@@ -208,7 +215,6 @@ plugin with `--plugin-dir` and run `/dgf /tmp/estate`, then `/dgf-plan`, `/dgf-i
 
 - The rest of `skills/dgf-*/` — `/dgf-component`, `/dgf-process`, `/dgf-audit`, `/dgf-fix` and
   the other skills beyond the spine
-- `scripts/lib/gate_result.py` and the gate block's DGF-specific fields (milestone 10)
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 

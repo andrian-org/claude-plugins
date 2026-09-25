@@ -62,11 +62,12 @@ plugins/dgf-factory/
 │   ├── route_means.py          #   ADR 0010's order of means: JSON or legacy XML for a new config
 │   ├── locate_plan.py          #   the workspaces root and the active plan (ADR 0017 §6)
 │   ├── inventory_root.py       #   each workspace, counted; what is not one
-│   ├── check_plan.py           #   a plan's header, tasks, file classes, routes, bundle and overlaps
+│   ├── check_plan.py           #   a plan's header, tasks, Commit Plan, file classes, routes, bundle, overlaps
 │   ├── check_change.py         #   a branch's change against its plan and the merge-base (ADR 0018)
+│   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0020)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
 │   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
-│                               #   process_checks, plan, git, runner, baseline
+│                               #   process_checks, plan, git, runner, baseline, gate_result
 ├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
@@ -101,10 +102,11 @@ plugins/dgf-factory/
 ```
 
 Not yet created: the DGF-specific skills (`dgf-component`, `dgf-process`, `dgf-audit`), the
-learning loop (`dgf-fix`, `dgf-evolve`), `scripts/lib/gate_result.py` (milestone 10) and
-`agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
-the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
-milestone 8, and the pipeline spine with milestone 9.
+learning loop (`dgf-fix`, `dgf-evolve`) and `agents/`. The manifest and the `/dgf-doctor`
+walking skeleton landed with roadmap milestone 6, the `knowledge/` base with milestone 7, the
+validators, both corpora and the drift check with milestone 8, the pipeline spine with milestone
+9, and the wired gate contract — `lib/gate_result.py`, `verify_gate.py`, the Commit Plan check —
+with milestone 10.
 
 ## Key Entry Points
 
@@ -116,9 +118,11 @@ milestone 8, and the pipeline spine with milestone 9.
 | [scripts/validate_config.py](scripts/validate_config.py) | The dual-family config validator: family first, the runtime's JSON reader, the parity gate |
 | [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
 | [scripts/check_plan.py](scripts/check_plan.py) | Every rule a plan must meet (ADR 0017), and the overlap with other branches' plans |
-| [scripts/check_change.py](scripts/check_change.py) | The change gate: scope, means, planned files, and new findings against the merge-base (ADR 0018) |
-| [scripts/lib/plan.py](scripts/lib/plan.py) | The plan file's flat header, its tasks, and every path's class |
-| [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | How `/dgf-verify` computes its status and what its gate block holds |
+| [scripts/check_change.py](scripts/check_change.py) | The change checks: scope, means, planned files, and new findings against the merge-base (ADR 0018) |
+| [scripts/verify_gate.py](scripts/verify_gate.py) | The verify gate `/dgf-verify` relays: the plan and change checks in-process, the task audit, the computed block (ADR 0020) |
+| [scripts/lib/gate_result.py](scripts/lib/gate_result.py) | The one builder of every `dgf-gate-result` block — status from the entries, refusals, rendering; stdlib only |
+| [scripts/lib/plan.py](scripts/lib/plan.py) | The plan file's flat header, its tasks and Commit Plan, every path's class, and the artifact a path is |
+| [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | What the verify gate's block holds and how its status is computed |
 | [scripts/lib/report.py](scripts/lib/report.py) | Every finding code and the exit code it forces — the single source of severity |
 | [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to `tools/known-good-exceptions.txt` |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
@@ -185,8 +189,9 @@ milestone 8, and the pipeline spine with milestone 9.
   [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); the plan format, change-relative
   gates and the declared DGF version by [ADR 0017](docs/adr/0017-plan-file-format.md),
   [ADR 0018](docs/adr/0018-change-relative-gates.md) and
-  [ADR 0019](docs/adr/0019-declared-dgf-version.md); 0002, 0003, 0006, 0007 and 0008 are
-  superseded history.
+  [ADR 0019](docs/adr/0019-declared-dgf-version.md); the gate block — who builds it, how its
+  status is computed, what it may claim — by [ADR 0020](docs/adr/0020-gate-block-contract.md);
+  0002, 0003, 0006, 0007 and 0008 are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

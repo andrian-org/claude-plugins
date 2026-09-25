@@ -16,7 +16,7 @@ Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
 
 ## Current State
 
-Roadmap milestone 9 ("Pipeline Spine") is built. The repository currently contains:
+Roadmap milestone 10 ("Gate Contract Wired") is built. The repository currently contains:
 
 - `README.md` + `docs/` — landing page and documentation set
 - `docs/blueprint.md` — the design document (Part 1 teardown, Part 2 DGF mapping)
@@ -32,7 +32,8 @@ Roadmap milestone 9 ("Pipeline Spine") is built. The repository currently contai
   set up a workspaces root, plan (fast, full, ultra), execute task by task, gate the change,
   commit by workspace. Their references hold the config and DESCRIPTION templates, the plan
   and ultra formats, the implementation guide and the gate-result contract
-  ([docs/pipeline.md](../docs/pipeline.md))
+  ([docs/pipeline.md](../docs/pipeline.md)). `/dgf-verify` and `/dgf-doctor` relay a gate block a
+  script built; no prompt writes one ([ADR 0020](../docs/adr/0020-gate-block-contract.md))
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
   machine-read table contract), six stamped facts files (`schema-families`,
   `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,
@@ -55,19 +56,21 @@ Roadmap milestone 9 ("Pipeline Spine") is built. The repository currently contai
   references), `validate_process.py` (process structure and semantics, `CHANGE_STATE`
   targets) and `route_means.py` (ADR 0010's order of means). The spine's four:
   `locate_plan.py` (the root and the active plan), `inventory_root.py` (each workspace,
-  counted), `check_plan.py` (every rule of the plan format, and overlaps with other branches'
-  plans) and `check_change.py` (a change against its plan, and new findings against the
-  merge-base). With them, their shared `lib/` — `plan.py`, `git.py`, `runner.py` and
-  `baseline.py` among its modules — and `requirements.txt`: `lxml` 6.1.3 and `jsonschema`
-  4.25.1, exact pins with hashes, Python 3.9 floor
-- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 51-case known-bad
+  counted), `check_plan.py` (every rule of the plan format, its Commit Plan included, and
+  overlaps with other branches' plans) and `check_change.py` (a change against its plan, and new
+  findings against the merge-base). And the verify gate, `verify_gate.py`, which runs the plan
+  and change checks in-process and prints one computed `dgf-gate-result` block. With them, their
+  shared `lib/` — `plan.py`, `git.py`, `runner.py`, `baseline.py` and `gate_result.py` (the one
+  builder of every gate block) among its modules — and `requirements.txt`: `lxml` 6.1.3 and
+  `jsonschema` 4.25.1, exact pins with hashes, Python 3.9 floor
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 55-case known-bad
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
   when a skill quotes a finding code or passes a flag no script has
-- `docs/adr/` — 19 decision records, 0001–0019; the index is `docs/adr/README.md`
+- `docs/adr/` — 20 decision records, 0001–0020; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: the DGF-specific skills, the learning loop, `scripts/lib/gate_result.py`
-(milestone 10), `agents/` and the marketplace entry.
+Not yet created: the DGF-specific skills, the learning loop, `agents/` and the marketplace
+entry.
 
 ## Tech Stack
 

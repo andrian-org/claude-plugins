@@ -258,3 +258,11 @@ The doctor's gate is no longer `verify`. `/dgf-fix` joins an allowlist when mile
 - This ADR answers [ADR 0004](0004-authoring-entry-point.md)'s narrowing follow-up (§4) and
   [ADR 0018](0018-change-relative-gates.md)'s `checks_run` follow-up (§4). Neither ADR is edited: a
   follow-up is not a decision.
+
+## Errata
+
+- **2026-09-25** — §Consequences (Negative) said "A plugin copy without `scripts/` now warns
+  (`not-run-validator-runtime`) instead of passing silently". That holds when another copy's doctor
+  checks it. A copy's own doctor loads its builder from its own `scripts/lib/gate_result.py` (§1), so
+  without `scripts/` it exits `3` with no block. Source: `skills/dgf-doctor/scripts/doctor.py`
+  (`load_gate_builder()`, and `resolve_root()` with no argument); found by review before merge.

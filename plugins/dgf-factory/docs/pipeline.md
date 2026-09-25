@@ -23,7 +23,7 @@ looks at the whole root.
 | `/dgf` | Finds the root, inventories it, asks for the estate's DGF version | `locate_plan.py --root-only`, `inventory_root.py` | `.dgf-factory/config.yaml`, `.dgf-factory/DESCRIPTION.md` |
 | `/dgf-plan` | Plans a change — fast, full or ultra — on its own branch | `locate_plan.py --root-only`, `inventory_root.py`, `route_means.py`, `check_plan.py --overlap` | the plan |
 | `/dgf-implement` | Executes the plan one task at a time, validating each | `locate_plan.py`, `check_plan.py`, `validate_config.py`, `route_means.py`, `check_change.py --files` | the task's workspace files, and its checkbox |
-| `/dgf-verify` | The gate: tasks done, change inside the plan, no new finding across the root | `locate_plan.py`, `check_plan.py --overlap`, `check_change.py`, `inventory_root.py` | nothing — it emits a `dgf-gate-result` block |
+| `/dgf-verify` | The gate: tasks done, change inside the plan, no new finding across the root | `locate_plan.py`, `inventory_root.py`, `verify_gate.py` | nothing — it relays the `dgf-gate-result` block `verify_gate.py` computes |
 | `/dgf-commit` | Conventional commits scoped by workspace, following the plan's Commit Plan | `locate_plan.py`, `check_change.py --skip-validators` | git history, after confirmation |
 
 `/dgf-doctor` sits beside them: it checks that the plugin itself is installed correctly.
@@ -129,22 +129,23 @@ a checkbox (`skills/dgf-plan/references/ULTRA-FORMAT.md`).
 
 ## The scripts
 
-All four are stdlib-only Python, except that `check_change.py` needs `lxml` and `jsonschema`
-to run the validators. Each takes `--verbose`.
+All five are stdlib-only Python, except that `check_change.py` and `verify_gate.py` need `lxml`
+and `jsonschema` to run the validators. Each takes `--verbose`.
 
 | Script | Decides | Usage |
 |---|---|---|
 | `locate_plan.py` | The workspaces root (the nearest `.dgf-factory/config.yaml`), and the active plan: the branch's, else the one active plan, else the fast plan | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--root-only \| --list]` |
 | `inventory_root.py` | Each workspace and its counts, what is not a workspace, git position, the knowledge stamp, validator dependencies | `--workspaces-root R` |
-| `check_plan.py` | The header, tasks, each file's class and workspace, the route of each new file, the ultra bundle's integrity, and (with `--overlap`) other active plans | `<plan> --workspaces-root R [--overlap]` |
+| `check_plan.py` | The header, tasks, the Commit Plan's groups (`plan-commits`), each file's class and workspace, the route of each new file, the ultra bundle's integrity, and (with `--overlap`) other active plans | `<plan> --workspaces-root R [--overlap]` |
 | `check_change.py` | The branch's changed files against the plan, and the validators' findings against the merge-base | `--workspaces-root R --plan P (--base REF \| --changed S:PATH …) [--files …] [--skip-validators]` |
+| `verify_gate.py` | The gate: finds the root and the plan, runs `check_plan.py`'s and `check_change.py`'s checks in-process, audits the tasks, computes the status, prints the one `dgf-gate-result` block | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--plan P] [--base REF \| --changed S:PATH …] [--no-overlap] [--strict]` |
 
-| Exit | `locate_plan.py` | `inventory_root.py` | `check_plan.py` | `check_change.py` |
-|---|---|---|---|---|
-| `0` | found | a root with a base workspace, validators ready | sound | inside the plan; nothing new |
-| `1` | `ROOT_NOT_SET_UP`, `ROOT_AMBIGUOUS`, `PLAN_NOT_FOUND`, `PLAN_AMBIGUOUS` | — | a plan defect (`PLAN_*`) | `CHANGE_UNDECLARED_WORKSPACE`, `CHANGE_OUT_OF_SCOPE`, `CHANGE_CODE_UNPLANNED`, `CHANGE_CODE_FILE_NEW`, or a new blocking validator finding |
-| `2` | `PLAN_FALLBACK` | `BASE_WORKSPACE_ABSENT`, `VALIDATOR_DEPS_MISSING` | `PLAN_OVERLAP`, `PARITY_PARTIAL`, `PLAN_NOT_AUTHORED` | an unplanned or untouched file, a new validator warning |
-| `3` | usage | `ROOT_NO_WORKSPACE` | `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` | usage — including a `--files` or `--changed` path that leaves the root, and a `--base` that starts with `-` — an unreadable plan, `DEPENDENCY_MISSING` |
+| Exit | `locate_plan.py` | `inventory_root.py` | `check_plan.py` | `check_change.py` | `verify_gate.py` |
+|---|---|---|---|---|---|
+| `0` | found | a root with a base workspace, validators ready | sound | inside the plan; nothing new | `pass` |
+| `1` | `ROOT_NOT_SET_UP`, `ROOT_AMBIGUOUS`, `PLAN_NOT_FOUND`, `PLAN_AMBIGUOUS` | — | a plan defect (`PLAN_*`, including `PLAN_COMMITS_INVALID`) | `CHANGE_UNDECLARED_WORKSPACE`, `CHANGE_OUT_OF_SCOPE`, `CHANGE_CODE_UNPLANNED`, `CHANGE_CODE_FILE_NEW`, or a new blocking validator finding | `fail`: any of those, `GATE_TASK_UNCHECKED`, `GATE_STRICT_WARNING`, `GATE_PLAN_UNCONFIRMED` |
+| `2` | `PLAN_FALLBACK` | `BASE_WORKSPACE_ABSENT`, `VALIDATOR_DEPS_MISSING` | `PLAN_OVERLAP`, `PARITY_PARTIAL`, `PLAN_NOT_AUTHORED`, `PLAN_COMMITS_MISSING` | an unplanned or untouched file, a new validator warning | `warn`: any of those, `GATE_CHECK_NOT_RUN` |
+| `3` | usage | `ROOT_NO_WORKSPACE` | `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` | usage — including a `--files` or `--changed` path that leaves the root, and a `--base` that starts with `-` — an unreadable plan, `DEPENDENCY_MISSING` | could not run — `DEPENDENCY_MISSING`, `KNOWLEDGE_TABLE`, an unreadable plan — with a `fail` block; a usage error, with no block |
 
 The overlap check reads `.dgf-factory/plans/` at the tip of every local and remote-tracking
 branch. It never fetches, so remote branches are as fresh as the last `git fetch`; `/dgf-plan`
@@ -188,18 +189,27 @@ follow-up: no behavioural fact carries one yet.
 
 ## The gate block
 
-`/dgf-verify` ends with one `dgf-gate-result` block, and nothing after it:
-`schema_version`, `gate`, `status`, `blocking`, `blockers`, `affected_files` and
-`suggested_next`. Status is computed from the scripts' exits — any `3` or `1` is `fail`, any
-`2` or a required check reported `NOT RUN` is `warn`, otherwise `pass` — and `--strict` makes a
-new warning `fail`. `blocking` is `true` only when the status is `fail`. The contract is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
+`/dgf-verify` relays `verify_gate.py`'s output, which ends with one `dgf-gate-result` block and
+nothing after it ([ADR 0020](adr/0020-gate-block-contract.md)). The block is built by
+`scripts/lib/gate_result.py`, the one builder every gate uses — the doctor's included:
 
-Four fields are **not yet emitted**: `schema_family`, `checks_run`, `affected_components` and
-`affected_processes`. They arrive with milestone 10, with the `scripts/lib/gate_result.py` that
-builds the block.
+- `schema_version`, `gate`, `status`, `blocking`, `blockers`, `warnings`, `affected_files`,
+  `checks_run`, `schema_family`, `affected_components`, `affected_processes`, `suggested_next`.
+- **The status is computed from two lists**: `fail` with any blocker, `warn` with any warning,
+  `pass` otherwise; `blocking` is `true` only on `fail`. `blockers` holds only what blocks. A
+  required check that did not run — `baseline` without a merge-base, `validators` without the
+  dependencies, `frontend-tests` for a `kind: code` task — is a `not-run-<check>` warning.
+- Each validator finding carries its file's `schema_family`, `json` or `xsd`, and the block counts
+  the files the validators read per family.
+- `affected_components` and `affected_processes` are the change's own footprint, in both
+  families — not its blast radius, which is `/dgf-audit`'s.
+- `--strict` promotes every new `WARN` line from the change check to a blocker.
+- A field the gate did not compute is left out, never emitted empty.
+
+The contract is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
 
 ## See Also
 
 - [Getting Started](getting-started.md#trying-the-spine) — running the spine's scripts on a copy of DGF's samples
 - [Skill Authoring](skill-authoring.md#reading-a-validators-output) — the output lines each script prints
-- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018 and 0019, which shape the spine
+- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0020, which shape the spine
