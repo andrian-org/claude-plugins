@@ -1,3 +1,6 @@
+---
+archived: 2026-09-25
+---
 # Implementation Plan: Pipeline Spine
 
 Branch: feature/pipeline-spine
