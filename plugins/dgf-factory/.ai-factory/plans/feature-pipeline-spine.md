@@ -919,7 +919,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
     `skills/dgf-plan/references/ULTRA-FORMAT.md`.
   - <!-- Commit checkpoint: tasks 13-14 -->
 
-- [ ] **Task 15: Write `/dgf-implement` — the composition state machine.** (depends on 14)
+- [x] **Task 15: Write `/dgf-implement` — the composition state machine.** (depends on 14)
   Port from `.claude/skills/aif-implement/SKILL.md` and `references/IMPLEMENTATION-GUIDE.md`.
   - `skills/dgf-implement/SKILL.md`, with steps:
     - **0 State.**
@@ -959,7 +959,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
     "dgf implement", "continue implementation", "execute the plan".
   - Files: `skills/dgf-implement/SKILL.md`, `skills/dgf-implement/references/IMPLEMENTATION-GUIDE.md`.
 
-- [ ] **Task 16: Write `/dgf-verify` — the change gate.** (depends on 15)
+- [x] **Task 16: Write `/dgf-verify` — the change gate.** (depends on 15)
   Port from `.claude/skills/aif-verify/SKILL.md` and its `references/`.
   - `skills/dgf-verify/SKILL.md`, with steps:
     - **0.0 Config.**
@@ -983,7 +983,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
     anything".
   - Files: `skills/dgf-verify/SKILL.md`, `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
 
-- [ ] **Task 17: Write `/dgf-commit` — conventional commits.** (depends on 15)
+- [x] **Task 17: Write `/dgf-commit` — conventional commits.** (depends on 15)
   Port from `.claude/skills/aif-commit/SKILL.md`.
   - `skills/dgf-commit/SKILL.md`, with steps:
     - **1 Analyse** staged changes.
@@ -1173,3 +1173,13 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
 - **Tasks 13–14 — no-git estates.** A full or ultra plan still carries `branch: <prefix><slug>` as its
   name when `git.enabled` is false; no branch is created, and `locate_plan.py` falls back to the lone
   active plan.
+- **Task 15 — `/dgf-implement` without git** validates a task with `check_change.py --changed A:/M:/D:…`
+  built from what the task wrote (no baseline, so every finding in its files counts as new), and asks the
+  user to delete a `deletes` file itself: the skill's only delete is `git rm`.
+- **Task 16 — the required `validators` check is the whole-root run** (`NOT RUN` only when skipped). A
+  validator's per-file `NOT RUN` lines (`json-format (annotation-only)`, `component-types (a Process
+  document names no component types)`) are not-applicable notes; counting them as required would make
+  every verify `warn`. `GATE-RESULT-CONTRACT.md` states this, and the blocker id forms (`task-<N>`, the
+  finding's code, `not-run-<check>`, `<script>-exit-3`).
+- **Task 17 — `/dgf-commit` keeps AI Factory's rule against AI co-author trailers**, as ported. Commits
+  made while building this plugin carry the session's attribution; the rule governs the shipped skill.
