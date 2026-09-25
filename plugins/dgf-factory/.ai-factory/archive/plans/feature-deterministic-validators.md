@@ -1,3 +1,7 @@
+---
+archived: 2026-09-24
+---
+
 # Implementation Plan: Deterministic Validators
 
 Branch: feature/deterministic-validators
