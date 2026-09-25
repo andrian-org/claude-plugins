@@ -127,6 +127,16 @@ class Materialise(unittest.TestCase):
         git.materialise(self.root, self.commit, self.dest)
         self.assertEqual((self.root / "zims/FM/_DATA/T/settings.xml").read_text(encoding="utf-8"), "<changed/>\n")
 
+    def test_a_write_failure_is_a_git_error_and_does_not_hang(self):
+        # Enough queued objects that git fills both pipes once nobody reads its output any more.
+        many = {f"Web/workspaces/bulk/FM/_COMPONENTS/Page/p{i:05d}.json": "{}" + " " * 4096 for i in range(12000)}
+        helpers.make_root(self.repo, many)
+        commit = helpers.commit_all(self.repo, "many blobs")
+        self.dest.mkdir()
+        (self.dest / "bulk").write_text("a file where a directory must go", encoding="utf-8")
+        with self.assertRaises(git.GitError):
+            git.materialise(self.root, commit, self.dest)
+
     def test_a_path_that_escapes_the_destination_is_refused(self):
         for rel in ("../escape.txt", "a/../../escape.txt", "/etc/passwd", "a//b"):
             with self.assertRaises(git.GitError, msg=rel):

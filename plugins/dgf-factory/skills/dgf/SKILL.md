@@ -121,7 +121,9 @@ it today.
 Create `<root>/.dgf-factory/` if it is missing.
 
 1. **`config.yaml`** from `${CLAUDE_PLUGIN_ROOT}/skills/dgf/references/config-template.yaml`.
-   Fill every `{{…}}` placeholder; quote the version (`"1.1.15"` or `"unknown"`). There is no
+   Fill every `{{…}}` placeholder; quote the version (`"1.1.15"` or `"unknown"`). Without git,
+   write `base_branch: main` and `branch_prefix: feature/` anyway: a full plan's `branch` still
+   names the plan. There is no
    `plan_id_format` key: plan ids are always the branch name.
 2. **`DESCRIPTION.md`** from `${CLAUDE_PLUGIN_ROOT}/skills/dgf/references/description-template.md`.
    One table row per `WORKSPACE:` line, with its counts copied exactly; one bullet per
@@ -152,8 +154,9 @@ Do not edit `.gitignore`. Skip this step when `git.enabled` is false.
 Report, in `language.ui`: the root, the workspaces found, the declared version and any
 warning, and the two files written. Then suggest, in order:
 
-1. **`/dgf-commit`** to commit `.dgf-factory/`. It works without a plan; the message it
-   suggests is `chore(dgf): set up dgf-factory`. Commit on the base branch, so every branch
+1. **`/dgf-commit`** to commit `.dgf-factory/` — stage it first
+   (`git -C "<root>" add .dgf-factory/`). It works without a plan; the message it suggests is
+   `chore(dgf): set up dgf-factory`. Commit on the base branch, so every branch
    cut from it carries the config.
 2. **`/dgf-plan <what to change>`** to plan the first change.
 3. **`/dgf-doctor`** if a skill does not fire, or a script cannot run.

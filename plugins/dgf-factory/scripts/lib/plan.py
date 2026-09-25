@@ -143,23 +143,41 @@ def _bare(text, line):
     return value
 
 
+def _flow_items(text, line):
+    """(raw items, the text after the closing `]`) — commas and `]` inside quotes do not count."""
+    items, current, index = [], "", 1
+    while index < len(text):
+        char = text[index]
+        if char == '"':
+            value, rest = _quoted(text[index:], line)
+            consumed = len(text[index:]) - len(rest)
+            current += text[index:index + consumed]
+            index += consumed
+            continue
+        if char in "[{":
+            raise PlanFormatError(line, "a nested list or map is outside the flat subset")
+        if char in ",]":
+            items.append(current.strip())
+            current = ""
+            if char == "]":
+                return items, text[index + 1:]
+        else:
+            current += char
+        index += 1
+    raise PlanFormatError(line, "a `[` list never closes on its line")
+
+
 def _flow_list(text, line):
-    close = text.find("]")
-    if close < 0:
-        raise PlanFormatError(line, "a `[` list never closes on its line")
-    inner = text[1:close]
-    if "[" in inner or "{" in inner:
-        raise PlanFormatError(line, "a nested list or map is outside the flat subset")
-    _after_value(text[close + 1:], line)
-    if not inner.strip():
+    raw_items, rest = _flow_items(text, line)
+    _after_value(rest, line)
+    if raw_items == [""]:
         return []
     items = []
-    for raw in inner.split(","):
-        item = raw.strip()
+    for item in raw_items:
         if item.startswith('"'):
-            value, rest = _quoted(item, line)
-            if rest.strip():
-                raise PlanFormatError(line, f"unexpected text after a quoted list item: `{rest.strip()}`")
+            value, after = _quoted(item, line)
+            if after.strip():
+                raise PlanFormatError(line, f"unexpected text after a quoted list item: `{after.strip()}`")
             items.append(value)
         elif not item or item.startswith(_BARE_FORBIDDEN_START) or ": " in item or "#" in item:
             raise PlanFormatError(line, f"list item `{item}` is outside the flat subset")
@@ -278,8 +296,15 @@ def parse_text(text, path="<plan>"):
     return plan
 
 
+def entrypoint(path):
+    """`path` itself, or `<path>/index.md` when `path` is an ultra bundle's directory."""
+    path = Path(path)
+    return path / "index.md" if path.is_dir() else path
+
+
 def parse(path):
-    """The Plan at `path`. Raises PlanFormatError when it cannot be read or its header is malformed."""
+    """The Plan at `path` — a plan file, or an ultra bundle's directory. Raises PlanFormatError."""
+    path = entrypoint(path)
     try:
         text = Path(path).read_text(encoding="utf-8")
     except OSError as exc:

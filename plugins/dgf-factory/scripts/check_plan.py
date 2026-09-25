@@ -335,11 +335,13 @@ def loader_folders():
 def check_routes(parsed, root, rep):
     rep.ran("plan-routes")
     folders = loader_folders()
+    routed = set()
     for task in parsed.tasks:
         line = task.fields["files"][1] if "files" in task.fields else task.line
         for rel in task.files:
-            if plan.classify(rel) != "config" or exists(root, rel):
+            if rel in routed or plan.classify(rel) != "config" or exists(root, rel):
                 continue
+            routed.add(rel)
             report.debug("check_plan.routes", "routing a new file", task=task.id, file=rel)
             _route_new_file(task, rel, line, folders, rep)
 
@@ -537,6 +539,7 @@ def task_line(task):
 
 def check(plan_path, root, overlap=False):
     """(Report, the PLAN:/TASK: lines) for one plan entrypoint."""
+    plan_path = plan.entrypoint(plan_path)
     rep = report.Report(cli.display(plan_path))
     try:
         parsed = plan.parse(plan_path)
@@ -545,7 +548,7 @@ def check(plan_path, root, overlap=False):
         return rep, [f"PLAN: {rep.file} unreadable"]
     head = parsed.header
     lines = [f"PLAN: {rep.file} mode={head.get('mode')} format={head.get('plan_format')} branch={head.get('branch')}"]
-    if head.get("plan_format") != SUPPORTED_FORMAT:
+    if head.get("plan_format") not in (None, "", SUPPORTED_FORMAT):  # a missing one is PLAN_FIELD_MISSING
         rep.add("PLAN_FORMAT_UNSUPPORTED", f"`plan_format: {head.get('plan_format')}` — this plugin reads format "
                                            f"{SUPPORTED_FORMAT} only", line=parsed.header_lines.get("plan_format"))
         return rep, lines

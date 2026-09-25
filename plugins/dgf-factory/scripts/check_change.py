@@ -252,6 +252,7 @@ def main(argv):
     root = Path(args.workspaces_root)
     if not root.is_dir():
         report.fail(report.EXIT_USAGE, f"--workspaces-root is not a directory: {args.workspaces_root}")
+    args.plan = str(plan.entrypoint(args.plan))
     rep = report.Report(cli.display(args.plan))
     try:
         parsed = plan.parse(args.plan)
@@ -279,7 +280,8 @@ def check(parsed, root, args, rep, lines):
         changes = own_changes(changes)
         lines.append(f"CHANGED: {len(changes)}")
         lines += [change_line(change, known) for change in changes]
-        declared = set(parsed.header.get("affects_workspaces") or [])
+        listed_ws = parsed.header.get("affects_workspaces")
+        declared = set(listed_ws) if isinstance(listed_ws, list) else set()  # a bare scalar declares nothing
         listed, code_listed = _listed(parsed)
         check_scope(changes, declared, known, rep)
         check_means(changes, code_listed, rep)

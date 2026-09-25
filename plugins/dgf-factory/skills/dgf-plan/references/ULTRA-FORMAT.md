@@ -75,6 +75,12 @@ base_workspace_reason: "The fee DataSource is shared by every application's paym
 | Artifact | Workspace | State | Family | Route evidence |
 |---|---|---|---|---|
 
+## Commit Plan
+
+<only when there are 5 or more tasks, as in `PLAN-FORMAT.md` — for example:>
+- **Commit 1** (after tasks 1–3): `feat(zims): show the inspection fee`
+- **Commit 2** (after tasks 4–6): `feat(zims): hide the fee until payment is confirmed`
+
 ## Tasks
 
 ### Phase 1: Fee data
@@ -90,11 +96,6 @@ base_workspace_reason: "The fee DataSource is shared by every application's paym
   - kind: code
   - reason: No EventBase verb reads the gateway callback (knowledge/composition-specs.md §3.1)
   - files: zims/FM/_DATA/Inspection/_forms/Apply/_form.js
-
-## Commit Plan
-
-- **Commit 1** (after tasks 1–2): `feat(zims): show the inspection fee`
-- **Commit 2** (after task 3): `feat(zims): hide the fee until payment is confirmed`
 
 ## Open Questions
 
@@ -172,7 +173,9 @@ Expected: no new `ERROR`; the named `PRE_EXISTING` findings, if any, unchanged.
   reachable, the component renders with the new property>
 ```
 
-This is the command `/dgf-implement` runs after the task, word for word.
+This is the command `/dgf-implement` runs after the task when the estate uses git. Without
+git it passes `--changed` with the task's files instead of `--base`, and for a task with
+`deletes` it leaves out `--files`.
 
 ## Required Detail Gate
 

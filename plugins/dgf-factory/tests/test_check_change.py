@@ -93,6 +93,21 @@ class Scope(Base):
         self.assertEqual(code, 2)
         self.assertIn("CHANGE_OUTSIDE_WORKSPACE", found)
 
+    def test_a_bare_scalar_affects_declares_nothing_rather_than_letters(self):
+        self.plan.write_text(self.plan.read_text(encoding="utf-8").replace("affects_workspaces: [app]",
+                                                                           "affects_workspaces: app"),
+                             encoding="utf-8")
+        code, found = self.codes(f"M:{PROCESS}")
+        self.assertEqual(code, 1)
+        self.assertIn("`app`, which the plan's", self.out)
+        self.assertNotIn("`a`", self.out)
+
+    def test_a_directory_without_index_md_is_unreadable_not_a_traceback(self):
+        code, _, err = helpers.run_cli("check_change.py", "--workspaces-root", self.root, "--plan",
+                                       self.plan.parent, "--changed", f"M:{PROCESS}", "--skip-validators")
+        self.assertEqual(code, 3, err)
+        self.assertNotIn("Traceback", err)
+
     def test_pipeline_artifacts_are_ignored(self):
         self.assertEqual(self.codes(f"M:{PROCESS}", "A:.dgf-factory/plans/feature-y.md"), (0, []))
         self.assertIn("CHANGED: 1", self.out)

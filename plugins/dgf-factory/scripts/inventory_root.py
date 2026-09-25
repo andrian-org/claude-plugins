@@ -120,7 +120,10 @@ def git_line(root):
     except git.GitError as exc:
         report.debug("inventory_root.git_line", "no repository", error=exc)
         return "GIT: none"
-    rel = Path(root).resolve().relative_to(top.resolve()).as_posix()
+    try:
+        rel = Path(root).resolve().relative_to(top.resolve()).as_posix()
+    except ValueError:  # git spells the top level differently (case, a symlink): name the root in full
+        rel = str(Path(root).resolve())
     return f"GIT: toplevel={top} branch={branch} root={rel}"
 
 

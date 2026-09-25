@@ -137,15 +137,16 @@ class FromGit(unittest.TestCase):
         self.assertFalse(self.found("ERROR", "DEAD_TRANSITION"), self.out)
         self.assertTrue(self.found("INFO", "PRE_EXISTING"), self.out)
 
-    def test_a_duplicated_finding_is_new(self):
+    def test_a_second_copy_of_a_pre_existing_finding_is_new(self):
+        # The same transition twice: two findings with one key, so only the multiset rule tells them apart.
         path = self.root / "app/FM/_PROCESS/Broken/process.xml"
         text = path.read_text(encoding="utf-8")
-        state = text[text.index('    <State name="Open"'):text.index("  </States>")]
-        path.write_text(text.replace("  </States>", state.replace('name="Open"', 'name="Open2"') + "  </States>"),
-                        encoding="utf-8")
+        once = '        <Transition state="Nowhere" />\n'
+        path.write_text(text.replace(once, once * 2), encoding="utf-8")
         self.assertEqual(self.check(), 1, self.out)
-        self.assertEqual(len(self.found("ERROR", "DEAD_TRANSITION")), 1, self.out)
-        self.assertEqual(len(self.found("INFO", "PRE_EXISTING")), 1, self.out)
+        new, pre = self.found("ERROR", "DEAD_TRANSITION"), self.found("INFO", "PRE_EXISTING")
+        self.assertEqual((len(new), len(pre)), (1, 1), self.out)
+        self.assertEqual(new[0].split(" ", 3)[3], pre[0].split("] ", 1)[1], self.out)  # the same message
 
     def test_files_limit_the_run(self):
         (self.root / "app/FM/_PROCESS/Case/process.xml").write_text(process(target="Closed"), encoding="utf-8")

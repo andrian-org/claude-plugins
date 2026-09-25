@@ -376,8 +376,14 @@ def check_skill_slice(root, slice_dir):
 
 def yaml_unsafe(value):
     """Why YAML would not read `value` as the plain string the flat parser sees, or None."""
-    if not value or value[0] in "\"'":
+    if not value:
         return None
+    if value[0] in "\"'":
+        return None if len(value) > 1 and value.endswith(value[0]) else "opens a quote it never closes"
+    if value.startswith("- "):
+        return "starts with `- `, which YAML reads as a list item"
+    if value.endswith(":"):
+        return "ends with `:`, which YAML reads as a mapping key"
     if value.startswith(YAML_UNSAFE_START):
         return f"starts with `{value[0]}`"
     if ": " in value:
@@ -422,6 +428,24 @@ def check_portability(root):
     trace("scanned shipped files for machine-specific, DGF repository and dangling plugin paths")
 
 
+def exists_exact(root, rel):
+    """True when every segment of `rel` exists under `root` in exactly this case.
+
+    Path.exists() matches regardless of case on APFS and NTFS; the plugin runs on
+    Linux too, where a wrong-case path does not resolve.
+    """
+    current = Path(root)
+    for part in [p for p in rel.split(_SEP) if p]:
+        try:
+            names = os.listdir(current)
+        except OSError:
+            return False
+        if part not in names:
+            return False
+        current = current / part
+    return True
+
+
 def check_plugin_paths(root, rel, lineno, line):
     """Every `${CLAUDE_PLUGIN_ROOT}/<path>` a shipped Markdown file cites must exist."""
     for match in PLUGIN_PATH.finditer(line):
@@ -429,7 +453,7 @@ def check_plugin_paths(root, rel, lineno, line):
         if any(marker in target for marker in TEMPLATE_MARKERS):
             trace(f"{rel}:{lineno} template `{PLUGIN_ROOT_TOKEN}{target}` skipped")
             continue
-        exists = (root / target.lstrip(_SEP)).exists()
+        exists = exists_exact(root, target.lstrip(_SEP))
         trace(f"{rel}:{lineno} `{PLUGIN_ROOT_TOKEN}{target}` exists={exists}")
         if not exists:
             error("PLUGIN_PATH_DANGLING", rel,

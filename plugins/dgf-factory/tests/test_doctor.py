@@ -13,6 +13,14 @@ DOCTOR = Path("skills") / "dgf-doctor" / "scripts" / "doctor.py"
 GATE = re.compile(r"```dgf-gate-result\n(.*?)\n```", re.S)
 
 
+def load_doctor(root):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("doctor_under_test", root / DOCTOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def gate_ids(stdout):
     """The finding ids in the last gate block — the only part callers may parse."""
     blocks = GATE.findall(stdout)
@@ -126,8 +134,23 @@ class DoctorOnACopy(unittest.TestCase):
                 self.write_skill("dgf-plan", frontmatter)
                 code, out, _ = self.run_doctor()
                 self.assertEqual(code, 1, out)
-                self.assertEqual(gate_ids(out), ["SKILL_FRONTMATTER_YAML"], out)
+                # Without lxml and jsonschema the doctor also warns VALIDATOR_DEPS_MISSING; that is not this test's.
+                blockers = [i for i in gate_ids(out) if i != "VALIDATOR_DEPS_MISSING"]
+                self.assertEqual(blockers, ["SKILL_FRONTMATTER_YAML"], out)
                 self.assertIn(f"`{key}`", out)
+
+    def test_more_yaml_shapes_the_flat_parser_misreads(self):
+        doctor = load_doctor(self.root)
+        for value, unsafe in (("- a list item", True), ("ends with a colon:", True), ('"never closes', True),
+                              ("'single'", False), ('"double"', False), ("0.1.0", False)):
+            self.assertEqual(doctor.yaml_unsafe(value) is not None, unsafe, value)
+
+    def test_a_plugin_path_in_the_wrong_case_dangles(self):
+        token = "${" + "CLAUDE_PLUGIN_ROOT}"
+        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun python3 "{token}/scripts/Check_Plan.py".\n')
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("PLUGIN_PATH_DANGLING", gate_ids(out))
 
     def test_quoted_values_and_tool_lists_are_clean(self):
         self.write_skill("dgf-plan", self.FRONTMATTER + [])

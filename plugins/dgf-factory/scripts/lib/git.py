@@ -159,10 +159,13 @@ def materialise(path, commit, dest):
             counts["submodules"] += 1
         else:
             blobs.append((entry.sha, _inside(dest, entry.path)))
-    for target, content in zip((t for _, t in blobs), _cat_batch(path, [sha for sha, _ in blobs])):
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
-        counts["blobs"] += 1
+    batch = _cat_batch(path, [sha for sha, _ in blobs])
+    try:
+        for (_, target), content in zip(blobs, batch):
+            _write(target, content)
+            counts["blobs"] += 1
+    finally:
+        batch.close()  # stops git before its pipes can fill, when a write or a read failed
     report.debug("git.materialise", "wrote the base tree", commit=commit, dest=dest, **counts)
     return counts
 
@@ -177,6 +180,14 @@ def _inside(dest, rel):
     return target
 
 
+def _write(target, content):
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+    except OSError as exc:
+        raise GitError(f"cannot write the base tree at {target}: {exc.strerror or exc}") from exc
+
+
 def _cat_batch(path, shas):
     """Yield each object's bytes, in order, from one `git cat-file --batch`."""
     if not shas:
@@ -188,12 +199,16 @@ def _cat_batch(path, shas):
         raise GitError(f"cannot run git: {exc.strerror or exc}") from exc
     feeder = threading.Thread(target=_feed, args=(proc.stdin, shas), daemon=True)
     feeder.start()
+    finished = False
     try:
         for sha in shas:
             yield _read_object(proc.stdout, sha)
+        finished = True
     finally:
-        feeder.join()
+        if not finished:
+            proc.kill()  # nobody reads git's output any more: stop it, so the feeder cannot block
         proc.stdout.close()
+        feeder.join()
         proc.stderr.close()
         code = proc.wait()
         report.debug("git.materialise", "git", argv="cat-file --batch", objects=len(shas), exit=code)

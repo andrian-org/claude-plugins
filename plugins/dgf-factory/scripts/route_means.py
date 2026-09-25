@@ -7,6 +7,10 @@ a legacy artifact type, in any case — the first rule that applies decides:
   1. A legacy artifact type (the `legacy-artifacts` table in
      knowledge/composition-specs.md) → xml, at its folder and filename. Form
      included: its parity row is ◐, but the legacy types stay XML (ADR 0010 §1).
+  1a. A loader folder under `_COMPONENTS/` (`DataSource`, `Template`,
+     `Endpoints` — the `component-folders` table, knowledge/json-reader.md §4)
+     → json: its loader reads that folder as JSON, whatever the parity table
+     says about a member of the same name.
   2. The member's parity row (knowledge/schema-families.md §6) is ✗ → xml. The
      artifact is found through the row's schema, its XSD counterpart
      (`correspondence`, §5) and that XSD's legacy artifact.
@@ -58,10 +62,18 @@ def artifact_for_schema(schema):
     return next((row for row in knowledge.load("legacy-artifacts") if row["Grammar"] == counterpart["XSD"]), None)
 
 
+def loader_folder(name):
+    """The `component-folders` row whose loader folder is `name` (any case), or None."""
+    folded = name.strip().lower()
+    return next((row for row in knowledge.load("component-folders")
+                 if not row["Folder"].startswith("(") and row["Folder"].lower() == folded), None)
+
+
 def route(name, rep):
     """(family, where, reason) for `name`, or None when there is no route; findings go to `rep`."""
     from lib import json_resolve
     legacy = legacy_artifact(name)
+    folder = loader_folder(name) if legacy is None else None
     member = json_resolve.component_member(name)
     parity_row = next((row for row in knowledge.load("parity") if member and row["ComponentType"] == member), None)
     report.debug("route_means.route", "looked up", name=name, member=member,
@@ -72,6 +84,10 @@ def route(name, rep):
         if parity_row is not None and parity_row["Runtime"] != NOT_RUNTIME:
             reason += f" although parity row {parity_row['#']} is {parity_row['Runtime']} (ADR 0010 §1)"
         return "xml", where_xml(legacy), reason
+    if folder is not None:
+        return ("json", f"<workspace>/FM/_COMPONENTS/{folder['Folder']}/<name>.json",
+                f"`{folder['Folder']}` is a loader folder: {folder['Loader']} reads it as JSON "
+                f"(knowledge/json-reader.md §4)")
     if member is None:
         rep.add("ROUTE_NO_ROW", f"`{name}` is neither a ComponentType member nor a legacy artifact type")
         return None

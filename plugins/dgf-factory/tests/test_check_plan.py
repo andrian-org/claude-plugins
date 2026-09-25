@@ -69,6 +69,10 @@ class Header(Base):
         self.assertEqual(self.codes("# no frontmatter\n"), ["PLAN_UNREADABLE"])
         self.assertEqual(self.codes(header=["plan_format: 2"] + HEADER[1:]), ["PLAN_FORMAT_UNSUPPORTED"])
 
+    def test_a_missing_plan_format_is_a_missing_field_and_the_other_checks_still_run(self):
+        self.assertEqual(self.codes(header=HEADER[1:] + ["owner: x"]), ["PLAN_FIELD_INVALID", "PLAN_FIELD_MISSING"])
+        self.assertIn("`plan_format` is missing", self.message("PLAN_FIELD_MISSING"))
+
     def test_missing_fields(self):
         self.assertEqual(self.codes(header=HEADER[:3] + HEADER[4:]), ["PLAN_FIELD_MISSING"])
         # An empty list also leaves every task's file in an undeclared workspace.
@@ -161,6 +165,12 @@ class Ultra(Base):
 
     def test_a_sound_bundle(self):
         self.assertEqual(self.codes(path=self.bundle("## Phase Index\n\n- [Phase 1](phase-1.md)\n\n")), [])
+
+    def test_the_bundle_directory_is_accepted_as_the_plan(self):
+        index = self.bundle("## Phase Index\n\n- [Phase 1](phase-1.md)\n\n")
+        self.assertEqual(self.codes(path=index.parent), [])
+        code, out, _ = helpers.run_cli("check_plan.py", index.parent, "--workspaces-root", self.root)
+        self.assertEqual(code, 0, out)
 
     def test_a_missing_phase_file(self):
         index = self.bundle("## Phase Index\n\n- [Phase 1](phase-1.md)\n- [Phase 2](phase-2.md)\n\n")
@@ -257,6 +267,11 @@ class Routes(Base):
     def test_no_route(self):
         self.assertEqual(self.routed("zims/FM/_COMPONENTS/NotAType/x.json"), ["PLAN_ROUTE_UNKNOWN"])
         self.assertEqual(self.routed("zims/FM/_COMPONENTS/Search/x.json"), ["PLAN_ROUTE_UNKNOWN"])  # no parity row
+
+    def test_a_file_two_tasks_list_is_routed_once(self):
+        tasks = [task(1, files="zims/FM/_COMPONENTS/Workflow/new.json"),
+                 task(2, files="zims/FM/_COMPONENTS/Workflow/new.json")]
+        self.assertEqual(self.codes(tasks=tasks), ["PLAN_ROUTE_MISMATCH"])
 
     def test_a_partial_type_warns(self):
         self.assertEqual(self.routed("zims/FM/_COMPONENTS/Uploader/u.json"), ["PARITY_PARTIAL"])

@@ -105,7 +105,9 @@ Ask, in one `AskUserQuestion`, only what the evidence has not settled:
 
 ### Step 1.4: Branch (full and ultra, when `git.enabled` and `git.create_branches`)
 
-Run one command per call. First:
+When refining a plan whose branch already exists, check that branch out
+(`git -C "<root>" checkout <branch>`) and skip the rest of this step. Otherwise run one command
+per call. First:
 
 ```bash
 git -C "<root>" status --porcelain
@@ -140,12 +142,13 @@ For each artifact the change touches:
 3. **Route every new file:**
 
    ```bash
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <ComponentType or legacy artifact type>
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <ComponentType, loader folder or legacy artifact type>
    ```
 
-   Exit `0` or `2` prints `ROUTE: json|xml <where> — <reason>`: record that line in
-   `## Affected Artifacts`, and name the file exactly where it says — the ComponentType spelled
-   as printed. Exit `2` is `PARITY_PARTIAL`: the JSON is read, and the part the row names is an
+   For a file under `FM/_COMPONENTS/<Folder>/`, pass `<Folder>`: a ComponentType, or one of the
+   loader folders `DataSource`, `Template` and `Endpoints`. Exit `0` or `2` prints
+   `ROUTE: json|xml <where> — <reason>`: record that line in `## Affected Artifacts`, and name
+   the file exactly where it says, the folder spelled as printed. Exit `2` is `PARITY_PARTIAL`: the JSON is read, and the part the row names is an
    XML artifact of its own. Exit `3` (`ROUTE_NO_ROW`) means no family can be chosen for that
    name: **STOP** and report it; never default to JSON.
 4. **Choose `kind`.** `config` for every JSON or XML file. `code` only when no component
@@ -209,8 +212,8 @@ Re-run a failing check with `--verbose` when the cause is unclear.
 Report the plan's path, its mode, its task count, the workspaces it affects, and every warning
 from Step 5.1. Then suggest:
 
-1. **`/dgf-commit`** to commit the plan, so it travels with the branch and other plans' overlap
-   checks can see it.
+1. **`/dgf-commit`** to commit the plan — stage it first (`git -C "<root>" add .dgf-factory/`) —
+   so it travels with the branch and other plans' overlap checks can see it.
 2. **`/dgf-implement`** to execute it.
 
 Full and ultra plans stop here: the user reviews the plan before anything is implemented.

@@ -29,15 +29,16 @@ plan carries), research drift, roadmap and docs checkpoints, and worktree mergin
 | Argument | Meaning |
 |---|---|
 | (none) | the next task of the discovered plan |
-| `--list` | `locate_plan.py --list` — print every plan with its progress, then **STOP**. Change nothing. |
+| `--list` | `locate_plan.py --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>" --list` — print every plan with its progress, then **STOP**. Change nothing. |
 | `@<path>` | this plan entrypoint — a `.md` file, an ultra bundle directory, or its `index.md` — instead of discovery |
 | `<N>` | start at Task N, if its dependencies are checked |
 | `status` | Steps 0–2 only: show progress, then **STOP** |
 
 ### Step 0.0: Resume
 
-Rebuild state from disk, never from memory — the user may have run `/clear`. With git, one
-command per call:
+Rebuild state from disk, never from memory — the user may have run `/clear`. This step needs
+the root and the plan, so run it once Steps 0.1–1 have found them. With git, one command per
+call:
 
 ```bash
 git -C "<root>" status --porcelain
@@ -126,9 +127,10 @@ a file it calls new exists — **STOP and report the drift**. Do not choose a ne
   and take its `FAMILY:` line. Edit it in that family; never convert it. Exit `3` with
   `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim.
 - **A new configuration file follows its route.** Run
-  `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type or legacy artifact>` and confirm
-  the plan's path matches its `ROUTE:` line: `json` under `<ws>/FM/_COMPONENTS/<Type>/`, `xml`
-  at the legacy artifact's folder and filename. A mismatch is drift: **STOP**. Exit `2` is
+  `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type, loader folder or legacy artifact>`
+  — for a file under `FM/_COMPONENTS/<Folder>/`, pass `<Folder>` — and confirm the plan's path
+  matches its `ROUTE:` line: `json` under `<ws>/FM/_COMPONENTS/<Type>/`, `xml` at the legacy
+  artifact's folder and filename. A mismatch is drift: **STOP**. Exit `2` is
   `PARITY_PARTIAL`: say which part of the component stays XML. Exit `3` → **STOP**.
 - **A `kind: code` file** is written only where the plan names it — a form's `_form.js`, or an
   existing file under `js/`, `FM/js/` or `css/` (`check_plan.py` accepted it). CSS reaches a
@@ -168,12 +170,17 @@ With git:
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <the task's files that exist>
 ```
 
+**A task with `deletes`** runs the same command without `--files`: the whole root is the only run
+that shows what the removal broke — a process that still names the deleted workflow, say.
+
 Without git, give the change set yourself — `A:` for a file this task created, `M:` for one it
 edited, `D:` for one it deleted:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> M:<file> --files <the task's files that exist>
 ```
+
+Again, leave out `--files` for a task with `deletes`.
 
 | Exit | Action |
 |---|---|

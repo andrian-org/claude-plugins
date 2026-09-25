@@ -78,7 +78,8 @@ An `applibs*` folder is never a workspace: it holds plugin assemblies and no `FM
   plugin assemblies, a new deployment bind-mount — as out of scope for a general coding flow.
   None of them becomes a task.
 - **Affected Artifacts** lists every file the tasks touch. `State` is `existing` or `new`.
-  `Family` is `json` or `xml` for configuration, `code` for a code place. For an existing file
+  `Family` is `json` or `xml` for configuration — `validate_config.py`'s `FAMILY:` line calls the
+  XML family `xsd`; either spelling will do — and `code` for a code place. For an existing file
   the evidence is its family as it is on disk; for a new one it is the `ROUTE:` line
   `route_means.py` printed.
 - **Commit Plan** groups tasks into commits every 3–5 tasks, each with a conventional-commit
@@ -122,8 +123,10 @@ the `code-places` table in `${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md
 A new configuration file must follow its route:
 
 - **Component JSON** goes under `<ws>/FM/_COMPONENTS/<Type>/`, where `<Type>` is spelled exactly
-  as the ComponentType member (`DataSource`, not `datasource`), and only when
-  `route_means.py <Type>` answers `json`. A name may continue into subfolders
+  as the ComponentType member or the loader folder (`DataTable`, `DataSource` — not
+  `datasource`), and only when `route_means.py <Type>` answers `json`. The loader folders —
+  `DataSource`, `Template`, `Endpoints` — are always JSON: their loaders read nothing else
+  (`${CLAUDE_PLUGIN_ROOT}/knowledge/json-reader.md` §4). A name may continue into subfolders
   (`Page/SiteMap/loginPage.json`); a file directly under `_COMPONENTS/` is the site map.
 - **The five legacy types** — form, workflow, process, settings, view — stay XML, at the folder
   and filename `route_means.py` prints. Never `_form.json` or `process.json`.
@@ -160,7 +163,7 @@ Show the inspection fee on the ZIMS application form, and hide it until payment 
 
 | Artifact | Workspace | State | Family | Route evidence |
 |---|---|---|---|---|
-| `webasm/FM/_COMPONENTS/DataSource/InspectionFee.json` | webasm | new | json | `ROUTE: json <workspace>/FM/_COMPONENTS/DataSource/<name>.json — parity row … is ✓` |
+| `webasm/FM/_COMPONENTS/DataSource/InspectionFee.json` | webasm | new | json | `` ROUTE: json <workspace>/FM/_COMPONENTS/DataSource/<name>.json — `DataSource` is a loader folder: DataSourceLoader reads it as JSON `` |
 | `zims/FM/_DATA/Inspection/_forms/Apply/_form.xml` | zims | existing | xml | on disk as `_form.xml` |
 | `zims/FM/_DATA/Inspection/_forms/Apply/_form.js` | zims | new | code | a form's own script (`code-places`, `form-script`) |
 

@@ -60,6 +60,12 @@ class Header(unittest.TestCase):
         self.assert_unreadable(["---", "mode: 'full'", "---"], "outside the flat subset", 2)
         self.assert_unreadable(["---", "mode: {a: 1}", "---"], "outside the flat subset", 2)
 
+    def test_quoted_list_items_may_hold_commas_and_brackets(self):
+        self.assertEqual(header('affects_workspaces: ["a, b", "c]", d]  # note')["affects_workspaces"],
+                         ["a, b", "c]", "d"])
+        self.assert_unreadable(["---", "affects_workspaces: [a, ]", "---"], "outside the flat subset", 2)
+        self.assert_unreadable(["---", "affects_workspaces: [a, b", "---"], "never closes", 2)
+
     def test_a_nested_list_is_outside_the_subset(self):
         self.assert_unreadable(["---", "affects_workspaces: [[zims]]", "---"], "nested list", 2)
 
@@ -125,6 +131,11 @@ class Plans(unittest.TestCase):
         parsed = plan.parse_text("---\nmode: fast\n---\n## Tasks\n- [ ] Task 1: x\n### Phase 2\n"
                                  "  - kind: code\n")
         self.assertIsNone(parsed.tasks[0].kind)
+
+    def test_a_bundle_directory_reads_its_index(self):
+        bundle = PLANS / "feature-zims-inspection-fee-ultra"
+        self.assertEqual(plan.entrypoint(bundle), bundle / "index.md")
+        self.assertEqual(plan.parse(bundle).mode, "ultra")
 
     def test_an_unreadable_file(self):
         with self.assertRaises(plan.PlanFormatError):
