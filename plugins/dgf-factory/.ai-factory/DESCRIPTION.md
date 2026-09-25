@@ -16,7 +16,7 @@ Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
 
 ## Current State
 
-Setup stage. The repository currently contains:
+Roadmap milestone 9 ("Pipeline Spine") is built. The repository currently contains:
 
 - `README.md` + `docs/` — landing page and documentation set
 - `docs/blueprint.md` — the design document (Part 1 teardown, Part 2 DGF mapping)
@@ -26,11 +26,18 @@ Setup stage. The repository currently contains:
 - `.claude-plugin/plugin.json` — the manifest; the plugin loads with `--plugin-dir`
 - `skills/dgf-doctor/` — the walking-skeleton slice: `SKILL.md` plus `scripts/doctor.py`,
   which exercises auto-discovery, `${CLAUDE_PLUGIN_ROOT}`, the exit-code contract and the
-  `dgf-gate-result` block without needing any DGF facts
+  `dgf-gate-result` block without needing any DGF facts. It also blocks on a dangling
+  `${CLAUDE_PLUGIN_ROOT}/…` path and on frontmatter that YAML would read differently
+- `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` — the pipeline spine:
+  set up a workspaces root, plan (fast, full, ultra), execute task by task, gate the change,
+  commit by workspace. Their references hold the config and DESCRIPTION templates, the plan
+  and ultra formats, the implementation guide and the gate-result contract
+  ([docs/pipeline.md](../docs/pipeline.md))
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
   machine-read table contract), six stamped facts files (`schema-families`,
   `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,
-  `process-model`) carrying ten machine-read tables the validators load, and `schemas/` — the
+  `process-model`) carrying eleven machine-read tables the scripts load (`code-places`, the
+  newest, says where a workspace's script and style load from), and `schemas/` — the
   vendored set (69 JSON + 9 XSD + grammar reference + 3 standalone contracts, ~3.5 MB) with a
   `MANIFEST.md` of dialects and membership. Shipped, so it names no DGF repository path
 - `provenance/` — **not shipped.** One ledger per knowledge file, recording the DGF files its
@@ -41,20 +48,26 @@ Setup stage. The repository currently contains:
   and vendored digests), `vendor_schemas.py` (re-vendors DGF's schema set, rewriting DGF paths
   on the way in), `run_known_good.py` with `known-good-exceptions.txt` (every validator over
   DGF's samples, each error excused with evidence — CLEAN at DGF `aa1d5c4c2`), `check_drift.py`
-  (the ledgers' digests against a DGF checkout — CLEAN, 7 ledgers, 243 sources) and
+  (the ledgers' digests against a DGF checkout — CLEAN, 7 ledgers, 255 sources) and
   `requirements.in`
 - `scripts/` — shipped. The four validators skills call: `validate_config.py` (family, schema
   read the runtime's way, parity), `resolve_components.py` (component types, component file
   references), `validate_process.py` (process structure and semantics, `CHANGE_STATE`
-  targets) and `route_means.py` (ADR 0010's order of means). With them, their shared `lib/` and
-  `requirements.txt`: `lxml` 6.1.3 and `jsonschema` 4.25.1, exact pins with hashes, Python 3.9
-  floor
-- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, and the 24-case known-bad
-  corpus (one per blocking finding and exit-3 path)
-- `docs/adr/` — 16 decision records, 0001–0016; the index is `docs/adr/README.md`
+  targets) and `route_means.py` (ADR 0010's order of means). The spine's four:
+  `locate_plan.py` (the root and the active plan), `inventory_root.py` (each workspace,
+  counted), `check_plan.py` (every rule of the plan format, and overlaps with other branches'
+  plans) and `check_change.py` (a change against its plan, and new findings against the
+  merge-base). With them, their shared `lib/` — `plan.py`, `git.py`, `runner.py` and
+  `baseline.py` among its modules — and `requirements.txt`: `lxml` 6.1.3 and `jsonschema`
+  4.25.1, exact pins with hashes, Python 3.9 floor
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 51-case known-bad
+  corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
+  when a skill quotes a finding code or passes a flag no script has
+- `docs/adr/` — 19 decision records, 0001–0019; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: the rest of the `dgf-*` skill corpus and the marketplace entry.
+Not yet created: the DGF-specific skills, the learning loop, `scripts/lib/gate_result.py`
+(milestone 10), `agents/` and the marketplace entry.
 
 ## Tech Stack
 
@@ -100,6 +113,10 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 | The runtime reads component JSON with **System.Text.Json**, one options object: property names case-insensitive, comments skipped, `JsonStringEnumConverter` (enum names in any case), no `NumberHandling` (a number never reads from a string), and unknown properties silently ignored. The `type` key alone is exact-case | `src/DGF.API/ConfigureServices.cs:238-258`; `src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs` — `knowledge/json-reader.md`, [ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md) |
 | `WorkflowManager.GetWorkPath` has **one branch per name form and no fallback**; existence is `File.Exists` on the built path, case-sensitive on Linux. A process `action`'s bare name is process-local | `src/Core/DGF.OM/Workflow/WorkflowManager.cs:15-40`; `StateProcessClient.cs` `ResolveUiSettings` — `knowledge/process-model.md` §2, [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) |
 | The vendored XSDs **lag the runtime**: against DGF's samples, `process.xsd` fails 2/23 files and `workflow.xsd` 211/341. Only `process.xsd` has a runtime-divergence list; failures against the other legacy grammars are warnings until each has one | lxml 6.1.3 over `src/samples/workspaces`, 2026-09-24 — [ADR 0016](../docs/adr/0016-legacy-xsd-lag.md) |
+| **`applibs*` folders are not workspaces.** They hold plugin assemblies (`ApplicationConfig.CustomAssembliesPath`, read by `AssemblyLoader`) — only `.dll` files, no `FM/` — and `WorkspaceSettings` never names them | `src/samples/workspaces/readme.md:12`; `src/Core/DGF.Kernel/Configuration/ApplicationConfig.cs:8`; `src/Core/DGF.Kernel/Extensions/AssemblyLoader.cs:13`; the five sample `applibs*` folders, 2026-09-25 — [ADR 0017](../docs/adr/0017-plan-file-format.md) §4 |
+| **The UI loads exactly three custom files** — `assets/js/formhelper.js`, `assets/js/formshared.js`, `assets/styles/custom.css`. The shell ships a default of each; a deployment bind-mounts a workspace's file over it, outside the workspaces root. Nothing in the root makes the UI load a *new* file under `js/`, `FM/js/` or `css/`; a form's own `_form.js` is read beside its `_form.xml` | `src/DGF.UI/src/app/components/app/app.component.ts:191-207`; `src/DGF.UI/angular.json:26-33`; `src/samples/DGF.Compose/docker-compose.zims.yml:58-61`, `docker-compose.ecouncil.yml:62-65`; `src/Core/DGF.Domain/Data/Form/FormManager.cs:183-196`, 2026-09-25 — `knowledge/composition-specs.md` §5, [ADR 0017](../docs/adr/0017-plan-file-format.md) §3 |
+| **Nothing in a workspaces root states the DGF version.** `sitemap.json`'s `version` is the site map's own; the UI's `version` is the container's build argument | grep of `src/samples/workspaces`; `src/DGF.UI/src/app/interfaces/app-settings.type.ts:9`; `src/DGF.UI/Dockerfile:1, 30, 36-42`, 2026-09-25 — [ADR 0019](../docs/adr/0019-declared-dgf-version.md) |
+| **`webasm` may be mounted from another repository** than the application, so an estate's repository may not contain the base workspace | `src/samples/DGF.Compose/docker-compose.zims.yml:22-23` (zims from one repository, webasm from another) vs `docker-compose.ecouncil.yml:21`, 2026-09-25 — `knowledge/composition-specs.md` §1.2 |
 
 **Correction to the blueprint:** Part 2 was written from a one-sentence description
 that characterised DGF as having "workflows and BPMN-like processes". No BPMN engine

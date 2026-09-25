@@ -1009,7 +1009,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
 
 ### Phase 7: Integration and documentation
 
-- [ ] **Task 18: Walk the spine's scripts end to end on a scratch estate.** (depends on 16, 17)
+- [x] **Task 18: Walk the spine's scripts end to end on a scratch estate.** (depends on 16, 17)
   - Reuse Task 11's scratch copy, or make a fresh one. Run in skill order:
     - `inventory_root.py`;
     - `locate_plan.py --root-only`;
@@ -1038,7 +1038,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   - Files: this plan (Follow-ups); `tests/test_skill_contracts.py`; fixes in the scripts from Phases 3–4 and in
     the skills from Phase 6, as needed.
 
-- [ ] **Task 19: Documentation checkpoint.** (depends on 18)
+- [x] **Task 19: Documentation checkpoint.** (depends on 18)
   Run `/aif-docs` with this scope:
   - **New `docs/pipeline.md`:** the five skills and how a change flows; `.dgf-factory/` and its config; the plan
     format for readers (ADR 0017); the scripts and their exit codes; change-relative gates (ADR 0018); the declared
@@ -1058,7 +1058,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
     `docs/skill-authoring.md`, `.ai-factory/ARCHITECTURE.md`, `.ai-factory/DESCRIPTION.md`,
     `tools/check-dual-schema-docs.sh`.
 
-- [ ] **Task 20: Mark the milestone done.** (depends on 19)
+- [x] **Task 20: Mark the milestone done.** (depends on 19)
   - Once `/aif-verify` passes on this branch, change `.ai-factory/ROADMAP.md`'s "Pipeline Spine" to `- [x]`, relink
     ADRs 0017–0019 in its line, and add `| Pipeline Spine | <date> |` to `## Completed`. Evidence: the verify
     result and the doctor's nine-slice report.
@@ -1098,6 +1098,10 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
 - The version gate itself, once a behavioural fact with `applies:` exists; it reads `dgf.version` (ADR 0019).
 - Whether files under `FM/` that are not JSON or XML (templates) count as configuration.
 - Whether estates commonly lack `webasm` (E18). If they do, consider a `--base-workspace <path>` option.
+- The baseline's two trees differ in one way (found by `/aif-verify`, 2026-09-25): the working-tree run
+  validates git-ignored and symlinked files, which the materialised base tree never holds, so a
+  finding in one always counts as new. That is stricter, never looser. Decide whether the head run
+  should skip what `git ls-files --others --ignored --exclude-standard` lists, and symlinks.
 - A size budget for `kind: code` (ADR 0010 follow-up), after the first real plans.
 
 ## Follow-ups found during implementation
@@ -1183,3 +1187,58 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   finding's code, `not-run-<check>`, `<script>-exit-3`).
 - **Task 17 — `/dgf-commit` keeps AI Factory's rule against AI co-author trailers**, as ported. Commits
   made while building this plugin carry the session's attribution; the rule governs the shipped skill.
+- **Task 18 — end-to-end walk** (2026-09-25, a fresh scratchpad copy of DGF's samples at `aa1d5c4c2`,
+  `git init -b main`, `.dgf-factory/config.yaml` committed on `main` as `/dgf` would write it):
+  - `inventory_root.py` → exit `0`: `dgf`, `webasm` (base), `zims`; `GIT: … root=.`; dependencies present.
+  - `locate_plan.py --root-only` from `dgf/FM/` → exit `0`, the root found by ancestor search.
+  - An ultra bundle on `feature/e2e-apply-button` (`affects_workspaces: [dgf, webasm]` with a
+    `base_workspace_reason`): Task 1 a new `dgf/FM/_COMPONENTS/Button/ApplyNow.json`, Task 2 an edit to
+    the existing `EServiceApply/_form.xml`, Task 3 `kind: code` editing the existing
+    `webasm/js/forms.shared.js`. `locate_plan.py` → `mode=ultra source=branch`, exit `0`.
+  - `check_plan.py --overlap`, with `feature/other` holding an active plan on `[dgf]` → **exit `2`**, one
+    `PLAN_OVERLAP` naming `feature-other.md` at `feature/other` and `webasm`. No `PARITY_PARTIAL`: Button
+    is ✓ (parity row 4).
+  - Per task, `check_change.py --base main --files <file>` → exit `0` each (the `.js` file is validated
+    by nothing: `Validated: 0`). Checkboxes ticked; `locate_plan.py --list` → `progress=3/3`.
+  - `check_change.py --base main` (the gate run) → **exit `0`**: `CHANGED: 3`, new 0/0, pre-existing
+    2552, 3117 files validated, 5.2 s. `--skip-validators` → exit `0`, `NOT RUN: validators`, `baseline`.
+  - Each alone, then reverted: an edit in `zims` → exit `1` `CHANGE_UNDECLARED_WORKSPACE`; a new
+    `webasm/js/new-helper.js` → exit `1` `CHANGE_CODE_FILE_NEW` and `CHANGE_CODE_UNPLANNED`; a
+    `Handler.cs` under `dgf/FM/_DATA/` → exit `1` `CHANGE_OUT_OF_SCOPE`. Clean again → exit `0`.
+  - The doctor: all nine expected slices reported (six present, three not yet built), CLEAN.
+  - No script defect and no format defect found. Two observations, both intended: an undeclared file is
+    reported twice (`CHANGE_UNDECLARED_WORKSPACE`, error, and `CHANGE_UNPLANNED_FILE`, warning); and the
+    gate run prints the validators' per-file `NOT RUN` lines, which `GATE-RESULT-CONTRACT.md` keeps in
+    the prose and out of the blockers.
+  - `tests/test_skill_contracts.py` passes; planting an unknown code and an unknown flag in a skill made
+    it fail on both, naming file and line.
+- **`/aif-verify`, first pass (2026-09-25) — six blocking defects, all fixed in this branch.** Two
+  independent read-only audits (Tasks 1–12, Tasks 13–19), plus the checks:
+  - **B1:** `route_means.py` exited 3 for the loader folders `DataSource`, `Template` and `Endpoints`,
+    which `check_plan.py` accepts, so `/dgf-plan` and `/dgf-implement` would stop on a new
+    DataSource — the format's own worked example. `route_means.py` now routes a loader folder to
+    `json` (rule 1a, from the `component-folders` table), and the skills pass the folder name.
+  - **B2:** `@<bundle-dir>` reached `check_plan.py` as a directory (exit 3). `lib.plan.entrypoint()`
+    now resolves a bundle directory to its `index.md` for `check_plan.py` and `check_change.py`.
+  - **B3:** a deletes-only task gave `check_change.py` an empty `--files` (exit 3). `/dgf-implement` now
+    runs a task with `deletes` over the whole root, the only run that shows what the removal broke.
+  - **B4:** a missing `plan_format` was `PLAN_FORMAT_UNSUPPORTED` (exit 3, "`plan_format: None`"); it is
+    now `PLAN_FIELD_MISSING`, and the other header checks still run.
+  - **B5:** `git.materialise` deadlocked when a blob write or read failed with many objects still queued
+    (the feeder was joined before git's output pipe closed), and let an `OSError` escape as a traceback.
+    Git is now killed first when the stream is abandoned, and write errors are `GitError`. The new test
+    hangs against the old code (killed by a 60 s alarm) and passes in 3 s against the new.
+  - **B6:** `test_unquoted_yaml_indicators_block` failed under a Python without `lxml`, because the
+    doctor also warns `VALIDATOR_DEPS_MISSING` there.
+  - Also fixed: `check_change.py` split a bare `affects_workspaces: zims` into letters; a file listed by
+    two tasks was routed twice; quoted flow-list items could not hold `,` or `]`; the doctor's
+    plugin-path check is now exact-case and its YAML check also flags `- `, a trailing `:` and an
+    unclosed quote; the inventory's git line survives a top-level spelled differently;
+    `test_baseline`'s duplicate test now duplicates one key; `test_skill_contracts` reads `\`
+    continuation lines; and prompt and doc nitpicks (no-git config defaults, staging `.dgf-factory/`
+    before `/dgf-commit`, refining on an existing branch, `--list` paths, Step 0.0 order, the ultra
+    Commit Plan's place, the family spellings, the known-bad count).
+- **Task 20 — evidence.** `/aif-verify` passed on the second pass (2026-09-25): 427 tests on the venv, OK
+  under the system interpreter without `lxml`; doctor CLEAN with all nine expected slices reported (six
+  present); stamps, drift (255 sources) and the known-good run CLEAN, the last byte-identical to before
+  the runner moved; the docs check at its known dependency-warning baseline.

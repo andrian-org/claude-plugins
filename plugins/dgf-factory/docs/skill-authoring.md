@@ -95,6 +95,25 @@ The validators under `scripts/` print, in this order, so a skill never has to gu
 `route_means.py` answers a question rather than checking files, so it prints a single
 `ROUTE: json|xml <where> — <reason>` line in place of 2–4.
 
+The pipeline spine's scripts read plans and roots rather than configuration files, so they
+print their own lines in place of 2. `check_plan.py` and `check_change.py` then print the same
+`CHECKS RUN:` and `NOT RUN:` lines; all four print findings and a verdict:
+
+| Script | Lines in place of `FAMILY:` |
+|---|---|
+| `locate_plan.py` | `ROOT: <path>`; `PLAN: <path> mode=<m> source=branch\|lone\|fast`, or with `--list` one `PLAN: <path> mode=<m> progress=<done>/<total>` per plan |
+| `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
+| `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
+| `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file |
+
+`check_change.py` compares the validators' findings with the merge-base
+([ADR 0018](adr/0018-change-relative-gates.md)). A finding the branch introduced keeps its own
+code and severity. One that was already there prints as `INFO PRE_EXISTING <file> [<CODE>]
+<message>`, and one the branch removed as `INFO FIXED <file> [<CODE>] <message>`; neither
+affects the exit. Its summary adds `new: <e> error(s), <w> warning(s); pre-existing: <p>;
+fixed: <f>`. A skill reports new findings verbatim, counts pre-existing ones, and never fixes
+them unasked.
+
 Each finding code has one fixed severity, and the exit code is the worst across all files,
 with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and
 keeps `NOT RUN` visible. When `lxml` or `jsonschema` is missing, every validator that needs
@@ -128,6 +147,9 @@ block as the last thing in the output:
 Rules:
 
 - `schema_version: 1`, kept compatible with the AI Factory `aif-gate-result` contract
+- The example above is the full block milestone 10 builds. `/dgf-verify` emits only AI Factory's
+  base fields until then; `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md` lists what is
+  not yet emitted, and its next-command allowlist
 - **Last block wins.** Callers parse only the final such block, never the prose above it
 - `status` is one of `pass` | `warn` | `fail`
 - `suggested_next.command` comes from a fixed allowlist, not free text
