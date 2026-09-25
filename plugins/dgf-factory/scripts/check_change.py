@@ -32,7 +32,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   1  blocked: an undeclared workspace, an out-of-scope or unplanned code file,
      a new global script, or a new blocking validator finding
   2  warnings: an unplanned or untouched file, a file nothing authors, a new warning
-  3  usage error, an unreadable plan, or the validators' dependencies missing
+  3  usage error — including a `--files` or `--changed` path that is not plain
+     and root-relative, or a `--base` that starts with `-` — an unreadable plan,
+     or the validators' dependencies missing
 """
 
 import os
@@ -71,6 +73,20 @@ def parse_changed(values):
         rel = rel.strip()
         changes.append(git.Change(status, rel[2:] if rel.startswith("./") else rel))
     return changes
+
+
+def refuse_bad_inputs(args):
+    """Exit 3 before any check runs on a path that leaves the root, or a `--base` git would read as an option."""
+    if args.base is not None and args.base.startswith("-"):
+        report.debug("check_change.inputs", "refused", arg="--base", why="starts with -")
+        report.fail(report.EXIT_USAGE, f"--base takes a branch or commit, not `{args.base}`")
+    named = [("--files", rel) for rel in args.files or []]
+    named += [("--changed", value.partition(":")[2].strip()) for value in args.changed or []]
+    for flag, rel in named:
+        problem = plan.path_problem(rel[2:] if rel.startswith("./") else rel)
+        if problem:
+            report.debug("check_change.inputs", "refused", arg=flag, path=rel, why=problem)
+            report.fail(report.EXIT_USAGE, f"{flag} takes paths relative to the workspaces root; `{rel}` {problem}")
 
 
 def changes_from_git(root, base, rep):
@@ -149,6 +165,17 @@ def check_means(changes, code_listed, rep):
                                             f"workspaces root loads a new file (ADR 0017 §3)", file=change.path)
 
 
+def _plain(task, paths):
+    """The task's paths that are plain root-relative; check_plan.py reports the rest as PLAN_PATH_INVALID (D2)."""
+    kept = []
+    for rel in paths:
+        if plan.path_problem(rel):
+            report.debug("check_change.planned", "skipped a refused path", task=task.id, file=rel)
+        else:
+            kept.append(rel)
+    return kept
+
+
 def check_planned(changes, parsed, root, listed, rep):
     rep.ran("change-planned")
     for change in changes:
@@ -162,11 +189,11 @@ def check_planned(changes, parsed, root, listed, rep):
     for task in parsed.tasks:
         if not task.checked:
             continue
-        for rel in task.files:
+        for rel in _plain(task, task.files):
             if rel not in changed:
                 rep.add("CHANGE_TASK_FILE_UNCHANGED", f"Task {task.id} is checked, but `{rel}` did not change",
                         line=task.line)
-        for rel in task.deletes:
+        for rel in _plain(task, task.deletes):
             if workspace.exact_file(root, plan.segments(rel))[0] == workspace.OK:
                 rep.add("CHANGE_TASK_FILE_UNCHANGED", f"Task {task.id} is checked, but `{rel}`, which it deletes, "
                                                       f"still exists", line=task.line)
@@ -249,6 +276,7 @@ def main(argv):
     args = build_parser().parse_args(argv)
     if args.verbose:
         report.set_verbose()
+    refuse_bad_inputs(args)
     root = Path(args.workspaces_root)
     if not root.is_dir():
         report.fail(report.EXIT_USAGE, f"--workspaces-root is not a directory: {args.workspaces_root}")

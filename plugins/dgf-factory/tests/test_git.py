@@ -81,6 +81,17 @@ class GitHelpers(unittest.TestCase):
         self.assertEqual(git.show(self.root, "HEAD", "zims/js/formhelper.js"), b"// helper\n")
         self.assertEqual(git.show(self.root, entries[0].sha), b"// helper\n")
 
+    def test_a_ref_that_starts_with_a_dash_never_reaches_git(self):
+        calls = (lambda: git.merge_base(self.root, "--octopus"), lambda: git.show(self.root, "-p"),
+                 lambda: git.ls_tree(self.root, "--full-tree"), lambda: git.changed(self.root, "--output=x"),
+                 lambda: git.materialise(self.root, "-x", self.tmp / "base"))
+        for call in calls:
+            with self.assertRaises(git.GitError) as caught:
+                call()
+            self.assertIn("starts with `-`", str(caught.exception))
+        self.assertFalse((self.root / "x").exists())  # `--output=x` would have written it
+        self.assertFalse((self.tmp / "base").exists())
+
     def test_outside_a_repository_is_a_git_error(self):
         outside = self.tmp / "not-a-repo"
         outside.mkdir()

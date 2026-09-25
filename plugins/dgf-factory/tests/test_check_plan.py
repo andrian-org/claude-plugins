@@ -233,6 +233,34 @@ class Files(Base):
     def test_not_authored(self):
         self.assertEqual(self.codes(tasks=[task(1, files="zims/images/banner.png")]), ["PLAN_NOT_AUTHORED"])
 
+    ESCAPING = ("zims/FM/../../outside.json", "/zims/FM/_DATA/x.json", "\\zims\\FM\\x.json", "C:/zims/FM/x.json",
+                "zims/FM\\x.json", "zims/./FM/x.json", "zims//FM/x.json", "zims/FM/", "..", "././zims/FM/x.json")
+
+    def test_a_path_that_is_not_plain_and_root_relative_is_refused(self):
+        for path in self.ESCAPING:
+            with self.subTest(path):
+                self.assertEqual(self.codes(tasks=[task(1, files=path)]), ["PLAN_PATH_INVALID"])
+                found = self.rep.findings[0]
+                self.assertEqual(found.line, self.lines_of("files: ")[0])
+                shown = path[2:] if path.startswith("./") else path  # split_paths strips one leading `./`
+                self.assertIn(f"`{shown}`", found.message)
+
+    def test_a_deleted_path_is_held_to_the_same_rule(self):
+        delete = task(1, files=None, extra=["deletes: zims/FM/../../../outside.json"])
+        self.assertEqual(self.codes(tasks=[delete]), ["PLAN_PATH_INVALID"])
+        self.assertIn("climbs out with `..`", self.message("PLAN_PATH_INVALID"))
+
+    def test_a_refused_path_is_not_routed(self):
+        new_json = task(1, files="zims/FM/_COMPONENTS/Workflow/../Workflow/new.json")
+        self.assertEqual(self.codes(tasks=[new_json]), ["PLAN_PATH_INVALID"])
+
+    def test_one_leading_dot_slash_is_still_accepted(self):
+        self.assertEqual(self.codes(tasks=[task(1, files=f"./{FORM}")]), [])
+
+    def lines_of(self, needle):
+        text = (self.root / ".dgf-factory" / "plans" / "feature-x.md").read_text(encoding="utf-8")
+        return [number for number, line in enumerate(text.splitlines(), 1) if needle in line]
+
 
 class Routes(Base):
     def routed(self, path):

@@ -334,6 +334,39 @@ def segments(rel_path):
     return [part for part in rel_path.replace("\\", "/").split("/") if part]
 
 
+_DRIVE = re.compile(r"[A-Za-z]:")
+
+
+def path_problem(rel_path):
+    """Why `rel_path` is not a plain root-relative path, or None (ADR 0017 §2).
+
+    A plan path names a file below the workspaces root, so it is never absolute,
+    never names a drive, uses `/` only, and has no empty, `.` or `..` segment:
+    `webasm/FM/../../x.json` would otherwise class as webasm configuration while
+    naming a file outside the root.
+    """
+    why = None
+    if rel_path.startswith(("/", "\\")):
+        why = "is absolute"
+    elif _DRIVE.match(rel_path):
+        why = "names a drive"
+    elif "\\" in rel_path:
+        why = "uses `\\`"
+    elif rel_path.endswith("/"):
+        why = "ends with `/`"
+    else:
+        parts = rel_path.split("/")
+        if ".." in parts:
+            why = "climbs out with `..`"
+        elif "." in parts:
+            why = "has a `.` segment"
+        elif "" in parts:
+            why = "has an empty segment"
+    if why:
+        report.debug("plan.path_problem", "rejected", path=rel_path, why=why)
+    return why
+
+
 def workspace_of(rel_path):
     """The first path segment — the workspace a root-relative path names."""
     parts = segments(rel_path)

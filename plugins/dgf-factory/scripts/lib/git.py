@@ -1,6 +1,7 @@
 """git.py — the read-only git calls the plan and change checks make (ADR 0017 §5, ADR 0018 §1).
 
-Every call is `git -C <dir> …` with an argument list, never a shell. `<dir>` is
+Every call is `git -C <dir> …` with an argument list, never a shell, and a ref
+argument that starts with `-` is refused before git can read it as an option. `<dir>` is
 normally the workspaces root, and every path this module takes or returns is
 relative to it, with `/` separators: `git diff --relative` and `ls-files` limit
 themselves to that directory, `ls-tree` lists only below it, and an object path
@@ -62,6 +63,14 @@ def _run(path, args, module_fn, stdin=None):
     return proc.stdout
 
 
+def _ref(ref):
+    """`ref`, unless git would read it as an option: then GitError (a second guard behind the scripts)."""
+    if str(ref).startswith("-"):
+        report.debug("git._ref", "refused", ref=ref)
+        raise GitError(f"`{ref}` is not a ref: it starts with `-`")
+    return ref
+
+
 def _text(raw):
     return os.fsdecode(raw).strip()
 
@@ -82,7 +91,7 @@ def current_branch(path):
 
 def merge_base(path, ref):
     """The merge-base of HEAD and `ref`; GitError when there is none."""
-    sha = _text(_run(path, ["merge-base", "HEAD", ref], "git.merge_base"))
+    sha = _text(_run(path, ["merge-base", "HEAD", _ref(ref)], "git.merge_base"))
     if not sha:
         raise GitError(f"HEAD and `{ref}` have no merge-base")
     return sha
@@ -90,7 +99,7 @@ def merge_base(path, ref):
 
 def changed(path, base):
     """[Change]: the working tree against `base`, plus untracked files as A, below `path`."""
-    raw = _run(path, ["diff", "--name-status", "-M", "-z", "--relative", "--no-ext-diff", base, "--"],
+    raw = _run(path, ["diff", "--name-status", "-M", "-z", "--relative", "--no-ext-diff", _ref(base), "--"],
                "git.changed")
     changes = _parse_name_status(_fields(raw))
     untracked = _run(path, ["ls-files", "--others", "--exclude-standard", "-z", "--", "."], "git.changed")
@@ -127,7 +136,7 @@ def refs(path):
 
 def ls_tree(path, ref, prefix="."):
     """[TreeEntry] at `ref`, recursively, below `path`/`prefix`; paths relative to `path`."""
-    raw = _run(path, ["ls-tree", "-r", "-z", ref, "--", prefix], "git.ls_tree")
+    raw = _run(path, ["ls-tree", "-r", "-z", _ref(ref), "--", prefix], "git.ls_tree")
     entries = []
     for field in _fields(raw):
         meta, _, rel = field.partition("\t")
@@ -138,7 +147,7 @@ def ls_tree(path, ref, prefix="."):
 
 def show(path, ref, relpath=None):
     """The bytes of `ref:./relpath` (a path relative to `path`), or of the object `ref` itself."""
-    spec = f"{ref}:./{relpath}" if relpath else ref
+    spec = f"{_ref(ref)}:./{relpath}" if relpath else _ref(ref)
     return _run(path, ["cat-file", "blob", spec], "git.show")
 
 
@@ -150,6 +159,7 @@ def materialise(path, commit, dest):
     raises GitError. Returns {"blobs", "symlinks", "submodules"}.
     """
     dest = Path(dest).resolve()
+    _ref(commit)
     counts = {"blobs": 0, "symlinks": 0, "submodules": 0}
     blobs = []
     for entry in ls_tree(path, commit):

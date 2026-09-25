@@ -188,5 +188,33 @@ class Classes(unittest.TestCase):
         self.assertEqual(plan.split_paths(None), [])
 
 
+class PathProblems(unittest.TestCase):
+    BAD = {
+        "webasm/FM/../../x.json": "climbs out with `..`",
+        "..": "climbs out with `..`",
+        "/zims/FM/x.json": "is absolute",
+        "\\zims\\FM\\x.json": "is absolute",
+        "C:/zims/FM/x.json": "names a drive",
+        "c:zims/FM/x.json": "names a drive",
+        "zims/FM\\x.json": "uses `\\`",
+        "zims/FM/": "ends with `/`",
+        "zims/./FM/x.json": "has a `.` segment",
+        "./zims/FM/x.json": "has a `.` segment",  # split_paths strips one `./` before this is asked
+        "zims//FM/x.json": "has an empty segment",
+    }
+    GOOD = ("zims/FM/x.json", "zims/FM/_DATA/a..b.json", "zims/FM/_DATA/.hidden/x.json",
+            "webasm/FM/_DATA/PWF/_forms/ASP.Net/Resources/designer.aspx/_form.js")
+
+    def test_each_bad_path_names_its_problem(self):
+        for path, why in self.BAD.items():
+            with self.subTest(path):
+                self.assertEqual(plan.path_problem(path), why)
+
+    def test_plain_root_relative_paths_have_none(self):
+        for path in self.GOOD:
+            with self.subTest(path):
+                self.assertIsNone(plan.path_problem(path))
+
+
 if __name__ == "__main__":
     unittest.main()

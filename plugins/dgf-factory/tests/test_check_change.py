@@ -192,6 +192,34 @@ class Usage(Base):
         self.assertEqual(code, 3)
         self.assertIn("DEPENDENCY_MISSING", err)
 
+    def test_a_files_path_that_leaves_the_root_is_exit_3(self):
+        code, _, err = self.run_check(f"M:{PROCESS}", extra=("--skip-validators", "--files", "app/FM/../../x.json"),
+                                      blocking=True)
+        self.assertEqual(code, 3)
+        self.assertIn("--files takes paths relative to the workspaces root; `app/FM/../../x.json` climbs out", err)
+
+    def test_a_changed_path_that_leaves_the_root_is_exit_3(self):
+        for value in ("A:../x.json", "M:/app/FM/x.xml", "D:app\\FM\\x.xml"):
+            with self.subTest(value):
+                code, _, err = self.run_check(value, extra=("--skip-validators",), blocking=True)
+                self.assertEqual(code, 3)
+                self.assertIn("--changed takes paths relative to the workspaces root", err)
+
+    def test_a_base_that_starts_with_a_dash_is_exit_3_before_git_runs(self):
+        for value in ("--base=-x", "--base=--output=x"):
+            with self.subTest(value):
+                code, out, err = helpers.run_cli_blocking("check_change.py", "--workspaces-root", self.root,
+                                                          "--plan", self.plan, value, "--skip-validators")
+                self.assertEqual(code, 3)
+                self.assertIn("--base takes a branch or commit", err)
+                self.assertNotIn("BASE:", out)
+
+    def test_a_checked_task_path_that_leaves_the_root_is_left_to_check_plan(self):
+        self.plan = self.write_plan(done=True, files="app/FM/../../outside.json")
+        code, found = self.codes(f"M:{PROCESS}")
+        self.assertEqual(found, ["CHANGE_UNPLANNED_FILE"])  # no CHANGE_TASK_FILE_UNCHANGED for the refused path
+        self.assertEqual(code, 2)
+
 
 @unittest.skipUnless(helpers.have_dependencies(), "lxml / jsonschema not installed")
 class Validators(Base):

@@ -12,9 +12,10 @@ Reads one plan entrypoint — a fast `PLAN.md`, a full plan, or an ultra bundle'
                 ultra, every phase link a direct child of the bundle, no
                 orphan phase file, one `## Task N` section per task, and no
                 checkbox outside `index.md`
-  plan-files    each path's class (config, code, excluded, other), its
-                workspace declared, its class matching the task's kind, and no
-                new file where nothing loads one
+  plan-files    each path a plain root-relative path (no absolute path, drive,
+                backslash, or empty, `.` or `..` segment), its class (config,
+                code, excluded, other), its workspace declared, its class
+                matching the task's kind, and no new file where nothing loads one
   plan-routes   each NEW configuration file in the family route_means.route()
                 gives it; existing files are edited in their own family
   plan-overlap  (--overlap) every other active plan in the working tree and at
@@ -300,6 +301,12 @@ def check_files(parsed, root, known, rep):
 
 
 def _check_file(task, kind, rel, deleting, line, root, declared, known, rep):
+    problem = plan.path_problem(rel)
+    if problem:
+        rep.add("PLAN_PATH_INVALID", f"Task {task.id}: `{rel}` {problem} — a plan path is relative to the workspaces "
+                                     f"root, with `/`, and has no `.` or `..` segment (ADR 0017 §2)", line=line)
+        report.debug("check_plan.files", "refused a path", task=task.id, file=rel, why=problem)
+        return
     klass = plan.classify(rel)
     ws = plan.workspace_of(rel)
     if klass == "excluded":
@@ -339,7 +346,7 @@ def check_routes(parsed, root, rep):
     for task in parsed.tasks:
         line = task.fields["files"][1] if "files" in task.fields else task.line
         for rel in task.files:
-            if rel in routed or plan.classify(rel) != "config" or exists(root, rel):
+            if rel in routed or plan.path_problem(rel) or plan.classify(rel) != "config" or exists(root, rel):
                 continue
             routed.add(rel)
             report.debug("check_plan.routes", "routing a new file", task=task.id, file=rel)
