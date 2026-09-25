@@ -26,7 +26,12 @@ Every path is relative to the workspaces root with `/` separators, and its
 first segment is a workspace name. classify() puts each path in exactly one
 class — config, code, excluded or other. The code places are a DGF fact read
 from the `code-places` table in knowledge/composition-specs.md §5; the
-excluded extensions are this plugin's policy. Stdlib only.
+excluded extensions are this plugin's policy.
+
+artifact() names the artifact a path is: a component under `FM/_COMPONENTS/`,
+a `legacy-artifacts` row (§2.1), or a process-local workflow, with the name its
+placeholders give. inventory_root.py counts with it, and the verify gate lists
+a change's footprint with it (ADR 0020 §6). Stdlib only.
 """
 
 import re
@@ -47,6 +52,10 @@ CONFIG_EXTENSIONS = (".json", ".xml")
 EXCLUDED_EXTENSIONS = (".cs", ".csproj", ".sln", ".ts", ".tsx", ".sql", ".dll", ".exe", ".html", ".cshtml",
                        ".razor")
 PLUGIN_ASSEMBLY_PREFIX = "applibs"  # ADR 0017 §4: plugin-assembly folders, never workspaces
+COMPONENTS = "_COMPONENTS"
+# A workflow may sit inside its process folder (knowledge/composition-specs.md §2.1, the prose after the table).
+PROCESS_LOCAL_WORKFLOW = ("FM", "_PROCESS", "<process>", "<workflow>")
+PROCESS_LOCAL_WORKFLOW_FILE = "_workflow.xml"
 
 _KEY_LINE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*):(?:[ \t]+(.*))?\Z")
 _TASK_LINE = re.compile(r"- \[([ xX])\] (?:\*\*)?Task (\d+):(.*)\Z")
@@ -450,6 +459,62 @@ def matches_folder(pattern, parts):
         if index >= len(parts) or (not _placeholder(segment) and parts[index] != segment):
             return False
     return len(parts) == len(pattern)
+
+
+def placeholder_values(pattern, parts):
+    """The values `parts` give `pattern`'s placeholders, in order, for a pair matches_folder() accepts.
+
+    A placeholder ending the pattern takes every remaining segment, joined by
+    `/`: a form's name may hold `/`.
+    """
+    values = []
+    for index, segment in enumerate(pattern):
+        if not _placeholder(segment):
+            continue
+        values.append("/".join(parts[index:]) if index == len(pattern) - 1 else parts[index])
+    return values
+
+
+def _component(folders, name):
+    if len(folders) >= 2 and folders[0] == FM and folders[1] == COMPONENTS and name.endswith(".json"):
+        return "component", "/".join([*folders[2:], name[:-len(".json")]])
+    return None
+
+
+def _legacy(folders, name):
+    for row in knowledge.load("legacy-artifacts"):
+        pattern = segments(row["Folder"])
+        if name == row["Filename"] and matches_folder(pattern, folders):
+            return row["Artifact"], "/".join(placeholder_values(pattern, folders))
+    return None
+
+
+def _process_workflow(folders, name):
+    pattern = list(PROCESS_LOCAL_WORKFLOW)
+    if name == PROCESS_LOCAL_WORKFLOW_FILE and matches_folder(pattern, folders):
+        return "process-workflow", "/".join(placeholder_values(pattern, folders))
+    return None
+
+
+def artifact_inside(parts):
+    """(artifact, name) for a path given as its segments inside its workspace, or None.
+
+    `["FM", "_PROCESS", "Case", "process.xml"]` → ("process", "Case");
+    `["FM", "_COMPONENTS", "Button", "ApplyNow.json"]` → ("component", "Button/ApplyNow").
+    """
+    parts = list(parts)
+    if not parts:
+        return None
+    folders, name = parts[:-1], parts[-1]
+    found = _component(folders, name) or _legacy(folders, name) or _process_workflow(folders, name)
+    if found:
+        report.debug("plan.artifact", "matched", path="/".join(parts), artifact=found[0], name=found[1])
+    return found
+
+
+def artifact(rel_path):
+    """(artifact, name) for a root-relative path — its first segment is the workspace — or None."""
+    return artifact_inside(segments(rel_path)[1:])
 
 
 def _matches_prefix(pattern, parts):

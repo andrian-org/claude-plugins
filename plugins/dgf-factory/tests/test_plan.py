@@ -3,7 +3,7 @@
 import unittest
 
 from tests import helpers
-from lib import plan
+from lib import knowledge, plan
 
 PLANS = helpers.FIXTURES / "unit" / "plans"
 
@@ -260,6 +260,55 @@ class Classes(unittest.TestCase):
         self.assertEqual(plan.split_paths(None), [])
 
 
+
+class Artifacts(unittest.TestCase):
+    """plan.artifact(): which artifact a root-relative path is, and its name (ADR 0020 §6)."""
+
+    def test_each_legacy_artifacts_row(self):
+        cases = {
+            "zims/FM/_PROCESS/Apply/process.xml": ("process", "Apply"),
+            "zims/FM/_WORKFLOW/Expert.MoveTaskTo/_workflow.xml": ("workflow", "Expert.MoveTaskTo"),
+            "zims/FM/_DATA/Cases/_forms/Apply/_form.xml": ("form", "Cases/Apply"),
+            "zims/FM/_DATA/Cases/settings.xml": ("settings", "Cases"),
+            "zims/FM/_DATA/Cases/_views/Open/_view.xml": ("table-view", "Cases/Open"),
+            "zims/FM/_DATA/Cases/_lookupviews/Pick/_view.xml": ("lookup-view", "Cases/Pick"),
+            "zims/FM/_DATA/Cases/_gridforms/Lines/_grid.xml": ("grid-form", "Cases/Lines"),
+            "zims/FM/_DATA/Cases/_options.xml": ("options", "Cases"),
+        }
+        self.assertEqual({row["Artifact"] for row in knowledge.load("legacy-artifacts")},
+                         {artifact for artifact, _ in cases.values()})
+        for rel, expected in cases.items():
+            with self.subTest(rel):
+                self.assertEqual(plan.artifact(rel), expected)
+
+    def test_components(self):
+        self.assertEqual(plan.artifact("zims/FM/_COMPONENTS/Button/ApplyNow.json"), ("component", "Button/ApplyNow"))
+        self.assertEqual(plan.artifact("webasm/FM/_COMPONENTS/Page/SiteMap/loginPage.json"),
+                         ("component", "Page/SiteMap/loginPage"))
+        self.assertEqual(plan.artifact("zims/FM/_COMPONENTS/sitemap.json"), ("component", "sitemap"))
+
+    def test_a_process_local_workflow(self):
+        self.assertEqual(plan.artifact("zims/FM/_PROCESS/Apply/Review/_workflow.xml"),
+                         ("process-workflow", "Apply/Review"))
+
+    def test_a_form_whose_name_holds_a_slash(self):
+        self.assertEqual(plan.artifact("zims/FM/_DATA/Cases/_forms/Apply/Step1/_form.xml"),
+                         ("form", "Cases/Apply/Step1"))
+
+    def test_a_config_file_of_no_known_shape(self):
+        for rel in ("zims/FM/_DATA/Cases/_forms/Apply/extra.xml", "zims/FM/_COMPONENTS/Button/old.xml",
+                    "zims/FM/_PROCESS/Apply/notes.xml", "zims/FM/settings.xml"):
+            with self.subTest(rel):
+                self.assertIsNone(plan.artifact(rel))
+
+    def test_artifact_inside_takes_the_segments_inside_the_workspace(self):
+        self.assertEqual(plan.artifact_inside(["FM", "_PROCESS", "Case", "process.xml"]), ("process", "Case"))
+        self.assertIsNone(plan.artifact_inside([]))
+
+    def test_placeholder_values(self):
+        pattern = plan.segments("FM/_DATA/<table>/_forms/<form>/")
+        self.assertEqual(plan.placeholder_values(pattern, ["FM", "_DATA", "Cases", "_forms", "A", "B"]),
+                         ["Cases", "A/B"])
 
 class PathProblems(unittest.TestCase):
     BAD = {

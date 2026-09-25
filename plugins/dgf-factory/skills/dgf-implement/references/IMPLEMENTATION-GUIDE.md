@@ -48,6 +48,7 @@ check_change.py --base <base> --files <task files>
 | `INFO PRE_EXISTING <file> [<CODE>] …` | present before the branch: count it, do not fix it |
 | `INFO FIXED <file> [<CODE>] …` | the branch removed it |
 | `NOT RUN: baseline (…)` | no merge-base: every finding counted as new |
+| `NOT RUN: validators (narrowed to <n> file(s) by --files …)` | expected on every per-task run: only the task's files were validated. This pre-check never passes the gate — `/dgf-verify` validates the whole root |
 | `new: <e> error(s), <w> warning(s); pre-existing: <p>; fixed: <f>` | the summary to report |
 
 The change set spans the whole branch, not only this task: an earlier task's unplanned file
