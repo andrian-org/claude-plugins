@@ -850,7 +850,7 @@ DD1's keep/drop table, then apply DD14. Every script call and every exit-code ta
 Paths are always `${CLAUDE_PLUGIN_ROOT}/…`, and there are no DGF paths. After each skill, run the doctor: it must
 stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
 
-- [ ] **Task 13: Write `/dgf` — setup.** (depends on 12)
+- [x] **Task 13: Write `/dgf` — setup.** (depends on 12)
   Port from `.claude/skills/aif/SKILL.md`, keeping only Mode 1 ("analyze existing project"), reshaped for a
   workspaces root.
   - `skills/dgf/SKILL.md`, with steps:
@@ -876,7 +876,7 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   - Files: `skills/dgf/SKILL.md`, `skills/dgf/references/config-template.yaml`,
     `skills/dgf/references/description-template.md`.
 
-- [ ] **Task 14: Write `/dgf-plan` — fast, full and ultra.** (depends on 13)
+- [x] **Task 14: Write `/dgf-plan` — fast, full and ultra.** (depends on 13)
   Port from `.claude/skills/aif-plan/SKILL.md` and its `references/`.
   - `skills/dgf-plan/SKILL.md`, with steps:
     - **0 Context:** `locate_plan.py --root-only`, `config.yaml`, `DESCRIPTION.md`, and the skill-context override
@@ -1157,3 +1157,19 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   at `]`, and trailing `.,;:` are dropped, so prose punctuation is not read as part of a path.
   `SKILL_FRONTMATTER_YAML` also flags an unquoted `|` or `>` (a block scalar the flat parser would read
   as that one character).
+- **Tasks 13–14 — tool names verified (DD14, R4).** The `claude-code-guide` agent confirmed from the
+  Claude Code docs (2026-09-25): the subagent tool is `Agent` (renamed from `Task` in v2.1.63; `Task`
+  still works as an alias; `code.claude.com/docs/en/sub-agents.md`); a plugin's MCP tools are
+  `mcp__plugin_<plugin>_<server>__<tool>`, so `mcp__plugin_dgf-factory_dgf-mcp__<tool>`, usable in
+  `allowed-tools` (`code.claude.com/docs/en/mcp.md`); `Bash(python3 *)` with a space is the prefix form
+  (`code.claude.com/docs/en/skills.md`). Each skill lists only the dgf-mcp tools it calls, no wildcard.
+- **Task 14 — `check_plan.py` checks more of an ultra bundle.** The Required Detail Gate's integrity
+  list had three statically checkable items left to the prompt: an orphan phase file, a task with
+  zero or several `## Task N` sections (or a section with no task), and a task checkbox in a phase
+  file. All three are now `PLAN_ULTRA_BROKEN` (Rules: determinism before prompting).
+- **Task 14 — Step 5.1 treats `PLAN_UNREADABLE` and `PLAN_FORMAT_UNSUPPORTED` like exit `1`**: the
+  skill wrote that header, so it fixes it within the same three attempts. Every other exit `3` still
+  stops. The plan said "On exit 3, STOP" without distinguishing.
+- **Tasks 13–14 — no-git estates.** A full or ultra plan still carries `branch: <prefix><slug>` as its
+  name when `git.enabled` is false; no branch is created, and `locate_plan.py` falls back to the lone
+  active plan.
