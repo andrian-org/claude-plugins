@@ -18,6 +18,11 @@ Reads one plan entrypoint — a fast `PLAN.md`, a full plan, or an ultra bundle'
                 matching the task's kind, and no new file where nothing loads one
   plan-routes   each NEW configuration file in the family route_means.route()
                 gives it; existing files are edited in their own family
+  plan-commits  each `## Commit Plan` line of the shape `- **Commit N** (after
+                tasks A–B): <message>`, numbered 1, 2, 3 … in order, each
+                range running forwards between two tasks that exist and
+                starting after the one before it, and every task in exactly
+                one group; five or more tasks need a Commit Plan
   plan-overlap  (--overlap) every other active plan in the working tree and at
                 every local and remote-tracking branch tip that shares a
                 workspace; `webasm` is shared with every plan. Never fetches.
@@ -31,7 +36,8 @@ Usage:  check_plan.py <plan> --workspaces-root <root> [--overlap] [--verbose]
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  the plan is sound
   1  the plan is defective — /dgf-plan fixes it; nothing is implemented from it
-  2  warnings: an overlap, a ◐ component, a file nothing authors
+  2  warnings: an overlap, a ◐ component, a file nothing authors, five or more
+     tasks with no Commit Plan
   3  the header is unreadable or the format unsupported, or a usage error
 """
 
@@ -48,6 +54,8 @@ REQUIRED = ("plan_format", "mode", "branch", "created", "affects_workspaces")
 SUPPORTED_FORMAT = "1"
 BASE = workspace.BASE_WORKSPACE
 COMPONENTS = "_COMPONENTS"
+COMMITS_EXPECTED_FROM = 5  # the plan format asks for a Commit Plan from five tasks
+COMMIT_SHAPE = "`- **Commit N** (after tasks A–B): ` and the message in backticks"
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
 _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 _SECTION = re.compile(r"## Task (\d+)\b")
@@ -253,11 +261,24 @@ def _check_orphans(bundle, phases, rep):
             rep.add("PLAN_ULTRA_BROKEN", f"`{path.name}` is in the bundle but `## Phase Index` does not link it")
 
 
+def _phase_text(bundle, name, rep):
+    """A phase file's text, or None with PLAN_ULTRA_BROKEN when it is not readable UTF-8."""
+    try:
+        return (bundle / name).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        report.debug("check_plan.bundle", "unreadable phase", file=name, error=exc)
+        rep.add("PLAN_ULTRA_BROKEN", f"`{name}` cannot be read as UTF-8 text — its task sections are not checked")
+        return None
+
+
 def _check_sections(bundle, phases, tasks, rep):
     """Each indexed task has exactly one `## Task N` section, and no phase file holds a checkbox task."""
     sections = {}
     for name in dict.fromkeys(phases):
-        for number, line in enumerate((bundle / name).read_text(encoding="utf-8").splitlines(), 1):
+        text = _phase_text(bundle, name, rep)
+        if text is None:
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
             heading = _SECTION.match(line)
             if heading:
                 sections.setdefault(int(heading.group(1)), []).append(name)
@@ -274,6 +295,82 @@ def _check_sections(bundle, phases, tasks, rep):
     for number, names in sorted(sections.items()):
         if number not in ids:
             rep.add("PLAN_ULTRA_BROKEN", f"`## Task {number}` in {names[0]} is not a task in `index.md`")
+
+
+# --- plan-commits -----------------------------------------------------------------
+
+def check_commits(parsed, rep):
+    """The Commit Plan's groups agree with the task numbering (plan-commits)."""
+    rep.ran("plan-commits")
+    total = len(parsed.tasks)
+    if not parsed.commits:
+        if total >= COMMITS_EXPECTED_FROM:
+            rep.add("PLAN_COMMITS_MISSING", f"the plan has {total} tasks and no Commit Plan — the format asks for a "
+                                            f"commit every 3–5 tasks")
+        return
+    ids = {task.id for task in parsed.tasks}
+    covered = {}
+    uncertain = _check_groups(parsed.commits, ids, covered, rep)
+    _check_coverage(parsed.tasks, covered, uncertain, rep)
+    report.debug("check_plan.commits", "checked", groups=len(parsed.commits), tasks=total,
+                 covered=sum(1 for n in covered.values() if n))
+
+
+def _after(commit):
+    """`after task N` or `after tasks A–B`, as the line gave it."""
+    if commit.first == commit.last:
+        return f"after task {commit.first}"
+    return f"after tasks {commit.first}–{commit.last}"
+
+
+def _check_groups(commits, ids, covered, rep):
+    """Each line's shape, number and range; fills {task id: [commit numbers]}. True when a range is unknown."""
+    uncertain, reach = False, None
+    for position, commit in enumerate(commits, 1):
+        if commit.number is None:
+            rep.add("PLAN_COMMITS_INVALID", f"`{_shown(commit.text)}` is not a Commit Plan line — write "
+                                            f"{COMMIT_SHAPE}", line=commit.line)
+            uncertain = True
+            continue
+        name = f"Commit {commit.number}"
+        if commit.number != position:
+            rep.add("PLAN_COMMITS_INVALID", f"{name} is group {position} — number the groups 1, 2, 3 … in order",
+                    line=commit.line)
+        if commit.first > commit.last:
+            rep.add("PLAN_COMMITS_INVALID", f"{name}'s range {commit.first}–{commit.last} runs backwards",
+                    line=commit.line)
+            uncertain = True
+            continue
+        for end in dict.fromkeys((commit.first, commit.last)):
+            if end not in ids:
+                rep.add("PLAN_COMMITS_INVALID", f"{name} ({_after(commit)}) names Task {end}, which "
+                                                f"does not exist", line=commit.line)
+        if reach is not None and commit.first <= reach[1]:
+            rep.add("PLAN_COMMITS_INVALID", f"{name} starts at Task {commit.first}, but Commit {reach[0]} already "
+                                            f"reaches Task {reach[1]} — each group starts after the one before it",
+                    line=commit.line)
+        for task_id in ids:
+            if commit.first <= task_id <= commit.last:
+                covered.setdefault(task_id, []).append(commit.number)
+        if reach is None or commit.last > reach[1]:
+            reach = (commit.number, commit.last)
+    return uncertain
+
+
+def _check_coverage(tasks, covered, uncertain, rep):
+    """Every task in exactly one group. `in no group` is not judged while a line's range is unknown."""
+    seen = set()
+    for task in tasks:
+        if task.id in seen:
+            continue  # a duplicate id is plan-tasks' finding
+        seen.add(task.id)
+        groups = covered.get(task.id, [])
+        if len(groups) > 1:
+            named = " and ".join(str(n) for n in groups)
+            rep.add("PLAN_COMMITS_INVALID", f"Task {task.id} is in Commits {named} — a task belongs to exactly one "
+                                            f"group", line=task.line)
+        elif not groups and not uncertain:
+            rep.add("PLAN_COMMITS_INVALID", f"Task {task.id} is in no Commit Plan group", line=task.line)
 
 
 # --- plan-files -------------------------------------------------------------------
@@ -580,6 +677,7 @@ def check(plan_path, root, overlap=False):
     lines.append(f"PROGRESS: {done}/{total}")
     check_header(parsed, root, known, rep)
     check_tasks(parsed, rep)
+    check_commits(parsed, rep)
     check_files(parsed, root, known, rep)
     check_routes(parsed, root, rep)
     if overlap:

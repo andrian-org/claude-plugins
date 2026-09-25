@@ -10,7 +10,17 @@ as "1".
 Tasks are the checkbox lines under `## Tasks`, up to the next `## ` heading,
 each followed by indented field bullets (`- kind: code`). The parser records
 what is there; whether it is valid is check_plan.py's job, so a task with no
-`kind` parses and is reported there.
+`kind` parses and is reported there. A task or dependency number longer than
+nine digits raises PlanFormatError: Python refuses to convert very long digit
+strings, and another branch's plan must fail as unreadable, not crash the scan.
+
+The `## Commit Plan` is recorded the same way: each unindented `- ` line under
+it, outside fences, is a Commit. A line of the right shape —
+`- **Commit N** (after tasks A–B): <message>`, with a hyphen or an en dash,
+`task N` for one task, and the message in backticks or double quotes — carries
+its number, range and message; any other `- ` line keeps `number=None`, and
+check_plan.py reports it. Parsing a Commit Plan never raises: another branch's
+plan with a malformed one must still be read for its overlap.
 
 Every path is relative to the workspaces root with `/` separators, and its
 first segment is a workspace name. classify() puts each path in exactly one
@@ -43,6 +53,11 @@ _TASK_LINE = re.compile(r"- \[([ xX])\] (?:\*\*)?Task (\d+):(.*)\Z")
 _FIELD_LINE = re.compile(r"[ \t]{2,}- (kind|reason|files|deletes):[ \t]*(.*)\Z")
 _DEPENDS = re.compile(r"\(depends on ([0-9][0-9, and]*)\)")
 _LINK = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
+# Numbers are bounded, so int() can never raise on a hostile line (Python limits long digit strings).
+MAX_NUMBER_DIGITS = 9
+_COMMIT_LINE = re.compile(r"- \*\*Commit (\d{1,9})\*\* \(after tasks? (\d{1,9})(?:\s*[-–]\s*(\d{1,9}))?\): "
+                          r"(?:`([^`]+)`|\"([^\"]+)\")\s*\Z")
+COMMIT_HEADING = "Commit Plan"
 _BARE_FORBIDDEN_START = tuple("[]{}&*!|>%@`'")
 
 
@@ -87,6 +102,17 @@ class Task:
 
 
 @dataclass
+class Commit:
+    """One `- ` line under `## Commit Plan`; `number` is None when the line is not of the shape."""
+    line: int
+    text: str
+    number: object = None  # int or None
+    first: object = None   # the first task of the range, int or None
+    last: object = None    # the last task of the range — `first` for `after task N`
+    message: object = None
+
+
+@dataclass
 class Plan:
     path: Path
     header: dict
@@ -94,6 +120,8 @@ class Plan:
     tasks: list
     phase_links: list    # (target, line) under `## Phase Index`
     tasks_section: bool  # a `## Tasks` heading exists
+    commit_section: bool = False                  # a `## Commit Plan` heading exists
+    commits: list = field(default_factory=list)   # Commit per `- ` line under it
 
     @property
     def mode(self):
@@ -222,11 +250,19 @@ def parse_header(lines):
 
 # --- the body -----------------------------------------------------------------
 
-def _depends(text):
+def _number(digits, line):
+    """`digits` as an int, or PlanFormatError when it is too long to be a task number."""
+    if len(digits) > MAX_NUMBER_DIGITS:
+        raise PlanFormatError(line, f"`{digits[:12]}…` is not a task number — it has more than "
+                                    f"{MAX_NUMBER_DIGITS} digits")
+    return int(digits)
+
+
+def _depends(text, line):
     match = _DEPENDS.search(text)
     if not match:
         return [], text
-    ids = [int(n) for n in re.findall(r"\d+", match.group(1))]
+    ids = [_number(n, line) for n in re.findall(r"\d+", match.group(1))]
     return ids, (text[:match.start()] + text[match.end():])
 
 
@@ -237,9 +273,9 @@ def _title(text):
 
 
 def _task(match, number):
-    depends, rest = _depends(match.group(3))
+    depends, rest = _depends(match.group(3), number)
     title, links = _title(rest)
-    return Task(int(match.group(2)), title, match.group(1) != " ", number, depends, links)
+    return Task(_number(match.group(2), number), title, match.group(1) != " ", number, depends, links)
 
 
 def _add_field(task, match, number):
@@ -267,17 +303,32 @@ def _body_sections(lines, start):
         yield index + 1, text, heading, False
 
 
+def commit_line(line, number):
+    """The Commit a `- ` line under `## Commit Plan` records. Never raises."""
+    match = _COMMIT_LINE.match(line.rstrip())
+    if not match:
+        return Commit(number, line.rstrip())
+    first = int(match.group(2))
+    last = int(match.group(3)) if match.group(3) else first
+    message = match.group(4) if match.group(4) is not None else match.group(5)
+    return Commit(number, line.rstrip(), int(match.group(1)), first, last, message)
+
+
 def parse_text(text, path="<plan>"):
     lines = text.lstrip("﻿").splitlines()
     header, where, start = parse_header(lines)
     tasks, phase_links, tasks_section, current = [], [], False, None
+    commits, commit_section = [], False
     for number, line, heading, is_heading in _body_sections(lines, start):
         if is_heading:
             tasks_section = tasks_section or heading == "Tasks"
+            commit_section = commit_section or heading == COMMIT_HEADING
             current = None
             continue
         if heading == "Phase Index":
             phase_links += [(target, number) for _, target in _LINK.findall(line)]
+        if heading == COMMIT_HEADING and line.startswith("- "):
+            commits.append(commit_line(line, number))
         if heading != "Tasks":
             continue
         task_match = _TASK_LINE.match(line)
@@ -290,9 +341,9 @@ def parse_text(text, path="<plan>"):
             _add_field(current, field_match, number)
         elif line and not line[0].isspace():
             current = None  # an unindented line ends the task's bullets
-    plan = Plan(Path(path), header, where, tasks, phase_links, tasks_section)
+    plan = Plan(Path(path), header, where, tasks, phase_links, tasks_section, commit_section, commits)
     report.debug("plan.parse", "parsed", path=path, keys=",".join(header), tasks=len(tasks),
-                 phase_links=len(phase_links))
+                 phase_links=len(phase_links), commits=len(commits))
     return plan
 
 

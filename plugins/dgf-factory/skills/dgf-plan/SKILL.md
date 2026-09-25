@@ -4,7 +4,7 @@ description: Plan a change to a DGF estate — a fast, full or ultra plan that s
 argument-hint: "[fast | full | ultra] <description>"
 allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) Agent AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__how_to_build mcp__plugin_dgf-factory_dgf-mcp__get_recipes_for mcp__plugin_dgf-factory_dgf-mcp__get_component_doc
 disable-model-invocation: false
-version: 0.1.1
+version: 0.1.2
 ---
 
 # DGF Plan — Plan a Change to the Estate
@@ -205,7 +205,7 @@ Leave out `--overlap` when `git.enabled` is false.
 |---|---|
 | `0` | Continue. |
 | `1` | The plan is defective, and this skill owns it: fix every `ERROR` and run the check again. After 3 attempts, **STOP** and relay the findings. |
-| `2` | Continue, and surface every `WARN` line: each `PLAN_OVERLAP` (another active plan shares a workspace; `webasm` is shared with every plan), `PARITY_PARTIAL`, `PLAN_NOT_AUTHORED`. |
+| `2` | Continue, and surface every `WARN` line: each `PLAN_OVERLAP` (another active plan shares a workspace; `webasm` is shared with every plan), `PARITY_PARTIAL`, `PLAN_NOT_AUTHORED`, `PLAN_COMMITS_MISSING` (five or more tasks and no Commit Plan — write one). |
 | `3` | `PLAN_UNREADABLE` or `PLAN_FORMAT_UNSUPPORTED` is a header this skill wrote: fix it within the same 3 attempts. Any other exit `3` — a usage error, a malformed knowledge table — **STOP** and relay it. |
 
 Re-run a failing check with `--verbose` when the cause is unclear.

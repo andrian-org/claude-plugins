@@ -142,6 +142,78 @@ class Plans(unittest.TestCase):
             plan.parse(PLANS / "no-such-plan.md")
 
 
+
+def commit_plan(*lines, mode="full"):
+    """A plan whose `## Commit Plan` holds `lines`, followed by one task."""
+    body = "\n".join(lines)
+    return plan.parse_text(f"---\nmode: {mode}\n---\n# Plan\n\n## Commit Plan\n\n{body}\n\n## Tasks\n\n"
+                           "- [ ] Task 1: x\n  - kind: config\n  - files: a/FM/b.json\n")
+
+
+class CommitPlan(unittest.TestCase):
+    def test_the_line_shapes_a_plan_writes(self):
+        parsed = commit_plan("- **Commit 1** (after tasks 1–3): `feat(zims): show the fee`",
+                             "- **Commit 2** (after tasks 4-6): `fix: hyphen`",
+                             "- **Commit 3** (after task 7): `docs: one task`",
+                             "- **Commit 4** (after tasks 8 – 9): `chore: spaces round the dash`",
+                             '- **Commit 5** (after tasks 10-11): "feat: a double-quoted message"')
+        self.assertTrue(parsed.commit_section)
+        got = [(c.number, c.first, c.last, c.message) for c in parsed.commits]
+        self.assertEqual(got, [(1, 1, 3, "feat(zims): show the fee"), (2, 4, 6, "fix: hyphen"),
+                               (3, 7, 7, "docs: one task"), (4, 8, 9, "chore: spaces round the dash"),
+                               (5, 10, 11, "feat: a double-quoted message")])
+        self.assertEqual(parsed.commits[0].line, 8)
+        self.assertEqual(parsed.tasks[0].id, 1)
+
+    def test_a_wrong_shaped_bullet_is_kept_without_a_number_and_never_raises(self):
+        for bad in ("- Commit 1 after tasks 1-3: feat: x", "- **Commit 1** (after tasks 1-3): no quotes",
+                    "- **Commit one** (after tasks 1-3): `x`", "- **Commit 1** (after tasks 1-3): `x` trailing",
+                    "- **Commit 1** (tasks 1-3): `x`", "- **Commit 1** (after tasks 1-3): `unclosed",
+                    "- **Commit " + "9" * 5000 + "** (after tasks 1-3): `a number int() refuses`",
+                    "- **Commit 1** (after tasks 1-" + "9" * 5000 + "): `x`"):
+            with self.subTest(bad=bad):
+                parsed = commit_plan(bad)
+                self.assertEqual(len(parsed.commits), 1)
+                commit = parsed.commits[0]
+                self.assertIsNone(commit.number)
+                self.assertEqual((commit.text, commit.line), (bad, 8))
+
+    def test_a_task_or_dependency_number_too_long_for_int_is_unreadable_at_its_line(self):
+        for line in ("- [ ] Task " + "9" * 5000 + ": x", "- [ ] Task 2: x (depends on " + "9" * 5000 + ")"):
+            with self.subTest(line=line[:30]):
+                with self.assertRaises(plan.PlanFormatError) as caught:
+                    plan.parse_text(f"---\nmode: fast\n---\n## Tasks\n\n{line}\n")
+                self.assertEqual(caught.exception.line, 6)
+                self.assertIn("more than 9 digits", caught.exception.message)
+        self.assertEqual(plan.parse_text("---\nmode: fast\n---\n## Tasks\n\n- [ ] Task 123456789: x\n").tasks[0].id,
+                         123456789)
+
+    def test_a_placeholder_and_prose_are_ignored(self):
+        parsed = commit_plan("<only when there are 5 or more tasks>", "Groups follow the phases.",
+                             "  - an indented note")
+        self.assertTrue(parsed.commit_section)
+        self.assertEqual(parsed.commits, [])
+
+    def test_a_bullet_inside_a_fence_is_ignored(self):
+        parsed = commit_plan("```markdown", "- **Commit 1** (after tasks 1-2): `x`", "```",
+                             "- **Commit 1** (after task 1): `real`")
+        self.assertEqual([(c.number, c.message) for c in parsed.commits], [(1, "real")])
+
+    def test_no_section(self):
+        parsed = plan.parse(PLANS / "feature-zims-inspection-fee.md")
+        self.assertFalse(parsed.commit_section)
+        self.assertEqual(parsed.commits, [])
+
+    def test_bullets_under_another_heading_are_not_commits(self):
+        parsed = plan.parse_text("---\nmode: fast\n---\n## Risks\n- **Commit 1** (after task 1): `x`\n")
+        self.assertFalse(parsed.commit_section)
+        self.assertEqual(parsed.commits, [])
+
+    def test_an_ultra_index_is_parsed_the_same_way(self):
+        parsed = commit_plan("- **Commit 1** (after tasks 1–2): `feat: fee data`", mode="ultra")
+        self.assertEqual(parsed.mode, "ultra")
+        self.assertEqual([(c.number, c.first, c.last) for c in parsed.commits], [(1, 1, 2)])
+
 class Classes(unittest.TestCase):
     CASES = {
         "zims/FM/_COMPONENTS/DataSource/Fee.json": "config",
@@ -186,6 +258,7 @@ class Classes(unittest.TestCase):
     def test_split_paths(self):
         self.assertEqual(plan.split_paths(" `a/FM/b.json`, ./c/js/d.js ,"), ["a/FM/b.json", "c/js/d.js"])
         self.assertEqual(plan.split_paths(None), [])
+
 
 
 class PathProblems(unittest.TestCase):
