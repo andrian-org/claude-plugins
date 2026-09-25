@@ -688,7 +688,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
 
 ### Phase 3: Plan scripts
 
-- [ ] **Task 6: Add the finding codes and a read-only git helper.** (depends on 5)
+- [x] **Task 6: Add the finding codes and a read-only git helper.** (depends on 5)
   - `scripts/lib/report.py` `CODES`: add every code in DD5, DD7 and DD9 with the exit shown — `ROOT_NOT_SET_UP`,
     `ROOT_AMBIGUOUS`, `PLAN_NOT_FOUND`, `PLAN_AMBIGUOUS` (1), `PLAN_FALLBACK` (2), the `PLAN_*` table,
     `CHANGE_*`, `PRE_EXISTING`, `FIXED` and `PLAN_OVERLAP_UNREADABLE` (0), `ROOT_NO_WORKSPACE` (3),
@@ -709,7 +709,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
   - Files: `scripts/lib/report.py`, `scripts/lib/git.py`, `tests/test_git.py`, `tests/test_report.py` (every new
     code has a known exit).
 
-- [ ] **Task 7: Add the plan parser.** (depends on 6)
+- [x] **Task 7: Add the plan parser.** (depends on 6)
   - `scripts/lib/plan.py` (new, stdlib): `parse(path) → Plan` or raise `PlanFormatError(line, message)`.
     `Plan{path, header: dict, mode, tasks: [Task], phase_links: [str]}` and
     `Task{id, title, checked, kind, reason, files: [str], deletes: [str], depends: [int], line}`.
@@ -731,7 +731,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
     decision.
   - Files: `scripts/lib/plan.py`, `tests/test_plan.py`, `tests/fixtures/unit/plans/*.md`.
 
-- [ ] **Task 8: Add `check_plan.py`.** (depends on 7)
+- [x] **Task 8: Add `check_plan.py`.** (depends on 7)
   - `scripts/check_plan.py`: the CLI, checks, output and codes of DD5 and DD6, built on `lib.plan`,
     `lib.workspace`, `lib.git`, `lib.knowledge` and `route_means.route()`. Parse errors map to `PLAN_UNREADABLE` or
     `PLAN_FORMAT_UNSUPPORTED` (exit `3`). Output goes through `report.render`-compatible printing with the
@@ -755,7 +755,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
     decision.
   - Files: `scripts/check_plan.py`, `tests/test_check_plan.py`, `tests/fixtures/known-bad/plan-*/`.
 
-- [ ] **Task 9: Add `locate_plan.py` and `inventory_root.py`.** (depends on 7)
+- [x] **Task 9: Add `locate_plan.py` and `inventory_root.py`.** (depends on 7)
   - `scripts/locate_plan.py`: DD5 steps 1–3. `--list` reads progress through `lib.plan`; an entrypoint that does
     not parse is listed with `progress=unreadable`.
   - `scripts/inventory_root.py`: DD9 — stdlib only, never imports `lxml` or `jsonschema` (assert it in a test by
@@ -1112,6 +1112,20 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   `_form.js` is the form-script row's `Filename` cell (`—` elsewhere, meaning any file with the
   extension at any depth) instead of a constant in `lib/plan.py`, so the fact stays in `knowledge/`
   (DD4). Header: `Place | Path | Filename | Extension | Loaded by | New file loaded`.
+- **Task 6 — `lib/git.py` paths are relative to the directory given.** Every call runs as
+  `git -C <root>`, and `diff --relative`, `ls-files`, `ls-tree` and `<ref>:./<path>` all read and
+  print paths relative to it, so no function takes a top-level prefix. `changed()` returns
+  `Change(status, path, old)`: a rename keeps its old path, which DD7's scope check needs.
+- **Task 8 — two additions to DD5.** A dependency cycle is `PLAN_TASK_INVALID` (an executor could
+  never start it). For the overlap scan, a full or ultra plan's own path at *any* ref is the plan
+  itself (its stem is its branch), not only at refs ending in its branch; `PLAN.md` still counts
+  per content. `report.render()` gained `lines=` and `summary=` so `check_plan.py` and
+  `check_change.py` print their own leading lines through the one renderer.
+- **Task 9 — a finished plan is never a discovery fallback** (DD5 step 2 counted every
+  entrypoint). After a few merges `plans/` holds other branches' completed plans, and a lone
+  completed plan would otherwise be offered as this branch's. The inventory counts exact-case
+  files only: DGF's samples hold 339 `_workflow.xml` (ADR 0016's 341 includes two
+  `_workflow.XML`, which a Linux runtime never opens).
 - **Task 5 — E14 refined.** The UI shell ships its own default `formhelper.js`, `formshared.js` and
   `custom.css` under `src/DGF.UI/src/assets/`; a deployment bind-mount replaces them. The ledger
   lists all three. `docker-compose.ecouncil.yml:65` mounts a live `custom.css` from outside the

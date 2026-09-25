@@ -61,6 +61,47 @@ CODES = {
     "CASE_ONLY_MATCH": EXIT_WARNINGS,
     "NO_SERVICE": EXIT_CLEAN,
     "NO_PARITY_ROW": EXIT_CLEAN,
+    # the workspaces root and plan discovery (locate_plan.py, inventory_root.py; ADR 0017 §6)
+    "ROOT_NO_WORKSPACE": EXIT_USAGE,
+    "ROOT_NOT_SET_UP": EXIT_BLOCKED,
+    "ROOT_AMBIGUOUS": EXIT_BLOCKED,
+    "PLAN_NOT_FOUND": EXIT_BLOCKED,
+    "PLAN_AMBIGUOUS": EXIT_BLOCKED,
+    "PLAN_FALLBACK": EXIT_WARNINGS,
+    "BASE_WORKSPACE_ABSENT": EXIT_WARNINGS,
+    "VALIDATOR_DEPS_MISSING": EXIT_WARNINGS,
+    # the plan file (check_plan.py; ADR 0017 §1–§5)
+    "PLAN_UNREADABLE": EXIT_USAGE,
+    "PLAN_FORMAT_UNSUPPORTED": EXIT_USAGE,
+    "PLAN_FIELD_MISSING": EXIT_BLOCKED,
+    "PLAN_FIELD_INVALID": EXIT_BLOCKED,
+    "PLAN_UNKNOWN_WORKSPACE": EXIT_BLOCKED,
+    "PLAN_BASE_REASON_MISSING": EXIT_BLOCKED,
+    "PLAN_BRANCH_MISMATCH": EXIT_BLOCKED,
+    "PLAN_NO_TASKS": EXIT_BLOCKED,
+    "PLAN_TASK_INVALID": EXIT_BLOCKED,
+    "PLAN_CODE_REASON_MISSING": EXIT_BLOCKED,
+    "PLAN_ULTRA_BROKEN": EXIT_BLOCKED,
+    "PLAN_FILE_UNDECLARED_WORKSPACE": EXIT_BLOCKED,
+    "PLAN_KIND_MISMATCH": EXIT_BLOCKED,
+    "PLAN_OUT_OF_SCOPE": EXIT_BLOCKED,
+    "PLAN_CODE_FILE_NEW": EXIT_BLOCKED,
+    "PLAN_ROUTE_MISMATCH": EXIT_BLOCKED,
+    "PLAN_ROUTE_UNKNOWN": EXIT_BLOCKED,
+    "PLAN_NOT_AUTHORED": EXIT_WARNINGS,
+    "PLAN_OVERLAP": EXIT_WARNINGS,
+    "PLAN_OVERLAP_UNREADABLE": EXIT_CLEAN,
+    # a branch's changes against its plan (check_change.py; ADR 0017 §6, ADR 0018)
+    "CHANGE_UNDECLARED_WORKSPACE": EXIT_BLOCKED,
+    "CHANGE_OUT_OF_SCOPE": EXIT_BLOCKED,
+    "CHANGE_CODE_UNPLANNED": EXIT_BLOCKED,
+    "CHANGE_CODE_FILE_NEW": EXIT_BLOCKED,
+    "CHANGE_OUTSIDE_WORKSPACE": EXIT_WARNINGS,
+    "CHANGE_UNPLANNED_FILE": EXIT_WARNINGS,
+    "CHANGE_TASK_FILE_UNCHANGED": EXIT_WARNINGS,
+    "CHANGE_NOT_AUTHORED": EXIT_WARNINGS,
+    "PRE_EXISTING": EXIT_CLEAN,
+    "FIXED": EXIT_CLEAN,
 }
 
 _LABELS = {EXIT_USAGE: "ERROR", EXIT_BLOCKED: "ERROR", EXIT_WARNINGS: "WARN", EXIT_CLEAN: "INFO"}
@@ -146,14 +187,21 @@ def _ordered_union(lists):
     return seen
 
 
-def render(reports, stream=None, header="Validation"):
-    """Print the DD3 report: header, families, checks, findings, summary, verdict."""
+def render(reports, stream=None, header="Validation", lines=None, summary=None):
+    """Print the DD3 report: header, families, checks, findings, summary, verdict.
+
+    `lines`, when given, replace the `FAMILY:` lines — a script that reads no
+    configuration (check_plan.py) prints its own `PLAN:`/`TASK:` lines there.
+    `summary` lines are printed at the end of the Summary block.
+    """
     stream = stream or sys.stdout
     out = lambda text="": print(text, file=stream)
 
     out(f"{BOLD}{header}{NC}")
-    for rep in reports:
-        out(f"FAMILY: {rep.family or 'unresolved'} {rep.file}")
+    if lines is None:
+        lines = [f"FAMILY: {rep.family or 'unresolved'} {rep.file}" for rep in reports]
+    for line in lines:
+        out(line)
     checks = _ordered_union(r.checks_run for r in reports)
     out(f"CHECKS RUN: {', '.join(checks) if checks else '(none)'}")
     for check_id, reason in _ordered_union(r.not_run for r in reports):
@@ -171,6 +219,8 @@ def render(reports, stream=None, header="Validation"):
     out(f"Errors:   {counts['ERROR']}")
     out(f"Warnings: {counts['WARN']}")
     out(f"Info:     {counts['INFO']}")
+    for line in summary or []:
+        out(line)
     out()
     out(verdict_line(code))
     return code

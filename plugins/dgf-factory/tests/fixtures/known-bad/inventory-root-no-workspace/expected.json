@@ -1,0 +1,11 @@
+{
+  "cli": "inventory_root.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces"
+  ],
+  "exit": 3,
+  "codes": [
+    "ROOT_NO_WORKSPACE"
+  ]
+}
