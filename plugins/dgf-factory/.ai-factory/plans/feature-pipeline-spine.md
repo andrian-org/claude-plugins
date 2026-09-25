@@ -826,7 +826,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
 
 ### Phase 5: Doctor
 
-- [ ] **Task 12: Expect the spine slices, check plugin paths, and check that frontmatter is YAML-safe.** (depends on 5)
+- [x] **Task 12: Expect the spine slices, check plugin paths, and check that frontmatter is YAML-safe.** (depends on 5)
   - `skills/dgf-doctor/scripts/doctor.py`: `EXPECTED_SLICES` per DD12. Add `PLUGIN_PATH_DANGLING` (error) as a
     check in the portability section, scanning every shipped `.md` file per DD12's token rule. It emits one
     finding per dangling token, with file and line. Add `SKILL_FRONTMATTER_YAML` (error) to `check_skill_slice`,
@@ -1152,3 +1152,8 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
   and L20, `CHANGE_STATE_STATE_UNDECLARED` at `Expert.MoveTaskTo/_workflow.xml` L15). Fixed: 0. No
   `CHANGE_*` finding. 3116 files validated per tree. **Wall-clock 5.2 s** for the materialise and both
   runs (one known-good run alone is 2.1 s), far under the 60 s threshold, so no caching follow-up.
+- **Task 12 — two small widenings of DD12.** A plugin-path token that contains an ellipsis (`…` or `...`)
+  is a template too: the doctor's own SKILL.md prose cites `${CLAUDE_PLUGIN_ROOT}/…`. A token also ends
+  at `]`, and trailing `.,;:` are dropped, so prose punctuation is not read as part of a path.
+  `SKILL_FRONTMATTER_YAML` also flags an unquoted `|` or `>` (a block scalar the flat parser would read
+  as that one character).

@@ -9,8 +9,9 @@ green from milestone 6 through 15 and a red result keeps meaning something.
 It is a runtime validator — the /dgf-doctor skill calls it, and so does
 tools/check-dual-schema-docs.sh. It reads and reports; it never edits.
 
-Sections: 1 manifest, 2 component paths, 3 skill slices, 4 portability (machine
-paths and DGF repository paths in shipped files), 5 line endings, 6 validator
+Sections: 1 manifest, 2 component paths, 3 skill slices (frontmatter YAML-safe),
+4 portability (machine paths, DGF repository paths and dangling
+${CLAUDE_PLUGIN_ROOT} paths in shipped files), 5 line endings, 6 validator
 runtime (lxml and jsonschema importable, scripts/requirements.txt pinned with
 hashes, every machine-read knowledge table loads), 7 build progress (INFO only).
 It stays stdlib-only, so it runs before the validators' dependencies are
@@ -24,8 +25,9 @@ from the working directory.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — no findings
-  1  BLOCKED   — the plugin cannot load, a slice will not register, a
-                 shipped file names a DGF repository path, the validator
+  1  BLOCKED   — the plugin cannot load, a slice will not register or has
+                 frontmatter YAML reads differently, a shipped file names a
+                 DGF repository path or a plugin path that does not exist, the validator
                  requirements are unpinned, or a knowledge table is malformed
   2  WARNINGS  — it loads, but something needs a human look (including
                  validator dependencies that are not installed)
@@ -100,8 +102,21 @@ REQUIREMENT_HASH = re.compile(r"--hash=sha256:[0-9a-f]{64}")
 NAME_PATTERN = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*\Z")
 SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
 
-# Slices the roadmap calls for. Absent ones are progress, not faults.
-EXPECTED_SLICES = ("dgf-doctor", "dgf-component", "dgf-process", "dgf-audit")
+# Slices the roadmap calls for, in roadmap order. Absent ones are progress, not faults.
+EXPECTED_SLICES = ("dgf-doctor", "dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit",
+                   "dgf-component", "dgf-process", "dgf-audit")
+
+# `${CLAUDE_PLUGIN_ROOT}/<path>` in shipped Markdown. The token ends at whitespace, a
+# quote, a backtick, `)` or `]`; one with `<`, `*`, `{`, a second `$` or an ellipsis is
+# a template.
+PLUGIN_ROOT_TOKEN = "${" + "CLAUDE_PLUGIN_ROOT}"
+PLUGIN_PATH = re.compile(re.escape(PLUGIN_ROOT_TOKEN) + r"(/[^\s'\"`)\]]*)?")
+TEMPLATE_MARKERS = ("<", "*", "{", "$", "\u2026", "...")
+
+# A frontmatter value the flat parser reads as one string, but YAML reads otherwise:
+# an unquoted value starting with a flow, anchor, alias, tag, directive, reserved or
+# block-scalar indicator, or holding `: ` or ` #`.
+YAML_UNSAFE_START = tuple("[{*&!%@`|>")
 
 FINDINGS = []
 INFOS = []
@@ -348,6 +363,7 @@ def check_skill_slice(root, slice_dir):
         error("SKILL_FRONTMATTER_MISSING", rel, f"{rel} has no closed YAML frontmatter block")
         return
 
+    check_frontmatter_yaml(rel, fields)
     name = fields.get("name", "")
     if name != slice_dir.name:
         error("SKILL_NAME_MISMATCH", rel,
@@ -356,6 +372,30 @@ def check_skill_slice(root, slice_dir):
         error("SKILL_DESCRIPTION_MISSING", rel, f"{rel} has an empty `description`")
     if not fields.get("allowed-tools"):
         error("SKILL_TOOLS_MISSING", rel, f"{rel} declares no `allowed-tools`")
+
+
+def yaml_unsafe(value):
+    """Why YAML would not read `value` as the plain string the flat parser sees, or None."""
+    if not value or value[0] in "\"'":
+        return None
+    if value.startswith(YAML_UNSAFE_START):
+        return f"starts with `{value[0]}`"
+    if ": " in value:
+        return "contains `: `"
+    if " #" in value:
+        return "contains ` #`, which YAML reads as a comment"
+    return None
+
+
+def check_frontmatter_yaml(rel, fields):
+    """Claude Code reads the block as YAML; the doctor reads it flat. They must agree."""
+    for key, value in fields.items():
+        why = yaml_unsafe(value)
+        trace(f"{rel}: `{key}` yaml-safe={why is None}")
+        if why:
+            error("SKILL_FRONTMATTER_YAML", rel,
+                  f"{rel} `{key}` {why} — YAML reads it differently or not at all, so the skill may not "
+                  "load; quote the value")
 
 
 # --- 4. portability ----------------------------------------------------------
@@ -377,7 +417,23 @@ def check_portability(root):
                 error("DGF_PATH", rel,
                       f"{rel}:{lineno} names DGF repository path `{match.group(0)}…` — "
                       "a developer's install has no DGF checkout (ADR 0012)")
-    trace("scanned shipped files for machine-specific and DGF repository paths")
+            if path.suffix == ".md":
+                check_plugin_paths(root, rel, lineno, line)
+    trace("scanned shipped files for machine-specific, DGF repository and dangling plugin paths")
+
+
+def check_plugin_paths(root, rel, lineno, line):
+    """Every `${CLAUDE_PLUGIN_ROOT}/<path>` a shipped Markdown file cites must exist."""
+    for match in PLUGIN_PATH.finditer(line):
+        target = (match.group(1) or "").rstrip(".,;:")
+        if any(marker in target for marker in TEMPLATE_MARKERS):
+            trace(f"{rel}:{lineno} template `{PLUGIN_ROOT_TOKEN}{target}` skipped")
+            continue
+        exists = (root / target.lstrip(_SEP)).exists()
+        trace(f"{rel}:{lineno} `{PLUGIN_ROOT_TOKEN}{target}` exists={exists}")
+        if not exists:
+            error("PLUGIN_PATH_DANGLING", rel,
+                  f"{rel}:{lineno} cites `{PLUGIN_ROOT_TOKEN}{target}`, which does not exist in the plugin")
 
 
 # --- 5. line endings ---------------------------------------------------------
