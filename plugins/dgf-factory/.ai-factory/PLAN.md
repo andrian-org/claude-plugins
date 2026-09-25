@@ -219,6 +219,7 @@ Surprises and deviations:
 ## Out of scope
 
 - The doctor's gate block (always `"blocking": true`, `/dgf-fix` on a pass) — already a milestone-10 follow-up.
-- `.ai-factory/rules/base.md` still shows `Bash(python3 *)` as its narrowing example; it is `/aif`'s artifact.
-  Suggest the edit to the user rather than making it.
+- `.ai-factory/rules/base.md` calls `allowed-tools` "an allowlist" (it pre-approves; it never restricts). Its
+  examples are `Bash(git *)` and `Bash(shasum -a 256 *)` — an earlier draft of this line wrongly said it showed
+  `Bash(python3 *)`. It is `/aif`'s artifact: suggest the wording fix to the user rather than making it.
 - A dependency vulnerability scan: `pip-audit` and `safety` are not installed, and this project never installs tools.

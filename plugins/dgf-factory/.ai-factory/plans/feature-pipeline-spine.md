@@ -1268,5 +1268,6 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
     Claude Code warns about at startup. A prompt-injected instruction could still run any git
     command in those four without a prompt. Claude Code never auto-approves writes to `.git`,
     `.claude/` or `.mcp.json`.
-  - `.ai-factory/rules/base.md` and `.ai-factory/ARCHITECTURE.md` still show `Bash(python3 *)` as
-    the example of a narrowed rule; `/aif` and `/aif-architecture` own them.
+  - `.ai-factory/ARCHITECTURE.md` (line 290) still shows `Bash(python3 *)` in its example
+    frontmatter, and `.ai-factory/rules/base.md` still calls `allowed-tools` "an allowlist" — it
+    pre-approves, it never restricts. `/aif-architecture` and `/aif` own them.
