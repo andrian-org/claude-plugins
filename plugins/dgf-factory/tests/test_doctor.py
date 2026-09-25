@@ -13,6 +13,14 @@ DOCTOR = Path("skills") / "dgf-doctor" / "scripts" / "doctor.py"
 GATE = re.compile(r"```dgf-gate-result\n(.*?)\n```", re.S)
 
 
+def load_doctor(root):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("doctor_under_test", root / DOCTOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def gate_ids(stdout):
     """The finding ids in the last gate block — the only part callers may parse."""
     blocks = GATE.findall(stdout)
@@ -78,6 +86,76 @@ class DoctorOnACopy(unittest.TestCase):
         (cache / "x.cpython-39.pyc").write_bytes(b"\x00\x01\r\n\x02")
         code, out, _ = self.run_doctor()
         self.assertNotIn("CRLF", gate_ids(out), out)
+        self.assertIn(code, (0, 2), out)
+
+    # --- the spine slices, plugin paths and YAML-safe frontmatter (DD12) ------------
+
+    def write_skill(self, name, frontmatter, body=""):
+        path = self.root / "skills" / name / "SKILL.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("---\n" + "\n".join(frontmatter) + "\n---\n\n# Skill\n" + body, encoding="utf-8")
+        return path
+
+    FRONTMATTER = ["name: dgf-plan", "description: Plan a DGF change. Use for \"dgf plan\".",
+                   "argument-hint: \"[fast | full | ultra] <description>\"",
+                   "allowed-tools: Read Bash(python3 *)", "disable-model-invocation: false", "version: 0.1.0"]
+
+    def test_expected_slices_report_present_or_not_yet_built(self):
+        code, out, _ = self.run_doctor()
+        for name in ("dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit"):
+            self.assertRegex(out, rf"INFO  skills/{name}/ — (present|not yet built)")
+        self.write_skill("dgf-plan", self.FRONTMATTER)
+        _, out, _ = self.run_doctor()
+        self.assertIn("INFO  skills/dgf-plan/ — present", out)
+
+    def test_a_dangling_plugin_path_blocks_with_file_and_line(self):
+        token = "${" + "CLAUDE_PLUGIN_ROOT}"
+        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun:\n\n    python3 "{token}/scripts/no_such.py"\n')
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertEqual(gate_ids(out).count("PLUGIN_PATH_DANGLING"), 1, out)
+        self.assertRegex(out, r"skills/dgf-plan/SKILL\.md:\d+ cites `\$\{CLAUDE_PLUGIN_ROOT\}/scripts/no_such\.py`")
+
+    def test_template_and_existing_plugin_paths_are_clean(self):
+        token = "${" + "CLAUDE_PLUGIN_ROOT}"
+        body = (f"\nRead `{token}/knowledge/README.md`, then `{token}/knowledge/schemas/`.\n"
+                f"A component is `{token}/knowledge/schemas/json/<Type>.schema.json`; globs `{token}/scripts/*.py`.\n"
+                f'Run python3 "{token}/scripts/check_plan.py".\n')
+        self.write_skill("dgf-plan", self.FRONTMATTER, body)
+        code, out, _ = self.run_doctor()
+        self.assertNotIn("PLUGIN_PATH_DANGLING", gate_ids(out), out)
+        self.assertIn(code, (0, 2), out)
+
+    def test_unquoted_yaml_indicators_block(self):
+        for bad in ("argument-hint: [fast | full | ultra] <description>", "description: Plan: a DGF change"):
+            key = bad.split(":")[0]
+            frontmatter = [line for line in self.FRONTMATTER if not line.startswith(key + ":")] + [bad]
+            with self.subTest(bad=bad):
+                self.write_skill("dgf-plan", frontmatter)
+                code, out, _ = self.run_doctor()
+                self.assertEqual(code, 1, out)
+                # Without lxml and jsonschema the doctor also warns VALIDATOR_DEPS_MISSING; that is not this test's.
+                blockers = [i for i in gate_ids(out) if i != "VALIDATOR_DEPS_MISSING"]
+                self.assertEqual(blockers, ["SKILL_FRONTMATTER_YAML"], out)
+                self.assertIn(f"`{key}`", out)
+
+    def test_more_yaml_shapes_the_flat_parser_misreads(self):
+        doctor = load_doctor(self.root)
+        for value, unsafe in (("- a list item", True), ("ends with a colon:", True), ('"never closes', True),
+                              ("'single'", False), ('"double"', False), ("0.1.0", False)):
+            self.assertEqual(doctor.yaml_unsafe(value) is not None, unsafe, value)
+
+    def test_a_plugin_path_in_the_wrong_case_dangles(self):
+        token = "${" + "CLAUDE_PLUGIN_ROOT}"
+        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun python3 "{token}/scripts/Check_Plan.py".\n')
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("PLUGIN_PATH_DANGLING", gate_ids(out))
+
+    def test_quoted_values_and_tool_lists_are_clean(self):
+        self.write_skill("dgf-plan", self.FRONTMATTER + [])
+        code, out, _ = self.run_doctor()
+        self.assertNotIn("SKILL_FRONTMATTER_YAML", gate_ids(out), out)
         self.assertIn(code, (0, 2), out)
 
 

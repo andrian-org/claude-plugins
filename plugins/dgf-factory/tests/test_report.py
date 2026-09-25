@@ -39,6 +39,36 @@ class ExitAggregation(unittest.TestCase):
             rep.add("NOT_A_CODE", "z")
 
 
+class SpineCodes(unittest.TestCase):
+    """The pipeline spine's codes force the exits ADR 0017 and ADR 0018 give them."""
+
+    EXPECTED = {
+        report.EXIT_USAGE: ("ROOT_NO_WORKSPACE", "PLAN_UNREADABLE", "PLAN_FORMAT_UNSUPPORTED"),
+        report.EXIT_BLOCKED: (
+            "ROOT_NOT_SET_UP", "ROOT_AMBIGUOUS", "PLAN_NOT_FOUND", "PLAN_AMBIGUOUS", "PLAN_FIELD_MISSING",
+            "PLAN_FIELD_INVALID", "PLAN_UNKNOWN_WORKSPACE", "PLAN_BASE_REASON_MISSING", "PLAN_BRANCH_MISMATCH",
+            "PLAN_NO_TASKS", "PLAN_TASK_INVALID", "PLAN_CODE_REASON_MISSING", "PLAN_ULTRA_BROKEN",
+            "PLAN_FILE_UNDECLARED_WORKSPACE", "PLAN_KIND_MISMATCH", "PLAN_OUT_OF_SCOPE", "PLAN_CODE_FILE_NEW",
+            "PLAN_ROUTE_MISMATCH", "PLAN_ROUTE_UNKNOWN", "CHANGE_UNDECLARED_WORKSPACE", "CHANGE_OUT_OF_SCOPE",
+            "CHANGE_CODE_UNPLANNED", "CHANGE_CODE_FILE_NEW"),
+        report.EXIT_WARNINGS: (
+            "PLAN_FALLBACK", "BASE_WORKSPACE_ABSENT", "VALIDATOR_DEPS_MISSING", "PLAN_NOT_AUTHORED",
+            "PLAN_OVERLAP", "CHANGE_OUTSIDE_WORKSPACE", "CHANGE_UNPLANNED_FILE", "CHANGE_TASK_FILE_UNCHANGED",
+            "CHANGE_NOT_AUTHORED"),
+        report.EXIT_CLEAN: ("PLAN_OVERLAP_UNREADABLE", "PRE_EXISTING", "FIXED"),
+    }
+
+    def test_every_spine_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+    def test_existing_codes_keep_their_severity(self):
+        self.assertEqual(report.CODES["PARITY_PARTIAL"], report.EXIT_WARNINGS)
+        self.assertEqual(report.CODES["DEAD_TRANSITION"], report.EXIT_BLOCKED)
+        self.assertEqual(report.CODES["ROUTE_NO_ROW"], report.EXIT_USAGE)
+
+
 class Rendering(unittest.TestCase):
     def test_output_order_and_verdict(self):
         rep = report.Report("f.json", "json")
@@ -55,6 +85,30 @@ class Rendering(unittest.TestCase):
         self.assertEqual(lines[3], "NOT RUN: json-format (annotation-only, ADR 0015)")
         self.assertEqual(lines[4], "WARN UNKNOWN_PROPERTY f.json:3 `x` is ignored by the runtime")
         self.assertEqual(lines[-1], "WARNINGS")
+
+    def test_a_finding_with_control_characters_renders_as_one_line(self):
+        rep = report.Report("app/FM/a\nERROR FAKE x.json")
+        rep.add("UNKNOWN_PROPERTY", "key `a\nCLEAN`\r \x1b[31mred\x7f \x85     end", line=2)
+        buf = io.StringIO()
+        report.render([rep], buf, lines=["PLAN: p\nCLEAN"])
+        rendered = [line for line in buf.getvalue().splitlines() if line.startswith("WARN ")]
+        self.assertEqual(rendered, ["WARN UNKNOWN_PROPERTY app/FM/a\\x0aERROR FAKE x.json:2 key `a\\x0aCLEAN`\\x0d "
+                                    "\\x1b[31mred\\x7f \\x85 \\u2028 \\u2029 end"])
+        self.assertIn("PLAN: p\\x0aCLEAN", buf.getvalue().splitlines())
+        self.assertEqual(buf.getvalue().splitlines().count("CLEAN"), 0)  # the verdict is WARNINGS; nothing forged it
+
+    def test_a_not_run_reason_renders_as_one_line(self):
+        rep = report.Report("f.json", "json")
+        rep.skipped("plan-overlap", "git failed: a\nb")
+        buf = io.StringIO()
+        report.render([rep], buf)
+        self.assertIn("NOT RUN: plan-overlap (git failed: a\\x0ab)", buf.getvalue().splitlines())
+
+    def test_plain_and_non_ascii_text_is_unchanged(self):
+        for text in ("`x` is ignored by the runtime", "Ünïcødé — naïve café", "tab nbsp"):
+            with self.subTest(text):
+                self.assertEqual(report.one_line(text), text)
+        self.assertEqual(report.one_line("a\tb"), "a\\x09b")
 
     def test_usage_error_renders_blocked(self):
         rep = report.Report("f.txt")

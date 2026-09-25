@@ -1,4 +1,4 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.md) · [Skill Authoring →](skill-authoring.md)
+[← Pipeline Spine](pipeline.md) · [Back to README](../README.md) · [Skill Authoring →](skill-authoring.md)
 
 # Architecture
 
@@ -25,7 +25,9 @@ across a dependency-inverted runtime, and there is no runtime here to invert.
 plugins/dgf-factory/
 ├── .claude-plugin/plugin.json   # manifest — must live here
 ├── skills/<name>/               # SLICES — SKILL.md + references/ + scripts/ + templates/
-├── agents/*.md                  # subagents
+│   ├── dgf-doctor/              #   the install check, with its own scripts/doctor.py
+│   └── dgf, dgf-plan, dgf-implement, dgf-verify, dgf-commit/   # the pipeline spine
+├── agents/*.md                  # subagents (not yet built)
 ├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
 ├── scripts/                     # SHARED INFRASTRUCTURE — cross-slice validators
@@ -33,8 +35,12 @@ plugins/dgf-factory/
 │   ├── resolve_components.py    #   component types and component file references
 │   ├── validate_process.py      #   process structure and semantics, change-state targets
 │   ├── route_means.py           #   JSON or legacy XML for a new configuration
+│   ├── locate_plan.py           #   the workspaces root and the active plan
+│   ├── inventory_root.py        #   each workspace, counted; what is not one
+│   ├── check_plan.py            #   a plan's header, tasks, file classes, routes and overlaps
+│   ├── check_change.py          #   a branch's change against its plan and the merge-base
 │   ├── requirements.txt         #   lxml + jsonschema, exact pins with hashes
-│   └── lib/                     #   what the four share (below)
+│   └── lib/                     #   what the scripts share (below)
 ├── .mcp.json                    # MCP servers
 ├── tests/                       # NOT SHIPPED — unittest suite, fixtures, the known-bad corpus
 ├── tools/                       # NOT SHIPPED — repo-maintenance checks, vendoring, known-good run, drift check
@@ -56,6 +62,14 @@ plugins/dgf-factory/
 | `parity.py` | The runtime-parity gate |
 | `workspace.py` | The workspaces-root model and the engine's reference resolution, exact-case |
 | `process_checks.py` | Dead transitions, unreachable states, workflow and change-state references |
+| `plan.py` | The plan file's flat header and tasks, and each path's class — config, code, excluded, other |
+| `git.py` | The read-only git calls — changed files, refs, and a commit's tree written blob by blob |
+| `runner.py` | Every validator over a root or some of its files; `tools/run_known_good.py` uses the same runner |
+| `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
+
+`lib/gate_result.py`, which will build the `dgf-gate-result` block with its DGF-specific
+fields, arrives with milestone 10. Until then `/dgf-verify` assembles the block from the
+scripts' exit codes.
 
 Folder names are Claude Code plugin names rather than the reference pattern's
 `src/[Module]/Slices/` names. Auto-discovery only loads components from the plugin's
@@ -72,11 +86,11 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py` |
+| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py` |
 | Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
 
-A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators as a
-library over DGF's samples. The reverse never happens. A shipped script imports nothing from
+A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators over DGF's
+samples through `scripts/lib/runner.py`, the runner the change gate uses. The reverse never happens. A shipped script imports nothing from
 `tools/` or `tests/`.
 
 A shipped file names no path into the DGF repository. A maintenance tool may, because it
@@ -120,7 +134,7 @@ Two rules follow, and both are enforceable architecture rather than advice. Any 
 of a component schema **resolves the family before parsing** and never defaults to JSON.
 And because a JSON schema existing does not mean the runtime reads it — `Workflow` and
 `ProcessFlow` are validated by JSON schemas the runtime ignores in favour of
-`_workflow.xml` and `_process.xml` — a passing validation in an unsupported family is a
+`_workflow.xml` and `process.xml` — a passing validation in an unsupported family is a
 warning, not a success.
 
 Full inventories, the correspondence map, the detection contract and the vendoring rules
@@ -145,14 +159,16 @@ ownership table is the thing that makes multi-session, multi-agent work non-chao
 
 | Artifact | Owner | Others |
 |---|---|---|
-| `DESCRIPTION.md` | `/dgf` | read-only |
+| `config.yaml`, `DESCRIPTION.md` | `/dgf` | read-only |
+| `PLAN.md`, `plans/<stem>.md` | `/dgf-plan` | `/dgf-implement` updates only the checkboxes |
 | `ARCHITECTURE.md` | `/dgf-architecture` | structure notes only |
-| `plans/<id>/` | `/dgf-plan` | `/dgf-implement` updates only the ledger in `index.md` |
+| `plans/<stem>/` (ultra) | `/dgf-plan` | `/dgf-implement` updates only the ledger in `index.md` |
 | `patches/` | `/dgf-fix` | consumed by `/dgf-evolve` |
 | `knowledge/` | deliberate human edit with a cited source | read-only to every slice |
 
 ## See Also
 
+- [Pipeline Spine](pipeline.md) — the five slices that exist today, and how a change flows through them
 - [Skill Authoring](skill-authoring.md) — the contract a slice's `SKILL.md` must follow
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — the rules governing `knowledge/`
 - [DGF Schemas](dgf-schemas.md) — the two schema families and the rules for consuming them

@@ -12,9 +12,12 @@ plan → implement → verify → commit pipeline, but shipping pre-loaded knowl
 DotGov Framework (.NET 10 / Angular 19 Component-Hosted Pluggable Monolith) instead of
 deriving the stack at setup time.
 
-Setup stage — the design exists, the `dgf-*` skill corpus does not yet.
-See [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified
-framework facts, and [docs/adr/](docs/adr/README.md) for the decisions that shape it.
+The pipeline spine exists — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`,
+`/dgf-commit`, beside `/dgf-doctor` — on the knowledge base and the validators. The
+DGF-specific skills and the learning loop do not exist yet. See
+[.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified framework facts,
+[docs/pipeline.md](docs/pipeline.md) for how a change flows, and [docs/adr/](docs/adr/README.md)
+for the decisions that shape it.
 
 ## Tech Stack
 
@@ -35,14 +38,19 @@ plugins/dgf-factory/
 ├── .claude-plugin/             # The plugin manifest — Claude Code reads it nowhere else
 │   └── plugin.json             #   name, version, description; component paths use defaults
 ├── skills/                     # The shipped dgf-* corpus (auto-discovered)
-│   └── dgf-doctor/             #   walking skeleton — is the plugin installed correctly?
-│       ├── SKILL.md            #     the prompt-program
-│       └── scripts/doctor.py   #     the structural validator it calls
+│   ├── dgf-doctor/             #   is the plugin installed correctly?
+│   │   ├── SKILL.md            #     the prompt-program
+│   │   └── scripts/doctor.py   #     the structural validator it calls
+│   ├── dgf/                    #   set up a workspaces root: config.yaml + DESCRIPTION.md templates
+│   ├── dgf-plan/               #   fast/full/ultra plans; references/PLAN-FORMAT.md, ULTRA-FORMAT.md
+│   ├── dgf-implement/          #   execute a plan task by task; references/IMPLEMENTATION-GUIDE.md
+│   ├── dgf-verify/             #   the change gate; references/GATE-RESULT-CONTRACT.md
+│   └── dgf-commit/             #   conventional commits scoped by workspace
 ├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
 │   ├── component-catalogue.md  #   34 dispatchable components; why 4 other counts differ
-│   ├── composition-specs.md    #   workspace layout, 5 legacy artifacts, events, XML-always policy
+│   ├── composition-specs.md    #   workspace layout, applibs*, 5 legacy artifacts, events, XML-always, code places
 │   ├── naming-conventions.md   #   directory/file/type names a generator must reproduce exactly
 │   ├── json-reader.md          #   how the runtime reads component JSON: options, dispatch, folders, file refs
 │   ├── process-model.md        #   process.xsd vs the runtime model; how references resolve
@@ -52,8 +60,13 @@ plugins/dgf-factory/
 │   ├── resolve_components.py   #   component types (JSON and forms) and component file references
 │   ├── validate_process.py     #   process structure + semantics; workflow CHANGE_STATE targets
 │   ├── route_means.py          #   ADR 0010's order of means: JSON or legacy XML for a new config
+│   ├── locate_plan.py          #   the workspaces root and the active plan (ADR 0017 §6)
+│   ├── inventory_root.py       #   each workspace, counted; what is not one
+│   ├── check_plan.py           #   a plan's header, tasks, file classes, routes, bundle and overlaps
+│   ├── check_change.py         #   a branch's change against its plan and the merge-base (ADR 0018)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
-│   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace, process_checks
+│   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
+│                               #   process_checks, plan, git, runner, baseline
 ├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
@@ -61,7 +74,7 @@ plugins/dgf-factory/
 │   ├── check-dual-schema-docs.sh  # doc, decision-record, manifest and stamp contracts; section 8 runs the tests
 │   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
 │   ├── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
-│   ├── run_known_good.py          # every validator over DGF's samples; each error must be excused
+│   ├── run_known_good.py          # every validator over DGF's samples (via scripts/lib/runner.py); each error excused
 │   ├── known-good-exceptions.txt  # the evidenced excuses, and the warning baseline
 │   ├── check_drift.py             # the provenance ledgers' digests against a DGF checkout
 │   └── requirements.in            # the validator dependencies, compiled with uv
@@ -72,6 +85,7 @@ plugins/dgf-factory/
 │   ├── skill-authoring.md      #   SKILL.md contract, gates, exit codes
 │   ├── dgf-knowledge.md        #   sourcing and version-stamping DGF facts
 │   ├── dgf-schemas.md          #   the two schema families: JSON + XSD, parity, vendoring
+│   ├── pipeline.md             #   the five spine skills, .dgf-factory/, the plan format, the change gate
 │   └── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
 ├── .mcp.json                   # MCP servers — dgf-mcp only; both dev config and shipped
 ├── .ai-factory.json            # AI Factory 2.18.1 install receipts (managed-skill ownership)
@@ -86,9 +100,11 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: the rest of the `skills/dgf-*/` corpus and `agents/`. The manifest and the
-`/dgf-doctor` walking skeleton landed with roadmap milestone 6, the `knowledge/` base with
-milestone 7, and the validators, both corpora and the drift check with milestone 8.
+Not yet created: the DGF-specific skills (`dgf-component`, `dgf-process`, `dgf-audit`), the
+learning loop (`dgf-fix`, `dgf-evolve`), `scripts/lib/gate_result.py` (milestone 10) and
+`agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
+the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
+milestone 8, and the pipeline spine with milestone 9.
 
 ## Key Entry Points
 
@@ -99,11 +115,16 @@ milestone 7, and the validators, both corpora and the drift check with milestone
 | [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability (including DGF paths in shipped files), line endings; emits the gate block |
 | [scripts/validate_config.py](scripts/validate_config.py) | The dual-family config validator: family first, the runtime's JSON reader, the parity gate |
 | [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
+| [scripts/check_plan.py](scripts/check_plan.py) | Every rule a plan must meet (ADR 0017), and the overlap with other branches' plans |
+| [scripts/check_change.py](scripts/check_change.py) | The change gate: scope, means, planned files, and new findings against the merge-base (ADR 0018) |
+| [scripts/lib/plan.py](scripts/lib/plan.py) | The plan file's flat header, its tasks, and every path's class |
+| [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | How `/dgf-verify` computes its status and what its gate block holds |
 | [scripts/lib/report.py](scripts/lib/report.py) | Every finding code and the exit code it forces — the single source of severity |
 | [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to `tools/known-good-exceptions.txt` |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
 | [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What the vendored schema set holds: directories, dialects, membership |
 | [provenance/knowledge/schemas/MANIFEST.md](provenance/knowledge/schemas/MANIFEST.md) | Maintainer-only: the DGF commit, upstream and shipped `sha256` per file, the path rewrite, the re-vendor process |
+| [docs/pipeline.md](docs/pipeline.md) | How a change flows through the five spine skills, and what each script decides |
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
@@ -133,7 +154,8 @@ milestone 7, and the validators, both corpora and the drift check with milestone
 | Document | Path | Description |
 |---|---|---|
 | README | `README.md` | Plugin landing page |
-| Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, loading it locally, build order |
+| Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, loading it locally, trying the spine |
+| Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate |
 | Architecture | `docs/architecture.md` | Slice structure and dependency rules |
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
@@ -160,8 +182,11 @@ milestone 7, and the validators, both corpora and the drift check with milestone
   closed it. Process verification, the validator runtime and version gating are decided by
   [ADR 0014](docs/adr/0014-process-verification-runtime-resolution.md),
   [ADR 0015](docs/adr/0015-validator-runtime-and-json-reader.md) and
-  [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); 0002, 0003, 0006, 0007 and 0008
-  are superseded history.
+  [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); the plan format, change-relative
+  gates and the declared DGF version by [ADR 0017](docs/adr/0017-plan-file-format.md),
+  [ADR 0018](docs/adr/0018-change-relative-gates.md) and
+  [ADR 0019](docs/adr/0019-declared-dgf-version.md); 0002, 0003, 0006, 0007 and 0008 are
+  superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

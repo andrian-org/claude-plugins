@@ -57,6 +57,7 @@ docs/dgf-knowledge.md
 docs/getting-started.md
 docs/skill-authoring.md
 docs/dgf-schemas.md
+docs/pipeline.md
 '
 
 ERRORS=0

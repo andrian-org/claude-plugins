@@ -54,8 +54,9 @@ plugins/dgf-factory/
 │   │   ├── SKILL.md
 │   │   └── scripts/doctor.py           #   owns SHIPPED_DIRS and the DGF_PATH check
 │   │
-│   ├── dgf/                            # Setup slice
-│   │   └── SKILL.md
+│   ├── dgf/                            # Setup slice (exists)
+│   │   ├── SKILL.md
+│   │   └── references/                 #   config-template.yaml, description-template.md
 │   │
 │   ├── dgf-component/                  # Slice: component scaffold / inspect / validate
 │   │   ├── SKILL.md                    #   the prompt-program (steps, gates, STOP rules)
@@ -66,11 +67,16 @@ plugins/dgf-factory/
 │   │   └── templates/                  #   output shapes this slice emits
 │   │       └── component-report.md
 │   │
-│   ├── dgf-plan/                       # Slice: fast / full / ultra planning
-│   │   └── SKILL.md
-│   ├── dgf-implement/                  # Slice: the execution state machine
-│   │   └── SKILL.md
-│   └── dgf-verify/                     # Slice: emits dgf-gate-result
+│   ├── dgf-plan/                       # Slice: fast / full / ultra planning (exists)
+│   │   ├── SKILL.md
+│   │   └── references/                 #   PLAN-FORMAT.md, ULTRA-FORMAT.md
+│   ├── dgf-implement/                  # Slice: the execution state machine (exists)
+│   │   ├── SKILL.md
+│   │   └── references/                 #   IMPLEMENTATION-GUIDE.md
+│   ├── dgf-verify/                     # Slice: emits dgf-gate-result (exists)
+│   │   ├── SKILL.md
+│   │   └── references/                 #   GATE-RESULT-CONTRACT.md
+│   └── dgf-commit/                     # Slice: conventional commits scoped by workspace (exists)
 │       └── SKILL.md
 │
 ├── agents/                             # ── SUBAGENTS ── coordinator, workers, sidecars
@@ -96,6 +102,10 @@ plugins/dgf-factory/
 │   ├── resolve_components.py           #   component types legal; referenced component files exist
 │   ├── validate_process.py             #   process structure + semantics; CHANGE_STATE targets
 │   ├── route_means.py                  #   ADR 0010's order of means: JSON or legacy XML
+│   ├── locate_plan.py                  #   the workspaces root and the active plan (ADR 0017)
+│   ├── inventory_root.py               #   each workspace, counted; what is not a workspace
+│   ├── check_plan.py                   #   a plan's header, tasks, file classes, routes, overlaps
+│   ├── check_change.py                 #   a change against its plan and the merge-base (ADR 0018)
 │   ├── requirements.txt                #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                            #   one module per concern
 │       ├── report.py                   #     findings, codes → exit codes, verdict, DEBUG trace
@@ -110,6 +120,10 @@ plugins/dgf-factory/
 │       ├── parity.py                   #     the runtime-parity gate
 │       ├── workspace.py                #     workspaces-root model, exact-case reference resolution
 │       ├── process_checks.py           #     dead transitions, reachability, workflow/change-state refs
+│       ├── plan.py                     #     the plan file's flat header, tasks, and each path's class
+│       ├── git.py                      #     read-only git calls; a commit's tree written blob by blob
+│       ├── runner.py                   #     every validator over a root or some of its files
+│       ├── baseline.py                 #     which findings a branch introduced (merge-base comparison)
 │       └── gate_result.py              #     emits the dgf-gate-result block (milestone 10)
 │
 ├── .mcp.json                           # MCP servers (DGF docs MCP only)
@@ -132,10 +146,12 @@ plugins/dgf-factory/
 └── .ai-factory/                        # pipeline artifacts
 ```
 
-The tree is the target shape. Today `skills/dgf-doctor/`, `knowledge/`, `scripts/` (all but
+The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices (`dgf`,
+`dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), `knowledge/`, `scripts/` (all but
 `lib/gate_result.py`), `tests/`, `tools/`, `provenance/` and the files around them exist.
-The other slices and `agents/` arrive with roadmap milestones 9 onward, and
-`lib/gate_result.py` with the gate block in milestone 10.
+`dgf-component` and the other DGF-specific slices, and `agents/`, arrive with later roadmap
+milestones; `lib/gate_result.py` with the gate block's DGF-specific fields in milestone 10.
+Until then `/dgf-verify` assembles the block from the scripts' exit codes.
 
 Root `knowledge/` and `scripts/` are not auto-discovered — they are plain files, reached
 from a slice by `${CLAUDE_PLUGIN_ROOT}/knowledge/...` and
@@ -185,7 +201,9 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   and may import a shipped script to share one definition. `vendor_schemas.py` imports
   `doctor.py`'s `DGF_PATH_PATTERN`; `run_known_good.py` imports `scripts/lib/` and the
   validator modules to run them over DGF's samples; `check_drift.py` loads
-  `check_knowledge_stamps.py`'s ledger parser instead of re-implementing it
+  `check_knowledge_stamps.py`'s ledger parser instead of re-implementing it. `run_known_good.py`
+  runs the validators through `scripts/lib/runner.py`, the runner `check_change.py` uses, so the
+  known-good corpus and the change gate cannot drift apart
 - ❌ A shipped file reads, calls, imports or links anything in `tools/`, `tests/` or
   `provenance/`. They are not part of what a developer runs, and the direction is maintainer →
   shipped only.

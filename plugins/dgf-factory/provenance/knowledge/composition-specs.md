@@ -32,6 +32,34 @@ sources:
     sha256: d0f6f004156c4ba2b07960f263a1033cb6d95dd7799e44f85e77168bea3f060d
   - path: src/Components/DGF.Components.Shared/ComponentFileLoadService.cs
     sha256: 5d5ca13b8dd3f5b2192535776c2d5c0245c361677dc168247478733f17ad3b1d
+  # §1.2 — the applibs* folders and where the base workspace is mounted from
+  - path: src/samples/workspaces/readme.md
+    sha256: 25a0d3dbd73d5cca2af538a7200037b421b1e517664fb3141fdc38c155cc07db
+  - path: src/Core/DGF.Kernel/Configuration/ApplicationConfig.cs
+    sha256: b0a5cbcbf1b5f0f1e6577cc57f8a0613476916abf0b285334537a1ed837ad9e3
+  - path: src/Core/DGF.Kernel/Extensions/AssemblyLoader.cs
+    sha256: 0fd85b34de7ce07070701a2a1384beaa3401ca2d4575b1784438b6c4e9822c00
+  # §1.2 and §5 — the sample deployments' workspace and asset bind-mounts
+  - path: src/samples/DGF.Compose/docker-compose.zims.yml
+    sha256: 1d371e0eae65c91755a251606492a531e37a616c239835068a0cdebae8f1c2b9
+  - path: src/samples/DGF.Compose/docker-compose.ecouncil.yml
+    sha256: 9bd0a62cd055f6d15cd05691b54940bd4ff10a57eb9ae0d0d3eae9bcfb135537
+  # §5 — the UI shell's three custom files, their defaults and how they are served
+  - path: src/DGF.UI/src/app/components/app/app.component.ts
+    sha256: 11f7bb00e06264662f9d594ed4ed67d081854b3b268d1bf0cf0bed3d307bde4d
+  - path: src/DGF.UI/angular.json
+    sha256: e36da92c9b0ae83bc7bd9863540f5773c7e19a056d08f73404077660d49971c1
+  - path: src/DGF.UI/nginx-ng.conf
+    sha256: b85033b82705cf2b61b35c09d870343a2b78cf1a4e167b7ef31aa72bdcea40f6
+  - path: src/DGF.UI/src/assets/js/formhelper.js
+    sha256: 4884a131c72113cf4dc8d3926cd36093f5ac1d59ae7bcfb26b58c850fcb309c5
+  - path: src/DGF.UI/src/assets/js/formshared.js
+    sha256: f6e8a117096f18b3ea9e64b85b58305114482d8b77fd21d8ea408bfd35ff1be8
+  - path: src/DGF.UI/src/assets/styles/custom.css
+    sha256: 77bab74088530734c42b312a38865fd5b818fa807b126b0ea6e733637c7a3e5f
+  # §5 — the /application and /webasm static-file mounts
+  - path: src/DGF.API/ConfigureServices.cs
+    sha256: 2b9414f21ee3e8817bad0e53da83a42e12de93edadf84312638106ded7337d8a
 ---
 # Provenance — `knowledge/composition-specs.md`
 
@@ -41,3 +69,9 @@ Maintainer-only. Not shipped: `provenance/` is outside the directories `doctor.p
 read. The stamp in that file (`dgf_version`, `read_date`) says which DGF; this ledger says
 from where. The contract is [ADR 0013](../../docs/adr/0013-version-gating-provenance-ledger.md)
 and [`knowledge/README.md`](../../knowledge/README.md) §1.
+
+§1.2 and §5 were read on 2026-09-25 at DGF `aa1d5c4c2` (`develop`), the same commit as the rest
+of this file; `FormManager.cs` and `WorkspaceSettings.cs` were re-read then and their digests are
+unchanged. The five `applibs*` folders were inventoried by listing
+`src/samples/workspaces/applibs*/` (only `.dll` files, no `FM/`); a directory listing has no
+digest, so the samples' readme stands for it here.

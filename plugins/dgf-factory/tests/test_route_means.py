@@ -46,6 +46,14 @@ class RouteMeans(unittest.TestCase):
         self.assertIn("WARN PARITY_PARTIAL", out)
         self.assertIn("large-file workflow", out)
 
+    def test_rule_1a_a_loader_folder_is_json(self):
+        for name, folder in (("DataSource", "DataSource"), ("template", "Template"), ("Endpoints", "Endpoints")):
+            with self.subTest(name):
+                code, line, out = route(name)
+                self.assertEqual(code, 0, out)
+                self.assertTrue(line.startswith(f"ROUTE: json <workspace>/FM/_COMPONENTS/{folder}/<name>.json — "
+                                                f"`{folder}` is a loader folder"), out)
+
     def test_rule_5_no_row_is_exit_3(self):
         code, line, out = route("Search")
         self.assertEqual(code, 3, out)

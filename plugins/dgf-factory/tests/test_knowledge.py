@@ -10,6 +10,7 @@ from lib import knowledge
 
 EXPECTED_ROWS = {
     "legacy-artifacts": 8,
+    "code-places": 4,
     "component-classes": 67,
     "datasource-discriminators": 9,
     "component-folders": 6,
@@ -33,6 +34,16 @@ class RealTables(unittest.TestCase):
         row = knowledge.index("component-classes")["Date"]
         self.assertEqual(row["Configuration schema"], "DatePickerConfiguration.schema.json")
         self.assertEqual(knowledge.index("component-classes")["Search"]["Configuration schema"], knowledge.NONE)
+
+    def test_code_places_are_keyed_by_place(self):
+        places = knowledge.index("code-places")
+        self.assertEqual(set(places), {"form-script", "global-script", "global-script-base", "global-style"})
+        self.assertEqual(places["form-script"]["Filename"], "_form.js")
+        self.assertEqual(places["form-script"]["New file loaded"], "yes")
+        self.assertEqual(places["global-style"]["Extension"], ".css")
+        for place in ("global-script", "global-script-base", "global-style"):
+            self.assertEqual(places[place]["Filename"], knowledge.NONE, place)
+            self.assertEqual(places[place]["New file loaded"], "no", place)
 
 
 class MalformedTables(unittest.TestCase):
@@ -77,6 +88,14 @@ class MalformedTables(unittest.TestCase):
     def test_marker_inside_a_code_fence_is_not_a_table(self):
         self.mutate("schema-families.md", "<!-- machine-read: parity -->", "```\n<!-- machine-read: parity -->\n```")
         self.assert_malformed("parity", "marker not found")
+
+    def test_code_places_renamed_header(self):
+        self.mutate("composition-specs.md", "| Place | Path | Filename |", "| Place | Folder | Filename |")
+        self.assert_malformed("code-places", "header is")
+
+    def test_code_places_new_file_loaded_is_lower_case(self):
+        self.mutate("composition-specs.md", "`_form.xml` | yes |", "`_form.xml` | Yes |")
+        self.assert_malformed("code-places", "New file loaded `Yes`")
 
     def test_unknown_table_id(self):
         self.assert_malformed("no-such-table", "unknown table id")

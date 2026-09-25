@@ -26,6 +26,11 @@ TABLES = {
         ("Artifact", "Filename", "Folder", "Grammar"),
         {},
     ),
+    "code-places": (
+        "composition-specs.md",
+        ("Place", "Path", "Filename", "Extension", "Loaded by", "New file loaded"),
+        {"Extension": {".js", ".css"}, "New file loaded": {"yes", "no"}},
+    ),
     "component-classes": (
         "json-reader.md",
         ("ComponentType", "Configuration schema", "Bound by"),

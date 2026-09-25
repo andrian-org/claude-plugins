@@ -61,6 +61,48 @@ CODES = {
     "CASE_ONLY_MATCH": EXIT_WARNINGS,
     "NO_SERVICE": EXIT_CLEAN,
     "NO_PARITY_ROW": EXIT_CLEAN,
+    # the workspaces root and plan discovery (locate_plan.py, inventory_root.py; ADR 0017 §6)
+    "ROOT_NO_WORKSPACE": EXIT_USAGE,
+    "ROOT_NOT_SET_UP": EXIT_BLOCKED,
+    "ROOT_AMBIGUOUS": EXIT_BLOCKED,
+    "PLAN_NOT_FOUND": EXIT_BLOCKED,
+    "PLAN_AMBIGUOUS": EXIT_BLOCKED,
+    "PLAN_FALLBACK": EXIT_WARNINGS,
+    "BASE_WORKSPACE_ABSENT": EXIT_WARNINGS,
+    "VALIDATOR_DEPS_MISSING": EXIT_WARNINGS,
+    # the plan file (check_plan.py; ADR 0017 §1–§5)
+    "PLAN_UNREADABLE": EXIT_USAGE,
+    "PLAN_FORMAT_UNSUPPORTED": EXIT_USAGE,
+    "PLAN_FIELD_MISSING": EXIT_BLOCKED,
+    "PLAN_FIELD_INVALID": EXIT_BLOCKED,
+    "PLAN_UNKNOWN_WORKSPACE": EXIT_BLOCKED,
+    "PLAN_BASE_REASON_MISSING": EXIT_BLOCKED,
+    "PLAN_BRANCH_MISMATCH": EXIT_BLOCKED,
+    "PLAN_NO_TASKS": EXIT_BLOCKED,
+    "PLAN_TASK_INVALID": EXIT_BLOCKED,
+    "PLAN_CODE_REASON_MISSING": EXIT_BLOCKED,
+    "PLAN_ULTRA_BROKEN": EXIT_BLOCKED,
+    "PLAN_PATH_INVALID": EXIT_BLOCKED,
+    "PLAN_FILE_UNDECLARED_WORKSPACE": EXIT_BLOCKED,
+    "PLAN_KIND_MISMATCH": EXIT_BLOCKED,
+    "PLAN_OUT_OF_SCOPE": EXIT_BLOCKED,
+    "PLAN_CODE_FILE_NEW": EXIT_BLOCKED,
+    "PLAN_ROUTE_MISMATCH": EXIT_BLOCKED,
+    "PLAN_ROUTE_UNKNOWN": EXIT_BLOCKED,
+    "PLAN_NOT_AUTHORED": EXIT_WARNINGS,
+    "PLAN_OVERLAP": EXIT_WARNINGS,
+    "PLAN_OVERLAP_UNREADABLE": EXIT_CLEAN,
+    # a branch's changes against its plan (check_change.py; ADR 0017 §6, ADR 0018)
+    "CHANGE_UNDECLARED_WORKSPACE": EXIT_BLOCKED,
+    "CHANGE_OUT_OF_SCOPE": EXIT_BLOCKED,
+    "CHANGE_CODE_UNPLANNED": EXIT_BLOCKED,
+    "CHANGE_CODE_FILE_NEW": EXIT_BLOCKED,
+    "CHANGE_OUTSIDE_WORKSPACE": EXIT_WARNINGS,
+    "CHANGE_UNPLANNED_FILE": EXIT_WARNINGS,
+    "CHANGE_TASK_FILE_UNCHANGED": EXIT_WARNINGS,
+    "CHANGE_NOT_AUTHORED": EXIT_WARNINGS,
+    "PRE_EXISTING": EXIT_CLEAN,
+    "FIXED": EXIT_CLEAN,
 }
 
 _LABELS = {EXIT_USAGE: "ERROR", EXIT_BLOCKED: "ERROR", EXIT_WARNINGS: "WARN", EXIT_CLEAN: "INFO"}
@@ -91,8 +133,33 @@ class Finding:
         return _LABELS[self.severity]
 
     def render(self):
-        where = self.file if self.line is None else f"{self.file}:{self.line}"
-        return f"{_COLOURS[self.label]}{self.label}{NC} {self.code} {where} {self.message}"
+        where = one_line(self.file if self.line is None else f"{self.file}:{self.line}")
+        return f"{_COLOURS[self.label]}{self.label}{NC} {self.code} {where} {one_line(self.message)}"
+
+
+def one_line(text):
+    """`text` with every control and line-separator character escaped, so it prints as one line.
+
+    A finding's file or message can carry text the plugin did not write — a path
+    from another branch, a JSON key, a name read from a workspace. Escaping C0
+    controls, DEL, C1 controls and U+2028/U+2029 as `\\xNN`/`\\uNNNN` keeps one
+    finding on one line, so such text can neither forge a line of this output
+    nor move the terminal's cursor. Plain text is returned unchanged.
+    """
+    text = str(text)
+    if not any(_breaks_a_line(ch) for ch in text):
+        return text
+    return "".join(_escaped(ch) if _breaks_a_line(ch) else ch for ch in text)
+
+
+def _breaks_a_line(ch):
+    code = ord(ch)
+    return code < 0x20 or 0x7F <= code <= 0x9F or code in (0x2028, 0x2029)
+
+
+def _escaped(ch):
+    code = ord(ch)
+    return f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}"
 
 
 @dataclass
@@ -146,18 +213,25 @@ def _ordered_union(lists):
     return seen
 
 
-def render(reports, stream=None, header="Validation"):
-    """Print the DD3 report: header, families, checks, findings, summary, verdict."""
+def render(reports, stream=None, header="Validation", lines=None, summary=None):
+    """Print the DD3 report: header, families, checks, findings, summary, verdict.
+
+    `lines`, when given, replace the `FAMILY:` lines — a script that reads no
+    configuration (check_plan.py) prints its own `PLAN:`/`TASK:` lines there.
+    `summary` lines are printed at the end of the Summary block.
+    """
     stream = stream or sys.stdout
     out = lambda text="": print(text, file=stream)
 
     out(f"{BOLD}{header}{NC}")
-    for rep in reports:
-        out(f"FAMILY: {rep.family or 'unresolved'} {rep.file}")
+    if lines is None:
+        lines = [f"FAMILY: {rep.family or 'unresolved'} {rep.file}" for rep in reports]
+    for line in lines:
+        out(one_line(line))
     checks = _ordered_union(r.checks_run for r in reports)
     out(f"CHECKS RUN: {', '.join(checks) if checks else '(none)'}")
     for check_id, reason in _ordered_union(r.not_run for r in reports):
-        out(f"NOT RUN: {check_id} ({reason})")
+        out(f"NOT RUN: {check_id} ({one_line(reason)})")
 
     findings = [f for r in reports for f in r.findings]
     for found in findings:
@@ -171,6 +245,8 @@ def render(reports, stream=None, header="Validation"):
     out(f"Errors:   {counts['ERROR']}")
     out(f"Warnings: {counts['WARN']}")
     out(f"Info:     {counts['INFO']}")
+    for line in summary or []:
+        out(line)
     out()
     out(verdict_line(code))
     return code

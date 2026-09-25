@@ -1,10 +1,10 @@
-[Back to README](../README.md) · [Architecture →](architecture.md)
+[Back to README](../README.md) · [Pipeline Spine →](pipeline.md)
 
 # Getting Started
 
-This page covers working **on** `dgf-factory`. Installing it as a plugin is not yet
-possible — the skill corpus does not exist, and the plugin is not registered in the
-marketplace.
+This page covers working **on** `dgf-factory`, and trying its pipeline on a copy of DGF's
+samples. Installing it from the marketplace is not yet possible: the plugin loads locally with
+`--plugin-dir`, but it is not registered there.
 
 ## Prerequisites
 
@@ -41,8 +41,9 @@ relative to it.
 | `docs/` | This documentation |
 | `.claude-plugin/plugin.json` | The manifest — what makes this a loadable plugin |
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
+| `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` | The pipeline spine — set up, plan, implement, verify, commit. `dgf`, `dgf-plan`, `dgf-implement` and `dgf-verify` carry `references/` too. See [Pipeline Spine](pipeline.md) |
 | `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); six stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
-| `scripts/` | The validators skills call: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, their shared `lib/`, and the hash-pinned `requirements.txt`. Shipped |
+| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`. Their shared `lib/`, and the hash-pinned `requirements.txt`. Shipped |
 | `tests/` | Not shipped. The `unittest` suite and its fixtures, including the known-bad corpus under `fixtures/known-bad/` |
 | `provenance/` | Not shipped. One ledger per knowledge file: the DGF files its facts were read from, each with a `sha256` |
 | `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts; section 8 runs the unit tests |
@@ -100,7 +101,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install --require-hashes -r scripts/requirements.txt
 ```
 
-### The four scripts
+### The validators
 
 | Script | Decides | Usage |
 |---|---|---|
@@ -123,6 +124,17 @@ script takes `--verbose` (or `DEBUG=1`), which traces to stderr.
 Each prints a header, a `FAMILY:` line per file, `CHECKS RUN:` and `NOT RUN:` lines, one line
 per finding and a verdict, and exits `0`, `1`, `2` or `3` (see
 [Skill Authoring](skill-authoring.md#reading-a-validators-output)).
+
+### The spine's scripts
+
+| Script | Decides |
+|---|---|
+| `locate_plan.py` | The workspaces root, and the active plan |
+| `inventory_root.py` | Each workspace and its counts, and what is not a workspace |
+| `check_plan.py` | Whether a plan is well formed, in scope and routed, and which other plans overlap it |
+| `check_change.py` | Whether a branch's change stays inside its plan, and which validator findings it introduced |
+
+Their flags and exit codes are in [Pipeline Spine → The scripts](pipeline.md#the-scripts).
 
 ### Tests and maintainer tools
 
@@ -156,9 +168,47 @@ uv pip compile tools/requirements.in --universal --python-version 3.9 --generate
 `--fork-strategy fewest` resolves one version of each package for every Python from 3.9 up,
 rather than a different one per interpreter.
 
+## Trying the spine
+
+The spine's scripts run on their own against any workspaces root. A disposable copy of DGF's
+samples, made a git repository, is enough to watch a plan, a change and the gate:
+
+```bash
+cp -R <dgf-root>/src/samples/workspaces /tmp/estate
+git -C /tmp/estate init -b main
+git -C /tmp/estate add -A
+git -C /tmp/estate commit -m "samples"
+mkdir /tmp/estate/.dgf-factory
+printf 'dgf:\n  version: "unknown"\n' > /tmp/estate/.dgf-factory/config.yaml
+```
+
+Set a local `user.name` and `user.email` in the copy first if git asks for them. Then, from the
+plugin root:
+
+```bash
+.venv/bin/python scripts/inventory_root.py --workspaces-root /tmp/estate
+.venv/bin/python scripts/locate_plan.py --workspaces-root /tmp/estate --root-only
+```
+
+Cut a branch in the copy (`git -C /tmp/estate checkout -b feature/try`), write a plan at
+`/tmp/estate/.dgf-factory/plans/feature-try.md` from
+`skills/dgf-plan/references/PLAN-FORMAT.md`, change the files it lists, and check both:
+
+```bash
+.venv/bin/python scripts/check_plan.py /tmp/estate/.dgf-factory/plans/feature-try.md --workspaces-root /tmp/estate --overlap
+.venv/bin/python scripts/check_change.py --workspaces-root /tmp/estate --plan /tmp/estate/.dgf-factory/plans/feature-try.md --base main
+```
+
+`check_change.py` reports the samples' own findings as `INFO PRE_EXISTING` and only what the
+branch introduced as `ERROR` or `WARN`. To drive the same flow through the skills, load the
+plugin with `--plugin-dir` and run `/dgf /tmp/estate`, then `/dgf-plan`, `/dgf-implement`,
+`/dgf-verify` and `/dgf-commit` inside the copy. See [Pipeline Spine](pipeline.md).
+
 ## What is not here yet
 
-- The rest of `skills/dgf-*/` — the skill corpus beyond the `/dgf-doctor` skeleton
+- The rest of `skills/dgf-*/` — `/dgf-component`, `/dgf-process`, `/dgf-audit`, `/dgf-fix` and
+  the other skills beyond the spine
+- `scripts/lib/gate_result.py` and the gate block's DGF-specific fields (milestone 10)
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 
@@ -176,7 +226,7 @@ expensive to unwind once they are baked into prompts:
    `docs/schemas/` holds only three hand-authored standalone contracts, not the generated
    set; they are vendored separately into `knowledge/schemas/standalone/`. See
    [DGF Schemas](dgf-schemas.md) for the inventories and the family-detection contract.
-3. **Then the spine** — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`.
+3. **Then the spine** — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`, `/dgf-commit`.
 4. **Then `dgf-gate-result`** wired into verify, then the rest.
 5. **Then the learning loop** — `/dgf-fix` and `/dgf-evolve`, even if crude.
 6. **Then DGF-specific skills** — `/dgf-component`, `/dgf-audit`.
@@ -212,6 +262,7 @@ Confirm the DGF docs MCP is reachable in your Claude Code session — `.mcp.json
 
 ## See Also
 
+- [Pipeline Spine](pipeline.md) — the five skills, the plan format and the change gate
 - [Architecture](architecture.md) — where new skills, knowledge and scripts belong
 - [Skill Authoring](skill-authoring.md) — the contract every `dgf-*` skill must follow
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — how to verify a fact before encoding it

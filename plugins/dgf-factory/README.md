@@ -8,12 +8,12 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: deterministic validators landed.** The plugin manifest, one walking-skeleton
-> skill (`/dgf-doctor`), the stamped **DGF knowledge base** with its vendored JSON/XSD schema
-> set, and the **validators** that read it exist. The four validator scripts are config
-> validation in both families, component resolution, process verification and the
-> order-of-means route. They are checked against DGF's own samples and a known-bad corpus.
-> The rest of the `dgf-*` corpus does not exist yet. The plugin **loads locally** with
+> **Status: the pipeline spine landed.** The five spine skills — `/dgf`, `/dgf-plan`,
+> `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — exist beside `/dgf-doctor`, on top of the
+> stamped **DGF knowledge base** (with its vendored JSON and legacy XSD schema set) and the
+> **validators**. Plans, scope, routes and change-relative gates are decided by scripts, checked
+> against DGF's own samples and a known-bad corpus. The DGF-specific skills and the learning
+> loop do not exist yet. The plugin **loads locally** with
 > `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
@@ -43,40 +43,34 @@ pipeline that builds it is already installed there. See
 - **Planner/executor split** — a strong model writes an indexed phase bundle once; a cheap model
   executes it many times, and is forbidden from re-deciding architecture
 - **A learning loop** — every DGF gotcha caught in practice becomes a patch, and patches distil
-  into project-specific skill overrides
+  into project-specific skill overrides that can only tighten a skill, never relax its gates
 
 ## Example
 
-### What runs today
+### The pipeline, run from a workspaces root
 
-One skill exists — `/dgf-doctor`, the walking skeleton. It answers "is this plugin
-installed correctly, and what can it see?", and needs no DGF knowledge to do it:
+```bash
+/dgf                      # inventory the root, record the estate's DGF version
+/dgf-plan full "add applicant eligibility check to the permits process"
+/dgf-implement            # compose each task, validate it, tick the checkbox; resumable
+/dgf-verify               # whole-root gate against the merge-base; ends with dgf-gate-result
+/dgf-commit               # conventional commits, scoped by workspace
+```
+
+Every plan declares the workspaces it touches and, per task, whether it composes configuration
+or writes a little JavaScript or CSS, and why. The gate blocks only on findings the branch
+introduced; the estate's existing ones are reported as `PRE_EXISTING`. See
+[Pipeline Spine](docs/pipeline.md).
+
+`/dgf-doctor` answers "is this plugin installed correctly?", and the scripts behind every skill
+also run on their own — see [Getting Started](docs/getting-started.md#trying-the-spine):
 
 ```bash
 claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
 ```
 
-It reports `CLEAN`, `WARNINGS` or `BLOCKED`, exits `0`/`2`/`1` accordingly, and closes with
-a `dgf-gate-result` block. Unbuilt milestones are `INFO` lines that never affect the
-verdict, so an unfinished-but-correct plugin still reads `CLEAN`.
-
-The validator scripts that later skills call also run on their own, against any DGF
-workspaces root. See [Getting Started → Validators](docs/getting-started.md#validators).
-
-### What the pipeline will look like
-
-The intended workflow, once the skill corpus exists:
-
-```bash
-/dgf                      # detect DGF version, module layout, existing components
-/dgf-plan full "add applicant eligibility check to the permits process"
-/dgf-implement            # work the checkbox ledger; resumable across sessions
-/dgf-verify               # emits dgf-gate-result — blocking findings stop the pipeline
-/dgf-commit               # conventional commit
-```
-
-When verification fails, `/dgf-fix` writes a patch; `/dgf-evolve` distils accumulated patches
-into rules that sharpen the next run.
+Still to come: `/dgf-fix` writes a patch when verification fails, and `/dgf-evolve` distils
+patches into rules that sharpen the next run.
 
 ---
 
@@ -84,7 +78,8 @@ into rules that sharpen the next run.
 
 | Guide | Description |
 |-------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, repo layout, working on the plugin |
+| [Getting Started](docs/getting-started.md) | Prerequisites, repo layout, working on the plugin, trying the spine |
+| [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate |
 | [Architecture](docs/architecture.md) | Slice structure, dependency rules, communication |
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |
 | [DGF Knowledge Sourcing](docs/dgf-knowledge.md) | Citing, dating and version-stamping DGF facts |

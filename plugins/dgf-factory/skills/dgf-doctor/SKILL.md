@@ -1,9 +1,9 @@
 ---
 name: dgf-doctor
 description: Check that the dgf-factory plugin is installed correctly and report what it can see. Use for "is dgf-factory working", "plugin not loading", "check plugin install", "dgf doctor", "why is the skill not firing".
-allowed-tools: Read Bash(python3 *)
+allowed-tools: Read Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/*)
 disable-model-invocation: false
-version: 0.1.0
+version: 0.1.1
 ---
 
 # DGF Doctor — Plugin Installation Check
@@ -49,7 +49,15 @@ DEBUG=1 python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/doctor.py"
 On `1`, the plugin cannot load, a slice will not register, or a shipped file names a
 path into the DGF repository (`DGF_PATH`). A developer's install has no DGF checkout, so
 such a path points at nothing. Report what the script found and stop there — repairing it
-silently hides the fault from the person who has to fix the install.
+silently hides the fault from the person who has to fix the install. Two more blocking
+findings mean a skill will misbehave once loaded:
+
+- **`PLUGIN_PATH_DANGLING`** (error, exit `1`) — a shipped Markdown file cites a
+  `${CLAUDE_PLUGIN_ROOT}/…` path that does not exist in the plugin, so the skill that runs
+  it fails at that step.
+- **`SKILL_FRONTMATTER_YAML`** (error, exit `1`) — an unquoted frontmatter value that YAML
+  reads differently from this check, or not at all (it starts with `[`, `{`, `*`, `&`, `!`,
+  `%`, `@`, a backtick, `|` or `>`, or holds `: ` or ` #`). The skill may not load.
 
 The same exit code also covers the validators under `scripts/`:
 

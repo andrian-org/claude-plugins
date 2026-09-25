@@ -1,4 +1,4 @@
-[← DGF Schemas](dgf-schemas.md) · [Back to README](../README.md)
+[← Decision Records](adr/README.md) · [Back to README](../README.md)
 
 > **Note:** this page moved from `ARCHITECTURE-BLUEPRINT.md` in the plugin root.
 > File paths in Part 2 are relative to the **plugin root** (`plugins/dgf-factory/`),
@@ -282,13 +282,13 @@ Start with the spine, then add DGF-specific skills. Do not port all 30 — port 
 
 | skill | note |
 |---|---|
-| `/dgf` | setup; writes DESCRIPTION / config; detects DGF version, module layout, existing processes |
+| `/dgf` | setup; writes DESCRIPTION / config; records the DGF version the user declares — nothing in a workspaces root states it, so it is never detected ([ADR 0019](adr/0019-declared-dgf-version.md)) — and inventories the workspaces — *(corrected 2026-09-25)* |
 | `/dgf-plan` | fast / full / ultra, same three modes |
 | `/dgf-implement` | the state machine; checkbox ledger |
 | `/dgf-verify` | emits `dgf-gate-result` |
 | `/dgf-commit` | conventional commits |
 | `/dgf-fix` | writes patches |
-| `/dgf-evolve` | distils patches into skill-context |
+| `/dgf-evolve` | distils patches into skill-context — an override that may add rules and tighten checks, but never relaxes a STOP, an exit-code row, the gate's status table or a Critical Rule, because anyone who commits to the estate can write it — *(corrected 2026-09-25)* |
 
 **Phase 2 — DGF-specific (the actual value):**
 

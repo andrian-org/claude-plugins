@@ -44,7 +44,6 @@ import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = PLUGIN_ROOT / "scripts"
@@ -142,33 +141,9 @@ def ledger_commit():
 # --- the runs ---------------------------------------------------------------------
 
 def run_validators(samples):
-    """{cli name: [Report]} for the three validators over `samples`."""
-    import resolve_components
-    import validate_config
-    import validate_process
-    from lib import cli, process_checks
-    options = SimpleNamespace(component_type=None, view_kind=None)
-    runs = {"validate_process.py": [], "validate_config.py": [], "resolve_components.py": []}
-    unresolved = set()
-    for path in process_checks.processes_under(samples):
-        runs["validate_process.py"].append(validate_process.check_file(path, samples))
-    for path in process_checks.workflows_under(samples):
-        rep = report.Report(cli.display(path))
-        tree = process_checks.parse(path)
-        rep.family = "xsd"
-        if tree is None:
-            rep.add("XML_MALFORMED", "the workflow does not parse")
-        else:
-            unresolved |= set(process_checks.check_workflow(path, tree, rep, samples))
-        runs["validate_process.py"].append(rep)
-    for path in cli.collect([samples]):
-        runs["validate_config.py"].append(validate_config.validate_file(path, options))
-        runs["resolve_components.py"].append(resolve_components.check_file(path, options))
-    for name, reports in runs.items():
-        for rep in reports:
-            report.debug("run_known_good.run_validators", "validated", cli=name, file=rep.file,
-                         codes=",".join(sorted({f.code for f in rep.findings})) or "-")
-    return runs, unresolved
+    """{cli name: [Report]} for the three validators over `samples` — the gate's own runner."""
+    from lib import runner
+    return runner.run(samples)
 
 
 def sample_path(finding_file, samples):
