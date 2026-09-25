@@ -215,6 +215,7 @@ knowledge file and the code that reads it: the file still states DGF facts and n
 | Table id | File |
 |---|---|
 | `legacy-artifacts` | [`composition-specs.md`](composition-specs.md) §2 |
+| `code-places` | [`composition-specs.md`](composition-specs.md) §5 |
 | `component-classes` | [`json-reader.md`](json-reader.md) §2 |
 | `datasource-discriminators` | [`json-reader.md`](json-reader.md) §3 |
 | `component-folders` | [`json-reader.md`](json-reader.md) §4 |

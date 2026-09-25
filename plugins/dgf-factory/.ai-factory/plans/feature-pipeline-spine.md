@@ -660,7 +660,7 @@ input until a behavioural fact exists (E17), and when it lands it reads `dgf.ver
 
 ### Phase 2: Knowledge
 
-- [ ] **Task 5: Record `applibs*` and custom script delivery as stamped facts, with a `code-places` table.**
+- [x] **Task 5: Record `applibs*` and custom script delivery as stamped facts, with a `code-places` table.**
   (depends on 4)
   - **Re-read each source at the DGF checkout's current HEAD before writing** (E13–E16), and compute its `sha256`
     with `shasum -a 256`. If HEAD is not `aa1d5c4c2`, say so in the ledger's prose. If a source disagrees with
@@ -1103,3 +1103,18 @@ stay CLEAN, which includes `DGF_PATH` and `PLUGIN_PATH_DANGLING`.
 ## Follow-ups found during implementation
 
 <!-- Tasks 11 and 18 record their dry-run commands, exits, timings and surprises here. -->
+
+- **Task 5 — `code-places` has a `Filename` column (deviation from DD13).** A form name may contain
+  `/` (`knowledge/composition-specs.md` §2.1; e.g. `webasm/FM/_DATA/PWF_Process/_forms/ASP.Net/…/designer.aspx/`),
+  and `FormManager.GetXmlWorkPath` joins it unsplit, so `_form.js` can sit several folders below
+  `_forms/`. DD13's "a placeholder is exactly one segment" would miss those forms. The table's rule
+  is now: a placeholder is one segment, except one that ends the path, which is one or more.
+  `_form.js` is the form-script row's `Filename` cell (`—` elsewhere, meaning any file with the
+  extension at any depth) instead of a constant in `lib/plan.py`, so the fact stays in `knowledge/`
+  (DD4). Header: `Place | Path | Filename | Extension | Loaded by | New file loaded`.
+- **Task 5 — E14 refined.** The UI shell ships its own default `formhelper.js`, `formshared.js` and
+  `custom.css` under `src/DGF.UI/src/assets/`; a deployment bind-mount replaces them. The ledger
+  lists all three. `docker-compose.ecouncil.yml:65` mounts a live `custom.css` from outside the
+  workspaces root (only the ZIMS one is commented out).
+- **Task 3 — E17 line numbers.** The UI version is stamped at `src/DGF.UI/Dockerfile:1, 30, 36-42`,
+  not `:27-30`; `app-settings.type.ts:9`, not `:8`. ADR 0019 cites the corrected lines.
