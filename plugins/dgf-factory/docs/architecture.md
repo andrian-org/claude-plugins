@@ -67,7 +67,7 @@ plugins/dgf-factory/
 | `git.py` | The read-only git calls — changed files, refs, and a commit's tree written blob by blob |
 | `runner.py` | Every validator over a root or some of its files; `tools/run_known_good.py` uses the same runner |
 | `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
-| `gate_result.py` | Builds, validates and renders every `dgf-gate-result` block, its status computed from its entries ([ADR 0020](adr/0020-gate-block-contract.md)); stdlib only, and imports nothing from its package, so `doctor.py` loads it by path |
+| `gate_result.py` | Builds, validates and renders every `dgf-gate-result` block, its status computed from its entries ([ADR 0022](adr/0022-gate-block-contract-revised.md)); stdlib only, and imports nothing from its package, so `doctor.py` loads it by path |
 
 `verify_gate.py` is the verify gate: it runs `check_plan.py`'s and `check_change.py`'s checks
 in-process and builds the one block `/dgf-verify` relays. No prompt assembles a gate block.

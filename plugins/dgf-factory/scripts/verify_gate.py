@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""verify_gate.py — the verify gate: one computed `dgf-gate-result` block for a branch's change (ADR 0020 §9).
+"""verify_gate.py — the verify gate: one computed `dgf-gate-result` block for a branch's change (ADR 0022 §9).
 
 `/dgf-verify` relays this script's output verbatim. It never writes or edits a
 block; the status is computed here, by scripts/lib/gate_result.py.
@@ -32,7 +32,7 @@ The block: an ERROR line is a blocker and a WARN line a warning (a promoted
 warning is a blocker, once); INFO — PRE_EXISTING, FIXED — is never an entry.
 `checks_run` is every check that ran; `schema_family` counts the files the
 validators read per family; `affected_components` and `affected_processes`
-are the changed set's own configuration, not its blast radius (ADR 0020 §6).
+are the changed set's own configuration, not its blast radius (ADR 0022 §6).
 The output ends with the block, and nothing follows it.
 
 Usage:  verify_gate.py [--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--plan P]
@@ -291,7 +291,7 @@ def _family(run, found, validator_ids):
 
 
 def entries(run):
-    """(blockers, warnings) from every finding, by ADR 0020's entry table."""
+    """(blockers, warnings) from every finding, by ADR 0022's entry table."""
     promoted = {id(gate): original for gate, original in run.promoted}
     originals = {id(original) for _, original in run.promoted}
     not_run = {id(found): (check, why) for found, check, why in run.not_run}
@@ -351,7 +351,7 @@ def _component_of(rel, inside):
 
 
 def footprint(changes, known):
-    """(affected_components, affected_processes): the configuration the change itself touched (ADR 0020 §6)."""
+    """(affected_components, affected_processes): the configuration the change itself touched (ADR 0022 §6)."""
     components, processes = [], {}
     for status, rel in _touched(changes):
         ws = plan.workspace_of(rel)
@@ -378,7 +378,7 @@ def _errors(reports):
 
 
 def suggest(run, status, warnings):
-    """(command, reason), first match wins (ADR 0020 §9)."""
+    """(command, reason), first match wins (ADR 0022 §9)."""
     codes = {f.code for f in _errors(run.reports())}
     for code, why in CANNOT_RUN.items():
         if code in codes:

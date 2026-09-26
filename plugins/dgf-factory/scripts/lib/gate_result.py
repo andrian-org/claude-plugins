@@ -1,4 +1,4 @@
-"""gate_result.py — build, validate and render every `dgf-gate-result` block (ADR 0020).
+"""gate_result.py — build, validate and render every `dgf-gate-result` block (ADR 0022).
 
 One builder for every gate, so no gate hand-writes its verdict:
 

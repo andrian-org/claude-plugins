@@ -153,7 +153,7 @@ The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices 
 DGF-specific slices, and `agents/`, arrive with later roadmap milestones. Every gate block is
 built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `/dgf-verify`,
 `doctor.py` for `/dgf-doctor` — and the skill relays it
-([ADR 0020](../docs/adr/0020-gate-block-contract.md)).
+([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md)).
 
 Root `knowledge/` and `scripts/` are not auto-discovered — they are plain files, reached
 from a slice by `${CLAUDE_PLUGIN_ROOT}/knowledge/...` and

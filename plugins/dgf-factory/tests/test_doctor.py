@@ -82,7 +82,7 @@ class DoctorOnACopy(unittest.TestCase):
         self.assertTrue(out.rstrip().endswith("```"), out[-200:])
 
     def test_a_section_that_cannot_run_is_a_warning_not_a_pass(self):
-        # The real doctor checks a copy with no scripts/: its own builder is still there (ADR 0020 §1).
+        # The real doctor checks a copy with no scripts/: its own builder is still there (ADR 0022 §1).
         # Only dgf-doctor is kept, because the other skills cite scripts/ and would dangle.
         for path in (self.root / "skills").iterdir():
             if path.name != "dgf-doctor":

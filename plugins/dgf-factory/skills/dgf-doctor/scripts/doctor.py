@@ -24,7 +24,7 @@ doctor: its own has no builder, and exits 3.) The summary prints `CHECKS RUN:`
 and `NOT RUN:` lines.
 
 The output ends with one `dgf-gate-result` block, built by scripts/lib/gate_result.py
-(ADR 0020): gate `doctor`; errors in `blockers`; warnings, and a
+(ADR 0022): gate `doctor`; errors in `blockers`; warnings, and a
 `not-run-<section>` entry per section that did not run, in `warnings`;
 `blocking` only on a fail; `checks_run` naming the sections that ran; and
 `suggested_next.command` always null, since a broken install is fixed by hand.
@@ -136,7 +136,7 @@ TEMPLATE_MARKERS = ("<", "*", "{", "$", "\u2026", "...")
 # block-scalar indicator, or holding `: ` or ` #`.
 YAML_UNSAFE_START = tuple("[{*&!%@`|>")
 
-# The six checks, all required (ADR 0020 §4). Build progress is INFO, not a check.
+# The six checks, all required (ADR 0022 §4). Build progress is INFO, not a check.
 SECTIONS = ("manifest", "component-paths", "skill-slices", "portability", "line-endings", "validator-runtime")
 GATE_ID = "doctor"
 BUILDER_API = ("GateContractError", "build", "entry", "not_run", "render")
@@ -661,7 +661,7 @@ def gate_block(gate, status, errors):
 
     `schema_family`, `affected_components` and `affected_processes` are left
     out: this gate reads no DGF configuration, and a field it never computed
-    must not read as "none" (ADR 0020 §7).
+    must not read as "none" (ADR 0022 §7).
     """
     blockers = [gate.entry(f["id"], f["severity"], f["summary"], file=f["file"])
                 for f in FINDINGS if f["severity"] == "error"]

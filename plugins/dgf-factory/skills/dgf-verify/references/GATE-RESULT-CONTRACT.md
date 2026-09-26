@@ -4,7 +4,7 @@
 nothing after it. A caller parses the **last** such block and nothing else — never the prose.
 
 The block is computed by `scripts/verify_gate.py` and built by `scripts/lib/gate_result.py`, the
-one builder every gate uses (ADR 0020). Nobody writes it by hand, and the model never edits it.
+one builder every gate uses (ADR 0022). Nobody writes it by hand, and the model never edits it.
 It keeps AI Factory's base fields and `schema_version: 1`, so anything built on the
 `aif-gate-result` contract can still read it.
 

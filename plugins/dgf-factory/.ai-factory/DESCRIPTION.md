@@ -33,7 +33,7 @@ Roadmap milestone 10 ("Gate Contract Wired") is built. The repository currently 
   commit by workspace. Their references hold the config and DESCRIPTION templates, the plan
   and ultra formats, the implementation guide and the gate-result contract
   ([docs/pipeline.md](../docs/pipeline.md)). `/dgf-verify` and `/dgf-doctor` relay a gate block a
-  script built; no prompt writes one ([ADR 0020](../docs/adr/0020-gate-block-contract.md))
+  script built; no prompt writes one ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md))
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
   machine-read table contract), six stamped facts files (`schema-families`,
   `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,

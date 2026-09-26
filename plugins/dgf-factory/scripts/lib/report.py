@@ -105,7 +105,7 @@ CODES = {
     "CHANGE_NOT_AUTHORED": EXIT_WARNINGS,
     "PRE_EXISTING": EXIT_CLEAN,
     "FIXED": EXIT_CLEAN,
-    # the verify gate (verify_gate.py; ADR 0020)
+    # the verify gate (verify_gate.py; ADR 0022)
     "GATE_TASK_UNCHECKED": EXIT_BLOCKED,
     "GATE_STRICT_WARNING": EXIT_BLOCKED,
     "GATE_PLAN_UNCONFIRMED": EXIT_BLOCKED,

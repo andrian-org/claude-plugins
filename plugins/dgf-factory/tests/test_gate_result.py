@@ -1,4 +1,4 @@
-"""scripts/lib/gate_result.py, loaded by path in isolation — the way doctor.py loads it (ADR 0020 §1).
+"""scripts/lib/gate_result.py, loaded by path in isolation — the way doctor.py loads it (ADR 0022 §1).
 
 The module is never imported as `lib.gate_result`: a relative import in it
 would then resolve here and fail for the doctor.

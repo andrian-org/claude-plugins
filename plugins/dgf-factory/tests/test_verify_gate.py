@@ -1,4 +1,4 @@
-"""verify_gate.py: discovery, the checks it runs, the entries, and the one block it prints (ADR 0020)."""
+"""verify_gate.py: discovery, the checks it runs, the entries, and the one block it prints (ADR 0022)."""
 
 import contextlib
 import io

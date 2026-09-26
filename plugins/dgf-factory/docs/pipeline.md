@@ -190,7 +190,7 @@ follow-up: no behavioural fact carries one yet.
 ## The gate block
 
 `/dgf-verify` relays `verify_gate.py`'s output, which ends with one `dgf-gate-result` block and
-nothing after it ([ADR 0020](adr/0020-gate-block-contract.md)). The block is built by
+nothing after it ([ADR 0022](adr/0022-gate-block-contract-revised.md)). The block is built by
 `scripts/lib/gate_result.py`, the one builder every gate uses — the doctor's included:
 
 - `schema_version`, `gate`, `status`, `blocking`, `blockers`, `warnings`, `affected_files`,

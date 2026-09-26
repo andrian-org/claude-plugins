@@ -262,7 +262,7 @@ class Classes(unittest.TestCase):
 
 
 class Artifacts(unittest.TestCase):
-    """plan.artifact(): which artifact a root-relative path is, and its name (ADR 0020 §6)."""
+    """plan.artifact(): which artifact a root-relative path is, and its name (ADR 0022 §6)."""
 
     def test_each_legacy_artifacts_row(self):
         cases = {

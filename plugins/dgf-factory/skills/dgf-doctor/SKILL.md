@@ -84,7 +84,7 @@ no block is printed: say the plugin must be reinstalled.
 Pass the script's output through **verbatim**, including its closing
 `dgf-gate-result` block, and write **nothing after it**.
 
-The block is built by `scripts/lib/gate_result.py` (ADR 0020), never by you. It holds:
+The block is built by `scripts/lib/gate_result.py` (ADR 0022), never by you. It holds:
 
 - `gate: "doctor"` — this is not a verify gate, and a doctor pass is not a verified change;
 - `status`, and `blocking: true` only on a `fail`;

@@ -64,7 +64,7 @@ plugins/dgf-factory/
 │   ├── inventory_root.py       #   each workspace, counted; what is not one
 │   ├── check_plan.py           #   a plan's header, tasks, Commit Plan, file classes, routes, bundle, overlaps
 │   ├── check_change.py         #   a branch's change against its plan and the merge-base (ADR 0018)
-│   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0020)
+│   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0022)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
 │   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
 │                               #   process_checks, plan, git, runner, baseline, gate_result
@@ -119,7 +119,7 @@ with milestone 10.
 | [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
 | [scripts/check_plan.py](scripts/check_plan.py) | Every rule a plan must meet (ADR 0017), and the overlap with other branches' plans |
 | [scripts/check_change.py](scripts/check_change.py) | The change checks: scope, means, planned files, and new findings against the merge-base (ADR 0018) |
-| [scripts/verify_gate.py](scripts/verify_gate.py) | The verify gate `/dgf-verify` relays: the plan and change checks in-process, the task audit, the computed block (ADR 0020) |
+| [scripts/verify_gate.py](scripts/verify_gate.py) | The verify gate `/dgf-verify` relays: the plan and change checks in-process, the task audit, the computed block (ADR 0022) |
 | [scripts/lib/gate_result.py](scripts/lib/gate_result.py) | The one builder of every `dgf-gate-result` block — status from the entries, refusals, rendering; stdlib only |
 | [scripts/lib/plan.py](scripts/lib/plan.py) | The plan file's flat header, its tasks and Commit Plan, every path's class, and the artifact a path is |
 | [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | What the verify gate's block holds and how its status is computed |
@@ -190,8 +190,11 @@ with milestone 10.
   gates and the declared DGF version by [ADR 0017](docs/adr/0017-plan-file-format.md),
   [ADR 0018](docs/adr/0018-change-relative-gates.md) and
   [ADR 0019](docs/adr/0019-declared-dgf-version.md); the gate block — who builds it, how its
-  status is computed, what it may claim — by [ADR 0020](docs/adr/0020-gate-block-contract.md);
-  0002, 0003, 0006, 0007 and 0008 are superseded history.
+  status is computed, what it may claim, which command it suggests — by
+  [ADR 0022](docs/adr/0022-gate-block-contract-revised.md); the learning loop — patches, overrides,
+  the limit an override may not cross, and the script that checks one — by
+  [ADR 0021](docs/adr/0021-learning-loop.md); 0002, 0003, 0006, 0007, 0008 and 0020 are superseded
+  history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

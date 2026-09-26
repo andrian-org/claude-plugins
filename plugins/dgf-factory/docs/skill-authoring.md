@@ -122,7 +122,7 @@ them unasked.
 Only a whole-root run records the check `validators` as run. A `check_change.py --files` run —
 `/dgf-implement`'s per-task pre-check — prints `NOT RUN: validators (narrowed to <n> file(s) by
 --files; …)`, so a narrowed run can never read as a gate pass
-([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0020](adr/0020-gate-block-contract.md) §4).
+([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0022](adr/0022-gate-block-contract-revised.md) §4).
 
 Each finding code has one fixed severity, and the exit code is the worst across all files,
 with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and
@@ -135,7 +135,7 @@ gate block can carry them.
 
 Quality skills keep their human-readable Markdown report, then end with exactly one fenced
 `dgf-gate-result` block. **A script builds it**, through the one builder
-`scripts/lib/gate_result.py` ([ADR 0020](adr/0020-gate-block-contract.md)); the skill relays the
+`scripts/lib/gate_result.py` ([ADR 0022](adr/0022-gate-block-contract-revised.md)); the skill relays the
 script's output verbatim and writes nothing after it. A prompt never writes or edits a block.
 
 ````markdown
