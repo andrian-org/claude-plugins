@@ -16,7 +16,7 @@ later patch.
 - The slug keeps two fixes made in the same minute, on two branches of one shared ledger, from
   colliding when they merge: a few lowercase words from the title, joined by single hyphens, at
   most 50 characters.
-- UTF-8, LF line endings.
+- UTF-8, LF line endings, a regular file of at most 65536 bytes; a leading byte-order mark is fine.
 
 ## The template
 

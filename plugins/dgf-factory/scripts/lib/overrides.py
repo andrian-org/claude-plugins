@@ -4,7 +4,8 @@ An override is `<paths.skill_context>/<skill>/SKILL.md`, in a fixed template:
 
     # Project Rules for /<skill>
 
-    > <optional quoted lines>
+    > Written by /dgf-evolve from the estate's patches. Each rule may only tighten /<skill> (ADR 0021).
+    > Updated: <YYYY-MM-DD HH:mm>
 
     ## Rules
 
@@ -16,23 +17,28 @@ An override is `<paths.skill_context>/<skill>/SKILL.md`, in a fixed template:
 Anyone who commits to the estate can write one, so every skill that reads an
 override has check_override.py check it first. Three checks refuse it:
 
-  shape      the template above, at most MAX_RULES rules of MAX_RULE_CHARS,
-             at most MAX_BYTES, UTF-8, and no fence or HTML comment anywhere —
-             either could hide text from a reviewer, or carry a block
+  shape      the template above — the two quoted lines exactly, each optional —
+             at most MAX_RULES rules of MAX_RULE_CHARS, a regular file of at
+             most MAX_BYTES, UTF-8, no fence or HTML comment, and no character
+             outside printable ASCII, spaces and a few typographic marks: an
+             override is English, and an invisible, control or look-alike
+             character could hide a construct from the patterns below
   sources    every source a patch name present in the patches directory
-  forbidden  no FORBIDDEN construct in a rule's name or text, or in a quoted
-             line: a gate block, a flag other than --strict or --verbose, a
-             tool grant, an install or download, a git command that rewrites
-             history or discards work, a path outside the workspaces root
+  forbidden  no FORBIDDEN construct in a rule's name or text: a gate block, a
+             flag other than --strict or --verbose, a tool grant, an install or
+             download, a git command that rewrites history or discards work, a
+             path outside the workspaces root. The text is read as ASCII first
+             (read_as()): a typographic dash is a hyphen, and any space a space
 
 One check hands a rule to the reading skill's judgement: a rule naming a word
-in LIMIT_WORDS — or its plural or past form — is OVERRIDE_TOUCHES_LIMIT, one
-warning per rule. The check is lexical: it refuses what a script can see, and
-cannot prove that a rule tightens. Stdlib only.
+in LIMIT_WORDS — or its plural, past, -ing or -ly form — is
+OVERRIDE_TOUCHES_LIMIT, one warning per rule. The check is lexical: it refuses
+what a script can see, and cannot prove that a rule tightens. Stdlib only.
 """
 
 import os
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -43,33 +49,59 @@ RULES_HEADING = "## Rules"
 MAX_RULES, MAX_RULE_CHARS, MAX_NAME_CHARS, MAX_BYTES = 40, 600, 100, 32768
 ALLOWED_FLAGS = ("--strict", "--verbose")
 BULLETS = ("source", "rule")
-PREAMBLE = "the quoted lines"
+WRITTEN = "> Written by /dgf-evolve from the estate's patches. Each rule may only tighten /{skill} (ADR 0021)."
+_UPDATED = re.compile(r"> Updated: \d{4}-\d{2}-\d{2} \d{2}:\d{2}\Z")
+
+# The characters an English override may hold beyond printable ASCII, each read as its ASCII form before the
+# patterns run: a typographic dash is a hyphen (two for an en or em dash, which is how `--` is often retyped), and
+# a tab or any Unicode space (category Zs) is a space. Everything else is refused as OVERRIDE_SHAPE.
+READ_AS = {"\t": " ", "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2212": "-", "\u2013": "--", "\u2014": "--",
+           "\u2015": "--", "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2026": "...",
+           "\u00a7": "\u00a7", "\u2192": "->"}
 
 # Built from pieces, as doctor.py's ABSOLUTE_PATH_MARKERS are: a literal home-directory
 # marker in this shipped file would make every doctor run warn ABSOLUTE_PATH.
 _SEP = "/"
-OUTSIDE_ROOT = "|".join(re.escape(m) for m in (".." + _SEP, "..\\", "~" + _SEP, _SEP + "Users" + _SEP,
-                                               _SEP + "home" + _SEP))
+_SYSTEM_DIRS = ("Users", "home", "etc", "tmp", "var", "usr", "opt", "root", "private", "dev", "proc", "sys", "bin",
+                "sbin", "Volumes", "mnt")
+OUTSIDE_ROOT = "|".join((
+    re.escape(".." + _SEP), re.escape("..\\"), re.escape("~" + _SEP),
+    r"(?<![\w.~-])" + re.escape(_SEP) + "(?:" + "|".join(_SYSTEM_DIRS) + r")\b",   # an absolute system path
+    r"\$\{?HOME\b", r"%(?:USERPROFILE|HOMEPATH|HOMEDRIVE|APPDATA)%",               # a home directory
+    r"(?<!\w)[A-Za-z]:[\\/]", r"\bfile:" + re.escape(_SEP * 2),                     # a drive; a file URL
+))
+_FLAG = r"(?<![\w-])--(?!(?:" + "|".join(re.escape(f[2:]) for f in ALLOWED_FLAGS) + r")(?![\w-]))[a-z][a-z-]*"
 
-# (id, pattern, why) — each entry is pinned by a test, so a false refusal is fixed by narrowing one pattern.
+# (id, pattern, why) — each entry is pinned by a test, so a false refusal is fixed by narrowing one pattern. They run
+# on read_as() text, so `\s` covers every space an author could type.
 FORBIDDEN = tuple((name, re.compile(pattern, re.IGNORECASE), why) for name, pattern, why in (
-    ("gate-block", r"dgf-gate-result", "a rule never writes, edits or adds a gate block"),
-    ("flag", r"(?<![\w-])--(?!(?:strict|verbose)(?![\w-]))[a-z][a-z-]*",
-     "a flag other than --strict or --verbose narrows or skips a check"),
-    ("tool-grant", r"allowed-tools|Bash\(|disable-model-invocation", "a rule never grants a tool"),
-    ("install", r"\b(?:pip3? install|python3? -m pip|uv (?:pip|add)|npm (?:install|i)\b|brew install|apt-get|curl |wget )",
+    ("gate-block", r"dgf[-_ ]?gate[-_ ]?result", "a rule never writes, edits or adds a gate block"),
+    ("flag", _FLAG, "a flag other than --strict or --verbose narrows or skips a check"),
+    ("tool-grant", r"allowed[-_ ]?tools|\bBash\s*\(|disable[-_ ]?model[-_ ]?invocation", "a rule never grants a tool"),
+    ("install", r"\b(?:pip3?|pipx)\s+install\b|\bpython3?\s+-m\s+pip\b|\buv\s+(?:pip|add|tool)\b"
+                r"|\bnpm\s+(?:install|i|ci)\b|\b(?:yarn|pnpm)\s+(?:add|install)\b|\bnpx\s|\bbrew\s+install\b"
+                r"|\bapt(?:-get)?\s+install\b|\bapt-get\b|\b(?:curl|wget)\b",
      "a rule never installs or downloads anything"),
-    ("git-write", r"\bgit (?:push|reset|clean|checkout|switch|rebase|rm|restore|stash)\b",
+    ("git-write", r"\bgit(?:\s+-{1,2}[\w.-]+(?:[= ]\S+)?)*\s+(?:push|reset|clean|checkout|switch|rebase|rm|restore|stash)\b",
      "a rule never rewrites history or discards work"),
     ("outside-root", OUTSIDE_ROOT, "a rule never names a path outside the workspaces root"),
 ))
 
 LIMIT_WORDS = ("stop", "exit", "status", "block", "blocking", "blocker", "warn", "warning", "critical rule",
                "artifact ownership", "not run", "pre_existing", "skip", "ignore", "optional", "unless", "instead",
-               "allow", "permit", "relax", "bypass", "waive")
-# Word-bounded and case-insensitive; a plural or past form counts too (STOPs, skipped, allowed, waived).
-_LIMIT = re.compile(r"\b(" + "|".join(re.escape(w) for w in LIMIT_WORDS) + r")(?:s|es|d|ed|ing|ped|ping|ted|ting)?\b",
-                    re.IGNORECASE)
+               "allow", "permit", "relax", "bypass", "waive", "override", "overridden", "precedence", "supersede",
+               "disregard", "unblock")
+
+
+def _forms(word):
+    """The word, and for a word ending in `e` its stem before `-ing` (waive → waiving)."""
+    stem = re.escape(word)
+    return [stem, re.escape(word[:-1]) + "(?=ing)"] if word.endswith("e") else [stem]
+
+
+# Word-bounded and case-insensitive; a plural, past, -ing or -ly form counts too (STOPs, skipped, waiving, optionally).
+_LIMIT = re.compile(r"\b(?:" + "|".join(f for w in LIMIT_WORDS for f in _forms(w))
+                    + r")(?:s|es|d|ed|ing|ly|ped|ping|ted|ting)?\b", re.IGNORECASE)
 _FENCE = ("```", "~~~")
 _BULLET = re.compile(r"- (source|rule):(?:[ \t]+(.*?))?[ \t]*\Z")
 _CONTINUATION = re.compile(r"  +\S")
@@ -88,15 +120,14 @@ class Rule:
 @dataclass
 class Override:
     rules: list
-    quoted: list  # (line, text) of each `> ` line — read by the skill, so checked like a rule
 
 
 @dataclass
 class _State:
     rel: str
     rep: object
+    skill: str
     rules: list = field(default_factory=list)
-    preamble: list = field(default_factory=list)  # (line, text) of each `> ` line
     headings: int = 0
     last_bullet: object = None
     ok: bool = True
@@ -113,7 +144,7 @@ def parse(path, rel, skill, rep):
     lines = _read(Path(path), rel, rep)
     if lines is None:
         return None
-    state = _State(rel, rep)
+    state = _State(rel, rep, skill)
     body = _title(lines, skill, state)
     if body is None:
         return None
@@ -121,20 +152,16 @@ def parse(path, rel, skill, rep):
         _line(number, line, state)
     _finish(state)
     report.debug("overrides.parse", "parsed", skill=skill, rules=len(state.rules), ok=state.ok)
-    return Override(state.rules, state.preamble) if state.ok else None
+    return Override(state.rules) if state.ok else None
 
 
 def _read(path, rel, rep):
-    try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        rep.add("OVERRIDE_UNREADABLE", f"cannot read it: {exc.strerror}", file=rel)
-        return None
-    if len(raw) > MAX_BYTES:
-        rep.add("OVERRIDE_UNREADABLE", f"it is {len(raw)} bytes; the most is {MAX_BYTES}", file=rel)
+    raw, why = patches.read_small(path, MAX_BYTES)
+    if why:
+        rep.add("OVERRIDE_UNREADABLE", why, file=rel)
         return None
     try:
-        text = raw.decode("utf-8")
+        text = patches.decode(raw)
     except UnicodeDecodeError as exc:
         rep.add("OVERRIDE_UNREADABLE", f"not UTF-8 at byte {exc.start}", file=rel)
         return None
@@ -155,7 +182,26 @@ def _title(lines, skill, state):
     return numbered[first + 1:]
 
 
+def _refused_character(line):
+    """The first character an English override never needs, or None."""
+    for char in line:
+        if not (" " <= char <= "~" or char in READ_AS or unicodedata.category(char) == "Zs"):
+            return char
+    return None
+
+
+def read_as(text):
+    """`text` as the patterns read it: each READ_AS character as its ASCII form, and any space as a space."""
+    return "".join(READ_AS.get(c, " " if unicodedata.category(c) == "Zs" else c) for c in text)
+
+
 def _line(number, line, state):
+    char = _refused_character(line)
+    if char is not None:
+        state.shape(f"U+{ord(char):04X} ({unicodedata.name(char, 'unnamed')}) is not allowed: an override is English, "
+                    f"and an invisible, control or look-alike character can hide a construct from this check", number)
+        report.debug("overrides.parse", "refused character", line=number, codepoint=f"U+{ord(char):04X}")
+        return
     stripped = line.strip()
     if "<!--" in line:
         state.shape("an HTML comment can hide text from a reviewer", number)
@@ -166,12 +212,20 @@ def _line(number, line, state):
         return
     if line.startswith("#"):
         _heading(number, line, state)
-    elif state.headings == 0 and (line == ">" or line.startswith("> ")):
-        state.preamble.append((number, line[2:]))
+    elif state.headings == 0 and line.startswith(">"):
+        _quoted(number, line, state)
     elif not state.rules:
         state.shape("text outside a rule: before `## Rules`, only blank and `> ` lines", number)
     else:
         _rule_line(number, line, state)
+
+
+def _quoted(number, line, state):
+    written = WRITTEN.format(skill=state.skill)
+    if line.rstrip() == written or _UPDATED.match(line.rstrip()):
+        return
+    state.shape(f"a quoted line other than the template's two, `{written}` and `> Updated: <YYYY-MM-DD HH:mm>`",
+                number)
 
 
 def _heading(number, line, state):
@@ -266,15 +320,13 @@ def check_sources(rules, patches_dir, rel, rep):
 
 # --- forbidden constructs and the limit ------------------------------------------
 
-def _texts(rules, quoted):
-    """(what, line, text) for everything a reading skill reads as instruction."""
-    found = [(f"rule `{rule.name}`", rule.line, f"{rule.name}\n{rule.text}") for rule in rules]
-    return found + [(PREAMBLE, line, text) for line, text in quoted]
+def check_rules(rules, rel, rep):
+    """OVERRIDE_FORBIDDEN for each construct a rule holds; OVERRIDE_TOUCHES_LIMIT once per rule naming a limit word.
 
-
-def check_rules(rules, rel, rep, quoted=()):
-    """OVERRIDE_FORBIDDEN for each construct a text holds; OVERRIDE_TOUCHES_LIMIT once per text naming a limit word."""
-    for what, line, text in _texts(rules, quoted):
+    The quoted lines need no check: the shape allows only the template's two.
+    """
+    for rule in rules:
+        what, line, text = f"rule `{rule.name}`", rule.line, read_as(f"{rule.name}\n{rule.text}")
         for construct, pattern, why in FORBIDDEN:
             match = pattern.search(text)
             if match:

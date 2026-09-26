@@ -33,7 +33,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
-root). Otherwise the `ROOT:` line is `<root>`. Read `<root>/.dgf-factory/config.yaml` for
+root). Exit `3` → **STOP** and relay it. Otherwise the `ROOT:` line is `<root>`. Read `<root>/.dgf-factory/config.yaml` for
 `paths.*`, `git.enabled`, `git.base_branch`, `workflow.verify_mode`, `dgf.version` and
 `language.*`, and `<root>/.dgf-factory/DESCRIPTION.md`.
 
@@ -77,6 +77,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 | `1`, `PLAN_NOT_FOUND` | **STOP**: "a fix is a change, and a change needs a plan's scope — run `/dgf-plan fast "<the problem>"`, or `/dgf-fix --record` to record it without a change". |
 | `1`, `PLAN_AMBIGUOUS` | List the plans it names and ask which one the fix belongs to; use that entrypoint. If the user names none, **STOP**. |
 | `2`, `PLAN_FALLBACK` | Say which plan it chose and why, and ask before using it. |
+| `3` | **STOP** and relay it: the call is wrong. |
 
 Then check the plan:
 
@@ -179,7 +180,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root
 |---|---|
 | `0` | Continue to Step 6. |
 | `1` | A new `ERROR` in a touched file → fix it again, at most 3 attempts, then **STOP** with the findings. A `CHANGE_*` error means the files touched differ from the files Step 3 checked: restore each touched file to what Step 3 read, and **STOP**. |
-| `2` | Continue; surface every `WARN`. |
+| `2` | Surface every `WARN`, then continue. Under strict mode (`workflow.verify_mode: strict`) the gate would block on each of them: a new validator `WARN` in a touched file is fixed like an error, within the same 3 attempts; a `CHANGE_*` `WARN` → **STOP**, and have `/dgf-plan` add the file to a task. |
 | `3` | **STOP** and relay it — a missing dependency's install command verbatim. |
 
 A manual reproduction is confirmed by no script: say so, plainly, and never call the fix

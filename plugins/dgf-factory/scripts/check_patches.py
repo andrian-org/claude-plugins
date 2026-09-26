@@ -64,7 +64,8 @@ def targets(named, patches_dir):
             return []
         if not patches_dir.is_dir():
             rejected(f"--patches-dir is not a directory: {patches_dir}", dir=patches_dir)
-        return sorted(p for p in patches_dir.glob("*.md") if p.is_file())
+        # Every entry, regular or not: a directory or a device named like a patch is reported, never skipped.
+        return sorted(patches_dir.glob("*.md"))
     home, found = patches_dir.resolve(), []
     for raw in named:
         path = Path(raw).resolve()

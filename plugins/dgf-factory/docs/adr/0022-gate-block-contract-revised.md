@@ -322,3 +322,11 @@ decider's choice ([ADR 0021](0021-learning-loop.md) §7).
 - ADR 0020 answered [ADR 0004](0004-authoring-entry-point.md)'s narrowing follow-up (§4) and
   [ADR 0018](0018-change-relative-gates.md)'s `checks_run` follow-up (§4); this ADR carries both answers
   forward. Neither ADR is edited: a follow-up is not a decision.
+
+## Errata
+
+- **2026-09-26** — The status paragraph says §1–§7 are ADR 0020's, unchanged. §4 names "the
+  specification ADR 0004 left to milestone 10" where ADR 0020 said "to this milestone": the same
+  milestone, named because this ADR is milestone 11's. The Context's "What earlier decisions left to
+  milestone 10" is reworded the same way. Nothing else in §1–§7 differs. Source:
+  `docs/adr/0020-gate-block-contract.md:49`, `:151`; found by `/aif-verify`.

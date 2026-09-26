@@ -31,6 +31,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
   the root).
 
 An applied override's rules apply to the commit message too.
+
 Check this skill's override before reading it:
 
 ```bash

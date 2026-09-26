@@ -108,6 +108,16 @@ class Findings(Base):
         self.assertIn("PATCH_UNREADABLE", out)
         self.assertIn(f'PATCH: {BROKEN} severity=? findings=? title=""', out)
 
+    def test_an_entry_that_is_not_a_regular_file_is_malformed_not_skipped(self):
+        self.add(NAME)
+        (self.root / PATCHES / "2026-09-27-09.00-a-folder.md").mkdir()
+        (self.root / PATCHES / "2026-09-27-10.00-a-device.md").symlink_to("/dev/zero")
+        code, out, _ = self.check()
+        self.assertEqual(code, 1, out)
+        self.assertIn("total=3 malformed=2", out)
+        self.assertEqual(out.count("PATCH_UNREADABLE"), 2, out)
+        self.assertIn("not a regular file", out)
+
     def test_a_title_holding_a_control_character_prints_on_one_line(self):
         self.add(NAME, EXAMPLE.replace("never declares", "never declares\x1b[2J"))
         code, out, _ = self.check()
@@ -151,6 +161,14 @@ class Cursor(Base):
         self.assertEqual(code, 2, out)
         self.assertIn(f"WARN PATCH_CURSOR_UNREADABLE {CURSOR}", out)
         self.assertIn("new=2 processed=0", out)
+
+    def test_a_deeply_nested_cursor_warns_instead_of_crashing(self):
+        self.add(NAME)
+        self.cursor("[" * 200000)
+        code, out, err = self.check("--cursor", CURSOR)
+        self.assertEqual(code, 2, out + err)
+        self.assertIn("PATCH_CURSOR_UNREADABLE", out)
+        self.assertNotIn("Traceback", err)
 
     def test_it_never_writes(self):
         self.add(NAME)

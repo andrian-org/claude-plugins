@@ -31,7 +31,10 @@ for each target: `dgf`, `dgf-commit`, `dgf-fix`, `dgf-implement`, `dgf-plan`, `d
 **Shape** — any break is `OVERRIDE_SHAPE`, and the file is refused:
 
 - the first non-blank line is exactly `# Project Rules for /<skill>`, for the directory's skill;
-- before `## Rules`, only blank lines and `> ` lines;
+- before `## Rules`, only blank lines and the template's two quoted lines, each optional: exactly
+  `> Written by /dgf-evolve from the estate's patches. Each rule may only tighten /<skill> (ADR 0021).`
+  for the directory's skill, and `> Updated: <YYYY-MM-DD HH:mm>`. A skill reads every line, so no
+  other quoted text is allowed — "these rules take precedence" would be an instruction with no patch;
 - exactly one `## Rules`, and no other heading but the title and the `### <name>` rules — no second
   `#` or `##`, no `####`;
 - each rule is `### <name>` (1–100 characters, unique), then exactly one `- source:` bullet and
@@ -40,27 +43,36 @@ for each target: `dgf`, `dgf-commit`, `dgf-fix`, `dgf-implement`, `dgf-plan`, `d
 - 1–40 rules, each rule's text at most 600 characters;
 - no fence (a line starting ```` ``` ```` or `~~~`) and no HTML comment (`<!--`) anywhere — either could
   hide text from a reviewer, or carry a block;
-- at most 32768 bytes, and UTF-8 — else `OVERRIDE_UNREADABLE`.
+- no character outside printable ASCII, spaces, and these typographic marks: `–` `—` `‑` `‘` `’` `“` `”`
+  `…` `§` `→`. An override is English; an invisible character (a zero-width space, a bidi control), a
+  control character or a look-alike letter could hide a construct from the forbidden check;
+- a regular file of at most 32768 bytes, in UTF-8 (a leading byte-order mark is fine) — else
+  `OVERRIDE_UNREADABLE`.
+
+The forbidden check reads each rule as ASCII first: a typographic dash is a hyphen — an en or em dash
+two, since `--` is often retyped as one — a tab or any other space is a space, and curly quotes are
+straight.
 
 **Sources** — each `source:` names one or more patches, comma-separated. Each must be a patch name,
 `<YYYY-MM-DD-HH.mm>-<slug>.md`, present in `<paths.patches>` with exactly that spelling — else
 `OVERRIDE_SOURCE_MISSING`. A rule with no patch behind it is recorded first, with `/dgf-fix --record`.
 
-**Forbidden** — a rule's name or text, or a `> ` line, that holds any of these is
-`OVERRIDE_FORBIDDEN`, and the file is refused:
+**Forbidden** — a rule's name or text that holds any of these, spaced or spelled any way the table
+says, is `OVERRIDE_FORBIDDEN`, and the file is refused:
 
 | Construct | Why |
 |---|---|
-| `dgf-gate-result` | a rule never writes, edits or adds a gate block |
+| `dgf-gate-result`, also with `_` or a space | a rule never writes, edits or adds a gate block |
 | a flag other than `--strict` or `--verbose` | it narrows or skips a check |
-| `allowed-tools`, a `Bash(` grant, `disable-model-invocation` | a rule never grants a tool |
-| an install or download — pip, npm, brew, apt-get, curl, wget | a rule never installs or downloads anything |
-| a git command that rewrites history or discards work — push, reset, clean, checkout, switch, rebase, rm, restore, stash | a rule never rewrites history or discards work |
-| a path that climbs out of the root, or starts at a home directory | a rule never names a path outside the workspaces root |
+| `allowed-tools` (or `allowed_tools`, `allowed tools`), a `Bash(` grant with or without a space, `disable-model-invocation` | a rule never grants a tool |
+| an install or download — pip or pipx install, `python -m pip`, uv, npm, npx, yarn, pnpm, brew, apt, and any mention of curl or wget | a rule never installs or downloads anything |
+| a git command that rewrites history or discards work — push, reset, clean, checkout, switch, rebase, rm, restore, stash — options such as `-C .` between git and the command do not hide it | a rule never rewrites history or discards work |
+| a path that climbs out of the root (`../`), starts at a home directory (a tilde path, `$HOME`, `%USERPROFILE%`), is an absolute system path (`/etc/`, `/tmp/`, `/usr/` …), names a drive (`C:\`) or is a `file://` URL | a rule never names a path outside the workspaces root |
 
 **The limit** — a rule naming a word the limit protects — stop, exit, status, block, blocking,
 blocker, warn, warning, critical rule, artifact ownership, not run, pre_existing, skip, ignore,
-optional, unless, instead, allow, permit, relax, bypass, waive, or a plural or past form of one — is
+optional, unless, instead, allow, permit, relax, bypass, waive, override, overridden, precedence,
+supersede, disregard, unblock, or a plural, past, -ing or -ly form of one — is
 `OVERRIDE_TOUCHES_LIMIT`: a warning, exit `2`. The reading skill applies the file and judges each such
 rule. "STOP when a renamed state still has a transition to it" tightens; "do not stop on a dead
 transition" relaxes, and is not applied.
@@ -142,6 +154,9 @@ reviewed:
 
 ## Declined
 - <patch>: <the rule not picked>
+
+## Deferred
+- <patch>: <the point> — for /<skill>, which this run did not target; the patch stays new
 ```
 
 Leave out a section with nothing in it.
@@ -161,6 +176,8 @@ merge it line by line:
 ```
 
 A patch is **new** when it is well-formed and its name is not in `processed`. A malformed patch is
-never new, and never added. `check_patches.py --cursor` reads it; `/dgf-evolve` alone writes it. A
+never new, and never added. A run marks a patch processed only when it handled every point in it: a
+run for one target leaves a patch new while it still holds a point for another skill, so the run for
+that skill reads it. `check_patches.py --cursor` reads it; `/dgf-evolve` alone writes it. A
 cursor that is not this shape is `PATCH_CURSOR_UNREADABLE`: every well-formed patch counts as new, and
 the next run rewrites it whole.

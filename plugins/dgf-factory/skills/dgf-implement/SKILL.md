@@ -63,6 +63,7 @@ Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`). Otherwis
 `<root>/.dgf-factory/config.yaml` and `DESCRIPTION.md`.
 
 An override holds project rules that apply to every file this skill writes.
+
 Check this skill's override before reading it:
 
 ```bash

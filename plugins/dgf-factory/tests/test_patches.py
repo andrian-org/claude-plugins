@@ -214,6 +214,23 @@ class Unreadable(Base):
         self.assertIsNone(patch)
         self.assertEqual([f.code for f in rep.findings], ["PATCH_UNREADABLE"])
 
+    def test_a_leading_bom_is_accepted(self):
+        patch, rep = self.parse(("\ufeff" + EXAMPLE).encode("utf-8"))
+        self.assertEqual(rep.findings, [])
+        self.assertEqual(patch.title, "`Review` moves to a state the process never declares")
+
+    def test_a_patch_over_the_size_limit_is_unreadable(self):
+        patch, rep = self.parse(EXAMPLE + "x" * patches.MAX_BYTES)
+        self.assertIsNone(patch)
+        self.assertEqual([f.code for f in rep.findings], ["PATCH_UNREADABLE"])
+
+    def test_a_patch_that_is_not_a_regular_file_is_unreadable(self):
+        path = self.tmp / NAME
+        path.symlink_to("/dev/zero")
+        rep = report.Report(NAME)
+        self.assertIsNone(patches.parse(path, NAME, rep))
+        self.assertEqual([f.code for f in rep.findings], ["PATCH_UNREADABLE"])
+
     def test_a_bad_name_is_still_reported_with_unreadable(self):
         self.assertEqual(self.codes(b"\xff", "x.md"), ["PATCH_NAME_INVALID", "PATCH_UNREADABLE"])
 
@@ -240,6 +257,18 @@ class Cursor(Base):
         processed, why = patches.read_cursor(self.write({"processed": [1, 2], "updated": "x"}))
         self.assertIsNone(processed)
         self.assertIn("processed", why)
+
+    def test_a_deeply_nested_cursor_is_unreadable_not_a_crash(self):
+        processed, why = patches.read_cursor(self.write("[" * 200000))
+        self.assertIsNone(processed)
+        self.assertIn("JSON", why)
+
+    def test_a_cursor_that_is_not_a_regular_file_is_unreadable(self):
+        path = self.tmp / "patch-cursor.json"
+        path.symlink_to("/dev/zero")
+        processed, why = patches.read_cursor(path)
+        self.assertIsNone(processed)
+        self.assertIn("regular file", why)
 
     def test_invalid_json_and_a_missing_updated(self):
         self.assertIsNone(patches.read_cursor(self.write("{"))[0])

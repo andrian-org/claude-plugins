@@ -24,7 +24,11 @@ heading.
 The cursor is `<paths.evolutions>/patch-cursor.json`,
 `{"processed": [<names>], "updated": "<when>"}`: a set of names, not a
 high-water mark, because branches merge patches into one ledger in any order.
-read_cursor() never raises. Stdlib only.
+read_cursor() never raises.
+
+Every file is read through read_small(): a regular file of bounded size, so a
+committed symlink to a device or a huge file cannot hang or exhaust a reader.
+A leading UTF-8 byte-order mark is dropped. Stdlib only.
 """
 
 import datetime
@@ -43,6 +47,9 @@ SEVERITIES = ("low", "medium", "high", "critical")
 NONE = "none"
 UNKNOWN_VERSION = "unknown"
 TITLE_MAX = 120
+MAX_BYTES = 65536          # a patch is a page of prose
+CURSOR_MAX_BYTES = 1 << 20  # about 16,000 patch names
+BOM = "\ufeff"
 
 _DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\Z")
 _VERSION = re.compile(r"\d+\.\d+\.\d+\Z")
@@ -70,6 +77,33 @@ class Patch:
 def _items(raw):
     """A comma-separated value as a list, each item stripped of spaces and backticks."""
     return [item.strip().strip("`").strip() for item in raw.split(",")]
+
+
+# --- reading -----------------------------------------------------------------------
+
+def read_small(path, limit):
+    """(bytes, None), or (None, why): a regular file of at most `limit` bytes, never read past `limit`."""
+    path = Path(path)
+    try:
+        if not path.is_file():
+            return None, "not a regular file"
+        size = path.stat().st_size
+        if size > limit:
+            return None, f"it is {size} bytes; the most is {limit}"
+        with path.open("rb") as handle:
+            data = handle.read(limit + 1)
+    except OSError as exc:
+        return None, f"cannot read it: {exc.strerror}"
+    if len(data) > limit:
+        return None, f"it grew past {limit} bytes while being read"
+    report.debug("patches.read_small", "read", path=path, size=len(data))
+    return data, None
+
+
+def decode(data):
+    """UTF-8 text with a leading byte-order mark dropped. Raises UnicodeDecodeError."""
+    text = data.decode("utf-8")
+    return text[len(BOM):] if text.startswith(BOM) else text
 
 
 # --- the name ---------------------------------------------------------------------
@@ -107,11 +141,12 @@ def parse(path, rel, rep):
     why = name_problem(path.name)
     if why:
         rep.add("PATCH_NAME_INVALID", f"`{path.name}` {why}", file=rel)
-    try:
-        text = path.read_bytes().decode("utf-8")
-    except OSError as exc:
-        rep.add("PATCH_UNREADABLE", f"cannot read it: {exc.strerror}", file=rel)
+    data, why = read_small(path, MAX_BYTES)
+    if why:
+        rep.add("PATCH_UNREADABLE", why, file=rel)
         return None
+    try:
+        text = decode(data)
     except UnicodeDecodeError as exc:
         rep.add("PATCH_UNREADABLE", f"not UTF-8 at byte {exc.start}", file=rel)
         return None
@@ -319,11 +354,12 @@ def read_cursor(path):
     if not path.exists():
         report.debug("patches.read_cursor", "read", processed=0, missing=True)
         return set(), None
+    raw, why = read_small(path, CURSOR_MAX_BYTES)
+    if why:
+        return _unreadable(why)
     try:
-        data = json.loads(path.read_bytes().decode("utf-8"))
-    except OSError as exc:
-        return _unreadable(f"cannot read it: {exc.strerror}")
-    except (UnicodeDecodeError, ValueError) as exc:
+        data = json.loads(decode(raw))
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:  # a deeply nested document recurses
         return _unreadable(f"not a JSON document: {exc}")
     if not isinstance(data, dict):
         return _unreadable("not a JSON object")

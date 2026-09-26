@@ -249,7 +249,9 @@ from) and one `- rule:`. The format is `skills/dgf-evolve/references/OVERRIDE-FO
 
 **The cursor** is `evolutions/patch-cursor.json`, `{"processed": [<names>], "updated": …}`: a set
 of names, one per line, not a high-water mark — branches merge patches into one ledger in any
-order, and a mark would skip a patch dated before it but merged after it.
+order, and a mark would skip a patch dated before it but merged after it. A run for one skill marks a
+patch processed only when it handled every point in it; a patch still holding a point for another
+skill stays new.
 
 **The limit.** An override may add rules and tighten checks. It never relaxes a STOP, an exit-code
 row, the status a gate script computes, a Critical Rule or Artifact Ownership, and never makes a
@@ -257,7 +259,9 @@ skill install anything, skip a script, or write outside its own artifacts. Anyon
 estate can write an override, so six skills — the five of the spine and `/dgf-fix` — run
 `check_override.py` before reading theirs, and `/dgf-evolve` runs it on every file it writes. The
 check refuses what a script can see: a gate block, a flag other than `--strict` or `--verbose`, a
-tool grant, an install or download, a history-rewriting git command, a path outside the root. It
+tool grant, an install or download, a history-rewriting git command, a path outside the root — read as
+ASCII first, with invisible, control and look-alike characters refused outright, and quoted text
+limited to the template's two lines. It
 cannot see a relaxation in plain words, so a rule naming a word the limit protects is handed to the
 skill's judgement, and the committed diff is reviewed.
 
