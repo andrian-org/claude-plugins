@@ -755,7 +755,7 @@ In `tests/test_skill_contracts.py`:
 
 ### Phase 2: The checks
 
-- [ ] **Task 3: Add `scripts/lib/patches.py` and `scripts/check_patches.py`.** (depends on 1)
+- [x] **Task 3: Add `scripts/lib/patches.py` and `scripts/check_patches.py`.** (depends on 1)
   - Implement DD1 and DD2. Add to `report.CODES`, under a comment `# the learning loop (check_patches.py,
     check_override.py; ADR 0021)`:
     - `PATCH_NAME_INVALID`, `PATCH_UNREADABLE`, `PATCH_FIELD_MISSING`, `PATCH_FIELD_INVALID` and
@@ -797,7 +797,7 @@ In `tests/test_skill_contracts.py`:
     `tests/test_check_patches.py`, `tests/test_report.py`, `tests/test_known_bad.py`,
     `tests/fixtures/known-bad/patch-*/`.
 
-- [ ] **Task 4: Add `scripts/lib/overrides.py` and `scripts/check_override.py`.** (depends on 3)
+- [x] **Task 4: Add `scripts/lib/overrides.py` and `scripts/check_override.py`.** (depends on 3)
   - Implement DD3 and DD4. Add to `report.CODES`, in the same block:
     - `OVERRIDE_UNREADABLE`, `OVERRIDE_SHAPE`, `OVERRIDE_SOURCE_MISSING` and `OVERRIDE_FORBIDDEN` → `EXIT_BLOCKED`;
     - `OVERRIDE_TOUCHES_LIMIT` → `EXIT_WARNINGS`.
@@ -1018,3 +1018,14 @@ In `tests/test_skill_contracts.py`:
   index row in `docs/adr/README.md`; and `.ai-factory/ROADMAP.md`'s open Learning Loop entry, which Task 10
   restates. `.ai-factory/ROADMAP.md` §Follow-ups' "Gate entry summaries" line cited ADR 0020 §3 as a live
   rule, so it was repointed to ADR 0022 §3 with the "DGF-Specific Skills" entry.
+- **Task 3 (2026-09-26) — lines split on `\n` only.** `patches.parse()` splits on `\n`, not `str.splitlines()`,
+  which also breaks at U+2028, `\x1c`–`\x1e` and `\x85`: a title holding one would have been cut, and its tail
+  read as a stray field line. `overrides.py` reads the same way. The CLI test pins it.
+- **Task 3 (2026-09-26) — `Files:` counts the cursor.** With `--cursor`, `check_patches.py`'s summary counts the
+  cursor as one more file, because it is a report of its own (it carries `patch-cursor` and its warning). The
+  `PATCHES:` line holds the patch counts the skills read.
+- **Task 4 (2026-09-26) — two tightenings beyond DD3.** `check_rules()` also checks the `> ` quoted lines, which a
+  reading skill reads too: without it, a quoted line could carry `--skip-validators` past the check. And
+  `LIMIT_WORDS` also match a plural or past form (`STOPs`, `skipped`, `allowed`, `waived`), still word-bounded, so
+  `stopwatch` does not. `parse()` returns an `Override(rules, quoted)`; `check_rules(rules, rel, rep, quoted=())`
+  keeps DD3's signature.

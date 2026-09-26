@@ -1,0 +1,12 @@
+{
+  "cli": "check_patches.py",
+  "args": [
+    "workspaces/.dgf-factory/patches/2026-09-26-14.30-review-moves-to-undeclared-state.md",
+    "--workspaces-root",
+    "workspaces"
+  ],
+  "exit": 1,
+  "codes": [
+    "PATCH_FIELD_MISSING"
+  ]
+}

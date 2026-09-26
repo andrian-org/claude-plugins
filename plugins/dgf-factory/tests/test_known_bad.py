@@ -47,7 +47,7 @@ class Corpus(unittest.TestCase):
         pattern = load_doctor().DGF_PATH_PATTERN
         for path in CORPUS.rglob("*"):
             if path.is_file():
-                self.assertIsNone(pattern.search(path.read_text(encoding="utf-8")), path)
+                self.assertIsNone(pattern.search(path.read_text(encoding="utf-8", errors="replace")), path)
 
 
 @unittest.skipUnless(helpers.have_dependencies(), "lxml / jsonschema not installed")
