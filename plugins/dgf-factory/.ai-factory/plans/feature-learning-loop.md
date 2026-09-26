@@ -903,7 +903,7 @@ In `tests/test_skill_contracts.py`:
 
 ### Phase 5: `/dgf-evolve`
 
-- [ ] **Task 8: Add `/dgf-evolve`.** (depends on 4, 6)
+- [x] **Task 8: Add `/dgf-evolve`.** (depends on 4, 6)
   - Create `skills/dgf-evolve/SKILL.md` exactly as DD7 lays it out, with the `**Targets:**` line and the writer's limit.
     Create `skills/dgf-evolve/references/OVERRIDE-FORMAT.md`: the override template and rules, the worked example, the
     evolution log's shape, and the cursor's shape.
@@ -1073,3 +1073,19 @@ In `tests/test_skill_contracts.py`:
   blocking finding(s)" and "warning(s) promoted by --strict" for all of them: "new blocking finding(s)" now means a
   validator finding, the one `/dgf-fix` takes. `skills/dgf-verify/SKILL.md`'s intro, which said "Fixing belongs to
   `/dgf-implement`", now names both and says the block chooses; Step 2's `1` row is unchanged.
+- **Task 8 (2026-09-26) — `/dgf-evolve`, walked** on a temp root holding the worked patch and a half-written one,
+  and no cursor: Step 1's `check_patches.py … --cursor ".dgf-factory/evolutions/patch-cursor.json"` → `PATCHES:
+  .dgf-factory/patches/ total=2 new=1 processed=0 malformed=1`, the half-written one `state=malformed` with seven
+  `PATCH_FIELD_MISSING` and four `PATCH_SECTION_INVALID`, exit `1`; OVERRIDE-FORMAT.md's worked example as
+  `skill-context/dgf-plan/SKILL.md` → `check_override.py` `rules=1`, `CLEAN`, exit `0`; plus the "Narrow the gate"
+  rule naming `--skip-validators` → `ERROR OVERRIDE_FORBIDDEN …:13 … (flag)` and `WARN OVERRIDE_TOUCHES_LIMIT …
+  names \`skip\``, exit `1`; the cursor written with the one patch → Step 1 shows `new=0 processed=1 malformed=1`
+  and the patch `state=processed`. The reference quotes these lines.
+- **Task 8 (2026-09-26) — `/dgf-evolve` has no delete.** DD7 says a target left with no rule is deleted, and a new
+  override still refused after three attempts is deleted. DD7's `allowed-tools` grant no git and no Bash beyond the
+  plugin's scripts, so the skill asks the user to delete such a file, as `/dgf-implement` does without git. Until it
+  is deleted, every reader refuses it (`## Rules` holds no rule, or the refusal itself) and runs on its shipped
+  rules — the same as no override. A file that existed before the run is restored instead.
+- **Task 8 (2026-09-26) — `CHANGE_STATE` is not a finding code.** The override's worked example quotes the workflow
+  step mode `CHANGE_STATE`, which the finding-code contract test read as a code no script emits. It joins
+  `NOT_CODES`, citing `knowledge/process-model.md` §2.

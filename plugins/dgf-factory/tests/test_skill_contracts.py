@@ -26,6 +26,7 @@ FLAG = re.compile(r"(?<![\w-])--[a-z][a-z-]*")
 NOT_CODES = {
     "DGF_WORKSPACES_ROOT_PATH",  # DGF's environment variable for the workspaces root (composition-specs §1.2)
     "LOG_LEVEL",                 # LOG_LEVEL=debug turns on a script's trace, like DEBUG=1
+    "CHANGE_STATE",              # a workflow step mode that moves a case to a state (process-model.md §2)
 }
 
 
@@ -116,6 +117,11 @@ OVERRIDE_LIMIT = ("An override may add rules and tighten checks. It never relaxe
                   "status a gate script computes, a Critical Rule or Artifact Ownership, and never makes this skill "
                   "install anything, skip a script, or write outside its own artifacts. Name the override in your "
                   "report, and quote any rule in it you did not apply because it would relax one of these")
+OVERRIDE_WRITER_LIMIT = ("Every rule you write may only tighten its skill: add a rule or a check. It never relaxes a "
+                         "STOP, an exit-code row, the status a gate script computes, a Critical Rule or Artifact "
+                         "Ownership, and never makes a skill install anything, skip a script, or write outside its "
+                         "own artifacts. Refuse a prevention point that would, and log it with its patch.")
+TARGETS = re.compile(r"^\*\*Targets:\*\* (.+)$", re.MULTILINE)
 CHECK_OVERRIDE = re.compile(r'check_override\.py" --workspaces-root "<root>" --skill ([a-z0-9-]+)')
 READERS = ["dgf", "dgf-commit", "dgf-fix", "dgf-implement", "dgf-plan", "dgf-verify"]
 WRITER = "dgf-evolve"
@@ -144,6 +150,15 @@ class Overrides(unittest.TestCase):
             self.assertIn(OVERRIDE_LIMIT, text, f"{name} reads an override without its limits")
             self.assertNotIn("override this file", text, f"{name} still lets an override win outright")
 
+    def test_the_writer_limits_itself_and_targets_exactly_the_readers(self):
+        text = (SKILLS / WRITER / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn(OVERRIDE_WRITER_LIMIT, " ".join(text.split()))
+        targets = TARGETS.findall(text)
+        self.assertEqual(len(targets), 1, "dgf-evolve needs exactly one **Targets:** line")
+        self.assertEqual(BACKTICKED.findall(targets[0]), READERS)
+        self.assertIn("check_override.py", text)
+        self.assertNotIn("--skill dgf-evolve", text, "dgf-evolve reads no override of its own")
+
     def test_no_skill_reads_an_override_unchecked(self):
         checked = set(readers()) | {WRITER}
         for path in sorted(SKILLS.glob("*/SKILL.md")):
@@ -157,7 +172,7 @@ BASH_RULE = re.compile(r"Bash\(([^)]*)\)")
 PLUGIN_PYTHON = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/.*')
 GIT_COMMAND = re.compile(r"`git |^\s*git |git -C ", re.MULTILINE)
 READ_ONLY = ("dgf-doctor", "dgf-verify")
-NO_GIT = READ_ONLY + ("dgf-fix",)  # every git read /dgf-fix needs is made by check_change.py
+NO_GIT = READ_ONLY + ("dgf-evolve", "dgf-fix")  # /dgf-fix's git reads are check_change.py's; /dgf-evolve needs none
 
 
 def bash_rules(skill_md):

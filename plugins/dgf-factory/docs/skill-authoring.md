@@ -38,6 +38,7 @@ version: 1.0.0
 | `description` | **Carries the trigger phrases.** It is the only thing deciding whether the skill fires — write it for matching, not for elegance. Include the literal phrases a user would type. |
 | `argument-hint` | Present whenever the skill takes arguments |
 | `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `${CLAUDE_PLUGIN_ROOT}` is substituted inside Bash rules, so a skill that runs the plugin's scripts lists `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)`, never `Bash(python3 *)`, which also pre-approves `python3 -c …`. A skill that runs no git command lists no git rule. `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`: a rule with `*` before the subcommand draws a startup warning. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
+| `disable-model-invocation` | `false`, so the skill fires on its description — except a skill that rewrites what other skills do (`/dgf-evolve`, which writes their overrides): `true`, so it runs only when the user asks for it. |
 | `version` | Semver. Bump when behaviour changes. |
 
 ## Body structure
