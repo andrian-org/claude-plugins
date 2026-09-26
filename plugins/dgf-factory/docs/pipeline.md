@@ -143,8 +143,9 @@ a checkbox (`skills/dgf-plan/references/ULTRA-FORMAT.md`).
 
 ## The scripts
 
-All five are stdlib-only Python, except that `check_change.py` and `verify_gate.py` need `lxml`
-and `jsonschema` to run the validators. Each takes `--verbose`.
+The spine's five are stdlib-only Python, except that `check_change.py` and `verify_gate.py` need
+`lxml` and `jsonschema` to run the validators. Each takes `--verbose`. The loop's two are in
+[The learning loop](#the-learning-loop).
 
 | Script | Decides | Usage |
 |---|---|---|

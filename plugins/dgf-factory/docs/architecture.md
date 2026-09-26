@@ -26,7 +26,8 @@ plugins/dgf-factory/
 ├── .claude-plugin/plugin.json   # manifest — must live here
 ├── skills/<name>/               # SLICES — SKILL.md + references/ + scripts/ + templates/
 │   ├── dgf-doctor/              #   the install check, with its own scripts/doctor.py
-│   └── dgf, dgf-plan, dgf-implement, dgf-verify, dgf-commit/   # the pipeline spine
+│   ├── dgf, dgf-plan, dgf-implement, dgf-verify, dgf-commit/   # the pipeline spine
+│   └── dgf-fix, dgf-evolve/     #   the learning loop — patches, and overrides that only tighten
 ├── agents/*.md                  # subagents (not yet built)
 ├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
@@ -40,6 +41,8 @@ plugins/dgf-factory/
 │   ├── check_plan.py            #   a plan's header, tasks, Commit Plan, file classes, routes, overlaps
 │   ├── check_change.py          #   a branch's change against its plan and the merge-base
 │   ├── verify_gate.py           #   the verify gate: every check, the computed status, one block
+│   ├── check_patches.py         #   the patch format; which patches the cursor has not seen
+│   ├── check_override.py        #   may a skill read its override: shape, sources, forbidden, limit
 │   ├── requirements.txt         #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                     #   what the scripts share (below)
 ├── .mcp.json                    # MCP servers
@@ -67,6 +70,8 @@ plugins/dgf-factory/
 | `git.py` | The read-only git calls — changed files, refs, and a commit's tree written blob by blob |
 | `runner.py` | Every validator over a root or some of its files; `tools/run_known_good.py` uses the same runner |
 | `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
+| `patches.py` | The patch file — name, fields, sections — and the patch cursor ([ADR 0021](adr/0021-learning-loop.md) §1) |
+| `overrides.py` | The override template, its sources, the `FORBIDDEN` constructs and the `LIMIT_WORDS` it hands to judgement (ADR 0021 §5) |
 | `gate_result.py` | Builds, validates and renders every `dgf-gate-result` block, its status computed from its entries ([ADR 0022](adr/0022-gate-block-contract-revised.md)); stdlib only, and imports nothing from its package, so `doctor.py` loads it by path |
 
 `verify_gate.py` is the verify gate: it runs `check_plan.py`'s and `check_change.py`'s checks
@@ -87,7 +92,7 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py` |
+| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py` |
 | Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
 
 A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators over DGF's
@@ -118,7 +123,8 @@ SKILL.md → own references/ + scripts/ → shared knowledge/ + scripts/ → not
 | ❌ | A validator or skill that handles only one schema family |
 | ❌ | A slice reads another slice's `references/`, `scripts/` or `templates/` |
 | ❌ | Anything in `knowledge/` names a skill, a step number or a pipeline stage |
-| ❌ | A shared script imports from a slice, or branches on who called it |
+| ✅ | `/dgf-evolve` reads each target's shipped `SKILL.md`, read-only — the one file of another slice it reads — and writes only overrides under `.dgf-factory/` |
+| ❌ | A shared script imports from a slice, branches on who called it, or lists its callers — `check_override.py` takes `--skill`; the contract test holds which skills read an override |
 | ❌ | Circular invocation — A invokes B, B invokes A |
 | ❌ | Absolute paths, `~/`, or working-directory-relative paths |
 

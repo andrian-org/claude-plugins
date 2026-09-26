@@ -107,9 +107,10 @@ message — text that can come from a workspace or another branch — print esca
 `route_means.py` answers a question rather than checking files, so it prints a single
 `ROUTE: json|xml <where> — <reason>` line in place of 2–4.
 
-The pipeline spine's scripts read plans and roots rather than configuration files, so they
-print their own lines in place of 2. `check_plan.py`, `check_change.py` and `verify_gate.py` then
-print the same `CHECKS RUN:` and `NOT RUN:` lines; all five print findings and a verdict:
+The pipeline spine's five scripts read plans and roots, and the learning loop's two read patches
+and overrides, rather than configuration files, so they print their own lines in place of 2.
+`check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py` and `check_override.py`
+then print the same `CHECKS RUN:` and `NOT RUN:` lines; all seven print findings and a verdict:
 
 | Script | Lines in place of `FAMILY:` |
 |---|---|
