@@ -65,6 +65,13 @@ Write steps so they can be resumed. State lives in files on disk, not in the con
 window — a user can `/clear` mid-run and pick up where they left off, but only if each
 step reads its state rather than assuming it.
 
+A skill that reads a skill-context override checks it first, in its context step, with the block
+the six readers share word for word except the skill name: `check_override.py --workspaces-root
+"<root>" --skill <its own name> …`, an exit table — `0` apply it, or `OVERRIDE: none`; `1` refused,
+do not read it; `2` apply it and judge each `OVERRIDE_TOUCHES_LIMIT` rule; `3` **STOP** — and the
+limit sentence. `tests/test_skill_contracts.py` finds the readers by that call and holds each to
+its own `--skill` and the sentence ([ADR 0021](adr/0021-learning-loop.md) §4–§5).
+
 ## The exit-code contract
 
 Validators are called from skills, so their exit codes are a public interface:
@@ -110,6 +117,8 @@ print the same `CHECKS RUN:` and `NOT RUN:` lines; all five print findings and a
 | `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
 | `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file |
+| `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor` |
+| `check_override.py` | `OVERRIDE: <file> skill=<skill> rules=<n>` (`rules=?` when its shape fails), or `OVERRIDE: none — no <file>`; one `RULE: <N> line=<l> sources=<n> name="<name>"` per rule |
 | `verify_gate.py` | `ROOT:`; `check_plan.py`'s lines; `check_change.py`'s lines after its `PLAN:`; one `CODE TASK: <N> reason="<reason>"` per `kind: code` task. Its summary adds `Shown: 20 of <n> PRE_EXISTING — …` when it cuts them, and `STATUS: pass\|warn\|fail`; then the verdict, a blank line, and the gate block |
 
 `check_change.py` compares the validators' findings with the merge-base
@@ -178,9 +187,10 @@ Rules:
 - **Absent means not computed; `[]` means none.** A field the gate did not compute is left out:
   the doctor reads no estate, so its block has no `schema_family`, `affected_components` or
   `affected_processes`.
-- **Each gate has its own allowlist.** `verify`: `/dgf-plan`, `/dgf-implement`, `/dgf-commit`
-  or `null`. `doctor`: `null` only — a broken install is fixed by hand. `/dgf-fix` joins them when
-  it is built.
+- **Each gate has its own allowlist.** `verify`: `/dgf-plan`, `/dgf-implement`, `/dgf-fix`,
+  `/dgf-commit` or `null` — `/dgf-fix` for a finding the branch introduced, once every task is
+  checked and the scope is clean. `doctor`: `null` only — a broken install is fixed by hand, never
+  by `/dgf-fix` ([ADR 0022](adr/0022-gate-block-contract-revised.md) §8).
 - **The doctor's block** is gate `doctor`: errors in `blockers`, warnings and each section that
   could not run (`not-run-<section>`) in `warnings`, and `checks_run` naming its six sections.
 - **Last block wins.** Callers parse only the final such block, never the prose above it. **A
@@ -222,7 +232,7 @@ many times.
 
 - [ ] `description` contains the phrases a user would actually type
 - [ ] `allowed-tools` is narrowed to what the skill really needs
-- [ ] A skill-context override is read with the shared limit sentence: it may only tighten
+- [ ] An override is checked with `check_override.py` and read with the shared limit: it may only tighten
 - [ ] Every DGF fact is cited from `knowledge/`, not inlined in the prompt
 - [ ] Every statically checkable rule is a script, not an instruction
 - [ ] Exit codes follow the table above

@@ -164,12 +164,14 @@ ownership table is the thing that makes multi-session, multi-agent work non-chao
 | `PLAN.md`, `plans/<stem>.md` | `/dgf-plan` | `/dgf-implement` updates only the checkboxes |
 | `ARCHITECTURE.md` | `/dgf-architecture` | structure notes only |
 | `plans/<stem>/` (ultra) | `/dgf-plan` | `/dgf-implement` updates only the ledger in `index.md` |
-| `patches/` | `/dgf-fix` | consumed by `/dgf-evolve` |
+| `patches/` | `/dgf-fix` — append-only | read by `/dgf-implement` and `/dgf-fix` as cautions; consumed by `/dgf-evolve` |
+| `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | checked by `check_override.py`, then read by its skill — never when the check refuses it |
+| `evolutions/` — logs and `patch-cursor.json` | `/dgf-evolve` | read-only |
 | `knowledge/` | deliberate human edit with a cited source | read-only to every slice |
 
 ## See Also
 
-- [Pipeline Spine](pipeline.md) — the five slices that exist today, and how a change flows through them
+- [Pipeline Spine](pipeline.md) — the spine's five slices and the learning loop's two, and how a change flows through them
 - [Skill Authoring](skill-authoring.md) — the contract a slice's `SKILL.md` must follow
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — the rules governing `knowledge/`
 - [DGF Schemas](dgf-schemas.md) — the two schema families and the rules for consuming them

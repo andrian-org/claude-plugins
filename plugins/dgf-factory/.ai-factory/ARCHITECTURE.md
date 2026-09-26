@@ -76,8 +76,14 @@ plugins/dgf-factory/
 │   ├── dgf-verify/                     # Slice: relays verify_gate.py's dgf-gate-result (exists)
 │   │   ├── SKILL.md
 │   │   └── references/                 #   GATE-RESULT-CONTRACT.md
-│   └── dgf-commit/                     # Slice: conventional commits scoped by workspace (exists)
-│       └── SKILL.md
+│   ├── dgf-commit/                     # Slice: conventional commits scoped by workspace (exists)
+│   │   └── SKILL.md
+│   ├── dgf-fix/                        # Slice: fix inside the plan's scope, write a patch (exists)
+│   │   ├── SKILL.md
+│   │   └── references/                 #   PATCH-FORMAT.md
+│   └── dgf-evolve/                     # Slice: distil patches into skill-context overrides (exists)
+│       ├── SKILL.md
+│       └── references/                 #   OVERRIDE-FORMAT.md
 │
 ├── agents/                             # ── SUBAGENTS ── coordinator, workers, sidecars
 │   ├── dgf-implement-coordinator.md
@@ -107,6 +113,8 @@ plugins/dgf-factory/
 │   ├── check_plan.py                   #   a plan's header, tasks, Commit Plan, file classes, routes, overlaps
 │   ├── check_change.py                 #   a change against its plan and the merge-base (ADR 0018)
 │   ├── verify_gate.py                  #   the verify gate: every check, the status computed, one block
+│   ├── check_patches.py                #   the patch format; which patches the cursor has not seen
+│   ├── check_override.py               #   may a skill read its override — shape, sources, forbidden, limit
 │   ├── requirements.txt                #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                            #   one module per concern
 │       ├── report.py                   #     findings, codes → exit codes, verdict, DEBUG trace
@@ -125,7 +133,9 @@ plugins/dgf-factory/
 │       ├── git.py                      #     read-only git calls; a commit's tree written blob by blob
 │       ├── runner.py                   #     every validator over a root or some of its files
 │       ├── baseline.py                 #     which findings a branch introduced (merge-base comparison)
-│       └── gate_result.py              #     builds every dgf-gate-result block — stdlib, no package imports
+│       ├── gate_result.py              #     builds every dgf-gate-result block — stdlib, no package imports
+│       ├── patches.py                  #     the patch file and the patch cursor
+│       └── overrides.py                #     the override template, FORBIDDEN constructs, LIMIT_WORDS
 │
 ├── .mcp.json                           # MCP servers (DGF docs MCP only)
 │
@@ -148,8 +158,9 @@ plugins/dgf-factory/
 ```
 
 The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices (`dgf`,
-`dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), `knowledge/`, `scripts/`, `tests/`,
-`tools/`, `provenance/` and the files around them exist. `dgf-component` and the other
+`dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), the learning loop's two (`dgf-fix`,
+`dgf-evolve`), `knowledge/`, `scripts/`, `tests/`, `tools/`, `provenance/` and the files around
+them exist. `dgf-component` and the other
 DGF-specific slices, and `agents/`, arrive with later roadmap milestones. Every gate block is
 built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `/dgf-verify`,
 `doctor.py` for `/dgf-doctor` — and the skill relays it
@@ -196,7 +207,12 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   `scripts/` instead.
 - ❌ Anything in `knowledge/` mentions a skill, a step number or a pipeline stage.
   Knowledge states DGF facts; it does not know who reads it.
-- ❌ A shared script imports from a slice, or branches on which skill called it
+- ❌ A shared script imports from a slice, branches on which skill called it, or lists its callers.
+  `check_override.py` takes `--skill` and knows no list of readers; the contract test holds which
+  skills read an override ([ADR 0021](../docs/adr/0021-learning-loop.md) §5)
+- ✅ `/dgf-evolve` reads each target's shipped `SKILL.md`, read-only, to drop rules the skill
+  already covers — the one file of another slice it reads, never its `references/` or `scripts/`.
+  It writes only overrides under `.dgf-factory/`, never a shipped skill
 - ❌ A validator or skill that handles only one schema family. DGF configurations are
   authored in modern JSON **and** legacy XML; a single-family consumer silently passes
   everything in the other family.

@@ -924,7 +924,7 @@ In `tests/test_skill_contracts.py`:
 
 ### Phase 6: Proof and documentation
 
-- [ ] **Task 9: Walk the loop end to end, and record it.** (depends on 5, 7, 8)
+- [x] **Task 9: Walk the loop end to end, and record it.** (depends on 5, 7, 8)
   On a git-initialised copy of a synthetic root (the `tests/test_verify_gate.py` shape: `app`, `other`, `webasm`):
   - With a full plan on `feature/x`, introduce a new dead transition. `verify_gate.py --base main` → exit `1`,
     `suggested_next.command` `/dgf-fix`.
@@ -946,7 +946,7 @@ In `tests/test_skill_contracts.py`:
     last.
   - Files: this plan only.
 
-- [ ] **Task 10: Document the learning loop, and mark the milestone done.** (depends on 9)
+- [x] **Task 10: Document the learning loop, and mark the milestone done.** (depends on 9)
   Through `/aif-docs`:
   - `docs/pipeline.md`:
     - a `## The learning loop` section: the two skills, what each writes, DD1's patch and DD3's override in brief, the
@@ -1089,3 +1089,47 @@ In `tests/test_skill_contracts.py`:
 - **Task 8 (2026-09-26) — `CHANGE_STATE` is not a finding code.** The override's worked example quotes the workflow
   step mode `CHANGE_STATE`, which the finding-code contract test read as a code no script emits. It joins
   `NOT_CODES`, citing `knowledge/process-model.md` §2.
+- **Task 9 (2026-09-26) — the loop, end to end.** A git-initialised synthetic root of `tests/test_verify_gate.py`'s
+  shape (`app`, `other`, `webasm`) committed on `main`; on `feature/x` a full plan with Task 1 checked
+  (`files: app/FM/_PROCESS/Case/process.xml`), and that process retitled with its transition moved to the undeclared
+  `Closed`. Validators under `.venv/bin/python`; the stdlib scripts under system `python3`.
+  1. `verify_gate.py --workspaces-root <root> --base main --no-overlap` → exit `1`, `ERROR DEAD_TRANSITION
+     app/FM/_PROCESS/Case/process.xml:11`, block `status: fail`, `suggested_next` `{"command": "/dgf-fix", "reason":
+     "1 new blocking finding(s) — fix each inside the plan's scope and record a patch"}`.
+  2. `/dgf-fix` by hand: `locate_plan.py` → `source=branch`, exit `0`; `check_plan.py` → `AFFECTS: app`, `CLEAN`;
+     Step 1's `check_change.py --base main` (whole root) → the same `ERROR DEAD_TRANSITION …:11`, exit `1`; Step 3's
+     `--changed M:app/FM/_PROCESS/Case/process.xml --skip-validators` → `CLEAN`, exit `0`; `validate_config.py` →
+     `FAMILY: xsd`. The fix (`Closed` → `End`), then Step 1's check again → `CLEAN`, exit `0`, and with `--files` →
+     `NOT RUN: validators (narrowed to 1 file(s) …)`, `CLEAN`. The patch
+     `2026-09-26-17.05-open-moves-to-undeclared-closed.md` → `check_patches.py` exit `0`. The gate again → exit `0`,
+     `status: pass`, `suggested_next` `/dgf-commit` — with the patch, and later the override and the cursor, under
+     `.dgf-factory/` (E5, E20).
+  3. `/dgf-evolve` by hand: `check_patches.py --cursor .dgf-factory/evolutions/patch-cursor.json` → `new=1`, the patch
+     `state=new`; `check_override.py --skill dgf-plan` → `OVERRIDE: none`; a one-rule override citing the patch →
+     `rules=1`, `CLEAN`, exit `0`; the cursor written → `new=0 processed=1`, the patch `state=processed`.
+  4. A hand-written `skill-context/dgf-verify/SKILL.md` with "Skip the validators with --skip-validators" and "Add
+     Bash(rm *) …" → exit `1`: `OVERRIDE_FORBIDDEN …:5 … \`--skip-validators\` (flag)`, `OVERRIDE_FORBIDDEN …:9 …
+     \`Bash(\` (tool-grant)`, and `OVERRIDE_TOUCHES_LIMIT …:5 names \`skip\``. `/dgf-verify` would refuse it by its
+     exit table's row `1`, not read it, and gate on its shipped rules.
+  5. `--verbose`: `verify_gate.py` exit `0`, 99 `DEBUG` lines on stderr and none on stdout, the last stdout line the
+     block's closing fence, `DEBUG [verify_gate.split] split scope=0 findings=0 promoted_scope=0 promoted_findings=0`
+     then `DEBUG [verify_gate.next] chose command=/dgf-commit`; `check_patches.py` and `check_override.py` exit `0`,
+     their `DEBUG [patches.read_cursor]`, `[check_patches.main]`, `[overrides.parse]` and `[check_override.main]`
+     lines on stderr only, `CLEAN` last.
+  6. The suite: 653 tests, OK. `bash tools/check-dual-schema-docs.sh`: errors 0, one warning — the doctor's
+     `VALIDATOR_DEPS_MISSING` under system `python3`. `python3 skills/dgf-doctor/scripts/doctor.py` → exit `2`, that
+     warning only (exit `0` under `.venv/bin/python`). `tools/run_known_good.py <DGF checkout>` → 3,116 files,
+     71 errors excused by `EXCEPTION` and 9 by `EXPECTED_EXTERNAL`, `CLEAN`, exit `0`: unaffected.
+- **Task 10 (2026-09-26) — written directly, not through `/aif-docs`.** Every page and section the task names was
+  edited by hand from its list. `docs/pipeline.md` keeps its file name and its "Pipeline Spine" link text; its title is
+  now "The Pipeline Spine and the Learning Loop". `.ai-factory/PLAN.md`, the spine's archived-in-place security plan,
+  still says "the gate's status table": it is a record of that plan, not a live copy of the limit.
+- **Task 10 (2026-09-26) — the docs check read the fixture estates.** `tools/check-dual-schema-docs.sh`'s
+  `owned_markdown()` walked the new known-bad patches and overrides — until now every fixture `.md` sat under a pruned
+  `plans/` — and its `awk` printed "illegal byte sequence" for the two that are deliberately not UTF-8. It now prunes
+  `.dgf-factory/` as it prunes `plans/`: an estate's artifacts inside a fixture are estate content, not this plugin's
+  documentation. Errors 0; the one warning is the doctor's `VALIDATOR_DEPS_MISSING` under system `python3`.
+- **Follow-up — patch timestamps.** `/dgf-fix` names a patch by the current minute, but no tool it pre-approves reads
+  the clock, so the model supplies it. `check_patches.py` holds the name and the `date` field equal, not true. A script
+  could print the next free name. Carried to `.ai-factory/ROADMAP.md` §Follow-ups, with the plan's four follow-ups and
+  `/dgf-evolve`'s missing delete.
