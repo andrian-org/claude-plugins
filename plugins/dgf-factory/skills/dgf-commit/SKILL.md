@@ -4,7 +4,7 @@ description: Commit staged DGF changes with a conventional commit message scoped
 argument-hint: "[scope or context]"
 allowed-tools: Read Glob Grep Bash(git *) Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
 disable-model-invocation: false
-version: 0.1.2
+version: 0.2.0
 ---
 
 # DGF Commit — Conventional Commits for a DGF Estate
@@ -26,15 +26,28 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
 ```
 
 - Exit `0` → the `ROOT:` line is `<root>`. Read `<root>/.dgf-factory/config.yaml` for
-  `paths.*`, `git.base_branch`, `git.skip_push_after_commit` and `language.ui`, and
-  `<root>/.dgf-factory/skill-context/dgf-commit/SKILL.md` if it exists — its rules apply to the
-  commit message too. An override may add rules and tighten checks. It never relaxes a STOP, an
-  exit-code row, the gate's status table, a Critical Rule or Artifact Ownership, and never makes
-  this skill install anything, skip a script, or write outside its own artifacts. Name the
-  override in your report, and quote any rule in it you did not apply because it would relax one
-  of these.
+  `paths.*`, `git.base_branch`, `git.skip_push_after_commit` and `language.ui`.
 - Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name
   the root).
+
+An applied override's rules apply to the commit message too.
+Check this skill's override before reading it:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-commit --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+```
+
+| Exit | Action |
+|---|---|
+| `0` | `OVERRIDE: none` → there is no override. Otherwise read the file it names, and apply it. |
+| `1` | **Refused.** Do not read or apply it. Name it in your report with each `ERROR` line; the shipped rules alone apply. |
+| `2` | Read and apply it. Judge each rule an `OVERRIDE_TOUCHES_LIMIT` line names against the limit below. |
+| `3` | **STOP** and relay it: the call is wrong. |
+
+An override may add rules and tighten checks. It never relaxes a STOP, an exit-code row, the status a gate script
+computes, a Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script, or write
+outside its own artifacts. Name the override in your report, and quote any rule in it you did not apply because it
+would relax one of these.
 
 ### Step 1: Analyse the staged changes
 

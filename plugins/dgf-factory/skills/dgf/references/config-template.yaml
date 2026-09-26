@@ -12,6 +12,7 @@ paths:
   plans: .dgf-factory/plans/          # full plans and ultra bundles
   patches: .dgf-factory/patches/      # read if present
   skill_context: .dgf-factory/skill-context/
+  evolutions: .dgf-factory/evolutions/  # /dgf-evolve's logs and patch cursor
 git:
   enabled: {{GIT_ENABLED}}
   base_branch: {{BASE_BRANCH}}

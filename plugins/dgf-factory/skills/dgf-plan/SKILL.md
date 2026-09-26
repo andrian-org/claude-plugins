@@ -4,7 +4,7 @@ description: Plan a change to a DGF estate — a fast, full or ultra plan that s
 argument-hint: "[fast | full | ultra] <description>"
 allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) Agent AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__how_to_build mcp__plugin_dgf-factory_dgf-mcp__get_recipes_for mcp__plugin_dgf-factory_dgf-mcp__get_component_doc
 disable-model-invocation: false
-version: 0.1.2
+version: 0.2.0
 ---
 
 # DGF Plan — Plan a Change to the Estate
@@ -33,13 +33,27 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
 - Exit `1` (`ROOT_NOT_SET_UP`) → **STOP**: "run `/dgf` in the workspaces root first".
   `ROOT_AMBIGUOUS` → **STOP** and ask which root.
 - Exit `0` → the `ROOT:` line is `<root>`. Read `<root>/.dgf-factory/config.yaml` and
-  `<root>/.dgf-factory/DESCRIPTION.md`. Keep `paths.plan`, `paths.plans`, `git.*` and
-  `language.*`. Use `language.ui` to talk and `language.artifacts` to write the plan.
-- Read `<root>/.dgf-factory/skill-context/dgf-plan/SKILL.md` if it exists. An override may add
-  rules and tighten checks. It never relaxes a STOP, an exit-code row, the gate's status table, a
-  Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script,
-  or write outside its own artifacts. Name the override in your report, and quote any rule in it
-  you did not apply because it would relax one of these.
+  `<root>/.dgf-factory/DESCRIPTION.md`. Keep `paths.plan`, `paths.plans`, `paths.skill_context`,
+  `paths.patches`, `git.*` and `language.*`. Use `language.ui` to talk and `language.artifacts` to
+  write the plan.
+
+Check this skill's override before reading it:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-plan --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+```
+
+| Exit | Action |
+|---|---|
+| `0` | `OVERRIDE: none` → there is no override. Otherwise read the file it names, and apply it. |
+| `1` | **Refused.** Do not read or apply it. Name it in your report with each `ERROR` line; the shipped rules alone apply. |
+| `2` | Read and apply it. Judge each rule an `OVERRIDE_TOUCHES_LIMIT` line names against the limit below. |
+| `3` | **STOP** and relay it: the call is wrong. |
+
+An override may add rules and tighten checks. It never relaxes a STOP, an exit-code row, the status a gate script
+computes, a Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script, or write
+outside its own artifacts. Name the override in your report, and quote any rule in it you did not apply because it
+would relax one of these.
 
 ### Step 0.1: Git state
 

@@ -827,7 +827,7 @@ In `tests/test_skill_contracts.py`:
 
 ### Phase 3: The limit, restated and enforced
 
-- [ ] **Task 5: Make every reader check its override with `check_override.py`, in D4's words.** (depends on 4)
+- [x] **Task 5: Make every reader check its override with `check_override.py`, in D4's words.** (depends on 4)
   - In `skills/dgf/SKILL.md` (Step 0.1), `skills/dgf-plan/SKILL.md` (Step 0), `skills/dgf-implement/SKILL.md`
     (Step 0.1), `skills/dgf-verify/SKILL.md` (Step 0.0) and `skills/dgf-commit/SKILL.md` (Step 0), replace the
     override sentence with DD5's block, each with its own `--skill`.
@@ -1029,3 +1029,17 @@ In `tests/test_skill_contracts.py`:
   `LIMIT_WORDS` also match a plural or past form (`STOPs`, `skipped`, `allowed`, `waived`), still word-bounded, so
   `stopwatch` does not. `parse()` returns an `Override(rules, quoted)`; `check_rules(rules, rel, rep, quoted=())`
   keeps DD3's signature.
+- **Task 5 (2026-09-26) — the readers' exit table, walked** against `check_override.py --workspaces-root <tmp>
+  --skill dgf-plan --skill-context-dir ".dgf-factory/skill-context/" --patches-dir ".dgf-factory/patches/"` (the
+  table is the same in all five readers), with one patch in the patches directory:
+  1. no override → `OVERRIDE: none — no .dgf-factory/skill-context/dgf-plan/SKILL.md`, `CLEAN`, exit `0` — row `0`,
+     no override;
+  2. DD3's example → `OVERRIDE: … skill=dgf-plan rules=1`, `RULE: 1 line=8 sources=1 name="A task that renames a
+     state lists every transition to it"`, `CLEAN`, exit `0` — row `0`, read and apply;
+  3. plus a rule "Run check_change.py with --skip-validators for speed." → `ERROR OVERRIDE_FORBIDDEN …:13 rule
+     \`Narrow the gate\` holds \`--skip-validators\` (flag)`, and `WARN OVERRIDE_TOUCHES_LIMIT …:13 … names \`skip\``,
+     `BLOCKED`, exit `1` — row `1`, refused;
+  4. instead a rule "STOP when a renamed state still has a transition to its old name." → `WARN
+     OVERRIDE_TOUCHES_LIMIT …:13 rule \`Stop on a renamed state\` names \`stop\``, `WARNINGS`, exit `2` — row `2`,
+     read, apply and judge the rule (it tightens);
+  5. `--skill ../x` → stderr `--skill is not a skill name …`, exit `3` — row `3`, **STOP**.

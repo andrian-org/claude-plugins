@@ -4,7 +4,7 @@ description: Set up dgf-factory for a DGF workspaces root — inventory the work
 argument-hint: "[workspaces-root]"
 allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_release_notes
 disable-model-invocation: false
-version: 0.1.1
+version: 0.2.0
 ---
 
 # DGF — Set Up a Workspaces Root
@@ -46,11 +46,27 @@ Capture the exit code before any pipe.
 
 ### Step 0.1: Load overrides
 
-Read `<root>/.dgf-factory/skill-context/dgf/SKILL.md` if it exists. Its rules apply to everything
-this skill writes. An override may add rules and tighten checks. It never relaxes a STOP, an
-exit-code row, the gate's status table, a Critical Rule or Artifact Ownership, and never makes
-this skill install anything, skip a script, or write outside its own artifacts. Name the override
-in your report, and quote any rule in it you did not apply because it would relax one of these.
+On a re-run, pass the config's `paths.skill_context` and `paths.patches`. On a first run there is
+no config yet: pass the template's values, `.dgf-factory/skill-context/` and
+`.dgf-factory/patches/`. An applied override's rules apply to everything this skill writes.
+
+Check this skill's override before reading it:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+```
+
+| Exit | Action |
+|---|---|
+| `0` | `OVERRIDE: none` → there is no override. Otherwise read the file it names, and apply it. |
+| `1` | **Refused.** Do not read or apply it. Name it in your report with each `ERROR` line; the shipped rules alone apply. |
+| `2` | Read and apply it. Judge each rule an `OVERRIDE_TOUCHES_LIMIT` line names against the limit below. |
+| `3` | **STOP** and relay it: the call is wrong. |
+
+An override may add rules and tighten checks. It never relaxes a STOP, an exit-code row, the status a gate script
+computes, a Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script, or write
+outside its own artifacts. Name the override in your report, and quote any rule in it you did not apply because it
+would relax one of these.
 
 ### Step 1: Inventory
 
