@@ -100,8 +100,8 @@ message — text that can come from a workspace or another branch — print esca
 `ROUTE: json|xml <where> — <reason>` line in place of 2–4.
 
 The pipeline spine's scripts read plans and roots rather than configuration files, so they
-print their own lines in place of 2. `check_plan.py` and `check_change.py` then print the same
-`CHECKS RUN:` and `NOT RUN:` lines; all four print findings and a verdict:
+print their own lines in place of 2. `check_plan.py`, `check_change.py` and `verify_gate.py` then
+print the same `CHECKS RUN:` and `NOT RUN:` lines; all five print findings and a verdict:
 
 | Script | Lines in place of `FAMILY:` |
 |---|---|
@@ -109,6 +109,7 @@ print their own lines in place of 2. `check_plan.py` and `check_change.py` then 
 | `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
 | `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file |
+| `verify_gate.py` | `ROOT:`; `check_plan.py`'s lines; `check_change.py`'s lines after its `PLAN:`; one `CODE TASK: <N> reason="<reason>"` per `kind: code` task. Its summary adds `Shown: 20 of <n> PRE_EXISTING — …` when it cuts them, and `STATUS: pass\|warn\|fail`; then the verdict, a blank line, and the gate block |
 
 `check_change.py` compares the validators' findings with the merge-base
 ([ADR 0018](adr/0018-change-relative-gates.md)). A finding the branch introduced keeps its own
@@ -117,6 +118,11 @@ code and severity. One that was already there prints as `INFO PRE_EXISTING <file
 affects the exit. Its summary adds `new: <e> error(s), <w> warning(s); pre-existing: <p>;
 fixed: <f>`. A skill reports new findings verbatim, counts pre-existing ones, and never fixes
 them unasked.
+
+Only a whole-root run records the check `validators` as run. A `check_change.py --files` run —
+`/dgf-implement`'s per-task pre-check — prints `NOT RUN: validators (narrowed to <n> file(s) by
+--files; …)`, so a narrowed run can never read as a gate pass
+([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0020](adr/0020-gate-block-contract.md) §4).
 
 Each finding code has one fixed severity, and the exit code is the worst across all files,
 with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and
@@ -127,8 +133,10 @@ gate block can carry them.
 
 ## Gate blocks
 
-Quality skills keep their human-readable Markdown report, then append exactly one fenced
-block as the last thing in the output:
+Quality skills keep their human-readable Markdown report, then end with exactly one fenced
+`dgf-gate-result` block. **A script builds it**, through the one builder
+`scripts/lib/gate_result.py` ([ADR 0020](adr/0020-gate-block-contract.md)); the skill relays the
+script's output verbatim and writes nothing after it. A prompt never writes or edits a block.
 
 ````markdown
 ```dgf-gate-result
@@ -138,25 +146,48 @@ block as the last thing in the output:
   "status": "fail",
   "blocking": true,
   "blockers": [
-    { "id": "verify-task-1", "severity": "error", "file": "src/example.cs",
-      "summary": "Required behavior is missing." }
+    { "id": "DEAD_TRANSITION", "severity": "error", "file": "zims/FM/_PROCESS/Apply/process.xml",
+      "line": 41, "schema_family": "xsd", "summary": "`Review` moves to `Archive`, which is neither a declared state nor `End`" }
   ],
-  "affected_files": ["src/example.cs"],
+  "warnings": [
+    { "id": "not-run-baseline", "severity": "warning", "file": ".dgf-factory/plans/feature-x.md",
+      "line": null, "schema_family": null, "summary": "baseline did not run: --changed gives no base tree; every finding counts as new" }
+  ],
+  "affected_files": [".dgf-factory/plans/feature-x.md", "zims/FM/_PROCESS/Apply/process.xml"],
+  "checks_run": ["plan-header", "plan-tasks", "…", "validators", "xsd-structure"],
+  "schema_family": { "json": 212, "xsd": 364 },
   "affected_components": [],
-  "suggested_next": { "command": "/dgf-fix", "reason": "Blocking gaps remain." }
+  "affected_processes": [ { "workspace": "zims", "name": "Apply", "reference": "Apply" } ],
+  "suggested_next": { "command": "/dgf-implement", "reason": "1 new blocking finding(s)" }
 }
 ```
 ````
 
 Rules:
 
-- `schema_version: 1`, kept compatible with the AI Factory `aif-gate-result` contract
-- The example above is the full block milestone 10 builds. `/dgf-verify` emits only AI Factory's
-  base fields until then; `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md` lists what is
-  not yet emitted, and its next-command allowlist
-- **Last block wins.** Callers parse only the final such block, never the prose above it
-- `status` is one of `pass` | `warn` | `fail`
-- `suggested_next.command` comes from a fixed allowlist, not free text
+- `schema_version: 1`, kept compatible with the AI Factory `aif-gate-result` contract.
+- **The status is computed, from two lists.** `blockers` holds only what blocks; `warnings` holds
+  every non-blocking warning and every required check that did not run, as `not-run-<check>`.
+  `status` is `fail` with any blocker, else `warn` with any warning, else `pass`, and `blocking`
+  is `true` exactly on `fail`. The builder takes no status; it refuses a contradictory block.
+- An entry is `{id, severity, file, line, schema_family, summary}`, its summary cut to 240
+  characters. `affected_files` is every file an entry names, plus the plan for `verify`.
+- **Never claim a check that did not run.** `checks_run` lists what ran; each gate's required
+  checks are in `checks_run` or have a `not-run-<check>` entry, never both.
+- **Absent means not computed; `[]` means none.** A field the gate did not compute is left out:
+  the doctor reads no estate, so its block has no `schema_family`, `affected_components` or
+  `affected_processes`.
+- **Each gate has its own allowlist.** `verify`: `/dgf-plan`, `/dgf-implement`, `/dgf-commit`
+  or `null`. `doctor`: `null` only — a broken install is fixed by hand. `/dgf-fix` joins them when
+  it is built.
+- **The doctor's block** is gate `doctor`: errors in `blockers`, warnings and each section that
+  could not run (`not-run-<section>`) in `warnings`, and `checks_run` naming its six sections.
+- **Last block wins.** Callers parse only the final such block, never the prose above it. **A
+  missing block is a gate that did not run** — a script prints none for a usage error, or when its
+  builder cannot load.
+
+The verify gate's full contract — the entry table, the required checks, the `suggested_next`
+order — is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
 
 ## Determinism before prompting
 

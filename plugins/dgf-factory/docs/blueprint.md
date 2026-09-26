@@ -346,6 +346,8 @@ Keep `schema_version: 1` and the last-block-wins parsing rule so anything built 
 
 *(added 2026-09-19)* `schema_family` says which family produced a finding. Without it a blocker from an XSD validation is indistinguishable from a JSON one, and the two have different fixes.
 
+*(2026-09-25)* As built, every block comes from one builder, `scripts/lib/gate_result.py`, which computes `status` and `blocking` from the entries rather than taking them as input. A `warnings` array is added beside `blockers`, which now holds only what blocks; `checks_run` lists what ran, and a required check that did not run is a `not-run-<check>` warning. `schema_family` is `json`, `xsd` or `null` on each entry — `"both"` is dropped, since a finding is in one file — and is counted per family at block level. The doctor's gate is `doctor`, and its only next command is `null`. See [ADR 0020](adr/0020-gate-block-contract.md).
+
 ## Build order
 
 1. **Write the DGF knowledge references first.** Component catalogue, process semantics, binding rules, naming conventions, common mistakes. Everything else depends on these, and no amount of pipeline quality compensates for wrong framework facts.

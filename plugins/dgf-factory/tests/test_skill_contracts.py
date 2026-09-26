@@ -107,7 +107,8 @@ class ScriptFlags(unittest.TestCase):
 
     def test_the_skills_call_the_spine_scripts(self):
         called = {Path(script).name for script in self.calls()}
-        for name in ("locate_plan.py", "check_plan.py", "check_change.py", "inventory_root.py", "route_means.py"):
+        for name in ("locate_plan.py", "check_plan.py", "check_change.py", "inventory_root.py", "route_means.py",
+                     "verify_gate.py"):
             self.assertIn(name, called)
 
 

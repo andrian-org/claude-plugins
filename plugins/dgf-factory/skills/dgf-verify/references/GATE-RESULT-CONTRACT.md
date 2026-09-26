@@ -3,8 +3,10 @@
 `/dgf-verify` ends its report with exactly one fenced `dgf-gate-result` JSON block, and writes
 nothing after it. A caller parses the **last** such block and nothing else — never the prose.
 
-This is the milestone-9 block: AI Factory's base fields, in AI Factory's shape, so it stays
-compatible with the `aif-gate-result` contract.
+The block is computed by `scripts/verify_gate.py` and built by `scripts/lib/gate_result.py`, the
+one builder every gate uses (ADR 0020). Nobody writes it by hand, and the model never edits it.
+It keeps AI Factory's base fields and `schema_version: 1`, so anything built on the
+`aif-gate-result` contract can still read it.
 
 ## The block
 
@@ -16,12 +18,24 @@ compatible with the `aif-gate-result` contract.
   "blocking": true,
   "blockers": [
     {"id": "task-3", "severity": "error", "file": ".dgf-factory/plans/feature-zims-inspection-fee.md",
-     "summary": "Task 3 is not checked"},
-    {"id": "DEAD_TRANSITION", "severity": "error", "file": "zims/FM/_PROCESS/Apply/process.xml",
-     "summary": "`Review` moves to `Archive`, which is neither a declared state nor `End`"}
+     "line": 58, "schema_family": null, "summary": "Task 3 is not checked: Hide the fee panel until payment is confirmed"},
+    {"id": "DEAD_TRANSITION", "severity": "error", "file": "zims/FM/_PROCESS/Apply/process.xml", "line": 41,
+     "schema_family": "xsd", "summary": "`Review` moves to `Archive`, which is neither a declared state nor `End`"}
+  ],
+  "warnings": [
+    {"id": "not-run-frontend-tests", "severity": "warning", "file": ".dgf-factory/plans/feature-zims-inspection-fee.md",
+     "line": null, "schema_family": null, "summary": "frontend-tests did not run: the project's own CI runs its frontend tests, never the gate — ADR 0010 §2"}
   ],
   "affected_files": [".dgf-factory/plans/feature-zims-inspection-fee.md", "zims/FM/_PROCESS/Apply/process.xml"],
-  "suggested_next": {"command": "/dgf-implement", "reason": "one task remains and the change adds a blocking finding"}
+  "checks_run": ["plan-header", "plan-tasks", "plan-commits", "plan-files", "plan-routes", "plan-overlap",
+                 "change-scope", "change-means", "change-planned", "validators", "baseline", "xsd-structure"],
+  "schema_family": {"json": 212, "xsd": 364},
+  "affected_components": [
+    {"workspace": "zims", "artifact": "form", "name": "Inspection/Apply",
+     "file": "zims/FM/_DATA/Inspection/_forms/Apply/_form.xml", "change": "M"}
+  ],
+  "affected_processes": [{"workspace": "zims", "name": "Apply", "reference": "Apply"}],
+  "suggested_next": {"command": "/dgf-implement", "reason": "1 task(s) unchecked; 1 new blocking finding(s)"}
 }
 ```
 
@@ -29,71 +43,93 @@ compatible with the `aif-gate-result` contract.
 |---|---|
 | `schema_version` | `1` |
 | `gate` | `"verify"` |
-| `status` | `pass`, `warn` or `fail` — computed from the table below, never judged |
-| `blocking` | `true` exactly when `status` is `fail` — a `fail` stops a commit, a merge or a hand-off; `false` for `pass` and `warn`, as in AI Factory's contract |
-| `blockers` | the findings that make the status what it is: `{id, severity, file, summary}` |
-| `affected_files` | every file the gate cites — blockers' files, and the plan — root-relative, sorted, no duplicates |
+| `status` | `fail` if `blockers` is not empty, else `warn` if `warnings` is not empty, else `pass` — computed, never judged |
+| `blocking` | `true` exactly when `status` is `fail`; a `fail` stops a commit, a merge or a hand-off |
+| `blockers` | only what blocks: entries, below |
+| `warnings` | every non-blocking warning, and every required check that did not run |
+| `affected_files` | every file an entry names, plus the plan — root-relative, sorted, no duplicates |
+| `checks_run` | every check that ran, in order, across all the scripts |
+| `schema_family` | `{"json": <n>, "xsd": <n>}`, the files the validators read per resolved family; `"unresolved": <n>` only when there are any |
+| `affected_components` | the configuration the change touched outside process folders, in both families: `{workspace, artifact, name, file, change}` |
+| `affected_processes` | each process whose `<ws>/FM/_PROCESS/<name>/` folder holds a changed file: `{workspace, name, reference}`; a `webasm` process's reference is `BASE:<name>` |
 | `suggested_next` | `{command, reason}`, `command` from the allowlist below |
 
 The block is JSON only: no comments, no trailing commas, no prose inside the fence.
 
-## Status — computed from the scripts' exits
+## Entries
 
-| Input | Status |
-|---|---|
-| any script exit `3`, or a required check not run because a script could not run | `fail` |
-| any exit `1`: a new blocking finding, a plan defect, an undeclared workspace, an unchecked task | `fail` |
-| any exit `2`; a required check reported `NOT RUN`; or a check that cannot run by design, such as `frontend-tests` for a plan with `kind: code` tasks (ADR 0010 §2) | `warn` |
-| otherwise | `pass` |
+An entry is `{id, severity, file, line, schema_family, summary}`. `file` is root-relative, `line` an
+integer or `null`, and `summary` the finding's message, cut to 240 characters with `…`.
+`schema_family` is `"json"` or `"xsd"` for a validator finding — the family of its file — and
+`null` for any other.
 
-The worst row wins. **Strict mode** (`--strict`, or `workflow.verify_mode: strict`): a **new**
-warning is `fail`. A `PRE_EXISTING` or `FIXED` finding never is, in any mode.
+| Finding | List | `id` | `severity` | `file` | `schema_family` |
+|---|---|---|---|---|---|
+| `GATE_TASK_UNCHECKED` | `blockers` | `task-<N>` | `error` | the plan | `null` |
+| `GATE_STRICT_WARNING` | `blockers` | the promoted finding's code | `warning` | its file | its file's family |
+| `GATE_CHECK_NOT_RUN` | `warnings` | `not-run-<check>` | `warning` | the plan | `null` |
+| any other `ERROR` line | `blockers` | its code | `error` | its file — the plan, for a plan finding | the file's family for a validator finding, else `null` |
+| any other `WARN` line, not promoted | `warnings` | its code | `warning` | its file | as above |
+| `INFO` — `PRE_EXISTING`, `FIXED`, `PLAN_OVERLAP_UNREADABLE`, … | never | | | | |
 
-## Blockers
-
-| What | `id` | `severity` | `file` |
-|---|---|---|---|
-| an unchecked task | `task-<N>` | `error` | the plan |
-| an `ERROR` line from `check_plan.py` or `check_change.py` — a new finding | its code | `error` | the finding's file |
-| a script that exited `3` | `<script>-exit-3` | `error` | the plan |
-| a required check reported `NOT RUN` | `not-run-<check>` | `warning` | the plan |
-| strict mode only: a new `WARN` line | its code | `warning` | the finding's file |
-
-`summary` is the finding's message, shortened to one sentence where it runs long. Warnings that
-do not block stay in the prose report, not in `blockers`. `INFO` lines — `PRE_EXISTING`,
-`FIXED`, `PLAN_OVERLAP_UNREADABLE` — are never blockers.
+A promoted warning appears once, in `blockers`. When the gate could not run, the finding that
+stopped it is a blocker under its own code — `DEPENDENCY_MISSING`, `KNOWLEDGE_TABLE`,
+`PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` — and the script exits `3`.
 
 ## Required checks
 
-The gate never reads as having passed a check that did not run. These must have run:
+The gate never reads as having passed a check that did not run. These must run:
 
 | Check | From |
 |---|---|
-| `plan-header`, `plan-tasks`, `plan-files` | `check_plan.py` |
-| `change-scope`, `change-means` | `check_change.py` — both need git and a merge-base |
+| `plan-header`, `plan-tasks`, `plan-files`, `plan-routes`, `plan-commits` | `check_plan.py` |
+| `change-scope`, `change-means`, `change-planned` | `check_change.py` — they need git and a merge-base, or `--changed` |
 | `baseline` | `check_change.py` — needs git and a merge-base; without it every finding counts as new |
-| `validators` | `check_change.py` — the whole-root validator run; `NOT RUN` only if skipped |
+| `validators` | `check_change.py` — **the whole-root validator run** |
+| `frontend-tests` | required when any task is `kind: code`; the gate never runs it (ADR 0010 §2) |
 
-Each one reported as `NOT RUN` becomes a `not-run-<check>` blocker of severity `warning`, and the
-report keeps its `NOT RUN` line and reason. A validator's own per-file `NOT RUN` lines — a check
-that does not apply to that kind of file, such as `json-format (annotation-only, ADR 0015)` —
-are kept in the prose and are not blockers.
+`plan-overlap` is not required. Each required check that did not run is a `not-run-<check>`
+entry in `warnings`, carrying the script's reason, and the report keeps its `NOT RUN` line. A
+validator's own per-file `NOT RUN` lines — a check that does not apply to that kind of file — stay
+in the prose.
+
+**Narrowing.** `check_change.py --files` records `validators` as `NOT RUN (narrowed to N file(s) by
+--files …)`, so a narrowed run can never read as a pass. That is `/dgf-implement`'s per-task
+pre-check, never the gate.
+
+## Absent versus empty
+
+A field the gate did not compute is **left out**; `[]` means "computed, and none".
+
+- `schema_family` is present when the validators ran.
+- `affected_components` and `affected_processes` are present when there is a changed set — `--base`
+  with git and a merge-base, or `--changed`. They are the change's own footprint, not its blast
+  radius: a changed shared workflow is listed, not the processes that call it.
+- A gate that stopped before any check — no root, no plan, an unconfirmed plan — has
+  `checks_run: []`.
+
+## Strict mode
+
+`--strict`, or `workflow.verify_mode: strict`: every `WARN` line `check_change.py` reports is
+promoted to a blocker, severity `warning`, through `GATE_STRICT_WARNING`. They are new by
+construction, since a pre-existing finding is `INFO`. `check_plan.py`'s warnings are never
+promoted, and neither are `PRE_EXISTING` or `FIXED`.
 
 ## `suggested_next.command`
 
+The first match wins:
+
 | Command | When |
 |---|---|
-| `/dgf-plan` | the plan itself is defective: `check_plan.py` exited `1` or reported `PLAN_UNREADABLE`, or there is no plan |
-| `/dgf-implement` | tasks remain unchecked, or the change has new blocking findings to fix |
+| `null` | the gate could not run: `DEPENDENCY_MISSING`, `KNOWLEDGE_TABLE`, `ROOT_NOT_SET_UP`, `ROOT_AMBIGUOUS`, `PLAN_AMBIGUOUS` or `GATE_PLAN_UNCONFIRMED`. The reason names the fix: the install command, `run /dgf`, or `pass --plan` |
+| `/dgf-plan` | there is no plan (`PLAN_NOT_FOUND`), or `check_plan.py` reported an error — including `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` and `PLAN_COMMITS_INVALID` |
+| `/dgf-implement` | a task is unchecked, the change has a new blocking finding, or strict mode promoted a warning |
 | `/dgf-commit` | `pass` or `warn` |
-| `null` | the gate could not run — a missing dependency or a usage error; the reason says what to do |
 
-## Not yet emitted
+## Exit codes
 
-Milestone 10 ("Gate Contract Wired") adds these fields and the `scripts/lib/gate_result.py` that
-builds the block. `/dgf-verify` does not emit them yet, and a caller must not expect them:
-
-- `schema_family` — which family each validated file resolved to;
-- `checks_run` — the check ids that ran, so a narrowed run is visible in the block itself;
-- `affected_components` — the components the change touches;
-- `affected_processes` — the processes the change touches.
+The script's exit agrees with the block: `0` `pass`, `1` `fail`, `2` `warn`, and `3` when a
+finding forces it — the gate could not run, or a validator could not read a file
+(`FAMILY_UNRESOLVED`, `SCHEMA_UNSELECTABLE`) — and then the status is `fail`. A usage error —
+a bad argument, or a plan outside the workspaces root — is exit `3` with **no** block: a caller
+reads a missing block as a gate that did not run.

@@ -29,6 +29,7 @@ person to read the code.
 | [0017](0017-plan-file-format.md) | The plan file: a frontmatter header, per-task kind, reason and files, and edit-only global scripts | accepted | 2026-09-25 | the plan format ADRs 0009 and 0010 deferred: flat YAML header, per-task `kind`/`reason`/`files`, file classes; `applibs*` are not workspaces; `kind: code` creates only `_form.js` and edits `js/`/`css/`; overlap sources; `locate_plan.py`, `check_plan.py`, `check_change.py` |
 | [0018](0018-change-relative-gates.md) | A gate blocks on what the branch introduced: findings are compared with the merge-base | accepted | 2026-09-25 | validators run at the working tree and the merge-base tree; a finding at both is `PRE_EXISTING` and never blocks; no baseline means every finding counts |
 | [0019](0019-declared-dgf-version.md) | The estate's DGF version is declared at setup and recorded in the pipeline config | accepted | 2026-09-25 | ADR 0013's follow-up: `/dgf` records `dgf.version` (or `unknown`, a warning) in `.dgf-factory/config.yaml`; the version gate reads only that key |
+| [0020](0020-gate-block-contract.md) | Every gate block is built by one library, its status computed from its entries, and it never claims a check it did not run | accepted | 2026-09-25 | the `dgf-gate-result` block: `scripts/lib/gate_result.py` builds every block; `blockers` and `warnings`, status computed from them, `blocking` only on `fail`; `checks_run` and required checks, a narrowed run never passes; `schema_family`; the change's footprint; the doctor's own gate; `scripts/verify_gate.py` |
 
 ## Numbering
 
@@ -139,5 +140,5 @@ ADR; and each index row's Status cell matches its ADR's frontmatter.
 - [Architecture Blueprint](../blueprint.md) — the open questions these ADRs close
 - [DGF Knowledge Sourcing](../dgf-knowledge.md) — the citation rule these ADRs inherit
 - [DGF Schemas](../dgf-schemas.md) — the two schema families ADRs 0013, 0014 and 0015 depend on
-- ADRs 0009, 0010, 0017 and 0018 together define the pipeline spine's plan and gate: scope,
-  means, the plan file, and change-relative findings
+- ADRs 0009, 0010, 0017, 0018 and 0020 together define the pipeline spine's plan and gate: scope,
+  means, the plan file, change-relative findings, and the gate block every gate emits

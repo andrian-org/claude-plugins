@@ -4,7 +4,7 @@ description: Execute a dgf-factory plan task by task — compose DGF configurati
 argument-hint: "[--list] [@plan] [task-id | status]"
 allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details mcp__plugin_dgf-factory_dgf-mcp__get_component_examples mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference
 disable-model-invocation: false
-version: 0.1.1
+version: 0.1.2
 ---
 
 # DGF Implement — Execute the Plan

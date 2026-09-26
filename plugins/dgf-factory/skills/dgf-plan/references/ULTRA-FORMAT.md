@@ -77,9 +77,7 @@ base_workspace_reason: "The fee DataSource is shared by every application's paym
 
 ## Commit Plan
 
-<only when there are 5 or more tasks, as in `PLAN-FORMAT.md` — for example:>
-- **Commit 1** (after tasks 1–3): `feat(zims): show the inspection fee`
-- **Commit 2** (after tasks 4–6): `feat(zims): hide the fee until payment is confirmed`
+<only when there are 5 or more tasks, in the shape of `PLAN-FORMAT.md` §The Commit Plan>
 
 ## Tasks
 
@@ -203,9 +201,9 @@ and that:
 - Every phase file is linked from `## Phase Index`; none is an orphan.
 - Every indexed task has exactly one `## Task N` section, and every section's task is indexed.
 - No phase file contains a task checkbox.
-
-No script checks the Commit Plan yet. Read it before saving: its groups must agree with the
-phase and task numbering.
+- The `## Commit Plan` in `index.md` has the shape of `PLAN-FORMAT.md` §The Commit Plan: groups
+  numbered in order, every task in exactly one (`PLAN_COMMITS_INVALID`, exit `1`), and one
+  present from five tasks (`PLAN_COMMITS_MISSING`, exit `2`).
 
 ## Consumer contract
 

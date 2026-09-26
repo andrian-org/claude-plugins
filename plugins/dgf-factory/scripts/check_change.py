@@ -6,7 +6,9 @@ The changed set is the working tree against the merge-base of HEAD and
 list. Paths under `.dgf-factory/` are the pipeline's own and are ignored.
 
   change-scope    every changed file's workspace is in `affects_workspaces`
-                  (ADR 0009); a file in no workspace is a warning
+                  (ADR 0009); a file in no workspace is a warning. A workspace
+                  the change deleted is still one: a deleted `<ws>/FM/…` path
+                  proves `<ws>` had an `FM/`
   change-means    nothing excluded changed — C#, TypeScript, SQL, assemblies,
                   anything under `applibs*` (ADR 0010 §3); every code file that
                   changed is listed by a `kind: code` task (ADR 0005 rule 2); no
@@ -20,9 +22,16 @@ list. Paths under `.dgf-factory/` are the pipeline's own and are ignored.
                   and their exit (ADR 0018)
 
 The validators run over the whole root, or over `--files` (root-relative).
-They need lxml and jsonschema; `--skip-validators` runs only the three change
-checks and needs neither. Without git or a merge-base the change checks are
-NOT RUN and every validator finding counts as new — stricter, never looser.
+Only a whole-root run records the check `validators` as run: a `--files` run
+prints `NOT RUN: validators (narrowed to N file(s) by --files …)`, because the
+gate's scope is the whole root (ADR 0004 §3, ADR 0020 §4). They need lxml and
+jsonschema; `--skip-validators` runs only the three change checks and needs
+neither. Without git or a merge-base the change checks are NOT RUN and every
+validator finding counts as new — stricter, never looser.
+
+run() is the same check as a function, for scripts/verify_gate.py: it returns
+an Outcome holding the reports, the changed set and each validated file's
+schema family.
 
 Usage:  check_change.py --workspaces-root R --plan P (--base REF | --changed S:PATH ...)
                         [--files PATH ...] [--skip-validators] [--verbose]
@@ -40,6 +49,7 @@ Exit codes (contract, see .ai-factory/rules/base.md):
 import os
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lib import cli, git, knowledge, plan, report, workspace
@@ -47,6 +57,20 @@ from lib import cli, git, knowledge, plan, report, workspace
 HEADER = "Change check"
 CHANGE_CHECKS = ("change-scope", "change-means", "change-planned")
 NEW_FILE_STATUSES = ("A", "R")
+SKIPPED = "--skip-validators"
+
+
+@dataclass
+class Outcome:
+    """What run() found: what main() renders, and what the verify gate needs besides."""
+    reports: list
+    lines: list
+    summary: list = field(default_factory=list)
+    changes: object = None                         # [git.Change] outside .dgf-factory/, or None: no changed set
+    known: set = field(default_factory=set)        # the workspaces, deleted ones included (known_workspaces)
+    families: dict = field(default_factory=dict)   # {root-relative file: "json" | "xsd" | None}, the head run
+    validated: int = 0                             # files the validators read
+    parsed: object = None                          # the Plan, or None when it is unreadable
 
 
 def build_parser():
@@ -75,13 +99,13 @@ def parse_changed(values):
     return changes
 
 
-def refuse_bad_inputs(args):
+def refuse(base, files, changed):
     """Exit 3 before any check runs on a path that leaves the root, or a `--base` git would read as an option."""
-    if args.base is not None and args.base.startswith("-"):
+    if base is not None and base.startswith("-"):
         report.debug("check_change.inputs", "refused", arg="--base", why="starts with -")
-        report.fail(report.EXIT_USAGE, f"--base takes a branch or commit, not `{args.base}`")
-    named = [("--files", rel) for rel in args.files or []]
-    named += [("--changed", value.partition(":")[2].strip()) for value in args.changed or []]
+        report.fail(report.EXIT_USAGE, f"--base takes a branch or commit, not `{base}`")
+    named = [("--files", rel) for rel in files or []]
+    named += [("--changed", value.partition(":")[2].strip()) for value in changed or []]
     for flag, rel in named:
         problem = plan.path_problem(rel[2:] if rel.startswith("./") else rel)
         if problem:
@@ -103,6 +127,25 @@ def changes_from_git(root, base, rep):
     for check_id in CHANGE_CHECKS:
         rep.skipped(check_id, reason)
     return None, None
+
+
+def known_workspaces(root, changes):
+    """The root's workspaces, plus each one a deleted path proves existed: `<ws>/FM/…` was there before.
+
+    A change that deletes a workspace's last file leaves no `<ws>/FM/` behind, so
+    the working tree alone would no longer call it a workspace, and the deletion
+    would read as a file in no workspace.
+    """
+    known = set(workspace.workspace_names(root))
+    for change in changes:
+        gone = [change.path] if change.status == "D" else []
+        gone += [change.old] if change.old else []
+        for rel in gone:
+            parts = plan.segments(rel)
+            if len(parts) >= 3 and parts[1] == workspace.FM and not plan.is_plugin_assembly_folder(parts[0]):
+                known.add(parts[0])
+    report.debug("check_change.known_workspaces", "known", workspaces=",".join(sorted(known)))
+    return known
 
 
 def own_changes(changes):
@@ -272,67 +315,109 @@ def settle(rep, merged, head, root, base_sha, files, reason):
     return len(new), len(pre_existing), len(fixed)
 
 
-def main(argv):
-    args = build_parser().parse_args(argv)
-    if args.verbose:
-        report.set_verbose()
-    refuse_bad_inputs(args)
-    root = Path(args.workspaces_root)
-    if not root.is_dir():
-        report.fail(report.EXIT_USAGE, f"--workspaces-root is not a directory: {args.workspaces_root}")
-    args.plan = str(plan.entrypoint(args.plan))
-    rep = report.Report(cli.display(args.plan))
-    try:
-        parsed = plan.parse(args.plan)
-    except plan.PlanFormatError as exc:
-        rep.add("PLAN_UNREADABLE", exc.message, line=exc.line)
-        return report.render([rep], header=HEADER, lines=[f"PLAN: {rep.file} unreadable"])
-    lines = [f"PLAN: {rep.file}"]
-    try:
-        reports, summary = check(parsed, root, args, rep, lines)
-    except knowledge.KnowledgeTableError as exc:
-        report.fail(report.EXIT_USAGE, f"ERROR KNOWLEDGE_TABLE {exc}")
-    return report.render(reports, header=HEADER, lines=lines, summary=summary)
+def families(runs):
+    """{root-relative file: family} over every report of the head run; a resolved family wins."""
+    found = {}
+    for reports in runs.values():
+        for rep in reports:
+            if found.get(rep.file) is None:
+                found[rep.file] = rep.family
+    return found
 
 
-def check(parsed, root, args, rep, lines):
-    """(the reports to render, extra summary lines); appends the BASE:/CHANGE: lines to `lines`."""
-    known = workspace.workspace_names(root)
-    if args.changed:
-        changes, base_sha = parse_changed(args.changed), None
-        lines.append("BASE: none (--changed)")
-    else:
-        changes, base_sha = changes_from_git(root, args.base, rep)
-        lines.append(f"BASE: {base_sha} ({args.base})" if base_sha else f"BASE: none ({args.base})")
-    if changes is not None:
-        changes = own_changes(changes)
-        lines.append(f"CHANGED: {len(changes)}")
-        lines += [change_line(change, known) for change in changes]
-        listed_ws = parsed.header.get("affects_workspaces")
-        declared = set(listed_ws) if isinstance(listed_ws, list) else set()  # a bare scalar declares nothing
-        listed, code_listed = _listed(parsed)
-        check_scope(changes, declared, known, rep)
-        check_means(changes, code_listed, rep)
-        check_planned(changes, parsed, root, listed, rep)
-        report.debug("check_change.check", "change checks", changed=len(changes), findings=len(rep.findings))
-    reports, summary = [rep], []
-    if args.skip_validators:
-        rep.skipped("validators", "--skip-validators")
-        rep.skipped("baseline", "--skip-validators")
-        return reports, summary
-    runs, head, validated = run_validators(root, args.files)
-    merged = validator_report(runs)
-    reason = "--changed gives no base tree" if args.changed else "no merge-base"
-    settle(rep, merged, head, Path(root).resolve(), base_sha, args.files, reason)
-    reports.append(merged)
+def summary_lines(merged, validated):
     new = [f for f in merged.findings if f.code not in ("PRE_EXISTING", "FIXED")]
     errors = sum(1 for f in new if f.label == "ERROR")
     warnings = sum(1 for f in new if f.label == "WARN")
     pre = sum(1 for f in merged.findings if f.code == "PRE_EXISTING")
     fixed = sum(1 for f in merged.findings if f.code == "FIXED")
-    summary += [f"Validated: {validated} file(s)",
-                f"new: {errors} error(s), {warnings} warning(s); pre-existing: {pre}; fixed: {fixed}"]
-    return reports, summary
+    return [f"Validated: {validated} file(s)",
+            f"new: {errors} error(s), {warnings} warning(s); pre-existing: {pre}; fixed: {fixed}"]
+
+
+def change_checks(parsed, root, base, changed, rep, outcome):
+    """The BASE:/CHANGE: lines and the three change checks; returns the merge-base sha, or None."""
+    outcome.known = set(workspace.workspace_names(root))
+    if changed:
+        changes, base_sha = parse_changed(changed), None
+        outcome.lines.append("BASE: none (--changed)")
+    else:
+        changes, base_sha = changes_from_git(root, base, rep)
+        outcome.lines.append(f"BASE: {base_sha} ({base})" if base_sha else f"BASE: none ({base})")
+    if changes is None:
+        return base_sha
+    changes = own_changes(changes)
+    outcome.changes = changes
+    known = outcome.known = known_workspaces(root, changes)
+    outcome.lines.append(f"CHANGED: {len(changes)}")
+    outcome.lines.extend(change_line(change, known) for change in changes)
+    listed_ws = parsed.header.get("affects_workspaces")
+    declared = set(listed_ws) if isinstance(listed_ws, list) else set()  # a bare scalar declares nothing
+    listed, code_listed = _listed(parsed)
+    check_scope(changes, declared, known, rep)
+    check_means(changes, code_listed, rep)
+    check_planned(changes, parsed, root, listed, rep)
+    report.debug("check_change.check", "change checks", changed=len(changes), findings=len(rep.findings))
+    return base_sha
+
+
+def validate(root, files, changed, base_sha, rep, outcome):
+    """The validators at the working tree, settled against the merge-base tree (ADR 0018)."""
+    runs, head, validated = run_validators(root, files)
+    if files is None:
+        rep.ran("validators")
+    else:
+        rep.skipped("validators", f"narrowed to {len(files)} file(s) by --files; the gate's scope is the whole "
+                                  f"root (ADR 0004 §3)")
+    merged = validator_report(runs)
+    reason = "--changed gives no base tree" if changed else "no merge-base"
+    settle(rep, merged, head, Path(root).resolve(), base_sha, files, reason)
+    outcome.reports.append(merged)
+    outcome.families = families(runs)
+    outcome.validated = validated
+    outcome.summary.extend(summary_lines(merged, validated))
+
+
+def run(root, plan_path, *, base=None, changed=None, files=None, skip_validators=False, skip_reason=SKIPPED):
+    """The whole check for one plan → Outcome. `changed` is S:PATH values; KnowledgeTableError propagates.
+
+    `skip_reason` is the reason recorded for `validators` and `baseline` when
+    `skip_validators` is set.
+    """
+    plan_path = str(plan.entrypoint(plan_path))
+    rep = report.Report(cli.display(plan_path))
+    try:
+        parsed = plan.parse(plan_path)
+    except plan.PlanFormatError as exc:
+        rep.add("PLAN_UNREADABLE", exc.message, line=exc.line)
+        return Outcome([rep], [f"PLAN: {rep.file} unreadable"])
+    outcome = Outcome([rep], [f"PLAN: {rep.file}"], parsed=parsed)
+    base_sha = change_checks(parsed, root, base, changed, rep, outcome)
+    if skip_validators:
+        rep.skipped("validators", skip_reason)
+        rep.skipped("baseline", skip_reason)
+    else:
+        validate(root, files, changed, base_sha, rep, outcome)
+    report.debug("check_change.run", "done", changed="-" if outcome.changes is None else len(outcome.changes),
+                 validated=outcome.validated, families=",".join(sorted({str(f) for f in outcome.families.values()})))
+    return outcome
+
+
+def main(argv):
+    args = build_parser().parse_args(argv)
+    if args.verbose:
+        report.set_verbose()
+    refuse(args.base, args.files, args.changed)
+    root = Path(args.workspaces_root)
+    if not root.is_dir():
+        report.fail(report.EXIT_USAGE, f"--workspaces-root is not a directory: {args.workspaces_root}")
+    try:
+        outcome = run(root, args.plan, base=args.base, changed=args.changed, files=args.files,
+                      skip_validators=args.skip_validators)
+    except knowledge.KnowledgeTableError as exc:
+        report.fail(report.EXIT_USAGE, f"ERROR KNOWLEDGE_TABLE {exc}")
+    return report.render(outcome.reports, header=HEADER, lines=outcome.lines, summary=outcome.summary)
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

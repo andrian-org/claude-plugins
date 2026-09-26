@@ -1,11 +1,14 @@
 """check_change.py: the scope, means and planned checks over a changed set (ADR 0017 §6)."""
 
+import contextlib
+import io
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 from tests import helpers
+import check_change
 
 GOOD_PROCESS = """<?xml version="1.0" encoding="utf-8"?>
 <Process title="Case" table="Cases" keyName="id" allowBack="false" allowHistory="true" assignTasks="false">
@@ -87,6 +90,21 @@ class Scope(Base):
     def test_an_undeclared_workspace(self):
         self.assertEqual(self.codes("M:other/FM/_PROCESS/Case/process.xml")[0], 1)
         self.assertIn("ERROR CHANGE_UNDECLARED_WORKSPACE other/FM/_PROCESS/Case/process.xml", self.out)
+
+    def test_deleting_an_undeclared_workspaces_last_file_is_still_undeclared(self):
+        shutil.rmtree(self.root / "other")
+        code, found = self.codes("D:other/FM/_PROCESS/Case/process.xml")
+        self.assertEqual(code, 1, self.out)
+        self.assertIn("CHANGE_UNDECLARED_WORKSPACE", found)
+        self.assertNotIn("CHANGE_OUTSIDE_WORKSPACE", found)
+        self.assertIn("CHANGE: D other/FM/_PROCESS/Case/process.xml class=config workspace=other", self.out)
+
+    def test_known_workspaces_counts_what_a_deletion_proves(self):
+        from lib import git
+        shutil.rmtree(self.root / "other")
+        changes = [git.Change("D", "other/FM/x.json"), git.Change("R", "app/FM/b.json", "gone/FM/a.json"),
+                   git.Change("D", "notes/readme.md"), git.Change("D", "applibs-x/FM/a.json")]
+        self.assertEqual(check_change.known_workspaces(self.root, changes), {"app", "webasm", "other", "gone"})
 
     def test_a_file_in_no_workspace(self):
         code, found = self.codes("M:README.md")
@@ -214,6 +232,31 @@ class Usage(Base):
                 self.assertIn("--base takes a branch or commit", err)
                 self.assertNotIn("BASE:", out)
 
+    def test_refuse_takes_plain_values(self):
+        for base, files, changed in (("-x", None, None), (None, ["app/FM/../../x.json"], None),
+                                     (None, None, ["M:../x.json"])):
+            with self.subTest(base=base, files=files, changed=changed):
+                with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit) as caught:
+                    check_change.refuse(base, files, changed)
+                self.assertEqual(caught.exception.code, 3)
+                self.assertIn("takes", err.getvalue())
+        self.assertIsNone(check_change.refuse("main", [PROCESS], [f"M:{PROCESS}"]))
+
+    def test_run_skipping_the_validators_records_the_reason_given(self):
+        outcome = check_change.run(self.root, self.plan, changed=[f"M:{PROCESS}"], skip_validators=True,
+                                   skip_reason="x")
+        self.assertEqual(outcome.reports[0].not_run, [("validators", "x"), ("baseline", "x")])
+        self.assertEqual([c.path for c in outcome.changes], [PROCESS])
+        self.assertEqual((outcome.families, outcome.validated), ({}, 0))
+        self.assertEqual([t.id for t in outcome.parsed.tasks], [1, 2])
+
+    def test_run_on_an_unreadable_plan_has_no_parsed_plan(self):
+        self.plan.write_text("# no frontmatter\n", encoding="utf-8")
+        outcome = check_change.run(self.root, self.plan, changed=[f"M:{PROCESS}"], skip_validators=True)
+        self.assertIsNone(outcome.parsed)
+        self.assertIsNone(outcome.changes)
+        self.assertEqual([f.code for f in outcome.reports[0].findings], ["PLAN_UNREADABLE"])
+
     def test_a_checked_task_path_that_leaves_the_root_is_left_to_check_plan(self):
         self.plan = self.write_plan(done=True, files="app/FM/../../outside.json")
         code, found = self.codes(f"M:{PROCESS}")
@@ -228,6 +271,21 @@ class Validators(Base):
         self.assertEqual((code, found), (0, []), self.out)
         self.assertIn("new: 0 error(s), 0 warning(s)", self.out)
 
+    def test_a_whole_root_run_records_the_validators_as_run(self):
+        self.codes(f"M:{PROCESS}", extra=())
+        checks = next(line for line in self.out.splitlines() if line.startswith("CHECKS RUN: "))
+        self.assertIn("validators", checks.split(": ", 1)[1].split(", "))
+        self.assertNotIn("NOT RUN: validators", self.out)
+
+    def test_run_with_changed_returns_the_changes_and_no_baseline(self):
+        outcome = check_change.run(self.root, self.plan, changed=[f"M:{PROCESS}"])
+        self.assertEqual([(c.status, c.path) for c in outcome.changes], [("M", PROCESS)])
+        rep = outcome.reports[0]
+        self.assertIn("validators", rep.checks_run)
+        self.assertEqual([check for check, _ in rep.not_run], ["baseline"])
+        self.assertEqual(outcome.families[PROCESS], "xsd")
+        self.assertEqual(outcome.validated, 2)
+
     def test_a_dead_transition_is_reported(self):
         (self.root / PROCESS).write_text(GOOD_PROCESS.replace('state="End"', 'state="Closed"'), encoding="utf-8")
         code, found = self.codes(f"M:{PROCESS}", extra=())
@@ -240,6 +298,28 @@ class Validators(Base):
         code, found = self.codes(f"M:{PROCESS}", extra=("--files", PROCESS))
         self.assertEqual((code, found), (0, []), self.out)
         self.assertIn("Validated: 1 file(s)", self.out)
+        self.assertIn("NOT RUN: validators (narrowed to 1 file(s) by --files; the gate's scope is the whole root", self.out)
+        checks = next(line for line in self.out.splitlines() if line.startswith("CHECKS RUN: "))
+        self.assertNotIn("validators", checks.split(": ", 1)[1].split(", "))
+
+
+@unittest.skipUnless(helpers.have_dependencies() and helpers.have_git(), "needs lxml, jsonschema and git")
+class RunWithABase(Base):
+    def setUp(self):
+        super().setUp()
+        helpers.make_repo(self.root)
+        helpers.commit_all(self.root, "base")
+        helpers.git(self.root, "checkout", "-q", "-b", "feature/x")
+        (self.root / PROCESS).write_text(GOOD_PROCESS.replace('title="Case"', 'title="Case2"'), encoding="utf-8")
+
+    def test_run_returns_the_changes_and_each_files_family(self):
+        outcome = check_change.run(self.root, self.plan, base="main")
+        self.assertEqual([(c.status, c.path) for c in outcome.changes], [("M", PROCESS)])
+        self.assertEqual(outcome.families, {PROCESS: "xsd", "other/FM/_PROCESS/Case/process.xml": "xsd"})
+        rep = outcome.reports[0]
+        self.assertIn("baseline", rep.checks_run)
+        self.assertIn("validators", rep.checks_run)
+        self.assertEqual(rep.not_run, [])
 
 
 if __name__ == "__main__":

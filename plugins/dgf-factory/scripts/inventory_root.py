@@ -34,11 +34,11 @@ HEADER = "Workspaces root inventory"
 BASE = workspace.BASE_WORKSPACE
 COUNTS = ("processes", "workflows", "components", "forms", "settings", "views", "options", "form_scripts",
           "global_scripts", "global_styles")
-ARTIFACT_COUNT = {"process": "processes", "workflow": "workflows", "form": "forms", "settings": "settings",
-                  "table-view": "views", "lookup-view": "views", "grid-form": "views", "options": "options"}
+ARTIFACT_COUNT = {"process": "processes", "workflow": "workflows", "process-workflow": "workflows", "form": "forms",
+                  "settings": "settings", "table-view": "views", "lookup-view": "views", "grid-form": "views",
+                  "options": "options"}
 PLACE_COUNT = {"form-script": "form_scripts", "global-script": "global_scripts",
                "global-script-base": "global_scripts", "global-style": "global_styles"}
-PROCESS_LOCAL_WORKFLOW = ("FM", "_PROCESS", "<process>", "<workflow>")
 _STAMP = re.compile(r'^dgf_version:\s*"([^"]+)"', re.MULTILINE)
 
 
@@ -50,13 +50,8 @@ def build_parser():
 
 def _artifact(inside):
     """The count key for a workspace-relative path's legacy artifact, or None."""
-    folders, name = inside[:-1], inside[-1]
-    for row in knowledge.load("legacy-artifacts"):
-        if name == row["Filename"] and plan.matches_folder(plan.segments(row["Folder"]), folders):
-            return ARTIFACT_COUNT.get(row["Artifact"])
-    if name == "_workflow.xml" and plan.matches_folder(list(PROCESS_LOCAL_WORKFLOW), folders):
-        return "workflows"
-    return None
+    found = plan.artifact_inside(inside)
+    return ARTIFACT_COUNT.get(found[0]) if found else None
 
 
 def count_workspace(root, name):

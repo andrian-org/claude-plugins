@@ -10,3 +10,4 @@
 - A skill that STOPs on a script's exit code must be walked through its own worked example against that script
 - Tests that assert an exact finding list must pass under an interpreter without lxml and jsonschema
 - When a thread feeds a subprocess's stdin, kill the process before joining the thread if you stop reading its output
+- Build every dgf-gate-result block through scripts/lib/gate_result.py; never assemble or render one by hand in a script or skill (ADR 0020)

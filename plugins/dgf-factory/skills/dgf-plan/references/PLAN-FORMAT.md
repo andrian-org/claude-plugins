@@ -83,7 +83,7 @@ An `applibs*` folder is never a workspace: it holds plugin assemblies and no `FM
   the evidence is its family as it is on disk; for a new one it is the `ROUTE:` line
   `route_means.py` printed.
 - **Commit Plan** groups tasks into commits every 3–5 tasks, each with a conventional-commit
-  message.
+  message, in the shape below (§The Commit Plan).
 
 ## Tasks
 
@@ -107,6 +107,28 @@ headings, followed by field bullets indented two spaces:
 
 A task needs `files:`, `deletes:` or both. Other indented lines under a task — notes, steps —
 are allowed and ignored by the scripts.
+
+## The Commit Plan
+
+One line per commit, each exactly this shape:
+
+```markdown
+- **Commit 1** (after tasks 1–3): `feat(zims): show the inspection fee`
+- **Commit 2** (after task 4): `feat(zims): hide the fee until payment is confirmed`
+```
+
+- The range is `after tasks A–B`, with an en dash or a hyphen, or `after task N` for one task.
+- The message is a conventional commit, in backticks (double quotes are also read).
+- The groups are numbered 1, 2, 3 … in order. Each starts after the one before it, both ends of
+  its range are tasks, and every task is in exactly one group. A gap in the task numbering
+  inside a range is fine: `after tasks 1–5` over Tasks 1, 2, 3 and 5 is one group.
+- Only lines starting `- ` under `## Commit Plan` are read; prose there is ignored.
+
+`check_plan.py` checks it (`plan-commits`). A line of another shape, a group out of order, a
+range that runs backwards or names no task, and a task in no group or in two are
+`PLAN_COMMITS_INVALID` (exit `1`). Five or more tasks with no Commit Plan is
+`PLAN_COMMITS_MISSING` (exit `2`). Fewer than five tasks need none, but one that is written is
+checked all the same.
 
 ## Which files a task may name
 

@@ -149,6 +149,99 @@ class Tasks(Base):
         self.assertEqual(self.codes(tasks=[with_reason]), [])
 
 
+
+def commit_plan(*lines):
+    return "## Commit Plan\n\n" + "\n".join(lines) + "\n\n"
+
+
+def five(*commit_lines, ids=(1, 2, 3, 4, 5)):
+    return plan_text(tasks=[task(n) for n in ids], body=commit_plan(*commit_lines) if commit_lines else "")
+
+
+def line_of(text, needle):
+    return next(n for n, line in enumerate(text.splitlines(), 1) if line.startswith(needle))
+
+
+class Commits(Base):
+    GOOD = ("- **Commit 1** (after tasks 1–3): `feat(zims): show the fee`",
+            "- **Commit 2** (after tasks 4–5): `feat(zims): hide it until payment`")
+
+    def test_five_tasks_in_two_groups_are_clean(self):
+        self.assertEqual(self.codes(five(*self.GOOD)), [])
+        self.assertIn("plan-commits", self.rep.checks_run)
+
+    def assert_invalid(self, text, *needles):
+        self.assertEqual(set(self.codes(text)), {"PLAN_COMMITS_INVALID"}, [f.message for f in self.rep.findings])
+        lines = {f.line for f in self.rep.findings}
+        for needle in needles:
+            self.assertIn(line_of(text, needle), lines, (needle, [(f.line, f.message) for f in self.rep.findings]))
+
+    def test_each_defect_is_invalid_at_its_line(self):
+        cases = {
+            "a gap": (("- **Commit 1** (after tasks 1–2): `a`", "- **Commit 2** (after tasks 4–5): `b`"),
+                      ("- [ ] Task 3:",)),
+            "an overlap": (("- **Commit 1** (after tasks 1–3): `a`", "- **Commit 2** (after tasks 3–5): `b`"),
+                           ("- [ ] Task 3:", "- **Commit 2**")),
+            "an end that is not a task": (("- **Commit 1** (after tasks 1–3): `a`",
+                                           "- **Commit 2** (after tasks 4–6): `b`"), ("- **Commit 2**",)),
+            "an out-of-order number": (("- **Commit 1** (after tasks 1–3): `a`", "- **Commit 3** (after tasks 4–5): `b`"),
+                                       ("- **Commit 3**",)),
+            "a reversed range": (("- **Commit 1** (after tasks 1–3): `a`", "- **Commit 2** (after tasks 5–4): `b`"),
+                                 ("- **Commit 2**",)),
+            "a group that starts early": (("- **Commit 1** (after tasks 3–5): `a`",
+                                           "- **Commit 2** (after tasks 1–2): `b`"), ("- **Commit 2**",)),
+            "a wrong-shaped line": (("- **Commit 1** (after tasks 1–3): `a`", "- Commit 2: tasks 4 and 5"),
+                                    ("- Commit 2:",)),
+        }
+        for name, (lines, needles) in cases.items():
+            with self.subTest(name):
+                self.assert_invalid(five(*lines), *needles)
+
+    def test_the_messages_name_the_defect(self):
+        self.codes(five("- **Commit 1** (after tasks 1–3): `a`", "- **Commit 2** (after tasks 4–6): `b`"))
+        self.assertEqual(self.message("PLAN_COMMITS_INVALID"),
+                         "Commit 2 (after tasks 4–6) names Task 6, which does not exist")
+        self.codes(five("- **Commit 1** (after tasks 1–3): `a`", "- **Commit 2** (after task 5): `b`"))
+        self.assertEqual(self.message("PLAN_COMMITS_INVALID"), "Task 4 is in no Commit Plan group")
+
+    def test_a_wrong_shaped_line_does_not_also_leave_its_tasks_in_no_group(self):
+        self.codes(five("- **Commit 1** (after tasks 1–3): `a`", "- Commit 2: tasks 4 and 5"))
+        self.assertEqual(len(self.rep.findings), 1, [f.message for f in self.rep.findings])
+        self.assertIn("is not a Commit Plan line", self.message("PLAN_COMMITS_INVALID"))
+
+    def test_a_gap_in_the_task_numbering_inside_a_range_is_fair(self):
+        text = plan_text(tasks=[task(n) for n in (1, 2, 3, 5, 6)],
+                         body=commit_plan("- **Commit 1** (after tasks 1–5): `a`", "- **Commit 2** (after task 6): `b`"))
+        self.assertEqual(self.codes(text), [])
+
+    def test_five_tasks_and_no_commit_plan_warn(self):
+        self.assertEqual(self.codes(five()), ["PLAN_COMMITS_MISSING"])
+        self.assertIn("5 tasks and no Commit Plan", self.message("PLAN_COMMITS_MISSING"))
+        self.assertEqual(self.codes(five("<only when there are 5 or more tasks>")), ["PLAN_COMMITS_MISSING"])
+
+    def test_four_tasks_need_no_commit_plan(self):
+        self.assertEqual(self.codes(plan_text(tasks=[task(n) for n in (1, 2, 3, 4)])), [])
+
+    def test_a_short_plan_with_a_commit_plan_is_still_checked(self):
+        text = plan_text(tasks=[task(1), task(2)], body=commit_plan("- **Commit 1** (after task 1): `a`"))
+        self.assertEqual(self.codes(text), ["PLAN_COMMITS_INVALID"])
+
+    def test_an_ultra_index(self):
+        bundle = self.root / ".dgf-factory" / "plans" / "feature-x"
+        bundle.mkdir(parents=True)
+        (bundle / "phase-1.md").write_text("# Phase 1\n\n" + "".join(f"## Task {n}: t\n\n" for n in range(1, 6)),
+                                           encoding="utf-8")
+        tasks = [task(n).replace(f"task {n}", f"[task {n}](phase-1.md#task-{n})") for n in range(1, 6)]
+        header = ["plan_format: 1", "mode: ultra", "branch: feature/x", "created: 2026-09-25",
+                  "affects_workspaces: [zims]"]
+        body = "## Phase Index\n\n- [Phase 1](phase-1.md)\n\n"
+        index = bundle / "index.md"
+        index.write_text(plan_text(header=header, tasks=tasks, body=body + commit_plan(*self.GOOD)), encoding="utf-8")
+        self.assertEqual(self.codes(path=index), [])
+        index.write_text(plan_text(header=header, tasks=tasks, body=body + commit_plan(self.GOOD[0])),
+                         encoding="utf-8")
+        self.assertEqual(self.codes(path=index), ["PLAN_COMMITS_INVALID", "PLAN_COMMITS_INVALID"])
+
 class Ultra(Base):
     HEADER = ["plan_format: 1", "mode: ultra", "branch: feature/x", "created: 2026-09-25", "affects_workspaces: [zims]"]
 
@@ -195,6 +288,13 @@ class Ultra(Base):
         index = self.bundle(self.INDEX, phase_text="# Phase 1\n\n## Task 2: another\n")
         self.assertEqual(self.codes(path=index), ["PLAN_ULTRA_BROKEN", "PLAN_ULTRA_BROKEN"])
         self.assertIn("Task 1", self.message("PLAN_ULTRA_BROKEN"))
+
+    def test_a_phase_file_that_is_not_utf8_is_broken_not_a_traceback(self):
+        index = self.bundle("## Phase Index\n\n- [Phase 1](phase-1.md)\n\n")
+        (index.parent / "phase-1.md").write_bytes(b"# Phase 1\n\n## Task 1: \xff\n")
+        codes = self.codes(path=index)
+        self.assertIn("PLAN_ULTRA_BROKEN", codes)
+        self.assertIn("cannot be read as UTF-8", self.message("PLAN_ULTRA_BROKEN"))
 
     def test_a_checkbox_in_a_phase_file(self):
         index = self.bundle(self.INDEX, phase_text="# Phase 1\n\n## Task 1: task 1\n\n- [ ] Task 1: again\n")
@@ -365,6 +465,21 @@ class Overlap(Base):
         self.assertIn("feature-b.md", self.message("PLAN_OVERLAP"))
         self.assertIn("`zims`", self.message("PLAN_OVERLAP"))
         self.assertTrue(any(line.startswith("OVERLAP SOURCES: ") for line in self.lines))
+
+    def test_a_malformed_commit_plan_on_another_branch_still_overlaps(self):
+        header = HEADER[:2] + ["branch: feature/b", HEADER[3], "affects_workspaces: [zims]"]
+        text = plan_text(header=header, tasks=[task(1)], body=commit_plan("- Commit 1: not the shape",
+                                                                          "- **Commit 9** (after tasks 9–1): `x`"))
+        self.branch_with_plan("feature/b", "zims", text=text)
+        path = self.this_plan()
+        self.assertEqual(self.overlap_codes(path), ["PLAN_OVERLAP"])
+
+    def test_another_branchs_plan_with_a_task_number_too_long_is_unreadable_not_a_crash(self):
+        header = HEADER[:2] + ["branch: feature/b", HEADER[3], "affects_workspaces: [zims]"]
+        text = plan_text(header=header, tasks=[task(1).replace("Task 1:", "Task " + "9" * 5000 + ":")])
+        self.branch_with_plan("feature/b", "zims", text=text)
+        path = self.this_plan()
+        self.assertEqual(self.overlap_codes(path), ["PLAN_OVERLAP_UNREADABLE"])
 
     def test_webasm_is_shared_with_every_plan(self):
         self.branch_with_plan("feature/base", "webasm")

@@ -4,7 +4,7 @@ description: Commit staged DGF changes with a conventional commit message scoped
 argument-hint: "[scope or context]"
 allowed-tools: Read Glob Grep Bash(git *) Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
 disable-model-invocation: false
-version: 0.1.1
+version: 0.1.2
 ---
 
 # DGF Commit — Conventional Commits for a DGF Estate
@@ -76,7 +76,11 @@ Read the plan; never edit it.
 
 When the plan has a `## Commit Plan`:
 
-1. Parse each group: its number, its task range (`after tasks 1-3`) and its message.
+1. Parse each group: its number, its task range (`after tasks 1-3`, or `after task 4`) and its
+   message. The groups follow the shape `check_plan.py` checks (`plan-commits`). A group that
+   does not parse, or whose range does not agree with the tasks, means the plan is defective:
+   say so, suggest `/dgf-plan` to repair it, and offer to commit everything together — never
+   guess the grouping.
 2. Map each group's tasks to their `files` and `deletes` bullets. For an ultra plan, read each
    task's phase file too — its `## Files to Change` table and `## Task N` section. The task
    bullets in `index.md` alone are not enough to split a shared file.

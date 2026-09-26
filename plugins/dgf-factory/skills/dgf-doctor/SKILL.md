@@ -3,7 +3,7 @@ name: dgf-doctor
 description: Check that the dgf-factory plugin is installed correctly and report what it can see. Use for "is dgf-factory working", "plugin not loading", "check plugin install", "dgf doctor", "why is the skill not firing".
 allowed-tools: Read Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/*)
 disable-model-invocation: false
-version: 0.1.1
+version: 0.2.0
 ---
 
 # DGF Doctor — Plugin Installation Check
@@ -44,7 +44,7 @@ DEBUG=1 python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/doctor.py"
 | `0` | clean | Continue to Step 3. The plugin is correctly installed. |
 | `1` | blocked | **STOP.** Relay the findings verbatim. Do not repair anything. |
 | `2` | warnings | Continue to Step 3, and surface **every** warning to the user. |
-| `3` | usage error | **STOP.** The invocation is wrong, not the plugin. |
+| `3` | usage error, or no gate builder | **STOP.** The invocation is wrong, or the install is incomplete. |
 
 On `1`, the plugin cannot load, a slice will not register, or a shipped file names a
 path into the DGF repository (`DGF_PATH`). A developer's install has no DGF checkout, so
@@ -69,13 +69,32 @@ The same exit code also covers the validators under `scripts/`:
 - **`KNOWLEDGE_TABLE`** (error, exit `1`) — a machine-read table in `knowledge/` is missing or
   malformed, so the validators that read it refuse to run.
 
-On `3`, the script was called incorrectly. Show its stderr message; do not retry with
-guessed arguments.
+A section that could not run — no usable manifest, no `skills/` — is a `NOT RUN` line and a
+`not-run-<section>` warning, exit `2`. It is never a silent pass. A plugin with no `scripts/`
+has no gate builder either, so its own doctor exits `3`.
+
+On `3`, either the script was called incorrectly, or the plugin's own
+`scripts/lib/gate_result.py` — which builds the gate block — is missing, does not load, or
+lacks what the doctor calls. Show
+the stderr message. For a bad call, do not retry with guessed arguments. For a missing builder,
+no block is printed: say the plugin must be reinstalled.
 
 ### Step 3: Relay the report
 
 Pass the script's output through **verbatim**, including its closing
 `dgf-gate-result` block, and write **nothing after it**.
+
+The block is built by `scripts/lib/gate_result.py` (ADR 0020), never by you. It holds:
+
+- `gate: "doctor"` — this is not a verify gate, and a doctor pass is not a verified change;
+- `status`, and `blocking: true` only on a `fail`;
+- errors in `blockers`, and warnings — including each `not-run-<section>` — in `warnings`;
+- `checks_run`, the sections that ran;
+- `suggested_next.command` always `null`: a broken install is fixed by hand, then the doctor
+  is re-run.
+
+It has no `schema_family`, `affected_components` or `affected_processes`: the doctor reads no
+estate, and a field it did not compute is left out rather than emitted empty.
 
 Callers parse only the final gate block. A second block written by this prompt — even a
 summarising one — silently overrides the deterministic verdict. Last block wins.
