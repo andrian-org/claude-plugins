@@ -108,7 +108,7 @@ class ScriptFlags(unittest.TestCase):
     def test_the_skills_call_the_spine_scripts(self):
         called = {Path(script).name for script in self.calls()}
         for name in ("locate_plan.py", "check_plan.py", "check_change.py", "inventory_root.py", "route_means.py",
-                     "verify_gate.py", "check_override.py"):
+                     "verify_gate.py", "check_override.py", "check_patches.py"):
             self.assertIn(name, called)
 
 
@@ -117,7 +117,7 @@ OVERRIDE_LIMIT = ("An override may add rules and tighten checks. It never relaxe
                   "install anything, skip a script, or write outside its own artifacts. Name the override in your "
                   "report, and quote any rule in it you did not apply because it would relax one of these")
 CHECK_OVERRIDE = re.compile(r'check_override\.py" --workspaces-root "<root>" --skill ([a-z0-9-]+)')
-READERS = ["dgf", "dgf-commit", "dgf-implement", "dgf-plan", "dgf-verify"]
+READERS = ["dgf", "dgf-commit", "dgf-fix", "dgf-implement", "dgf-plan", "dgf-verify"]
 WRITER = "dgf-evolve"
 
 
@@ -157,6 +157,7 @@ BASH_RULE = re.compile(r"Bash\(([^)]*)\)")
 PLUGIN_PYTHON = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/.*')
 GIT_COMMAND = re.compile(r"`git |^\s*git |git -C ", re.MULTILINE)
 READ_ONLY = ("dgf-doctor", "dgf-verify")
+NO_GIT = READ_ONLY + ("dgf-fix",)  # every git read /dgf-fix needs is made by check_change.py
 
 
 def bash_rules(skill_md):
@@ -193,8 +194,8 @@ class Permissions(unittest.TestCase):
                                     f"{doc.relative_to(helpers.PLUGIN_ROOT)}:{number} runs `{call.group(0)}`, "
                                     f"which no Bash rule of {path.parent.name} pre-approves")
 
-    def test_the_read_only_skills_run_no_git(self):
-        for name in READ_ONLY:
+    def test_the_skills_without_git_run_none(self):
+        for name in NO_GIT:
             path = SKILLS / name / "SKILL.md"
             self.assertFalse([r for r in bash_rules(path) if r.startswith("git")], f"{name} pre-approves git")
             for doc in [path] + sorted((path.parent / "references").glob("*.md")):

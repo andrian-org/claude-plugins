@@ -35,7 +35,8 @@ It keeps AI Factory's base fields and `schema_version: 1`, so anything built on 
      "file": "zims/FM/_DATA/Inspection/_forms/Apply/_form.xml", "change": "M"}
   ],
   "affected_processes": [{"workspace": "zims", "name": "Apply", "reference": "Apply"}],
-  "suggested_next": {"command": "/dgf-implement", "reason": "1 task(s) unchecked; 1 new blocking finding(s)"}
+  "suggested_next": {"command": "/dgf-implement",
+                     "reason": "1 task(s) unchecked; then 1 new blocking finding(s) for /dgf-fix"}
 }
 ```
 
@@ -123,8 +124,16 @@ The first match wins:
 |---|---|
 | `null` | the gate could not run: `DEPENDENCY_MISSING`, `KNOWLEDGE_TABLE`, `ROOT_NOT_SET_UP`, `ROOT_AMBIGUOUS`, `PLAN_AMBIGUOUS` or `GATE_PLAN_UNCONFIRMED`. The reason names the fix: the install command, `run /dgf`, or `pass --plan` |
 | `/dgf-plan` | there is no plan (`PLAN_NOT_FOUND`), or `check_plan.py` reported an error — including `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` and `PLAN_COMMITS_INVALID` |
-| `/dgf-implement` | a task is unchecked, the change has a new blocking finding, or strict mode promoted a warning |
+| `/dgf-implement` | a task is unchecked, a change check (`check_change.py`'s own report — `CHANGE_*`) reported an error, or strict mode promoted a change-check warning. When validator findings also block, the reason adds "then <n> new blocking finding(s) for /dgf-fix" |
+| `/dgf-fix` | every task is checked and the scope is clean, but a validator reported a new error, or strict mode promoted a new validator warning: "<n> new blocking finding(s) — fix each inside the plan's scope and record a patch" |
 | `/dgf-commit` | `pass` or `warn` |
+| `null` | the gate failed on a finding no command fixes — read the blockers |
+
+Scope comes before findings, because `/dgf-fix` works only inside a scope the change checks accept,
+and unchecked tasks come first, because a finding may sit in a file an unfinished task still
+changes. A promoted warning follows the report its original came from — by identity, never by code
+(ADR 0022 §9). The doctor's allowlist is `null` alone: a broken install is fixed by hand, never by
+`/dgf-fix` (ADR 0022 §8).
 
 ## Exit codes
 

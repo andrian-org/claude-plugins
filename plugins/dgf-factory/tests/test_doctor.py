@@ -69,7 +69,7 @@ class DoctorOnACopy(unittest.TestCase):
             self.assertNotIn(absent, payload)
         self.assertIn("CHECKS RUN: " + ", ".join(SECTIONS), out)
         self.assertTrue(out.rstrip().endswith("```"), out[-200:])
-        self.assertNotIn("/dgf-fix", out)
+        self.assertNotIn("/dgf-fix", json.dumps(payload))  # build progress names skills/dgf-fix/; the block never does
 
     def test_a_failing_copy_blocks_and_suggests_no_command(self):
         (self.root / "scripts" / "requirements.txt").unlink()
@@ -78,7 +78,7 @@ class DoctorOnACopy(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertEqual((payload["status"], payload["blocking"]), ("fail", True))
         self.assertIsNone(payload["suggested_next"]["command"])
-        self.assertNotIn("/dgf-fix", out)
+        self.assertNotIn("/dgf-fix", json.dumps(payload))
         self.assertTrue(out.rstrip().endswith("```"), out[-200:])
 
     def test_a_section_that_cannot_run_is_a_warning_not_a_pass(self):
@@ -170,7 +170,7 @@ class DoctorOnACopy(unittest.TestCase):
 
     def test_expected_slices_report_present_or_not_yet_built(self):
         code, out, _ = self.run_doctor()
-        for name in ("dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit"):
+        for name in ("dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit", "dgf-fix", "dgf-evolve"):
             self.assertRegex(out, rf"INFO  skills/{name}/ — (present|not yet built)")
         self.write_skill("dgf-plan", self.FRONTMATTER)
         _, out, _ = self.run_doctor()

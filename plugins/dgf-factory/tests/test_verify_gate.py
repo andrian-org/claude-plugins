@@ -31,6 +31,13 @@ GOOD_PROCESS = """<?xml version="1.0" encoding="utf-8"?>
 </Process>
 """
 DEAD_PROCESS = GOOD_PROCESS.replace('state="End"', 'state="Closed"')
+UNREACHABLE_PROCESS = GOOD_PROCESS.replace("  </States>", """    <State name="Orphan" type="Task">
+      <Transitions>
+        <Transition state="End" />
+      </Transitions>
+    </State>
+  </States>""")
+FIX_REASON = "1 new blocking finding(s) — fix each inside the plan's scope and record a patch"
 PROCESS = "app/FM/_PROCESS/Case/process.xml"
 HELPER = "app/js/formhelper.js"
 ROOT = {
@@ -336,7 +343,47 @@ class WithABase(Base):
         self.assertEqual((dead["file"], dead["line"], dead["schema_family"]), (PROCESS, 11, "xsd"))
         self.assertNotIn("PRE_EXISTING", ids(payload, "blockers") + ids(payload, "warnings"))
         self.assertNotIn("other/FM/_PROCESS/Case/process.xml", payload["affected_files"])
-        self.assertEqual(payload["suggested_next"]["command"], "/dgf-implement")
+        self.assertEqual(payload["suggested_next"], {"command": "/dgf-fix", "reason": FIX_REASON})
+
+    def test_an_unchecked_task_comes_before_a_new_finding(self):
+        self.write_plan(plan_text(task(1), task(2, checked=False)))
+        (self.root / PROCESS).write_text(DEAD_PROCESS, encoding="utf-8")
+        code, payload = self.gate("--base", "main")
+        self.assertEqual(code, 1, self.out)
+        self.assertEqual(payload["suggested_next"], {
+            "command": "/dgf-implement", "reason": "1 task(s) unchecked; then 1 new blocking finding(s) for /dgf-fix"})
+
+    def test_a_scope_error_comes_before_a_new_finding(self):
+        (self.root / PROCESS).write_text(DEAD_PROCESS, encoding="utf-8")
+        (self.root / "other/FM/_PROCESS/Case/process.xml").write_text(GOOD_PROCESS, encoding="utf-8")
+        code, payload = self.gate("--base", "main")
+        self.assertEqual(code, 1, self.out)
+        self.assertIn("CHANGE_UNDECLARED_WORKSPACE", ids(payload, "blockers"))
+        self.assertIn("DEAD_TRANSITION", ids(payload, "blockers"))
+        self.assertEqual(payload["suggested_next"], {
+            "command": "/dgf-implement",
+            "reason": "1 change-check error(s); then 1 new blocking finding(s) for /dgf-fix"})
+
+    def test_strict_sends_a_promoted_validator_warning_to_dgf_fix(self):
+        (self.root / PROCESS).write_text(UNREACHABLE_PROCESS, encoding="utf-8")
+        code, payload = self.gate("--base", "main")
+        self.assertEqual(code, 2, self.out)
+        self.assertIn("UNREACHABLE_STATE", ids(payload, "warnings"))
+        self.assertEqual(payload["suggested_next"]["command"], "/dgf-commit")
+        code, payload = self.gate("--base", "main", "--strict")
+        self.assertEqual(code, 1, self.out)
+        self.assertEqual(ids(payload, "blockers"), ["UNREACHABLE_STATE"])
+        self.assertEqual(payload["suggested_next"], {"command": "/dgf-fix", "reason": FIX_REASON})
+
+    def test_strict_sends_a_promoted_change_warning_to_dgf_implement_first(self):
+        (self.root / PROCESS).write_text(UNREACHABLE_PROCESS, encoding="utf-8")
+        helpers.make_root(self.root, {"app/FM/_PROCESS/Other/process.xml": GOOD_PROCESS})  # valid, and no task lists it
+        code, payload = self.gate("--base", "main", "--strict")
+        self.assertEqual(code, 1, self.out)
+        self.assertEqual(sorted(ids(payload, "blockers")), ["CHANGE_UNPLANNED_FILE", "UNREACHABLE_STATE"])
+        self.assertEqual(payload["suggested_next"], {
+            "command": "/dgf-implement",
+            "reason": "1 change-check warning(s) promoted by --strict; then 1 new blocking finding(s) for /dgf-fix"})
 
     def test_pre_existing_findings_are_cut_at_20(self):
         for n in range(22):

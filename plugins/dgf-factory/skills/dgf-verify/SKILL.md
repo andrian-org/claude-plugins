@@ -19,7 +19,8 @@ file it never touched. Findings the estate already had are compared away against
 merge-base (ADR 0018): they are reported as `PRE_EXISTING`, and never block.
 
 This skill is **read-only.** It changes no file — not the plan, not a workspace. Fixing belongs
-to `/dgf-implement`, and a defective plan to `/dgf-plan`.
+to `/dgf-implement` (an unchecked task, a change outside the plan) or `/dgf-fix` (a finding the
+branch introduced), and a defective plan to `/dgf-plan`: the block names which.
 
 It ports AI Factory's `/aif-verify`. Its build, test and lint steps become the validators; its
 context gates, Handoff and roadmap checks are dropped.

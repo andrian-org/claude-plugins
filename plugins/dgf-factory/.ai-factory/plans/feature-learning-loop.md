@@ -850,7 +850,7 @@ In `tests/test_skill_contracts.py`:
 
 ### Phase 4: `/dgf-fix` and the gate
 
-- [ ] **Task 6: Add `/dgf-fix`.** (depends on 3, 5)
+- [x] **Task 6: Add `/dgf-fix`.** (depends on 3, 5)
   - Create `skills/dgf-fix/SKILL.md` exactly as DD6 lays it out, in the house skeleton: Workflow, Execution Rules
     (DO / DON'T), Artifact Ownership, Critical Rules. Create `skills/dgf-fix/references/PATCH-FORMAT.md`.
   - Walk the worked example: save it as a patch in a temp root, run `check_patches.py` on it (exit `0`), then break one
@@ -874,7 +874,7 @@ In `tests/test_skill_contracts.py`:
   - Files: `skills/dgf-fix/SKILL.md`, `skills/dgf-fix/references/PATCH-FORMAT.md`, `tests/test_skill_contracts.py`,
     `skills/dgf-doctor/scripts/doctor.py`, `tests/test_doctor.py`.
 
-- [ ] **Task 7: Let the verify gate suggest `/dgf-fix`.** (depends on 2, 6)
+- [x] **Task 7: Let the verify gate suggest `/dgf-fix`.** (depends on 2, 6)
   - `scripts/lib/gate_result.py`: DD8's `GATES`, and its docstring's allowlist line.
   - `scripts/verify_gate.py`: `suggest()` as DD8, with a helper `_split(run)` returning (change-check errors, validator
     errors, change promotions, validator promotions). Update the docstring's "Exit codes" and "The block" paragraphs.
@@ -1043,3 +1043,33 @@ In `tests/test_skill_contracts.py`:
      OVERRIDE_TOUCHES_LIMIT …:13 rule \`Stop on a renamed state\` names \`stop\``, `WARNINGS`, exit `2` — row `2`,
      read, apply and judge the rule (it tightens);
   5. `--skill ../x` → stderr `--skill is not a skill name …`, exit `3` — row `3`, **STOP**.
+- **Task 6 (2026-09-26) — PATCH-FORMAT.md's worked example, walked.** Saved as a patch in a temp root,
+  `check_patches.py --workspaces-root <tmp> --patches-dir ".dgf-factory/patches/" <tmp>/.dgf-factory/patches/<name>`
+  → `PATCHES: .dgf-factory/patches/ total=1 malformed=0`, `CLEAN`, exit `0` (also `0` under `run_cli_blocking`).
+  Broken one way at a time, each exit `1`: `severity: urgent` → `PATCH_FIELD_INVALID …:9`; the Prevention text
+  deleted → `PATCH_SECTION_INVALID …:21 \`## Prevention\` is empty`; the name `2026-09-26-14.30.md` →
+  `PATCH_NAME_INVALID`; `date: 2026-09-26 14:31` → `PATCH_FIELD_INVALID …:3 … disagrees with the name's timestamp`;
+  a `- owner: me` bullet → `PATCH_FIELD_INVALID …:10`; a `\xff` byte → `PATCH_UNREADABLE … not UTF-8 at byte 46`.
+  The reference's table holds these exact lines. (DD1's example puts Prevention at line 20; the worked example's
+  Root Cause runs to two lines, so it is 21.)
+- **Task 6 (2026-09-26) — Step 0.2's table, walked** on a temp root of `test_check_change.py`'s shape (`app`,
+  `other`, `webasm`), `locate_plan.py --workspaces-root <tmp> --plans-dir ".dgf-factory/plans/" --fast-plan
+  ".dgf-factory/PLAN.md"`: no plan → `ERROR PLAN_NOT_FOUND … run /dgf-plan`, exit `1`; the branch's plan →
+  `PLAN: … mode=full source=branch`, exit `0`; two active plans and no branch plan → `ERROR PLAN_AMBIGUOUS … 2 plans
+  are active … name one`, exit `1`; one active plan and no branch plan → `WARN PLAN_FALLBACK … source=lone`, exit
+  `2`. `check_plan.py` on the plan → `AFFECTS: app`, two `TASK:` lines, `CLEAN`.
+- **Task 6 (2026-09-26) — Step 3's table, walked** with `check_change.py --changed … --skip-validators` on the same
+  root (each exit identical under `run_cli_blocking`): a planned config file → exit `0`; an unplanned config file →
+  exit `2`, `WARN CHANGE_UNPLANNED_FILE`; a file in `other` → exit `1`, `ERROR CHANGE_UNDECLARED_WORKSPACE` (and
+  `WARN CHANGE_UNPLANNED_FILE`); `A:app/js/new.js` → exit `1`, `ERROR CHANGE_CODE_UNPLANNED` and `ERROR
+  CHANGE_CODE_FILE_NEW`. With Task 1 checked, a fix-only set → exit `2` with only `WARN CHANGE_TASK_FILE_UNCHANGED`,
+  which Step 3 says to ignore.
+- **Task 6 (2026-09-26) — the doctor's `/dgf-fix` assertion narrowed.** `tests/test_doctor.py` asserted that
+  `/dgf-fix` appears nowhere in the doctor's output. With `dgf-fix` in `EXPECTED_SLICES`, the build progress prints
+  `skills/dgf-fix/ — present`, so both assertions now read the gate block (`json.dumps(payload)`), which is what
+  they guard: the doctor never suggests `/dgf-fix`.
+- **Task 7 (2026-09-26) — the reason's wording.** A change-check error now reads "change-check error(s)" and a
+  promoted change-check warning "change-check warning(s) promoted by --strict", where 0020's gate said "new
+  blocking finding(s)" and "warning(s) promoted by --strict" for all of them: "new blocking finding(s)" now means a
+  validator finding, the one `/dgf-fix` takes. `skills/dgf-verify/SKILL.md`'s intro, which said "Fixing belongs to
+  `/dgf-implement`", now names both and says the block chooses; Step 2's `1` row is unchanged.
