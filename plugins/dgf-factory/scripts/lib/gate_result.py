@@ -1,4 +1,4 @@
-"""gate_result.py — build, validate and render every `dgf-gate-result` block (ADR 0020).
+"""gate_result.py — build, validate and render every `dgf-gate-result` block (ADR 0022).
 
 One builder for every gate, so no gate hand-writes its verdict:
 
@@ -13,7 +13,8 @@ One builder for every gate, so no gate hand-writes its verdict:
     is in `checks_run` or has a `not-run-<check>` entry, never both (§4).
   - A field the gate did not compute is left out; `[]` means "none" (§7).
   - Each gate has its own allowlist of next commands (§8): `verify` allows
-    /dgf-plan, /dgf-implement, /dgf-commit and null; `doctor` allows null.
+    /dgf-plan, /dgf-implement, /dgf-fix, /dgf-commit and null; `doctor` allows
+    null — a broken install is fixed by hand, never by /dgf-fix.
 
 build() raises GateContractError, naming the rule, rather than emit a
 contradictory block. render() is `json.dumps(indent=2)` inside the fence, which
@@ -30,7 +31,7 @@ import re
 import sys
 
 SCHEMA_VERSION = 1
-GATES = {"verify": ("/dgf-plan", "/dgf-implement", "/dgf-commit", None), "doctor": (None,)}
+GATES = {"verify": ("/dgf-plan", "/dgf-implement", "/dgf-fix", "/dgf-commit", None), "doctor": (None,)}
 FAMILIES = ("json", "xsd")
 UNRESOLVED = "unresolved"
 SEVERITIES = ("error", "warning")

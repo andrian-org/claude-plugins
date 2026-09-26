@@ -287,8 +287,8 @@ Start with the spine, then add DGF-specific skills. Do not port all 30 — port 
 | `/dgf-implement` | the state machine; checkbox ledger |
 | `/dgf-verify` | emits `dgf-gate-result` |
 | `/dgf-commit` | conventional commits |
-| `/dgf-fix` | writes patches |
-| `/dgf-evolve` | distils patches into skill-context — an override that may add rules and tighten checks, but never relaxes a STOP, an exit-code row, the gate's status table or a Critical Rule, because anyone who commits to the estate can write it — *(corrected 2026-09-25)* |
+| `/dgf-fix` | fixes a problem inside the active plan's scope, confirmed by the check that reproduced it, and writes a patch; `--record` writes a patch with no change ([ADR 0021](adr/0021-learning-loop.md)) — *(corrected 2026-09-26)* |
+| `/dgf-evolve` | distils patches into skill-context — an override that may add rules and tighten checks, but never relaxes a STOP, an exit-code row, the status a gate script computes, a Critical Rule or Artifact Ownership, because anyone who commits to the estate can write it; `check_override.py` checks every override before a skill reads it ([ADR 0021](adr/0021-learning-loop.md)) — *(corrected 2026-09-26)* |
 
 **Phase 2 — DGF-specific (the actual value):**
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""verify_gate.py — the verify gate: one computed `dgf-gate-result` block for a branch's change (ADR 0020 §9).
+"""verify_gate.py — the verify gate: one computed `dgf-gate-result` block for a branch's change (ADR 0022 §9).
 
 `/dgf-verify` relays this script's output verbatim. It never writes or edits a
 block; the status is computed here, by scripts/lib/gate_result.py.
@@ -32,16 +32,25 @@ The block: an ERROR line is a blocker and a WARN line a warning (a promoted
 warning is a blocker, once); INFO — PRE_EXISTING, FIXED — is never an entry.
 `checks_run` is every check that ran; `schema_family` counts the files the
 validators read per family; `affected_components` and `affected_processes`
-are the changed set's own configuration, not its blast radius (ADR 0020 §6).
+are the changed set's own configuration, not its blast radius (ADR 0022 §6).
 The output ends with the block, and nothing follows it.
+
+`suggested_next`, first match wins (ADR 0022 §9): null when the gate could
+not run; /dgf-plan for no plan or a plan defect; /dgf-implement for an
+unchecked task, a change-check error, or a promoted change-check warning;
+/dgf-fix for a validator finding the branch introduced, or a promoted
+validator warning; /dgf-commit for pass or warn. Scope comes before findings:
+/dgf-fix works only inside a scope the change checks accept. A promotion
+follows the report its original came from, by identity, never by code.
 
 Usage:  verify_gate.py [--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--plan P]
                        [--base REF | --changed S:PATH ...] [--no-overlap] [--strict] [--verbose]
 
 Exit codes (contract, see .ai-factory/rules/base.md) — they agree with the block's status:
   0  pass
-  1  fail: a blocker — a defective plan, an unchecked task, a new finding, no
-     root or no plan, or a promoted warning
+  1  fail: a blocker — a defective plan, an unchecked task, a change-check
+     error, a new validator finding, no root or no plan, or a promoted warning;
+     the block names the command that fixes it
   2  warn: warnings only, including a required check that did not run
   3  a finding forces it, and the block says `fail`: the gate could not run
      (the validators' dependencies missing, a knowledge table malformed, the
@@ -291,7 +300,7 @@ def _family(run, found, validator_ids):
 
 
 def entries(run):
-    """(blockers, warnings) from every finding, by ADR 0020's entry table."""
+    """(blockers, warnings) from every finding, by ADR 0022's entry table."""
     promoted = {id(gate): original for gate, original in run.promoted}
     originals = {id(original) for _, original in run.promoted}
     not_run = {id(found): (check, why) for found, check, why in run.not_run}
@@ -351,7 +360,7 @@ def _component_of(rel, inside):
 
 
 def footprint(changes, known):
-    """(affected_components, affected_processes): the configuration the change itself touched (ADR 0020 §6)."""
+    """(affected_components, affected_processes): the configuration the change itself touched (ADR 0022 §6)."""
     components, processes = [], {}
     for status, rel in _touched(changes):
         ws = plan.workspace_of(rel)
@@ -377,8 +386,25 @@ def _errors(reports):
     return [f for rep in reports for f in rep.findings if f.label == "ERROR"]
 
 
+def _split(run):
+    """(change-check errors, validator errors, change promotions, validator promotions).
+
+    check_change.run() puts its own checks first in `outcome.reports` and the
+    validator report after them. A promotion goes with the report its original
+    WARN came from, found by identity — two findings can share a code.
+    """
+    reports = run.outcome.reports if run.outcome else []
+    scope, findings = _errors(reports[:1]), _errors(reports[1:])
+    from_validators = {id(f) for rep in reports[1:] for f in rep.findings}
+    promoted_scope = [gate for gate, original in run.promoted if id(original) not in from_validators]
+    promoted_findings = [gate for gate, original in run.promoted if id(original) in from_validators]
+    report.debug("verify_gate.split", "split", scope=len(scope), findings=len(findings),
+                 promoted_scope=len(promoted_scope), promoted_findings=len(promoted_findings))
+    return scope, findings, promoted_scope, promoted_findings
+
+
 def suggest(run, status, warnings):
-    """(command, reason), first match wins (ADR 0020 §9)."""
+    """(command, reason), first match wins (ADR 0022 §9)."""
     codes = {f.code for f in _errors(run.reports())}
     for code, why in CANNOT_RUN.items():
         if code in codes:
@@ -388,12 +414,17 @@ def suggest(run, status, warnings):
         return "/dgf-plan", "there is no plan for this branch — a change with no plan has no declared scope"
     if plan_errors:
         return "/dgf-plan", f"the plan is defective: {len(plan_errors)} error(s) — fix the plan before the change"
-    change_errors = _errors(run.outcome.reports if run.outcome else [])
+    scope, findings, promoted_scope, promoted_findings = _split(run)
+    fixable = len(findings) + len(promoted_findings)
     parts = [f"{n} {what}" for n, what in ((len(run.tasks), "task(s) unchecked"),
-                                           (len(change_errors), "new blocking finding(s)"),
-                                           (len(run.promoted), "warning(s) promoted by --strict")) if n]
+                                           (len(scope), "change-check error(s)"),
+                                           (len(promoted_scope), "change-check warning(s) promoted by --strict"))
+             if n]
     if parts:
-        return "/dgf-implement", "; ".join(parts)
+        then = f"; then {fixable} new blocking finding(s) for /dgf-fix" if fixable else ""
+        return "/dgf-implement", "; ".join(parts) + then
+    if fixable:
+        return "/dgf-fix", f"{fixable} new blocking finding(s) — fix each inside the plan's scope and record a patch"
     if status == "pass":
         return "/dgf-commit", "every required check ran and nothing blocks"
     if status == "warn":

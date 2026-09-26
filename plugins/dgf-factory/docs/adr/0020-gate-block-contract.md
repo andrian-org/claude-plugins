@@ -1,8 +1,8 @@
 ---
 id: 0020
 title: "Every gate block is built by one library, its status computed from its entries, and it never claims a check it did not run"
-status: accepted
-date: 2026-09-25
+status: superseded-by-0022
+date: 2026-09-26
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [gates, pipeline]

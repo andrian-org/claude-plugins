@@ -8,12 +8,12 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: the pipeline spine landed.** The five spine skills — `/dgf`, `/dgf-plan`,
-> `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — exist beside `/dgf-doctor`, on top of the
-> stamped **DGF knowledge base** (with its vendored JSON and legacy XSD schema set) and the
-> **validators**. Plans, scope, routes and change-relative gates are decided by scripts, checked
-> against DGF's own samples and a known-bad corpus. The DGF-specific skills and the learning
-> loop do not exist yet. The plugin **loads locally** with
+> **Status: the spine and the learning loop landed.** The five spine skills — `/dgf`, `/dgf-plan`,
+> `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — and the learning loop's two — `/dgf-fix`,
+> `/dgf-evolve` — exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
+> vendored JSON and legacy XSD schema set) and the **validators**. Plans, scope, routes,
+> change-relative gates, patches and overrides are decided by scripts, checked against DGF's own
+> samples and a known-bad corpus. The DGF-specific skills do not exist yet. The plugin **loads locally** with
 > `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
@@ -43,7 +43,8 @@ pipeline that builds it is already installed there. See
 - **Planner/executor split** — a strong model writes an indexed phase bundle once; a cheap model
   executes it many times, and is forbidden from re-deciding architecture
 - **A learning loop** — every DGF gotcha caught in practice becomes a patch, and patches distil
-  into project-specific skill overrides that can only tighten a skill, never relax its gates
+  into project-specific skill overrides that can only tighten a skill, never relax its gates. A
+  script checks every override before a skill reads it
 
 ## Example
 
@@ -54,7 +55,9 @@ pipeline that builds it is already installed there. See
 /dgf-plan full "add applicant eligibility check to the permits process"
 /dgf-implement            # compose each task, validate it, tick the checkbox; resumable
 /dgf-verify               # whole-root gate against the merge-base; ends with dgf-gate-result
+/dgf-fix                  # when the gate suggests it: fix inside the plan, record a patch
 /dgf-commit               # conventional commits, scoped by workspace
+/dgf-evolve               # now and then: distil the patches into rules that tighten the skills
 ```
 
 Every plan declares the workspaces it touches and, per task, whether it composes configuration
@@ -69,8 +72,12 @@ also run on their own — see [Getting Started](docs/getting-started.md#trying-t
 claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
 ```
 
-Still to come: `/dgf-fix` writes a patch when verification fails, and `/dgf-evolve` distils
-patches into rules that sharpen the next run.
+When the gate finds a new error once every task is done, it suggests `/dgf-fix`: it reproduces
+the finding, fixes it inside the plan's scope, confirms the fix with the same check, and writes a
+patch — what went wrong, why DGF behaved that way, how to prevent it. `/dgf-evolve`, run when
+you ask, turns the patches into skill-context rules. Each rule may only tighten a skill, and a
+script refuses an override that would grant a tool, narrow the gate or install anything, before
+any skill reads it. See [The learning loop](docs/pipeline.md#the-learning-loop).
 
 ---
 
@@ -78,8 +85,8 @@ patches into rules that sharpen the next run.
 
 | Guide | Description |
 |-------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, repo layout, working on the plugin, trying the spine |
-| [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate |
+| [Getting Started](docs/getting-started.md) | Prerequisites, repo layout, working on the plugin, trying the spine and the loop |
+| [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate, the learning loop |
 | [Architecture](docs/architecture.md) | Slice structure, dependency rules, communication |
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |
 | [DGF Knowledge Sourcing](docs/dgf-knowledge.md) | Citing, dating and version-stamping DGF facts |

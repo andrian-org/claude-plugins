@@ -70,6 +70,22 @@ class SpineCodes(unittest.TestCase):
         self.assertEqual(report.CODES["ROUTE_NO_ROW"], report.EXIT_USAGE)
 
 
+class LearningCodes(unittest.TestCase):
+    """The learning loop's codes force the exits ADR 0021 gives them."""
+
+    EXPECTED = {
+        report.EXIT_BLOCKED: ("PATCH_NAME_INVALID", "PATCH_UNREADABLE", "PATCH_FIELD_MISSING", "PATCH_FIELD_INVALID",
+                              "PATCH_SECTION_INVALID", "OVERRIDE_UNREADABLE", "OVERRIDE_SHAPE",
+                              "OVERRIDE_SOURCE_MISSING", "OVERRIDE_FORBIDDEN"),
+        report.EXIT_WARNINGS: ("PATCH_CURSOR_UNREADABLE", "OVERRIDE_TOUCHES_LIMIT"),
+    }
+
+    def test_every_learning_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+
 class Rendering(unittest.TestCase):
     def test_output_order_and_verdict(self):
         rep = report.Report("f.json", "json")

@@ -31,7 +31,7 @@ excluded extensions are this plugin's policy.
 artifact() names the artifact a path is: a component under `FM/_COMPONENTS/`,
 a `legacy-artifacts` row (§2.1), or a process-local workflow, with the name its
 placeholders give. inventory_root.py counts with it, and the verify gate lists
-a change's footprint with it (ADR 0020 §6). Stdlib only.
+a change's footprint with it (ADR 0022 §6). Stdlib only.
 """
 
 import re

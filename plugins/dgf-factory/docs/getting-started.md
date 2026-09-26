@@ -42,8 +42,9 @@ relative to it.
 | `.claude-plugin/plugin.json` | The manifest — what makes this a loadable plugin |
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
 | `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` | The pipeline spine — set up, plan, implement, verify, commit. `dgf`, `dgf-plan`, `dgf-implement` and `dgf-verify` carry `references/` too. See [Pipeline Spine](pipeline.md) |
+| `skills/dgf-fix`, `dgf-evolve` | The learning loop — fix inside the plan and record a patch; distil patches into overrides. Each carries its format in `references/`. See [The learning loop](pipeline.md#the-learning-loop) |
 | `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); six stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
-| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, and the verify gate `verify_gate.py`. Their shared `lib/` — `lib/gate_result.py` builds every gate block — and the hash-pinned `requirements.txt`. Shipped |
+| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, and the verify gate `verify_gate.py`. The loop's: `check_patches.py` and `check_override.py`. Their shared `lib/` — `lib/gate_result.py` builds every gate block — and the hash-pinned `requirements.txt`. Shipped |
 | `tests/` | Not shipped. The `unittest` suite and its fixtures, including the known-bad corpus under `fixtures/known-bad/` |
 | `provenance/` | Not shipped. One ledger per knowledge file: the DGF files its facts were read from, each with a `sha256` |
 | `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts; section 8 runs the unit tests |
@@ -135,7 +136,11 @@ per finding and a verdict, and exits `0`, `1`, `2` or `3` (see
 | `check_change.py` | Whether a branch's change stays inside its plan, and which validator findings it introduced |
 | `verify_gate.py` | The gate: all of the above in one run, the status computed, and one `dgf-gate-result` block |
 
-Their flags and exit codes are in [Pipeline Spine → The scripts](pipeline.md#the-scripts).
+| `check_patches.py` | Whether each patch is well formed, and — with `--cursor` — which ones `/dgf-evolve` has not seen |
+| `check_override.py` | Whether a skill may read its skill-context override: its shape, its sources, nothing forbidden, and which rules need judgement |
+
+Their flags and exit codes are in [Pipeline Spine → The scripts](pipeline.md#the-scripts) and
+[The learning loop](pipeline.md#the-learning-loop).
 
 ### Tests and maintainer tools
 
@@ -211,10 +216,34 @@ branch introduced as `ERROR` or `WARN`. To drive the same flow through the skill
 plugin with `--plugin-dir` and run `/dgf /tmp/estate`, then `/dgf-plan`, `/dgf-implement`,
 `/dgf-verify` and `/dgf-commit` inside the copy. See [Pipeline Spine](pipeline.md).
 
+## Trying the loop
+
+The loop's two scripts need no DGF checkout and no `config.yaml`. On a scratch root, write a patch
+from the worked example in `skills/dgf-fix/references/PATCH-FORMAT.md`, and check it with the
+cursor that tells `/dgf-evolve` what is new:
+
+```bash
+mkdir -p /tmp/loop/.dgf-factory/patches
+# save the worked example as /tmp/loop/.dgf-factory/patches/2026-09-26-14.30-review-moves-to-undeclared-state.md
+python3 scripts/check_patches.py --workspaces-root /tmp/loop --cursor .dgf-factory/evolutions/patch-cursor.json
+```
+
+`PATCH: … state=new`, exit `0`. Break a field or empty a section, and it exits `1` with the line.
+Then write the worked override from `skills/dgf-evolve/references/OVERRIDE-FORMAT.md` to
+`/tmp/loop/.dgf-factory/skill-context/dgf-plan/SKILL.md` and check it, as `/dgf-plan` does before
+reading it:
+
+```bash
+python3 scripts/check_override.py --workspaces-root /tmp/loop --skill dgf-plan
+```
+
+Exit `0`. Add a rule telling the skill to pass `--skip-validators`, and it exits `1`,
+`OVERRIDE_FORBIDDEN`: every reader would refuse the file unread. To drive the loop through the
+skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
+
 ## What is not here yet
 
-- The rest of `skills/dgf-*/` — `/dgf-component`, `/dgf-process`, `/dgf-audit`, `/dgf-fix` and
-  the other skills beyond the spine
+- The DGF-specific skills — `/dgf-component`, `/dgf-process`, `/dgf-audit`
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 
@@ -268,7 +297,7 @@ Confirm the DGF docs MCP is reachable in your Claude Code session — `.mcp.json
 
 ## See Also
 
-- [Pipeline Spine](pipeline.md) — the five skills, the plan format and the change gate
+- [Pipeline Spine](pipeline.md) — the five skills, the plan format, the change gate, and the learning loop
 - [Architecture](architecture.md) — where new skills, knowledge and scripts belong
 - [Skill Authoring](skill-authoring.md) — the contract every `dgf-*` skill must follow
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — how to verify a fact before encoding it

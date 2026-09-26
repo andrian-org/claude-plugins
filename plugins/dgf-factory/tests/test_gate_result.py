@@ -1,4 +1,4 @@
-"""scripts/lib/gate_result.py, loaded by path in isolation — the way doctor.py loads it (ADR 0020 §1).
+"""scripts/lib/gate_result.py, loaded by path in isolation — the way doctor.py loads it (ADR 0022 §1).
 
 The module is never imported as `lib.gate_result`: a relative import in it
 would then resolve here and fail for the doctor.
@@ -66,10 +66,15 @@ class Refusals(unittest.TestCase):
         self.assertEqual(caught.exception.rule, "gate")
 
     def test_a_command_outside_the_allowlist(self):
-        self.refused("command", command="/dgf-fix")
-        with self.assertRaises(gate_result.GateContractError) as caught:
-            gate_result.build("doctor", [], [], "/dgf-commit", "why")
-        self.assertEqual(caught.exception.rule, "command")
+        self.refused("command", command="/dgf-evolve")
+        for command in ("/dgf-commit", "/dgf-fix"):  # a broken install is fixed by hand (ADR 0022 §8)
+            with self.subTest(command=command), self.assertRaises(gate_result.GateContractError) as caught:
+                gate_result.build("doctor", [], [], command, "why")
+            self.assertEqual(caught.exception.rule, "command")
+
+    def test_verify_allows_dgf_fix(self):
+        payload = build([error()], [], "/dgf-fix", "1 new blocking finding(s)")
+        self.assertEqual(payload["suggested_next"]["command"], "/dgf-fix")
 
     def test_an_empty_reason(self):
         self.refused("reason", reason="  ")

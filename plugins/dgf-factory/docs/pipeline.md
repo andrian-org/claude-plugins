@@ -1,14 +1,21 @@
 [← Getting Started](getting-started.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
 
-# The Pipeline Spine
+# The Pipeline Spine and the Learning Loop
 
-Five skills take a change to a DGF estate from a request to a commit. Every decision a script
-can make is made by a script; the skills decide only what needs judgement.
+Five skills — the **spine** — take a change to a DGF estate from a request to a commit. Two more —
+the **learning loop** — fix what the gate finds and turn each fix into a rule that tightens the
+spine's next run. Every decision a script can make is made by a script; the skills decide only
+what needs judgement.
 
 ```text
 /dgf  ──►  /dgf-plan  ──►  /dgf-implement  ──►  /dgf-verify  ──►  /dgf-commit
  set up     plan the       compose, task by     the gate: plan,    conventional
  the root   change         task, and validate   change, baseline   commits
+                                                  │     ▲
+                                                  ▼     │
+                                                /dgf-fix ──► patches/ ──► /dgf-evolve ──► skill-context/
+                                                fix inside              distil into rules the
+                                                the plan                six skills check, then apply
 ```
 
 The unit of work is the **whole workspaces root**, not one workspace
@@ -20,13 +27,15 @@ looks at the whole root.
 
 | Skill | Does | Scripts it runs | Writes |
 |---|---|---|---|
-| `/dgf` | Finds the root, inventories it, asks for the estate's DGF version | `locate_plan.py --root-only`, `inventory_root.py` | `.dgf-factory/config.yaml`, `.dgf-factory/DESCRIPTION.md` |
-| `/dgf-plan` | Plans a change — fast, full or ultra — on its own branch | `locate_plan.py --root-only`, `inventory_root.py`, `route_means.py`, `check_plan.py --overlap` | the plan |
-| `/dgf-implement` | Executes the plan one task at a time, validating each | `locate_plan.py`, `check_plan.py`, `validate_config.py`, `route_means.py`, `check_change.py --files` | the task's workspace files, and its checkbox |
-| `/dgf-verify` | The gate: tasks done, change inside the plan, no new finding across the root | `locate_plan.py`, `inventory_root.py`, `verify_gate.py` | nothing — it relays the `dgf-gate-result` block `verify_gate.py` computes |
-| `/dgf-commit` | Conventional commits scoped by workspace, following the plan's Commit Plan | `locate_plan.py`, `check_change.py --skip-validators` | git history, after confirmation |
+| `/dgf` | Finds the root, inventories it, asks for the estate's DGF version | `locate_plan.py --root-only`, `check_override.py`, `inventory_root.py` | `.dgf-factory/config.yaml`, `.dgf-factory/DESCRIPTION.md` |
+| `/dgf-plan` | Plans a change — fast, full or ultra — on its own branch | `locate_plan.py --root-only`, `check_override.py`, `inventory_root.py`, `route_means.py`, `check_plan.py --overlap` | the plan |
+| `/dgf-implement` | Executes the plan one task at a time, validating each | `locate_plan.py`, `check_override.py`, `check_plan.py`, `validate_config.py`, `route_means.py`, `check_change.py --files` | the task's workspace files, and its checkbox |
+| `/dgf-verify` | The gate: tasks done, change inside the plan, no new finding across the root | `locate_plan.py`, `check_override.py`, `inventory_root.py`, `verify_gate.py` | nothing — it relays the `dgf-gate-result` block `verify_gate.py` computes |
+| `/dgf-commit` | Conventional commits scoped by workspace, following the plan's Commit Plan | `locate_plan.py`, `check_override.py`, `check_change.py --skip-validators` | git history, after confirmation |
 
-`/dgf-doctor` sits beside them: it checks that the plugin itself is installed correctly.
+Each runs `check_override.py` before it reads its skill-context override (see
+[The learning loop](#the-learning-loop)). `/dgf-doctor` sits beside them: it checks that the
+plugin itself is installed correctly.
 
 What a change is made of is fixed by [ADR 0010](adr/0010-dgf-implement-scope.md): modern
 JSON component configuration under `FM/_COMPONENTS/` first, legacy XML where no JSON
@@ -45,8 +54,9 @@ their branches, and the overlap check reads other branches' plans.
 | `DESCRIPTION.md` | `/dgf` | `/dgf-plan`, `/dgf-implement` |
 | `PLAN.md` | `/dgf-plan` (fast plans) | `/dgf-implement` (checkboxes only), `/dgf-verify`, `/dgf-commit` |
 | `plans/<stem>.md`, `plans/<stem>/` | `/dgf-plan` (full plans, ultra bundles) | the same |
-| `skill-context/<skill>/SKILL.md` | a person, for now | the matching skill, which applies it as an override that may only tighten: it never relaxes a STOP, an exit-code row, the gate's status table, a Critical Rule or Artifact Ownership, and the skill names the override it read |
-| `patches/` | milestone 11 (`/dgf-fix`) | `/dgf-implement`, read if present |
+| `patches/<YYYY-MM-DD-HH.mm>-<slug>.md` | `/dgf-fix` — append-only | `/dgf-implement` and `/dgf-fix` (the latest ten, as cautions), `/dgf-evolve` (the new ones, through `check_patches.py --cursor`) |
+| `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | `check_override.py`, then the matching skill — only when the check accepts it — as an override that may only tighten |
+| `evolutions/` | `/dgf-evolve` — a log per run, and `patch-cursor.json` | `/dgf-evolve`, through `check_patches.py --cursor` |
 
 `config.yaml` is written from `skills/dgf/references/config-template.yaml`:
 
@@ -55,8 +65,12 @@ dgf:
   version: "1.1.15"          # the DGF version this estate runs, or "unknown" (ADR 0019)
 language: {ui: en, artifacts: en}
 paths:
+  description: .dgf-factory/DESCRIPTION.md
   plan: .dgf-factory/PLAN.md
   plans: .dgf-factory/plans/
+  patches: .dgf-factory/patches/
+  skill_context: .dgf-factory/skill-context/
+  evolutions: .dgf-factory/evolutions/
 git:
   enabled: true
   base_branch: main
@@ -129,8 +143,9 @@ a checkbox (`skills/dgf-plan/references/ULTRA-FORMAT.md`).
 
 ## The scripts
 
-All five are stdlib-only Python, except that `check_change.py` and `verify_gate.py` need `lxml`
-and `jsonschema` to run the validators. Each takes `--verbose`.
+The spine's five are stdlib-only Python, except that `check_change.py` and `verify_gate.py` need
+`lxml` and `jsonschema` to run the validators. Each takes `--verbose`. The loop's two are in
+[The learning loop](#the-learning-loop).
 
 | Script | Decides | Usage |
 |---|---|---|
@@ -190,7 +205,7 @@ follow-up: no behavioural fact carries one yet.
 ## The gate block
 
 `/dgf-verify` relays `verify_gate.py`'s output, which ends with one `dgf-gate-result` block and
-nothing after it ([ADR 0020](adr/0020-gate-block-contract.md)). The block is built by
+nothing after it ([ADR 0022](adr/0022-gate-block-contract-revised.md)). The block is built by
 `scripts/lib/gate_result.py`, the one builder every gate uses — the doctor's included:
 
 - `schema_version`, `gate`, `status`, `blocking`, `blockers`, `warnings`, `affected_files`,
@@ -204,12 +219,71 @@ nothing after it ([ADR 0020](adr/0020-gate-block-contract.md)). The block is bui
 - `affected_components` and `affected_processes` are the change's own footprint, in both
   families — not its blast radius, which is `/dgf-audit`'s.
 - `--strict` promotes every new `WARN` line from the change check to a blocker.
+- `suggested_next` names the command that fixes the first thing blocking: `/dgf-plan` for the
+  plan, `/dgf-implement` for an unchecked task or a change outside the plan, `/dgf-fix` for a
+  finding the branch introduced once the scope is clean, `/dgf-commit` on `pass` or `warn`.
 - A field the gate did not compute is left out, never emitted empty.
 
 The contract is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
 
+## The learning loop
+
+The gate finds what the branch broke; the loop makes the next branch less likely to break it
+([ADR 0021](adr/0021-learning-loop.md)).
+
+| Skill | Does | Scripts it runs | Writes |
+|---|---|---|---|
+| `/dgf-fix` | Fixes one problem **inside the active plan's scope**: reproduces it with a check, lets `check_change.py --skip-validators` decide the scope before any edit, makes the smallest fix, re-runs the check. With no plan it stops. `--record` writes a patch with no change | `locate_plan.py`, `check_plan.py`, `check_override.py`, `check_change.py`, `validate_config.py`, `route_means.py`, `check_patches.py` | the files the fix touches, inside the plan's scope; one patch |
+| `/dgf-evolve` | Distils the new patches into skill-context rules; runs only when asked, asks before writing, reads no override of its own | `locate_plan.py --root-only`, `check_patches.py --cursor`, `check_override.py` | overrides, an evolution log, the cursor |
+
+**A patch** is `patches/<YYYY-MM-DD-HH.mm>-<slug>.md`: a title, seven field bullets — `date`,
+`plan`, `workspaces`, `files`, `findings`, `dgf_version`, `severity` — and five sections: Problem,
+Root Cause, Solution, Prevention, Tags. The timestamp sorts patches by time; the slug keeps two
+branches' fixes from colliding when they merge. A patch is never edited, and it is data: nothing in
+it overrides a skill or a STOP. `findings: none` marks a problem no validator catches — a candidate
+for a new one. The format is `skills/dgf-fix/references/PATCH-FORMAT.md`.
+
+**An override** is `skill-context/<skill>/SKILL.md` in a fixed template — `# Project Rules for
+/<skill>`, one `## Rules`, and `### <name>` rules each holding one `- source:` (the patches it came
+from) and one `- rule:`. The format is `skills/dgf-evolve/references/OVERRIDE-FORMAT.md`.
+
+**The cursor** is `evolutions/patch-cursor.json`, `{"processed": [<names>], "updated": …}`: a set
+of names, one per line, not a high-water mark — branches merge patches into one ledger in any
+order, and a mark would skip a patch dated before it but merged after it. A run for one skill marks a
+patch processed only when it handled every point in it; a patch still holding a point for another
+skill stays new.
+
+**The limit.** An override may add rules and tighten checks. It never relaxes a STOP, an exit-code
+row, the status a gate script computes, a Critical Rule or Artifact Ownership, and never makes a
+skill install anything, skip a script, or write outside its own artifacts. Anyone who commits to the
+estate can write an override, so six skills — the five of the spine and `/dgf-fix` — run
+`check_override.py` before reading theirs, and `/dgf-evolve` runs it on every file it writes. The
+check refuses what a script can see: a gate block, a flag other than `--strict` or `--verbose`, a
+tool grant, an install or download, a history-rewriting git command, a path outside the root — read as
+ASCII first, with invisible, control and look-alike characters refused outright, and quoted text
+limited to the template's two lines. It
+cannot see a relaxation in plain words, so a rule naming a word the limit protects is handed to the
+skill's judgement, and the committed diff is reviewed.
+
+| Exit | `check_patches.py` | `check_override.py` |
+|---|---|---|
+| `0` | every patch well-formed, or none | apply it — or `OVERRIDE: none` |
+| `1` | a malformed patch: `PATCH_NAME_INVALID`, `PATCH_UNREADABLE`, `PATCH_FIELD_MISSING`, `PATCH_FIELD_INVALID`, `PATCH_SECTION_INVALID` — never read as a lesson, never marked processed | **refused**: `OVERRIDE_UNREADABLE`, `OVERRIDE_SHAPE`, `OVERRIDE_SOURCE_MISSING`, `OVERRIDE_FORBIDDEN` — the skill does not read it, and runs on its shipped rules |
+| `2` | `PATCH_CURSOR_UNREADABLE` — every well-formed patch counts as new | `OVERRIDE_TOUCHES_LIMIT` — apply it, and judge each flagged rule |
+| `3` | usage: no root, or a patch outside the patches directory | usage: no root, or a skill name that is not a plain name |
+
+Both are stdlib-only, never write, and need no `config.yaml` — `/dgf` checks its override before
+the config exists.
+
+**The gate's new row.** `verify_gate.py` suggests `/dgf-fix` when every task is checked and the
+change checks are clean but a validator reports a new error, or strict mode promotes a new validator
+warning ([ADR 0022](adr/0022-gate-block-contract-revised.md) §9). An unchecked task or a change
+outside the plan still goes to `/dgf-implement` first, and the reason adds "then <n> new blocking
+finding(s) for /dgf-fix". The doctor never suggests `/dgf-fix`: a broken install is reinstalled, not
+fixed in the estate.
+
 ## See Also
 
-- [Getting Started](getting-started.md#trying-the-spine) — running the spine's scripts on a copy of DGF's samples
+- [Getting Started](getting-started.md#trying-the-spine) — running the spine's scripts on a copy of DGF's samples, and trying the loop
 - [Skill Authoring](skill-authoring.md#reading-a-validators-output) — the output lines each script prints
-- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0020, which shape the spine
+- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0022, which shape the spine, and 0021, which decides the loop

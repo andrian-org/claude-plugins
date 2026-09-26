@@ -4,7 +4,7 @@ description: Verify a branch's DGF change against its plan and the merge-base �
 argument-hint: "[--strict]"
 allowed-tools: Read Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF Verify — The Change Gate
@@ -19,7 +19,8 @@ file it never touched. Findings the estate already had are compared away against
 merge-base (ADR 0018): they are reported as `PRE_EXISTING`, and never block.
 
 This skill is **read-only.** It changes no file — not the plan, not a workspace. Fixing belongs
-to `/dgf-implement`, and a defective plan to `/dgf-plan`.
+to `/dgf-implement` (an unchecked task, a change outside the plan) or `/dgf-fix` (a finding the
+branch introduced), and a defective plan to `/dgf-plan`: the block names which.
 
 It ports AI Factory's `/aif-verify`. Its build, test and lint steps become the validators; its
 context gates, Handoff and roadmap checks are dropped.
@@ -39,12 +40,26 @@ in its block, relay its output verbatim, and **STOP**:
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify_gate.py"
 ```
 
-Otherwise read `<root>/.dgf-factory/config.yaml`, and
-`<root>/.dgf-factory/skill-context/dgf-verify/SKILL.md` if it exists. An override may add rules
-and tighten checks. It never relaxes a STOP, an exit-code row, the gate's status table, a
-Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script,
-or write outside its own artifacts. Name the override in your report, and quote any rule in it
-you did not apply because it would relax one of these.
+Otherwise read `<root>/.dgf-factory/config.yaml`.
+
+Check this skill's override before reading it:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-verify --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+```
+
+| Exit | Action |
+|---|---|
+| `0` | `OVERRIDE: none` → there is no override. Otherwise read the file it names, and apply it. |
+| `1` | **Refused.** Do not read or apply it. Name it in your report with each `ERROR` line; the shipped rules alone apply. |
+| `2` | Read and apply it. Judge each rule an `OVERRIDE_TOUCHES_LIMIT` line names against the limit below. |
+| `3` | **STOP** and relay it: the call is wrong. |
+
+An override may add rules and tighten checks. It never relaxes a STOP, an exit-code row, the status a gate script
+computes, a Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script, or write
+outside its own artifacts. Name the override in your report, and quote any rule in it you did not apply because it
+would relax one of these.
+
 **Strict mode** is `--strict` or `workflow.verify_mode: strict`.
 
 ### Step 0.1: Gate contract
@@ -127,7 +142,7 @@ the block stays last.
    ```
    ## Verification Report — <plan>
 
-   Override: <the skill-context file read, or none>; refused: <each rule not applied, or none>
+   Override: <the skill-context file read, `refused (<codes>)`, or none>; refused: <each rule not applied, or none>
    Base workspace: <reason; applications covered — or "not in the plan">
    ```
 

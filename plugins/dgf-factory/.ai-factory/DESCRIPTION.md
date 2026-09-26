@@ -16,7 +16,7 @@ Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
 
 ## Current State
 
-Roadmap milestone 10 ("Gate Contract Wired") is built. The repository currently contains:
+Roadmap milestone 11 ("Learning Loop") is built. The repository currently contains:
 
 - `README.md` + `docs/` — landing page and documentation set
 - `docs/blueprint.md` — the design document (Part 1 teardown, Part 2 DGF mapping)
@@ -33,7 +33,14 @@ Roadmap milestone 10 ("Gate Contract Wired") is built. The repository currently 
   commit by workspace. Their references hold the config and DESCRIPTION templates, the plan
   and ultra formats, the implementation guide and the gate-result contract
   ([docs/pipeline.md](../docs/pipeline.md)). `/dgf-verify` and `/dgf-doctor` relay a gate block a
-  script built; no prompt writes one ([ADR 0020](../docs/adr/0020-gate-block-contract.md))
+  script built; no prompt writes one ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md))
+- `skills/dgf-fix`, `dgf-evolve` — the learning loop ([ADR 0021](../docs/adr/0021-learning-loop.md)):
+  `/dgf-fix` fixes a problem inside the active plan's scope — reproduced, scope decided by
+  `check_change.py --skip-validators` before any edit, confirmed by the same check — and writes a
+  patch (`references/PATCH-FORMAT.md`); `/dgf-evolve`, run only when asked, distils the new patches
+  into skill-context overrides (`references/OVERRIDE-FORMAT.md`), an evolution log and the patch
+  cursor. The six skills that read an override run `check_override.py` first, and a refused
+  override is never read. The verify gate suggests `/dgf-fix` for a finding the branch introduced
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
   machine-read table contract), six stamped facts files (`schema-families`,
   `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,
@@ -58,19 +65,22 @@ Roadmap milestone 10 ("Gate Contract Wired") is built. The repository currently 
   `locate_plan.py` (the root and the active plan), `inventory_root.py` (each workspace,
   counted), `check_plan.py` (every rule of the plan format, its Commit Plan included, and
   overlaps with other branches' plans) and `check_change.py` (a change against its plan, and new
-  findings against the merge-base). And the verify gate, `verify_gate.py`, which runs the plan
-  and change checks in-process and prints one computed `dgf-gate-result` block. With them, their
-  shared `lib/` — `plan.py`, `git.py`, `runner.py`, `baseline.py` and `gate_result.py` (the one
-  builder of every gate block) among its modules — and `requirements.txt`: `lxml` 6.1.3 and
+  findings against the merge-base). The verify gate, `verify_gate.py`, which runs the plan
+  and change checks in-process and prints one computed `dgf-gate-result` block. The loop's two,
+  stdlib-only: `check_patches.py` (the patch format, and which patches are new against the
+  cursor) and `check_override.py` (whether a skill may read its override). With them, their
+  shared `lib/` — `plan.py`, `git.py`, `runner.py`, `baseline.py`, `gate_result.py` (the one
+  builder of every gate block), `patches.py` and `overrides.py` among its modules — and
+  `requirements.txt`: `lxml` 6.1.3 and
   `jsonschema` 4.25.1, exact pins with hashes, Python 3.9 floor
-- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 55-case known-bad
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 64-case known-bad
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
-  when a skill quotes a finding code or passes a flag no script has
-- `docs/adr/` — 20 decision records, 0001–0020; the index is `docs/adr/README.md`
+  when a skill quotes a finding code or passes a flag no script has, and holds the override
+  readers and writer to the limit
+- `docs/adr/` — 22 decision records, 0001–0022; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: the DGF-specific skills, the learning loop, `agents/` and the marketplace
-entry.
+Not yet created: the DGF-specific skills, `agents/` and the marketplace entry.
 
 ## Tech Stack
 

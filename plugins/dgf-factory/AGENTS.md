@@ -13,8 +13,10 @@ DotGov Framework (.NET 10 / Angular 19 Component-Hosted Pluggable Monolith) inst
 deriving the stack at setup time.
 
 The pipeline spine exists — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`,
-`/dgf-commit`, beside `/dgf-doctor` — on the knowledge base and the validators. The
-DGF-specific skills and the learning loop do not exist yet. See
+`/dgf-commit`, beside `/dgf-doctor` — on the knowledge base and the validators, and so does the
+learning loop — `/dgf-fix` records a patch for each fix inside a plan's scope, `/dgf-evolve`
+distils patches into skill-context overrides that `check_override.py` checks before any skill
+reads one. The DGF-specific skills do not exist yet. See
 [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified framework facts,
 [docs/pipeline.md](docs/pipeline.md) for how a change flows, and [docs/adr/](docs/adr/README.md)
 for the decisions that shape it.
@@ -45,7 +47,9 @@ plugins/dgf-factory/
 │   ├── dgf-plan/               #   fast/full/ultra plans; references/PLAN-FORMAT.md, ULTRA-FORMAT.md
 │   ├── dgf-implement/          #   execute a plan task by task; references/IMPLEMENTATION-GUIDE.md
 │   ├── dgf-verify/             #   the change gate; references/GATE-RESULT-CONTRACT.md
-│   └── dgf-commit/             #   conventional commits scoped by workspace
+│   ├── dgf-commit/             #   conventional commits scoped by workspace
+│   ├── dgf-fix/                #   fix inside the plan's scope, record a patch; references/PATCH-FORMAT.md
+│   └── dgf-evolve/             #   distil patches into overrides; references/OVERRIDE-FORMAT.md
 ├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
@@ -64,10 +68,12 @@ plugins/dgf-factory/
 │   ├── inventory_root.py       #   each workspace, counted; what is not one
 │   ├── check_plan.py           #   a plan's header, tasks, Commit Plan, file classes, routes, bundle, overlaps
 │   ├── check_change.py         #   a branch's change against its plan and the merge-base (ADR 0018)
-│   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0020)
+│   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0022)
+│   ├── check_patches.py        #   the patches' format, and which are new against the cursor (ADR 0021)
+│   ├── check_override.py       #   may a skill read its override: shape, sources, forbidden, limit (ADR 0021)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
 │   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
-│                               #   process_checks, plan, git, runner, baseline, gate_result
+│                               #   process_checks, plan, git, runner, baseline, gate_result, patches, overrides
 ├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
@@ -101,12 +107,12 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: the DGF-specific skills (`dgf-component`, `dgf-process`, `dgf-audit`), the
-learning loop (`dgf-fix`, `dgf-evolve`) and `agents/`. The manifest and the `/dgf-doctor`
-walking skeleton landed with roadmap milestone 6, the `knowledge/` base with milestone 7, the
-validators, both corpora and the drift check with milestone 8, the pipeline spine with milestone
-9, and the wired gate contract — `lib/gate_result.py`, `verify_gate.py`, the Commit Plan check —
-with milestone 10.
+Not yet created: the DGF-specific skills (`dgf-component`, `dgf-process`, `dgf-audit`) and
+`agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
+the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
+milestone 8, the pipeline spine with milestone 9, the wired gate contract — `lib/gate_result.py`,
+`verify_gate.py`, the Commit Plan check — with milestone 10, and the learning loop —
+`/dgf-fix`, `/dgf-evolve`, `check_patches.py`, `check_override.py` — with milestone 11.
 
 ## Key Entry Points
 
@@ -119,7 +125,10 @@ with milestone 10.
 | [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
 | [scripts/check_plan.py](scripts/check_plan.py) | Every rule a plan must meet (ADR 0017), and the overlap with other branches' plans |
 | [scripts/check_change.py](scripts/check_change.py) | The change checks: scope, means, planned files, and new findings against the merge-base (ADR 0018) |
-| [scripts/verify_gate.py](scripts/verify_gate.py) | The verify gate `/dgf-verify` relays: the plan and change checks in-process, the task audit, the computed block (ADR 0020) |
+| [scripts/verify_gate.py](scripts/verify_gate.py) | The verify gate `/dgf-verify` relays: the plan and change checks in-process, the task audit, the computed block (ADR 0022) |
+| [scripts/check_override.py](scripts/check_override.py) | Whether a skill may read its skill-context override; the six readers run it first, and a refused override is never read (ADR 0021) |
+| [scripts/lib/overrides.py](scripts/lib/overrides.py) | The override template, its sources, the `FORBIDDEN` constructs and the `LIMIT_WORDS` — what the check decides and what it hands to judgement |
+| [scripts/check_patches.py](scripts/check_patches.py) | The patch format (`lib/patches.py`), and which patches `/dgf-evolve` has not seen |
 | [scripts/lib/gate_result.py](scripts/lib/gate_result.py) | The one builder of every `dgf-gate-result` block — status from the entries, refusals, rendering; stdlib only |
 | [scripts/lib/plan.py](scripts/lib/plan.py) | The plan file's flat header, its tasks and Commit Plan, every path's class, and the artifact a path is |
 | [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | What the verify gate's block holds and how its status is computed |
@@ -132,6 +141,7 @@ with milestone 10.
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
+| [docs/adr/0021-learning-loop.md](docs/adr/0021-learning-loop.md) | The learning loop: patches, overrides, the limit an override may not cross, and the script that checks one |
 | [.ai-factory/config.yaml](.ai-factory/config.yaml) | Language, paths, git and workflow settings for the pipeline |
 | [.ai-factory/rules/base.md](.ai-factory/rules/base.md) | Naming, error handling, exit-code contract, skill authoring rules |
 | [.mcp.json](.mcp.json) | MCP servers available to agents in this project |
@@ -159,7 +169,7 @@ with milestone 10.
 |---|---|---|
 | README | `README.md` | Plugin landing page |
 | Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, loading it locally, trying the spine |
-| Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate |
+| Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate, learning loop |
 | Architecture | `docs/architecture.md` | Slice structure and dependency rules |
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
@@ -190,8 +200,11 @@ with milestone 10.
   gates and the declared DGF version by [ADR 0017](docs/adr/0017-plan-file-format.md),
   [ADR 0018](docs/adr/0018-change-relative-gates.md) and
   [ADR 0019](docs/adr/0019-declared-dgf-version.md); the gate block — who builds it, how its
-  status is computed, what it may claim — by [ADR 0020](docs/adr/0020-gate-block-contract.md);
-  0002, 0003, 0006, 0007 and 0008 are superseded history.
+  status is computed, what it may claim, which command it suggests — by
+  [ADR 0022](docs/adr/0022-gate-block-contract-revised.md); the learning loop — patches, overrides,
+  the limit an override may not cross, and the script that checks one — by
+  [ADR 0021](docs/adr/0021-learning-loop.md); 0002, 0003, 0006, 0007, 0008 and 0020 are superseded
+  history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

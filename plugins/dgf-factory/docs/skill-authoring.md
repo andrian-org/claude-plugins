@@ -38,6 +38,7 @@ version: 1.0.0
 | `description` | **Carries the trigger phrases.** It is the only thing deciding whether the skill fires — write it for matching, not for elegance. Include the literal phrases a user would type. |
 | `argument-hint` | Present whenever the skill takes arguments |
 | `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `${CLAUDE_PLUGIN_ROOT}` is substituted inside Bash rules, so a skill that runs the plugin's scripts lists `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)`, never `Bash(python3 *)`, which also pre-approves `python3 -c …`. A skill that runs no git command lists no git rule. `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`: a rule with `*` before the subcommand draws a startup warning. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
+| `disable-model-invocation` | `false`, so the skill fires on its description — except a skill that rewrites what other skills do (`/dgf-evolve`, which writes their overrides): `true`, so it runs only when the user asks for it. |
 | `version` | Semver. Bump when behaviour changes. |
 
 ## Body structure
@@ -63,6 +64,13 @@ version: 1.0.0
 Write steps so they can be resumed. State lives in files on disk, not in the context
 window — a user can `/clear` mid-run and pick up where they left off, but only if each
 step reads its state rather than assuming it.
+
+A skill that reads a skill-context override checks it first, in its context step, with the block
+the six readers share word for word except the skill name: `check_override.py --workspaces-root
+"<root>" --skill <its own name> …`, an exit table — `0` apply it, or `OVERRIDE: none`; `1` refused,
+do not read it; `2` apply it and judge each `OVERRIDE_TOUCHES_LIMIT` rule; `3` **STOP** — and the
+limit sentence. `tests/test_skill_contracts.py` finds the readers by that call and holds each to
+its own `--skill` and the sentence ([ADR 0021](adr/0021-learning-loop.md) §4–§5).
 
 ## The exit-code contract
 
@@ -99,9 +107,10 @@ message — text that can come from a workspace or another branch — print esca
 `route_means.py` answers a question rather than checking files, so it prints a single
 `ROUTE: json|xml <where> — <reason>` line in place of 2–4.
 
-The pipeline spine's scripts read plans and roots rather than configuration files, so they
-print their own lines in place of 2. `check_plan.py`, `check_change.py` and `verify_gate.py` then
-print the same `CHECKS RUN:` and `NOT RUN:` lines; all five print findings and a verdict:
+The pipeline spine's five scripts read plans and roots, and the learning loop's two read patches
+and overrides, rather than configuration files, so they print their own lines in place of 2.
+`check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py` and `check_override.py`
+then print the same `CHECKS RUN:` and `NOT RUN:` lines; all seven print findings and a verdict:
 
 | Script | Lines in place of `FAMILY:` |
 |---|---|
@@ -109,6 +118,8 @@ print the same `CHECKS RUN:` and `NOT RUN:` lines; all five print findings and a
 | `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
 | `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file |
+| `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor` |
+| `check_override.py` | `OVERRIDE: <file> skill=<skill> rules=<n>` (`rules=?` when its shape fails), or `OVERRIDE: none — no <file>`; one `RULE: <N> line=<l> sources=<n> name="<name>"` per rule |
 | `verify_gate.py` | `ROOT:`; `check_plan.py`'s lines; `check_change.py`'s lines after its `PLAN:`; one `CODE TASK: <N> reason="<reason>"` per `kind: code` task. Its summary adds `Shown: 20 of <n> PRE_EXISTING — …` when it cuts them, and `STATUS: pass\|warn\|fail`; then the verdict, a blank line, and the gate block |
 
 `check_change.py` compares the validators' findings with the merge-base
@@ -122,7 +133,7 @@ them unasked.
 Only a whole-root run records the check `validators` as run. A `check_change.py --files` run —
 `/dgf-implement`'s per-task pre-check — prints `NOT RUN: validators (narrowed to <n> file(s) by
 --files; …)`, so a narrowed run can never read as a gate pass
-([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0020](adr/0020-gate-block-contract.md) §4).
+([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0022](adr/0022-gate-block-contract-revised.md) §4).
 
 Each finding code has one fixed severity, and the exit code is the worst across all files,
 with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and
@@ -135,7 +146,7 @@ gate block can carry them.
 
 Quality skills keep their human-readable Markdown report, then end with exactly one fenced
 `dgf-gate-result` block. **A script builds it**, through the one builder
-`scripts/lib/gate_result.py` ([ADR 0020](adr/0020-gate-block-contract.md)); the skill relays the
+`scripts/lib/gate_result.py` ([ADR 0022](adr/0022-gate-block-contract-revised.md)); the skill relays the
 script's output verbatim and writes nothing after it. A prompt never writes or edits a block.
 
 ````markdown
@@ -177,9 +188,10 @@ Rules:
 - **Absent means not computed; `[]` means none.** A field the gate did not compute is left out:
   the doctor reads no estate, so its block has no `schema_family`, `affected_components` or
   `affected_processes`.
-- **Each gate has its own allowlist.** `verify`: `/dgf-plan`, `/dgf-implement`, `/dgf-commit`
-  or `null`. `doctor`: `null` only — a broken install is fixed by hand. `/dgf-fix` joins them when
-  it is built.
+- **Each gate has its own allowlist.** `verify`: `/dgf-plan`, `/dgf-implement`, `/dgf-fix`,
+  `/dgf-commit` or `null` — `/dgf-fix` for a finding the branch introduced, once every task is
+  checked and the scope is clean. `doctor`: `null` only — a broken install is fixed by hand, never
+  by `/dgf-fix` ([ADR 0022](adr/0022-gate-block-contract-revised.md) §8).
 - **The doctor's block** is gate `doctor`: errors in `blockers`, warnings and each section that
   could not run (`not-run-<section>`) in `warnings`, and `checks_run` naming its six sections.
 - **Last block wins.** Callers parse only the final such block, never the prose above it. **A
@@ -221,7 +233,7 @@ many times.
 
 - [ ] `description` contains the phrases a user would actually type
 - [ ] `allowed-tools` is narrowed to what the skill really needs
-- [ ] A skill-context override is read with the shared limit sentence: it may only tighten
+- [ ] An override is checked with `check_override.py` and read with the shared limit: it may only tighten
 - [ ] Every DGF fact is cited from `knowledge/`, not inlined in the prompt
 - [ ] Every statically checkable rule is a script, not an instruction
 - [ ] Exit codes follow the table above
