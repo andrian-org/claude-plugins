@@ -131,7 +131,7 @@ per finding and a verdict, and exits `0`, `1`, `2` or `3` (see
 |---|---|
 | `locate_plan.py` | The workspaces root, and the active plan |
 | `inventory_root.py` | Each workspace and its counts, and what is not a workspace |
-| `check_plan.py` | Whether a plan is well formed, in scope and routed, and which other plans overlap it |
+| `check_plan.py` | Whether a plan is well formed, in scope and routed, whether its Commit Plan agrees with its tasks, and which other plans overlap it |
 | `check_change.py` | Whether a branch's change stays inside its plan, and which validator findings it introduced |
 | `verify_gate.py` | The gate: all of the above in one run, the status computed, and one `dgf-gate-result` block |
 

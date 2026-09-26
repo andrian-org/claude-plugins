@@ -151,7 +151,7 @@ script's output verbatim and writes nothing after it. A prompt never writes or e
   ],
   "warnings": [
     { "id": "not-run-baseline", "severity": "warning", "file": ".dgf-factory/plans/feature-x.md",
-      "line": null, "schema_family": null, "summary": "baseline did not run: no merge-base; every finding counts as new" }
+      "line": null, "schema_family": null, "summary": "baseline did not run: --changed gives no base tree; every finding counts as new" }
   ],
   "affected_files": [".dgf-factory/plans/feature-x.md", "zims/FM/_PROCESS/Apply/process.xml"],
   "checks_run": ["plan-header", "plan-tasks", "…", "validators", "xsd-structure"],

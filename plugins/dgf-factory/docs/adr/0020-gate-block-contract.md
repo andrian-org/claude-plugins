@@ -266,3 +266,9 @@ The doctor's gate is no longer `verify`. `/dgf-fix` joins an allowlist when mile
   checks it. A copy's own doctor loads its builder from its own `scripts/lib/gate_result.py` (§1), so
   without `scripts/` it exits `3` with no block. Source: `skills/dgf-doctor/scripts/doctor.py`
   (`load_gate_builder()`, and `resolve_root()` with no argument); found by review before merge.
+- **2026-09-26** — §Context left out what the tests pin, which the plan cites as its evidence for the
+  gate's tests. Each of the 51 known-bad cases runs from its own directory, exits `1` or `3`, and reports
+  every code it expects and no `ERROR` it does not (`tests/test_known_bad.py:44, 60-68`).
+  `tests/test_skill_contracts.py` reads finding codes from `report.CODES` (`:62`) and flags from each
+  called script's `--help` (`:55`, `:103-106`), and names the spine scripts the skills must call (`:110`).
+  Nothing decided rests on it. Source: those files at `develop` `f8444ef`; found by `/aif-verify`.
