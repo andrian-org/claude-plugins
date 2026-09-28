@@ -195,5 +195,44 @@ class Resolvers(unittest.TestCase):
                          ("base", ["FM", "_COMPONENTS", "Page", "x.json"]))
 
 
+
+class OneApplication(unittest.TestCase):
+    """`app` fixes the selected workspace of a webasm reference (ADR 0023 §4)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.root = sample_root(self.tmp)
+        self.app, self.base = self.root / "a", self.root / "webasm"
+
+    def test_a_webasm_reference_resolves_in_that_application_alone(self):
+        ref = workspace.resolve_workflow_ref
+        self.assertEqual(ref("WORKFLOW:/OnlyA", "BASE:Review", self.base, self.root, app="a"),
+                         workspace.Resolved("a/FM/_WORKFLOW/OnlyA/_workflow.xml"))
+        self.assertEqual(ref("WORKFLOW:/OnlyA", "BASE:Review", self.base, self.root, app="b"),
+                         workspace.Unresolved("b/FM/_WORKFLOW/OnlyA/_workflow.xml"))
+
+    def test_with_app_it_is_never_app_dependent(self):
+        for app in ("a", "b"):
+            for result in (workspace.resolve_workflow_name("/OnlyA", self.base, self.root, app=app),
+                           workspace.resolve_process("OnlyAQ", self.base, self.root, app=app),
+                           workspace.resolve_validation_flow("OnlyA", self.base, self.root, app=app),
+                           workspace.resolve_component_file("nowhere", "Page", self.base, self.root, app=app)):
+                self.assertNotIsInstance(result, workspace.AppDependent)
+
+    def test_a_case_only_match_in_that_application(self):
+        result = workspace.resolve_workflow_name("/Mixed", self.base, self.root, app="a")
+        self.assertEqual(result, workspace.CaseOnly("a/FM/_WORKFLOW/Mixed/_workflow.xml",
+                                                    "a/FM/_WORKFLOW/Mixed/_Workflow.xml"))
+
+    def test_base_references_ignore_app(self):
+        self.assertEqual(workspace.resolve_workflow_name("BASE:Base", self.base, self.root, app="b"),
+                         workspace.resolve_workflow_name("BASE:Base", self.base, self.root))
+
+    def test_an_applications_own_reference_ignores_app(self):
+        self.assertEqual(workspace.resolve_workflow_name("/OnlyA", self.app, self.root, app="b"),
+                         workspace.Resolved("a/FM/_WORKFLOW/OnlyA/_workflow.xml"))
+
+
 if __name__ == "__main__":
     unittest.main()

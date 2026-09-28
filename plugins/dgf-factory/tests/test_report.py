@@ -71,7 +71,7 @@ class SpineCodes(unittest.TestCase):
 
 
 class LearningCodes(unittest.TestCase):
-    """The learning loop's codes force the exits ADR 0021 gives them."""
+    """The learning loop's codes force the exits ADR 0024 gives them."""
 
     EXPECTED = {
         report.EXIT_BLOCKED: ("PATCH_NAME_INVALID", "PATCH_UNREADABLE", "PATCH_FIELD_MISSING", "PATCH_FIELD_INVALID",
@@ -81,6 +81,35 @@ class LearningCodes(unittest.TestCase):
     }
 
     def test_every_learning_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+
+class ModelCodes(unittest.TestCase):
+    """The model's codes block only where the loader throws (ADR 0023 §3)."""
+
+    EXPECTED = {
+        report.EXIT_BLOCKED: ("MODEL_REFERENCE_UNRESOLVED", "MODEL_ENTITY_UNLOADABLE", "MODEL_CELL_UNBOUND"),
+        report.EXIT_WARNINGS: ("MODEL_REFERENCE_TEMPLATED", "MODEL_REFERENCE_APP_DEPENDENT"),
+    }
+
+    def test_every_model_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+
+class AuditCodes(unittest.TestCase):
+    """The audit's codes: a report, never a gate (ADR 0023 §5)."""
+
+    EXPECTED = {
+        report.EXIT_USAGE: ("AUDIT_REACH_NOT_ARTIFACT", "AUDIT_CHECK_FAILED"),
+        report.EXIT_WARNINGS: ("AUDIT_REFERENCE_UNRESOLVED", "AUDIT_NARROWED"),
+        report.EXIT_CLEAN: ("AUDIT_WORKFLOW_UNREACHED", "AUDIT_REFERENCE_DYNAMIC"),
+    }
+
+    def test_every_audit_code_has_its_exit(self):
         for exit_code, codes in self.EXPECTED.items():
             for code in codes:
                 self.assertEqual(report.CODES.get(code), exit_code, code)

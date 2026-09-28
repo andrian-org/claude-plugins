@@ -8,7 +8,8 @@ directly and runs, over `<dgf-root>/src/samples/workspaces`:
 
   1. validate_process.py --all — every process and every workflow;
   2. validate_config.py and resolve_components.py on every file a directory
-     walk collects: component JSON and the legacy artifact files.
+     walk collects: component JSON and the legacy artifact files;
+  3. validate_model.py on every entity settings.xml and _form.xml among them.
 
 It passes only when all of these hold:
   - every error is excused by tools/known-good-exceptions.txt — an `EXCEPTION`

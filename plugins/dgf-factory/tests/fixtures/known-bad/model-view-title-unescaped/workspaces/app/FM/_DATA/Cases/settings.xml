@@ -1,0 +1,9 @@
+<entity>
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="PrimaryKey"/>
+    <field name="Link" type="Lookup">
+      <extract table="Links" view=""/>
+    </field>
+  </fields>
+</entity>

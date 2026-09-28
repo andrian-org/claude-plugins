@@ -400,5 +400,37 @@ class WithABase(Base):
         self.assertIn("pre-existing: 23", self.out)
 
 
+@unittest.skipUnless(helpers.have_dependencies() and helpers.have_git(), "needs lxml, jsonschema and git")
+class ModelInTheGate(Base):
+    """validate_model.py is one of the runner's validators, so its findings reach the gate (ADR 0023 §3)."""
+
+    ENTITY = ('<entity><primarykey>Id</primarykey><fields><field name="Id" type="PrimaryKey"/>'
+              '<field name="S" type="Lookup"><extract table="{table}"/></field></fields></entity>\n')
+    SETTINGS = "app/FM/_DATA/Cases/settings.xml"
+
+    def setUp(self):
+        super().setUp()
+        helpers.make_repo(self.root)
+        helpers.make_root(self.root, {"other/FM/_DATA/Old/settings.xml": self.ENTITY.format(table="Gone")})
+        helpers.commit_all(self.root, "the estate, with one model defect already in it")
+        helpers.git(self.root, "checkout", "-q", "-b", "feature/x")
+
+    def test_a_new_unresolved_model_reference_blocks_and_goes_to_dgf_fix(self):
+        self.plan = self.write_plan(plan_text(task(1, files=self.SETTINGS)))
+        helpers.make_root(self.root, {self.SETTINGS: self.ENTITY.format(table="Nowhere")})
+        code, payload = self.gate("--base", "main")
+        self.assertEqual(code, 1, self.out)
+        self.assertEqual(ids(payload, "blockers"), ["MODEL_REFERENCE_UNRESOLVED"])
+        self.assertEqual(payload["blockers"][0]["file"], self.SETTINGS)
+        self.assertEqual(payload["suggested_next"], {"command": "/dgf-fix", "reason": FIX_REASON})
+
+    def test_the_same_finding_at_the_merge_base_is_pre_existing_and_never_blocks(self):
+        (self.root / PROCESS).write_text(GOOD_PROCESS.replace('title="Case"', 'title="Case file"'), encoding="utf-8")
+        code, payload = self.gate("--base", "main")
+        self.assertEqual(code, 0, self.out)
+        self.assertNotIn("MODEL_REFERENCE_UNRESOLVED", ids(payload, "blockers") + ids(payload, "warnings"))
+        self.assertRegex(self.out, r"INFO PRE_EXISTING \S*other/FM/_DATA/Old/settings\.xml\S* .*MODEL_REFERENCE_UNRESOLVED")
+
+
 if __name__ == "__main__":
     unittest.main()
