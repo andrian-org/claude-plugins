@@ -76,7 +76,41 @@ TABLES = {
         ("Construct", "Kind", "XSD owner", "Binding"),
         {"Kind": {"attribute", "element", "enum-relaxed"}},
     ),
+    "reference-edges": (
+        "reference-graph.md",
+        ("Edge", "From", "Element", "Attribute", "Condition", "To", "Resolves as", "When absent", "When empty",
+         "Reach", "Checked by"),
+        {"From": {"process", "multitask", "workflow", "form", "settings", "component"},
+         "To": {"workflow", "multitask", "process", "settings", "form", "lookup-view", "lookup-dialog", "grid-form",
+                "component"},
+         "Condition": {"—", "control-form", "fieldset-non-empty", "extract-no-table", "mode-change-state",
+                       "mode-start-info"},
+         "Resolves as": set(),  # filled from RESOLVES_AS below
+         "When absent": {"throws", "template", "caught", "skipped", "unknown"},
+         "When empty": {"none", "throws", "unknown", "—"},
+         "Reach": {"follow", "end", "none"},
+         "Checked by": {"validate_process.py", "validate_model.py", "resolve_components.py", "—"}},
+    ),
+    "run-time-names": (
+        "reference-graph.md",
+        ("Name", "Step", "Replaces"),
+        {},
+    ),
+    "role-sources": (
+        "permissions.md",
+        ("Source", "File", "Element", "Attribute", "Separator", "Meaning"),
+        {"Separator": {",", "—"}},
+    ),
 }
+
+# `Resolves as` in reference-edges -> how many parts a reference passes to the rule. A row whose
+# Attribute alternatives do not each have that many `+`-joined parts is malformed (README §7).
+RESOLVES_AS = {
+    "action": 1, "workflow-name": 1, "process-name": 1, "multitask-file": 1, "table-name": 1, "form": 2,
+    "invoke-form": 2, "lookup-view": 2, "lookup-dialog": 1, "grid": 2, "owning-table": 0, "datasource": 1,
+    "component-file": 1,
+}
+TABLES["reference-edges"][2]["Resolves as"].update(RESOLVES_AS)
 
 NONE = "—"  # the cell value knowledge files write for "no such thing"
 
@@ -191,6 +225,8 @@ def load(table_id, knowledge_dir=None):
     except UnicodeDecodeError as exc:
         raise KnowledgeTableError(table_id, f"{filename} is not UTF-8: {exc}") from exc
     rows = _parse(table_id, lines, headers, allowed)
+    for row in rows:
+        _ROW_CHECKS.get(table_id, lambda _row: None)(row)
     _debug("loaded", table=table_id, file=filename, rows=len(rows))
     _CACHE[cache_key] = rows
     return rows
@@ -206,3 +242,30 @@ def index(table_id, knowledge_dir=None, key=None, fold=False):
 def load_all(knowledge_dir=None):
     """Load every declared table; the first malformed one raises."""
     return {table_id: load(table_id, knowledge_dir) for table_id in TABLES}
+
+
+def values(cell):
+    """A multi-valued cell's values: space-separated alternatives, each kept whole; `—` is none (README §7)."""
+    return [] if cell.strip() == NONE else cell.split()
+
+
+def parts(value):
+    """The parts of one value: `a+b` is one composite reference of two parts, in order."""
+    return value.split("+")
+
+
+def _check_arity(row):
+    """Each Attribute alternative passes as many `+`-joined parts as its `Resolves as` rule takes."""
+    arity = RESOLVES_AS[row["Resolves as"]]
+    counts = [len(parts(value)) for value in values(row["Attribute"])] or [0]
+    if any(count != arity for count in counts):
+        raise KnowledgeTableError("reference-edges", f"edge `{row['Edge']}`: Attribute `{row['Attribute']}` passes "
+                                                     f"{counts} part(s), but `{row['Resolves as']}` takes {arity}")
+
+
+_ROW_CHECKS = {"reference-edges": _check_arity}
+
+
+def edges(knowledge_dir=None):
+    """The reference-edges rows. load() has already checked each row's arity (_check_arity)."""
+    return load("reference-edges", knowledge_dir)

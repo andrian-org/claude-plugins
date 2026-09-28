@@ -204,13 +204,23 @@ table is marked, and its shape is a contract:
 - **Extent.** The table ends at a blank line or the end of the file. Any other line that is not
   a `| … |` row is a malformed table: Markdown still renders a row missing its closing pipe,
   and the loader must not silently drop it and the rows after it.
+- **Multi-valued cells.** A table may declare that a cell holds several values. They sit inside the
+  cell's one pair of backticks, separated by spaces, and each is an **alternative** — one value, and
+  one row's worth of meaning, per value. `a+b` is **one composite value** whose parts are read in
+  order. `—` is no value. So `` `UpdateRecord/Settings CreateRecord/Settings` `` is two alternatives, and
+  `` `table+form` `` is one value of two parts. Never backtick each value separately: only one pair of
+  backticks is removed, so `` `A` `B` `` reads as ``A` `B``.
 - **A malformed table blocks.** Anything that reads one refuses to run and exits `3`, naming
   the table id, and the plugin's installation check loads every marked table and reports a
   malformed one as a blocking error. Nothing falls back to a stale copy or skips the table.
 
 Edit a marked table like any other fact — with its stamp and provenance ledger updated in the
 same change — and keep its header exactly as it is. The marker is the only coupling between a
-knowledge file and the code that reads it: the file still states DGF facts and names no script.
+knowledge file and the code that reads it: the file still states DGF facts and names no script — with
+one exception. The `Checked by` column of `reference-edges` names the plugin validator that reports an
+edge resolving nowhere, so that such a reference is reported once and by one script
+([ADR 0023](../docs/adr/0023-dgf-specific-skills.md) §4–§5). It names a validator's file, never a skill
+or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no provenance.
 
 | Table id | File |
 |---|---|
@@ -225,6 +235,9 @@ knowledge file and the code that reads it: the file still states DGF facts and n
 | `correspondence` | [`schema-families.md`](schema-families.md) §5 |
 | `parity` | [`schema-families.md`](schema-families.md) §6 |
 | `process-divergence` | [`process-model.md`](process-model.md) §1 |
+| `reference-edges` | [`reference-graph.md`](reference-graph.md) §1 — `Element` and `Attribute` are multi-valued; `Checked by` names a validator |
+| `run-time-names` | [`reference-graph.md`](reference-graph.md) §3.1 |
+| `role-sources` | [`permissions.md`](permissions.md) §2 |
 
 ## See Also
 
