@@ -24,6 +24,39 @@ as a flag.
 | **R10 Headless** | With `--auto`, every question takes its `(Recommended)` option. If a required input has no default, stop and name the flag: `missing --source <url|path>`. Never guess |
 | **R11 Echo interpretation** | After parsing free text or a file, state what was understood before acting on it: "Read as: WSDL, SOAP 1.1, 5 operations". If it's ambiguous, re-ask only that question |
 | **R12 Every option is a complete answer** | Selecting an option must be enough to act on. **No option may tell the user to pick another option** ("Pick Other and give the path" is forbidden). If the answer needs a value, either the value *is* the option (a discovered file, a detected header) or a follow-up question asks for it. Never ask for what can be detected: source type, protocol, SOAP version, existing modules, the current document version |
+| **R13 Missing required arguments** | A skill invoked without a required argument asks for it before anything else, never guesses it and never falls back to a default the developer didn't pick. See [Missing arguments](#missing-arguments). Under `--auto` it stops instead and names the argument: `missing <TenantName>` |
+| **R14 Help** | `--help` (or `-h`) anywhere in the arguments makes the skill print its own help and stop: the `argument-hint` line, then one row per argument with its default and whether it is required (and asked for under R13 when missing), then two or three example commands built from real tenant names in the repo. It wins over every other argument, asks nothing, runs no command that changes anything and writes nothing, the state file included. Gate-mode flags that only `tenant-pipeline` passes (`--gate`, `--recommend`) are listed last, marked internal |
+
+## Missing arguments
+
+Each skill lists its required arguments in its `## Arguments` section. When one is missing, and the
+skill isn't running under `--auto`, ask for it first, in one `AskUserQuestion` call that holds
+every missing required argument (≤4 questions), before any scan, gate or build.
+
+**Existing tenant** (every skill except `tenant-init`). Header `Tenant`. Build the options from
+the repo (R5), at most 3, in this order and without duplicates:
+
+1. Tenants with a state file: `ls .claude/zamconnect/*.pipeline.json`
+2. Tenants changed most recently:
+   ```bash
+   git log --name-only --format= -- src/Tenants | awk -F/ 'NF > 3 { print $3 }' | awk '!s[$0]++'      | while read t; do ls "src/Tenants/$t/$t.csproj" >/dev/null 2>&1 && echo "$t"; done | head -3
+   ```
+
+Only folders holding `<T>.csproj` count. The question text says "…or type another tenant name in
+Other" (R3). A skill that also works on every tenant (`tenant-audit`) adds `All tenants` as the
+fourth option. Check a typed name against `src/Tenants/<T>/<T>.csproj`: when it isn't there, name
+the closest existing folders (case-insensitive prefix match) and ask again. Don't create the
+tenant. Point to `/tenant-init <T>` instead.
+
+**New tenant** (`tenant-init`). There's nothing on disk to offer, so ask in plain text (the R2
+exception). Accept only a PascalCase name (`^[A-Z][A-Za-z0-9]*$`) with no existing
+`src/Tenants/<T>/` folder. Otherwise say why and ask again.
+
+**Other required inputs** (a source, a route) follow the skill's own question for that input,
+asked right after the tenant is settled.
+
+Once the arguments are settled, the skill echoes the command with them filled in (R7), so the
+next run can pass them.
 
 ## The gate
 

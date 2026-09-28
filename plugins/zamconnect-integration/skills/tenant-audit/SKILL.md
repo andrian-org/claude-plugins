@@ -1,8 +1,8 @@
 ---
 name: tenant-audit
-description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that its API-spec metadata, docs, Postman collection and test project exist, and that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in. Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
-argument-hint: "[<TenantName>|--all] [--only registration|slugs|config|secrets|spec|tests|docs|guards] [--fix [registration]] [--report-only] [--auto]"
-allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Bash(awk *) Bash(sort *) Bash(wc *) Bash(head *) Bash(tail *) Bash(dotnet *) Edit Write AskUserQuestion
+description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that its API-spec metadata, docs, Postman collection and test project exist, that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in, and that the image builds and the tenant answers through the local Docker gateway once its `GATEWAY-CONFIG.md` and a local test user (`test<Tenant>` / `test`) are written to the local Docker Mongo (health plus one endpoint per module). Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
+argument-hint: "<TenantName>|--all [--only registration|slugs|config|secrets|spec|tests|docs|guards|runtime] [--no-runtime] [--fix [registration]] [--report-only] [--auto] [--dry-run] [--help]"
+allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Bash(awk *) Bash(sort *) Bash(wc *) Bash(head *) Bash(tail *) Bash(dotnet *) Bash(docker *) Bash(curl *) Edit Write AskUserQuestion
 disable-model-invocation: false
 ---
 
@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 A tenant can build cleanly and still be broken: unregistered in the pipeline, deployed under a name the gateway route does not resolve, or running with an upstream client that was never registered. None of that fails a build. This skill finds it.
 
-Read-only by default. Nothing is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C8).
+Read-only on the repository by default. No repo file is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Checks 8 and 9 touch only the local Docker environment: they build local images, build and start the local stack (`mongo`, `admin-api`, `gateway`) and the tenant container, and apply the tenant's `GATEWAY-CONFIG.md` to the local gateway database. They run under `--report-only` too. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C8).
 
 All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`). Run every command in **Bash** (Git Bash on Windows), not the Grep tool: the patterns below are written to survive CRLF files, which ripgrep/WSL `$` anchors do not.
 
@@ -20,12 +20,15 @@ Never state a count or a "known finding" from memory or from this file. Re-deriv
 
 | Argument | Meaning |
 |---|---|
-| `<TenantName>` | Audit one tenant |
-| `--all` | Audit every tenant under `src/Tenants/`. Default when no tenant is given |
+| `<TenantName>` | Audit one tenant. Required unless `--all` is given. With neither, asked first from the contract's Missing arguments menu (R13), with `All tenants` as the fourth option; `--auto` stops with `missing <TenantName> or --all` |
+| `--all` | Audit every tenant under `src/Tenants/` |
 | `--only <check>` | Run only these checks; repeatable |
 | `--fix [<check>...]` | Apply the fixable repairs without asking: all of them, or only the named checks |
 | `--report-only` | Report, and don't ask the fix question. `tenant-pipeline` always passes it (guided and `--auto`), so pipeline step 5 never writes |
 | `--auto` | Same as `--fix` — every fixable repair, no questions. Standalone use only |
+| `--no-runtime` | Skip Check 9 (the local gateway round-trip) |
+| `--dry-run` | Checks 1–7 and the static part of Check 8 only: `--report-only`, no image build, no Check 9. Nothing is written, not even to Docker. `tenant-pipeline --dry-run` passes it |
+| `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
 
 A folder under `src/Tenants/` with no `*.csproj` is not a tenant. Skip it silently — it is a placeholder, not drift:
 
@@ -205,7 +208,7 @@ Signals, each scored present / absent:
 - `.WithSummary(...)`, `.WithDescription(...)`, `.Produces<T>(...)` and `.ProducesProblem(...)` on every route (`grep -rcE "\.ProducesProblem\(" src/Tenants/<TenantName> --include=*.cs`)
 - `///` comments on every public **DTO** property, with no `<see cref="..."/>` in DTOs (Swashbuckle emits the raw type name as literal text). The `cref` rule doesn't apply to endpoints, services or modules
 - `.config/dotnet-tools.json` pins `swashbuckle.aspnetcore.cli` (repo-wide; the swagger export can't run without it) at the same version as the tenant's resolved `Swashbuckle.AspNetCore`
-- A route for the tenant in `docs/zamconnect-test-routes.md` (Check 2) — the deliverables need a real gateway path
+- A route for the tenant in `GATEWAY-CONFIG.md` or `docs/zamconnect-test-routes.md` (Check 2) — the deliverables need a real gateway path, and read it in that order
 
 Report as a readiness percentage per tenant, not pass/fail — most tenants meet little of it and that is the baseline, not a regression.
 
@@ -271,7 +274,163 @@ grep -oE 'ProjectReference Include="[^"]+"' src/Core/*/*.csproj src/Gateway/Gate
 grep -E '^COPY \[' src/Tenants/<TenantName>/Dockerfile
 ```
 
+Image build: the greps above are static. Confirm the image actually builds locally through its compose service — this is what catches a closure gap the grep missed, a casing mismatch, or a stale base image:
+
+```bash
+docker info >/dev/null 2>&1 && docker compose -f src/.dockercompose/docker-compose.yml build core-<slug>
+```
+
+| Result | Severity |
+|---|---|
+| Exit 0 | `ok` |
+| Non-zero exit — report the failing Dockerfile step and the first error line | `fail` |
+| No compose service (Check 1) | Not run; Check 1 already reports it |
+| `docker info` fails — Docker not installed or the engine is not running | `skipped`, never `ok`. Print the command for the user to run |
+
+Runs for a single-tenant audit and for `--only guards`. Under a plain `--all` it is `skipped` (each build takes minutes); say so in the report. The build writes only a local image, never a repo file, so it runs under `--report-only` too. If the Dockerfile declares `ARG PAT` (private feed), pass `--build-arg PAT=<token>` from the user's environment and never echo it.
+
 Not fixable automatically — each is a code change for `/tenant-integration` or a hand edit.
+
+## Check 9 — Runtime through the local gateway
+
+Checks 1–8 only read files. This check proves the tenant answers through YARP: it writes `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` and a test gateway user straight into the **local** compose `mongo`, then calls the tenant through the local gateway. It runs for a single-tenant audit and for `--only runtime`. It never runs under a plain `--all`, and `--no-runtime` skips it. It needs no token or password from the user.
+
+**Local only.** Writes go only to the `mongo` compose container (`docker exec mongo`), and calls go only to `http://localhost:8081` (AdminAPI health) and `http://localhost:10080` (gateway), the ports published in `src/.dockercompose/docker-compose.yml`. Both apps read that same `mongo` service (their `appsettings.Development.json` connection strings point at host `mongo`). Never point this check at a test, staging or production database, AdminAPI or gateway, even when the user supplies one. Those registrations belong to `GATEWAY-CONFIG.md`'s manual import through the AdminAPI.
+
+### 9a. Bring up the local stack
+
+A stopped stack is the normal starting state, not a finding: the local gateway environment exists only once this check has built and started it. Build it from the current source and start it on the developer's Docker engine, without asking — every container is local, and nothing outside this machine is touched.
+
+```bash
+C="docker compose -f src/.dockercompose/docker-compose.yml"
+docker info >/dev/null 2>&1 || echo "docker: not running"
+$C up -d --build mongo admin-api gateway
+```
+
+`--build` rebuilds `admin-api` and `gateway` from the working tree, so the round-trip runs against the same Core code the tenant was built with, not a stale image.
+
+The compose `mongo` service has no named volume, so a recreated container starts with an empty database. Seed it from the local dump when the `Certificates` collection is missing. Don't test for the `zamconnect` database itself: AdminAPI creates it on startup with only `Secrets`, so it exists even when the dump was never restored.
+
+```bash
+M='mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin zamconnect'
+$C exec -T mongo sh -c "$M --eval 'db.getCollectionNames().includes(\"Certificates\")'"
+# false -> seed it; mongo-restore exits when done
+$C up mongo-restore
+```
+
+`$M` is single-quoted so the root credentials expand **inside** the `mongo` container, from the variables its compose service sets. Never write the credential values into a command, a file or the report, never use them outside the local container, and never print any other value from the database.
+
+Then wait for both apps, up to 120 s, before 9b:
+
+```bash
+for i in $(seq 1 24); do
+  a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/health/live)
+  g=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:10080/health/live)
+  [ "$a" = 200 ] && [ "$g" = 200 ] && break
+  sleep 5
+done
+```
+
+| Result | Action |
+|---|---|
+| Docker not installed or the engine not running | Stop Check 9, report it `skipped — Docker not available`, and tell the user in the report's first line |
+| `up --build` fails for `admin-api` or `gateway` | `fail` — report the service, the failing Dockerfile step and the first error line. A broken platform image is its own finding, not the tenant's |
+| A health endpoint is not `200` after 120 s | `fail` — quote the exception type and message from `$C logs --no-color --tail 60 <service>`, never config values |
+| No `GATEWAY-CONFIG.md` | `skipped — no GATEWAY-CONFIG.md`. It is optional for tenants older than the `tenant-init` scaffold (Check 7). Report the file to create, in the `tenant-init` §6 shape, with the tenant's route from the routes doc |
+| No compose service (Check 1) | `skipped` — Check 1 already reports it |
+
+Leave the stack running after the check; the report names the containers it started.
+
+### 9b. Apply the gateway config and create the test user
+
+Check 9 uses a fixed, local-only test user per tenant. Nothing is read from the user's environment and nothing is asked:
+
+| Value | Setting |
+|---|---|
+| Username | `test<TenantName>`, e.g. `testTT`. One per tenant, so it never collides with a real or another tenant's user |
+| Password | `test` |
+
+These are throwaway values for the local compose database, not secrets. They can be printed in the report. Never create them in any other environment. The password is shorter than `CreateUserValidator` allows (8+ characters with a letter, a digit and one of `@$!%*?&`). That is why this user is written directly to local Mongo and not through `POST /Users`, and why the AdminAPI and AdminUI refuse to re-save it with the same password.
+
+You can't mint a DGPass admin token locally (every AdminAPI controller is `[Authorize(Policy = "Admin")]` against the DGPass authority), so 9b writes to the local `mongo` container directly with `${CLAUDE_PLUGIN_ROOT}/skills/tenant-audit/scripts/apply-local-gateway.js`. The script applies the package in this order, matching the `Core/Database/Entities` shapes the AdminAPI would write:
+
+1. **Scope**: `scopes` `{Name}` for each route's `metadata.Scope`, inserted only when missing.
+2. **Cluster**: `clusters`, upserted on `ConfigJson.ClusterId`.
+3. **Route**: `routes`, upserted on `ConfigJson.RouteId`. The route validator needs the scope and cluster to exist first.
+4. **User**: `users`, upserted on `Username`. It gets a `PasswordKey` and `PasswordSalt` from `HashHelper`'s PBKDF2 settings (SHA1, 1000 iterations, 20 bytes), `IsDisabled: false`, and the route scopes added with `$addToSet`. Scopes the user already has are kept. The password is reset to `test` on every run.
+
+Keys under `configJson` are PascalCased on write (`clusterId` → `ClusterId`), because the gateway deserialises `ConfigJson` with `BsonSerializer`, which is case-sensitive. The script then replaces `YarpModificationToken` and `UsersModificationToken` in `Secrets`. `YarpStatusWorker` reloads routes, clusters and users only when those tokens change, so a direct write without the bump is never picked up.
+
+Extract the single ```` ```json ```` block from `GATEWAY-CONFIG.md` to a scratch file (never into the repo), copy it and the script into the container, and run it:
+
+On Git Bash, `export MSYS_NO_PATHCONV=1` first, or the `/tmp/...` container paths are rewritten to Windows paths.
+
+```bash
+awk '/^```json/{f=1;next} /^```/{f=0} f' src/Tenants/<TenantName>/GATEWAY-CONFIG.md > <scratch>/gateway-package.json
+docker cp <scratch>/gateway-package.json mongo:/tmp/gateway-package.json
+docker cp "${CLAUDE_PLUGIN_ROOT}/skills/tenant-audit/scripts/apply-local-gateway.js" mongo:/tmp/apply-local-gateway.js
+$C exec -T -e ZC_PACKAGE=/tmp/gateway-package.json -e ZC_TEST_USER=test<TenantName> -e ZC_TEST_PASSWORD=test \
+  mongo sh -c "$M /tmp/apply-local-gateway.js"
+$C exec -T mongo rm -f /tmp/gateway-package.json /tmp/apply-local-gateway.js
+```
+
+It prints the scope, cluster and route ids with `created` / `exists` / `updated`, plus the user and its scopes. A mongosh error is a `fail`: quote the error message and stop 9b. The script prints no cluster addresses or other config values, and the report shouldn't either.
+
+The gateway picks up the change on its next `YarpStatusWorker` poll, every 30 s. Wait 35 s before 9c.
+
+### 9c. Start the tenant and call it through the gateway
+
+In the gateway paths below, `/t/<slug>/` stands for the prefix of the route just applied: `match.path` in `GATEWAY-CONFIG.md` minus `{**url}`. That is `/t/<slug>/` for every `tenant-init` scaffold; a hand-written file may use another route (C8), and the calls follow the file.
+
+When the tenant has an `Endpoints:Gateway` section (Check 3), its outbound gateway calls go to `http://gateway/`, the local compose gateway (the Development `BaseUrl`). Give the container the local test user as its gateway credentials through a scratch compose override, never through a repo file:
+
+```bash
+cat > <scratch>/gateway-user.override.yml <<EOF
+services:
+  core-<slug>:
+    environment:
+      - Endpoints__Gateway__BaseUrl=http://gateway/
+      - Endpoints__Gateway__Username=test<TenantName>
+      - Endpoints__Gateway__Password=test
+EOF
+C="$C -f <scratch>/gateway-user.override.yml"
+```
+
+Then start the tenant:
+
+```bash
+$C up -d --build --no-deps core-<slug>
+```
+
+Calls go to `http://localhost:10080/t/<slug>/<path>` with `-u "test<TenantName>:test"`, `-s -o <scratch>/body -w '%{http_code}'`. First the health endpoint:
+
+```bash
+curl -s -u "test<TenantName>:test" -w '\n%{http_code}\n' http://localhost:10080/t/<slug>/health/live
+```
+
+It must return `200 Healthy`. This single call proves the whole chain: route match, Basic auth, scope, cluster address `http://core-<slug>` resolving on the compose network, and the tenant being up.
+
+Then call **at least one endpoint per module**. List the routes from the tenant's code: `Map(Get|Post|Put|Delete|Patch)(` in each `Modules/*.cs` for Carter tenants, or `[Http*]` plus `[Route]` in `Controllers/*.cs`. Include any group prefix from `MapGroup(`. For each module, prefer a `GET`. Fill route parameters and bodies with obviously fake sample values that pass validation (a 12-digit NRC-shaped string, `"test"`), never real personal data. Use `POST` only when a module has nothing else, with the smallest valid body from the request DTO.
+
+Classify every response by **who answered**. The gateway answers `401`, `403 Request not allowed` and `404` with an empty body for unmatched routes. The tenant answers with its own JSON or problem details.
+
+| Response | Verdict |
+|---|---|
+| `2xx` | `ok` |
+| `400` / `422` problem details from the tenant | `ok` — the call reached the handler and validation ran |
+| `401` | `fail` — the test user wasn't picked up: the `UsersModificationToken` bump didn't happen or the users cache hasn't refreshed yet (retry once after 35 s) |
+| `403 Request not allowed` | `fail` — the user lacks the `<slug>` scope, or the route's `metadata.Scope` differs from it |
+| `404` / `405` from the gateway | `fail` — the path is outside `/t/<slug>/{**url}`, or the verb is missing from the route's `match.methods`. The fix goes in `GATEWAY-CONFIG.md`, and the next run re-applies it |
+| `404` from the tenant | `fail` — the route isn't mapped, or its path is wrong |
+| `502` / `503` / `504` from the gateway | `fail` — the tenant container isn't reachable at `http://core-<slug>`. Check `$C ps core-<slug>` and its logs |
+| `5xx` from the tenant | `warn` if the logs show an upstream connection or timeout error (the agency API isn't reachable from a local container, which is expected), otherwise `fail` |
+| `404` / `5xx` from the tenant on a route that calls back through the gateway | `warn` when the gateway log shows the call to `/t/<other route>/…` answered `404`: that other tenant's route isn't in the local gateway. The call itself reached the local gateway with the test user, which is what this check proves |
+
+For every non-`ok` row, read `$C logs --no-color --tail 80 core-<slug>` and `$C logs --no-color --tail 40 gateway`. Quote only the exception type and message, never headers, tokens, request bodies or config values.
+
+Report one row per call: module, method, gateway path, status, verdict. Leave the containers, the applied config and the test user in place so the user can keep testing with `-u test<TenantName>:test`. The report names what was written to the local database, in order: the scope, cluster and route ids, and the test user with its scopes.
+
+Fixable through the fix question: none. Every failure here is a code, config or `GATEWAY-CONFIG.md` change. Applying the package and creating the test user are part of running the check, not repairs.
 
 ## Fixing
 
@@ -304,11 +463,13 @@ Severity, highest first:
 1. Literal credential in `appsettings.json`, or committed key material (check 4)
 2. No pipeline file — never deployed; `tenant:` casing mismatch (check 1)
 3. Missing endpoint section in `appsettings.json` for a REST, SOAP or Gateway client; SOAP section without `AuthenticationScheme`; block misnested under `Endpoints` (check 3)
-4. Slug mismatch — gateway routes to nothing (check 2)
-5. Regression guard hit (check 8)
+4. Slug mismatch — gateway routes to nothing (check 2); health or a module endpoint failing through the local gateway (check 9)
+5. Regression guard hit, image build failure (check 8)
 6. Everything else, including the Development-credential baseline (`warn`)
 
-Close by naming what the audit cannot see: the `GSB.<TENANT>.<ENV>` variable-group contents, the `projects-variables` repo, the ADO pipeline definitions, and the live YARP scope/cluster/route registrations and destination addresses in the gateway admin.
+When Check 9 was skipped, the report's first line says why: Docker not running, or no `GATEWAY-CONFIG.md`. A stopped stack is never a reason — 9a starts it.
+
+Close by naming what the audit cannot see: the `GSB.<TENANT>.<ENV>` variable-group contents, the `projects-variables` repo, the ADO pipeline definitions, and the YARP scope/cluster/route registrations in the test, staging and production gateways. Check 9 covers only the local Docker gateway.
 
 When anything was repaired, end with the equivalent command, e.g. `/tenant-audit PQPS --fix registration`.
 

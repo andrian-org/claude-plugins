@@ -1,7 +1,7 @@
 ---
 name: tenant-integration
 description: Build the integration surface of an existing ZamConnect tenant — upstream REST or SOAP client(s) under Endpoints/, request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides whether the client derives from RestEndpoint or SoapEndpoint. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "expose these endpoints on <Tenant>", or types /tenant-integration.
-argument-hint: "<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth Basic|JWT|Custom|RA|None (REST) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run]"
+argument-hint: "<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth Basic|JWT|Custom|RA|None (REST) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]"
 disable-model-invocation: false
 ---
 
@@ -22,7 +22,7 @@ Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username`
 
 | Flag | Meaning | When absent |
 |---|---|---|
-| `<TenantName>` | Existing tenant under `src/Tenants/` | Required. If the folder is missing, run `tenant-init` first |
+| `<TenantName>` | Existing tenant under `src/Tenants/` | Required. Asked first, from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>`. If the folder is missing, run `tenant-init` first |
 | `--source <url\|path>` | Integration source; repeatable | Asked (step 1, source question) |
 | `--expose <METHOD /route>` | A route the tenant should expose; repeatable | Every upstream operation, confirmed in the review |
 | `--protocol rest\|soap` | Overrides the classification in step 1a | Detected from the source |
@@ -37,6 +37,7 @@ Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username`
 | `--gate <n>/<N>`, `--recommend` | Gate mode, set by `tenant-pipeline` | No gate |
 | `--auto` | Every `(Recommended)` default, no questions. Stops with `missing --source <url\|path>` if there's none | Interactive |
 | `--dry-run` | Stop at the review (step 1, review) and write nothing | Writes |
+| `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) | — |
 
 ## Gate
 
@@ -203,6 +204,8 @@ Everything downstream follows from this one choice:
 | Payloads | `System.Text.Json` | `XmlExtensions.Serialize` / `Deserialize` |
 | Client section | Step 4 | Step 4b |
 
+**Upstream reached through the ZamConnect gateway.** When the source's base URL is a ZamConnect gateway (`api.*.gsb.gov.zm`, the compose `http://gateway/`, `localhost:10080`, or a local mock of one) or its paths start with `/t/<route>/`, the upstream is another tenant behind the gateway. Don't create a `<System>` client with its own section. Put the operations on the tenant's `Endpoints/Gateway.cs` (`public class Gateway(HttpClient client, IOptions<JsonSerializerOptions> jsonOptions) : RestEndpoint(client)`, the `src/Tenants/IOM/Endpoints/Gateway.cs` shape), creating it if missing, and call relative paths `t/<route>/…`. `RegisterEndpoints` binds it to `Endpoints:Gateway`, the same section `Shared.Endpoints.Gateway` and `EServicesShared` read (`integrate-shared` §5), so every gateway call of the tenant uses one base URL and one set of gateway credentials. Write that section with the `integrate-shared` §5 shape when it's missing, and keep it when it's there. The data role is `consume`. The review names the client `Gateway`.
+
 A tenant may do both — `RegisterEndpoints` and `RegisterSoapEndpoints` are independent and can be called side by side, each scanning the same assembly for its own marker type. IFMIS is the reference for a tenant that consumes SOAP while exposing REST.
 
 If the sources are genuinely silent on protocol, ask with header `Protocol`: `REST — JSON over HTTP` / `SOAP — XML envelopes`, with the reason detection failed in the question text. Do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol rest|soap` overrides the classification when the user already knows.
@@ -252,7 +255,7 @@ Add to both `appsettings.json` and `appsettings.Development.json`:
 }
 ```
 
-That is the external-upstream shape (APIS `ZimsApi`, `NpddApi`). Only a client that calls back into the ZamConnect gateway uses `__Endpoints.APIGATEWAY.BaseUrl__` + `__Credentials.<Folder>Tenant.Username|Password__` (C4).
+That is the external-upstream shape (APIS `ZimsApi`, `NpddApi`). Only the `Gateway` client, for an upstream reached through the ZamConnect gateway (step 1a), uses `__Endpoints.APIGATEWAY.BaseUrl__` + `__Credentials.<Folder>Tenant.Username|Password__` (C4), with `http://gateway/` as its Development `BaseUrl`.
 
 Scheme values are matched **exactly** — `"basic"` configures no auth:
 
@@ -600,6 +603,8 @@ Rules:
 
 For a controllers-style tenant, put the equivalent in `Controllers/<Resource>Controller.cs` following `src/Tenants/MOA/Controllers/`.
 
+**Gateway methods.** Set `match.methods` of the tenant's route in `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` to every verb the tenant now maps, not just the new ones, with the verb grep in `integrate-shared` §6 — including the verbs a `*SharedModule` base contributes, which that grep can't see in the tenant's files. `tenant-init` left it at `GET`; a verb missing there answers 405 at the gateway. This runs with `--no-spec-ready` too.
+
 The exposed surface is REST and JSON regardless of what the tenant consumes. A SOAP upstream stops at the client: never return an XML message type from a route, and never surface a SOAP `Fault` verbatim — `CustomResults.Problem` has already turned it into `ProblemDetails`.
 
 ## 7. Verify
@@ -624,6 +629,8 @@ Must report `0 Error(s)` (`CARTER1` and `NU1903` warnings come from Core and exi
 - Every mapper initializer assigns every settable target property
 - No real credential appears in either file (C7)
 - Every exposed route declares its success type and one `ProducesProblem` per reachable failure status
+- `match.methods` in `GATEWAY-CONFIG.md` lists every verb the tenant maps
+- An upstream reached through the gateway goes through `Endpoints/Gateway.cs` and `Endpoints:Gateway`, never a second client and section with its own gateway credentials
 - No upstream DTO — JSON or XML — is returned directly where a public DTO was defined
 
 `/tenant-audit <TenantName>` runs the configuration and secrets checks for you.
@@ -634,7 +641,7 @@ Skipped with `--no-spec-ready`, and then the report names every item below that 
 
 The delivery documents (`/tenant-deliverables <TenantName>`) are generated from the tenant's own Swashbuckle document, so they are only as good as the metadata already in the code. It is far cheaper to add that metadata now, while the routes and DTOs are being written, than as a separate pass later.
 
-A tenant scaffolded by `tenant-init` 0.4+ already has the project-level half: `GenerateDocumentationFile`, `Swagger/OpenApiDocumentation.cs`, and `AddSwaggerGen` with `OpenApiInfo`, the Basic security scheme and `IncludeXmlComments`. Check it is there, and add whatever is missing on an older tenant. `src/Tenants/APIS` is the reference for each item below — its Swagger metadata, not its folder layout.
+A tenant scaffolded by `tenant-init` already has the project-level half: `GenerateDocumentationFile`, `Swagger/OpenApiDocumentation.cs`, and `AddSwaggerGen` with `OpenApiInfo`, the Basic security scheme and `IncludeXmlComments`. Check it is there, and add whatever is missing on an older tenant. `src/Tenants/APIS` is the reference for each item below — its Swagger metadata, not its folder layout.
 
 **Project** — `src/Tenants/<TenantName>/<TenantName>.csproj`:
 
@@ -647,7 +654,7 @@ A tenant scaffolded by `tenant-init` 0.4+ already has the project-level half: `G
 
 **`Program.cs`** — `AddSwaggerGen` with a populated `OpenApiInfo` and `IncludeXmlComments`:
 
-- `Title` must be `"{full descriptive name} ({TENANT})"` — e.g. `"Advance Passenger Information System (APIS)"`. The DOCX cover page renders the tenant code and role separately, so `Title` carries the full name only. When the scaffold left the bare code because the name was `pending`, write the name chosen in the proposal call now.
+- `Title` must be `"{full descriptive name} ({TENANT})"` — e.g. `"Advance Passenger Information System (APIS)"`. The DOCX cover renders the role separately, so `Title` carries no role word. When the scaffold left the bare code because the name was `pending`, write the name chosen in the proposal call now.
 - `Description` is the **only** source of narrative prose in the generated DOCX. Shape it as the repo's `api-spec-sync` expects: one intro paragraph (the Executive Summary) plus a `## Glossary` table — nothing else. Extend the scaffolded sentence with what this integration adds: the system it reaches and the datasets its routes expose ("Pesticide registrations and ePhyto validation from the PQPS Plant Health system"). State only what a route actually provides. Extra `##` sections are only for protocol-level complexity, as APIS does for PAXLST.
 
 **Routes** — on every route generated in step 6, the APIS set:
@@ -660,8 +667,6 @@ A tenant scaffolded by `tenant-init` 0.4+ already has the project-level half: `G
 **DTOs** — `///` XML doc comments on every public property of every request and response type the tenant declares. They become the schema tables verbatim.
 
 **Never use `<see cref="..."/>` in those comments.** Swashbuckle does not resolve cref targets; it emits the raw fully-qualified type name as literal text ("See APIS.Paxlst.MessageKind."). Write plain prose.
-
-**Gateway route** — widen `match.methods` in `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` to exactly the verbs the tenant now exposes. `tenant-init` left it at `GET`.
 
 The documents themselves are step 6 of `tenant-pipeline` (`/tenant-deliverables <TenantName>`). Don't generate them here. The ZamConnect repository also has a repo-local `/api-spec-sync` for a quick developer-side regeneration; it reads the same metadata. Its `api-docs-auditor` agent watches only `Modules/`, so a controllers-style tenant's changes aren't flagged — say so in the report.
 
@@ -676,7 +681,7 @@ Each pass gets its own client, config section, models and module, and the report
 
 ## Report
 
-State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list what remains outside this skill: every new `__Token__` (by name, never a value), which needs a variable in `GSB.<TENANT>.<ENV>` and in `projects-variables` (C4); the gateway scope/cluster/route registration (C8); and the ADO pipeline definition.
+State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list what remains outside this skill: every new `__Token__` (by name, never a value), which needs a variable in `GSB.<TENANT>.<ENV>` and in `projects-variables` (C4); the gateway import of `GATEWAY-CONFIG.md` in the test, staging and production gateways (C8), which locally is `/tenant-audit <TenantName> --only runtime`; and the ADO pipeline definition.
 
 Close with the equivalent command for each pass (R7), and these answers for the pipeline state: `sources`, `system`, `auth`, `role`, and `fullName` if it was settled here. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 

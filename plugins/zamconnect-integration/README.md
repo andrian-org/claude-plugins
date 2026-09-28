@@ -48,17 +48,17 @@ commit it:
 
 ### Updating
 
-`claude plugin update zamconnect-integration` (restart required).
+`claude plugin update zamconnect-integration` (restart required). Inside a session: `/plugin marketplace update dotgov`, then `/reload-plugins`.
 
 ## Skills
 
 | Skill | What it does |
 |---|---|
-| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments), wires it into `ZamConnect.sln`, and verifies it builds. Boilerplate only — no modules, models or mappers. Then hands over to `/tenant-pipeline` |
+| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments). Adds the Azure pipeline file, the `core-<slug>` docker-compose service, the `GATEWAY-CONFIG.md` import package (scope, cluster, route) and the `ZamConnect.sln` entry. Verifies that `dotnet build` passes, that the Docker image builds, and that the container answers `/health/live`. Boilerplate only — no modules, models or mappers. Then hands over to `/tenant-pipeline` |
 | `/tenant-pipeline <Tenant>` | Runs the whole chain below as one guided flow — a gate per step, a saved state, resume, and stale-marking when an earlier step is re-run |
 | `/tenant-integration <Tenant>` | Builds the integration surface of an existing tenant: the upstream `RestEndpoint`/`SoapEndpoint` client, models, mappers, and the routes the tenant exposes. Takes a Postman collection, OpenAPI spec, REST base URL, WSDL or prose API docs as the source — offered from the files it finds in the repo, with protocol and auth detected from them |
-| `/integrate-shared [<Tenant>]` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu |
-| `/tenant-audit [<Tenant>\|--all]` | Read-only drift audit: registration in solution/pipeline/compose, slug consistency across compose/Helm/gateway routes, `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client, literal credentials in `appsettings.json` plus the committed Development-credential baseline, spec readiness, regression guards (.NET 10, no Newtonsoft/AutoMapper), and presence of docs, Postman collection and tests. `--fix` repairs the fixable ones |
+| `/integrate-shared <Tenant>` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu |
+| `/tenant-audit <Tenant>\|--all` | Drift audit, read-only on the repo. It checks: registration in solution/pipeline/compose; slug consistency across compose/Helm/gateway routes; `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client; literal credentials in `appsettings.json` plus the committed Development-credential baseline; spec readiness; regression guards (.NET 10, no Newtonsoft/AutoMapper, Dockerfile closure, a local image build); and presence of docs, Postman collection and tests. For a single tenant it also runs the tenant through the local Docker gateway (see [Local gateway round-trip](#local-gateway-round-trip)). `--fix` repairs the fixable ones |
 | `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
 | `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
 
@@ -66,9 +66,11 @@ commit it:
 
 Every question a skill asks has a flag, and passing the flag skips the question. Every skill that writes files takes `--auto` (defaults, no questions) and `--dry-run` (plan only, nothing written), and prints the fully-flagged command that reproduces what it did.
 
+Every skill takes `--help` (or `-h`): it prints its arguments, their defaults and a few example commands, then stops without asking or writing anything. Typing `/<skill> ` in the prompt box also shows the argument hint inline. A required argument left out, such as the tenant name, is asked for before anything else.
+
 ### `/tenant-init`
 
-`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run]`
+`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -82,7 +84,7 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 
 ### `/tenant-pipeline`
 
-`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--status] [--auto] [--dry-run]`
+`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--status] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -94,7 +96,7 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 
 ### `/tenant-integration`
 
-`<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth <scheme>] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--no-spec-ready] [--spec-only]`
+`<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth <scheme>] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--no-spec-ready] [--spec-only] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -110,11 +112,11 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 
 ### `/integrate-shared`
 
-`[<TenantName>] [--source <SYS> ...] [--endpoint <key> ...] [--base-path <path>] [--tag <Tag>] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list]`
+`<TenantName> [--source <SYS> ...] [--endpoint <key> ...] [--base-path <path>] [--tag <Tag>] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
-| `<TenantName>` | Target tenant; prompted for if omitted |
+| `<TenantName>` | Target tenant (required; asked for if omitted) |
 | `--source <SYS>` | `NIR\|NBR\|DOC\|SRS\|ZDI\|NLR\|ZDA\|NAIR\|ZRA\|MOH`; repeatable. Skips the group menu |
 | `--endpoint <key>` | Individual operations by catalogue key; repeatable. Skips the operation menu |
 | `--base-path <path>` | Route group prefix. Default: none (tenant root) |
@@ -129,35 +131,59 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 
 ### `/tenant-tests`
 
-`<TenantName> [--module <Name> ...] [--coverage full|errors|smoke] [--live] [--no-scaffold]`
+`<TenantName> [--module <Name> ...] [--coverage full|errors|smoke] [--live] [--no-scaffold] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Tenant to test (required) |
 | `--module <Name>` | Cover only these modules/controllers; repeatable. Default: all |
-| `--coverage` | `full` (default): happy path, upstream 404 and 500, forwarded body, route contract. `errors`: the first three. `smoke`: happy path only |
+| `--coverage` | `full` (default): happy path, upstream 404 and 500, forwarded body, route contract, plus one swagger smoke test. `errors`: the first three. `smoke`: happy path only |
 | `--live` | Also generate the `[Explicit]`, `[Category("Staging")]` fixture that calls the real upstream |
 | `--no-scaffold` | Test project already exists — add fixtures only. Detected automatically |
 
 ### `/tenant-audit`
 
-`[<TenantName>|--all] [--only <check>] [--fix [registration]] [--report-only]`
+`<TenantName>|--all [--only <check>] [--no-runtime] [--fix [registration]] [--report-only] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Tenant to audit |
-| `--all` | Audit every tenant under `src/Tenants/`. Default when no tenant is given |
-| `--only <check>` | `registration\|slugs\|config\|secrets\|spec\|tests\|docs`; repeatable |
+| `--all` | Audit every tenant under `src/Tenants/`. With neither a tenant nor `--all`, the tenant is asked for. Skips the image build and the runtime check, which take minutes per tenant |
+| `--only <check>` | `registration\|slugs\|config\|secrets\|spec\|tests\|docs\|guards\|runtime`; repeatable. `--only runtime` re-runs just the local gateway round-trip |
+| `--no-runtime` | Skip the local gateway round-trip (Check 9) |
 | `--fix` | Apply the fixable repairs without asking. Without it, the audit offers the fixable ones as a pick-list after the report |
-| `--report-only` | Report without offering fixes |
+| `--report-only` | Report without offering fixes. The Docker checks still run |
+| `--auto` | Same as `--fix`: every fixable repair, no questions |
+| `--dry-run` | File checks only: no image build, no Check 9, nothing written to Docker. `/tenant-pipeline --dry-run` passes it |
+
+#### Local gateway round-trip
+
+For a single tenant (or `--only runtime`), Check 9 proves the tenant answers through YARP on your machine. It needs Docker running, but no token and no password:
+
+1. Builds and starts `mongo`, `admin-api` and `gateway` from the working tree, and seeds `mongo` from the local dump when it's empty.
+2. Writes the tenant's `GATEWAY-CONFIG.md` into the local `mongo` in order: scope, cluster, route. It then creates the test gateway user and bumps the tokens the gateway polls, so the change loads within 30 s.
+3. Starts `core-<slug>` and calls `/t/<slug>/health/live` and at least one endpoint per module through `http://localhost:10080`. A tenant that calls back into the gateway reaches the local compose `http://gateway/` (its Development `BaseUrl`), signed in as the same test user.
+
+| Test user | Value |
+|---|---|
+| Username | `test<Tenant>`, e.g. `testTT` |
+| Password | `test` |
+
+These are local-only throwaway values. The password is shorter than the AdminAPI's password rule, which is why the user is written to Mongo directly and not through `POST /Users`. The containers, config and user stay in place afterwards, so you can keep testing:
+
+```bash
+curl -u testTT:test http://localhost:10080/t/tt/health/live
+```
+
+It never touches a test, staging or production gateway. Those still take the manual `POST /Import/routes` described in `GATEWAY-CONFIG.md`.
 
 ### `/tenant-deliverables`
 
-`<Tenant> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...]`
+`<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
-| `<Tenant>` | Tenant to document (required) |
+| `<TenantName>` | Tenant to document (required) |
 | `--route <r>` | Gateway route, without `/t/`. Default: from `GATEWAY-CONFIG.md` (`/tenant-pipeline` also falls back to `docs/zamconnect-test-routes.md`), else the tenant code lowercased (e.g. `mcti/zabs`, `govzm/ZamPass` when it differs) |
 | `--roles` | Documents to render. Default: `tenant` always, `consumer`/`provider` when the tenant consumes/provides |
 | `--out <dir>` | Output directory holding the five role folders. Default: `src/Tenants/<Tenant>/Deliverables/` |
@@ -173,9 +199,9 @@ Every question a skill asks has a flag, and passing the flag skips the question.
 
 ## Prerequisites
 
-Only `/tenant-deliverables` and `tenant-deliverables-builder` need more than the .NET SDK:
-
 - **.NET 10 SDK** — all skills (`dotnet build`, `dotnet tool run swagger`)
+- **Docker Desktop** (engine running) — the image build and start check in `/tenant-init`, and Checks 8–9 of `/tenant-audit`. Without it those checks report `skipped`, never `ok`
+- **Git Bash** on Windows — the audit's commands are POSIX shell
 - **Python 3.9+** with `python-docx` — the document renderers under `skills/tenant-deliverables/scripts/`
 - **Node.js** — `npx openapi-to-postmanv2`, invoked by `openapi_to_postman.ps1`
 - **Windows PowerShell** — the Postman conversion step
@@ -194,7 +220,7 @@ pip install python-docx
 | 2 | `/tenant-integration <Tenant>` | Needs the scaffold; produces the upstream client and the exposed routes. Repeat per upstream system |
 | 3 | `/integrate-shared <Tenant>` | **Optional** — only when the tenant also republishes shared e-Services (NIR, PACRA, ZRA, …) |
 | 4 | `/tenant-tests <Tenant>` | Fixtures are generated from the routes that exist after steps 2–3 |
-| 5 | `/tenant-audit <Tenant>` | Catches what a green build hides: pipeline/compose registration, slug mismatches, missing `Endpoints:<Name>` config, leaked credentials |
+| 5 | `/tenant-audit <Tenant>` | Catches what a green build hides: pipeline/compose registration, slug mismatches, missing `Endpoints:<Name>` config, leaked credentials, and a tenant that doesn't answer through the local gateway |
 | 6 | `/tenant-deliverables <Tenant>` | **Last.** The deliverables are generated from the final API surface; running it earlier ships a stale specification |
 
 ```

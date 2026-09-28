@@ -1,7 +1,7 @@
 ---
 name: integrate-shared
 description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "which shared endpoints are available", or types /integrate-shared.
-argument-hint: "[<TenantName>] [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list] [--auto] [--dry-run]"
+argument-hint: "<TenantName> [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -22,7 +22,7 @@ Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casi
 
 | Argument | Meaning |
 |---|---|
-| `<TenantName>` | Target tenant folder `src/Tenants/<TenantName>/`. Prompted from a menu if omitted |
+| `<TenantName>` | Target tenant folder `src/Tenants/<TenantName>/`. Required. When omitted, asked first from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>` |
 | `--source <SYS>` | Pre-select one or more upstream systems; repeatable. Skips the source menu |
 | `--endpoint <key>` | Pre-select individual operations by catalogue key; repeatable. Skips the endpoint menu |
 | `--base-path <path>` | Route group prefix. **Default: none** — routes sit at the tenant root. Pass one only when the tenant already groups its own surface under a prefix, or its gateway route transforms onto one (step 6) |
@@ -35,6 +35,7 @@ Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casi
 | `--gate <n>/<N>`, `--recommend proceed\|skip` | Gate mode, set by `tenant-pipeline` |
 | `--auto` | No questions. Uses `--source` / `--endpoint` / `--all` as given; with none of them, stops with `missing --source <SYS> or --all` |
 | `--dry-run` | Stop at the confirmation in step 3 and write nothing |
+| `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
 
 `--source` and `--endpoint` combine: sources expand to all their operations, then `--endpoint` adds individual ones.
 
@@ -124,7 +125,7 @@ GetTaxpayer(string tpin = "", string taxpayerName = "", string nrc = "", string 
 GetMohFacilitiesByName<TResponse, TSource>(string name, Func<TSource, TResponse> map, int page = 0, int pageSize = 10, CancellationToken cancellationToken = default)
 ```
 
-Failure statuses each operation can produce through `CustomResults.Problem` (C2) — declare exactly these with `.Produces(...)`:
+Failure statuses each operation can produce through `CustomResults.Problem` (C2) — declare exactly these with `.ProducesProblem(...)`:
 
 | Operations | Statuses |
 |---|---|
@@ -252,12 +253,21 @@ with `using Carter;`, `using Shared.Extensions;`, `using Shared.Services;` and `
 
 - JSON key and token are `Username`, never `UserName` (C3).
 - Token names follow C4 (tenant calling back into the gateway); `<TenantName>` is the exact folder name. Each new token needs a variable in `GSB.<TENANT>.<ENV>` and in the `projects-variables` repo, or the deploy fails.
-- In `appsettings.Development.json` the `BaseUrl` may be the real test gateway; credentials stay `__Token__` placeholders. Never copy a value from another tenant's Development file (C7).
-- If the tenant already has other `Endpoints` entries, add `Gateway` as a sibling — do not replace the object.
+- In `appsettings.Development.json` the `BaseUrl` is `http://gateway/`, the `gateway` service of `src/.dockercompose/docker-compose.yml`, so a tenant container running locally calls the local Docker gateway, never the test one. Credentials stay `__Token__` placeholders; `/tenant-audit` Check 9 supplies the local test user when it starts the container. Never copy a value from another tenant's Development file (C7).
+- If the tenant already has other `Endpoints` entries, add `Gateway` as a sibling — do not replace the object. If a `Gateway` section is already there (`tenant-integration` writes it for an upstream reached through the gateway), keep it: both clients share that one section and one set of credentials.
 
 ## 6. Generate the module
 
 `src/Tenants/<TenantName>/Modules/EServicesModule.cs` for `routes` and `inherit`; `CommonModule.cs` plus concrete modules for `common`. New `.cs` files follow C6.
+
+**Gateway methods.** Once the module is written, set `match.methods` of the tenant's route in `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` to every verb the tenant now maps, not just the new ones, so no route of the tenant answers 405 at the gateway:
+
+```bash
+grep -rhoE "Map(Get|Post|Put|Patch|Delete)\(|\[Http(Get|Post|Put|Patch|Delete)" src/Tenants/<TenantName>/Modules src/Tenants/<TenantName>/Controllers 2>/dev/null \
+  | sed -E 's/.*(Get|Post|Put|Patch|Delete).*/\1/' | tr a-z A-Z | sort -u
+```
+
+When any module of the tenant derives from `EServicesSharedModule` (this run's `inherit` mode or an earlier one), add the verbs of the step 1 `EServicesSharedModule` grep: its routes live in Core, so the tenant grep never sees them. Keep the order `GET`, `POST`, `PUT`, `PATCH`, `DELETE`. A tenant with no `GATEWAY-CONFIG.md` (created before `tenant-init` wrote one) gets the verbs in the report instead.
 
 The `MapGroup` below belongs to `routes` and `common` mode only. An `inherit` module has no `AddRoutes` override at all — mapping the group there would duplicate the shared route set.
 
@@ -271,7 +281,6 @@ using Carter;
 using Internal.Domain.Shared.Result;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Shared.Mapper;
 using Shared.Models.NBR;
@@ -295,9 +304,11 @@ public class EServicesModule(EServicesShared services) : ICarterModule
                     var result = await services.GetPersonByNrc(nrc, cancellationToken);
                     return result.IsSuccess ? Results.Ok(result.Value) : CustomResults.Problem(result);
                 })
-            .Produces(StatusCodes.Status200OK, typeof(PersonResponse))
-            .Produces(StatusCodes.Status404NotFound, typeof(ProblemDetails))
-            .Produces(StatusCodes.Status500InternalServerError, typeof(ProblemDetails));
+            .Produces<PersonResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .WithSummary("Get a person by NRC")
+            .WithDescription("Returns the person registered under the given NRC in the National Identity Register (NIR).");
 
         group.MapPost("/nir/persons",
                 async (PersonAddRequest model, CancellationToken cancellationToken) =>
@@ -307,11 +318,13 @@ public class EServicesModule(EServicesShared services) : ICarterModule
                         ? Results.Created(string.Empty, new PersonCreatedResponse { Id = result.Value.Id })
                         : CustomResults.Problem(result);
                 })
-            .Produces(StatusCodes.Status201Created, typeof(PersonCreatedResponse))
-            .Produces(StatusCodes.Status400BadRequest, typeof(ProblemDetails))
-            .Produces(StatusCodes.Status404NotFound, typeof(ProblemDetails))
-            .Produces(StatusCodes.Status409Conflict, typeof(ProblemDetails))
-            .Produces(StatusCodes.Status500InternalServerError, typeof(ProblemDetails));
+            .Produces<PersonCreatedResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .WithSummary("Register a person")
+            .WithDescription("Creates a person record in the National Identity Register (NIR) and returns its id.");
 
         group.MapGet("/nbr/entities/{registrationNumber}",
                 async (string registrationNumber, CancellationToken cancellationToken) =>
@@ -321,9 +334,11 @@ public class EServicesModule(EServicesShared services) : ICarterModule
                             registrationNumber, e => e.ToBusinessEntityResponse(), cancellationToken);
                     return result.IsSuccess ? Results.Ok(result.Value) : CustomResults.Problem(result);
                 })
-            .Produces(StatusCodes.Status200OK, typeof(BusinessEntityResponse))
-            .Produces(StatusCodes.Status404NotFound, typeof(ProblemDetails))
-            .Produces(StatusCodes.Status500InternalServerError, typeof(ProblemDetails));
+            .Produces<BusinessEntityResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .WithSummary("Get a business entity by registration number")
+            .WithDescription("Returns the business entity registered under the given number in the National Business Register (NBR/PACRA).");
 
         group.MapGet("/zda/permits",
                 async (string entityNumber, CancellationToken cancellationToken, int page = 0, int pageSize = 10) =>
@@ -335,19 +350,21 @@ public class EServicesModule(EServicesShared services) : ICarterModule
                             page, pageSize, cancellationToken);
                     return result.IsSuccess ? Results.Ok(result.Value) : CustomResults.Problem(result);
                 })
-            .Produces(StatusCodes.Status200OK, typeof(PaginatedResult<PermitResponse>))
-            .Produces(StatusCodes.Status500InternalServerError, typeof(ProblemDetails));
+            .Produces<PaginatedResult<PermitResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .WithSummary("List ZDA permits of an entity")
+            .WithDescription("Returns the Zambia Development Agency (ZDA) permits held by the given entity, one page at a time.");
     }
 }
 ```
 
-Using list by selection (precedent `src/Tenants/ZIMS/Modules/NirModule.cs`): always `System.Threading`, `Carter`, `Internal.Domain.Shared.Result`, `Microsoft.AspNetCore.Builder`, `Microsoft.AspNetCore.Http`, `Microsoft.AspNetCore.Mvc`, `Microsoft.AspNetCore.Routing`, `Shared.Mapper`, `Shared.Services`; plus `System` for `Guid` routes, `Shared.Models.<SYS>` per selected system, `Shared.Models.NIR.Common.Requests.Person` for NIR create/update, `Shared.Types` for paginated operations. `ImplicitUsings` is off in most tenants — check the csproj (C1); a missing `using` is a build error.
+Using list by selection (precedent `src/Tenants/ZIMS/Modules/NirModule.cs`): always `System.Threading`, `Carter`, `Internal.Domain.Shared.Result`, `Microsoft.AspNetCore.Builder`, `Microsoft.AspNetCore.Http`, `Microsoft.AspNetCore.Routing`, `Shared.Mapper`, `Shared.Services`; plus `System` for `Guid` routes, `Shared.Models.<SYS>` per selected system, `Shared.Models.NIR.Common.Requests.Person` for NIR create/update, `Shared.Types` for paginated operations. `ImplicitUsings` is off in most tenants — check the csproj (C1); a missing `using` is a build error.
 
 Rules:
 
 - `CustomResults.Problem(result)` (`Internal.Domain.Shared.Result`) is the only failure path — it turns `Error` into RFC 7807 `ProblemDetails` with the status from C2
 - Every handler takes `CancellationToken` and passes it through
-- `.Produces(...)` for the real success status and type, and for every failure status step 2 lists for that operation — this feeds Swagger and the generated API specification. Don't copy `EServicesSharedModule`'s POST `.Produces(StatusCodes.Status200OK, ...)` (the route returns 201) or EGP's `/zra/taxpayers` `.Produces` type (declares `TaxClearanceCertificateResponse` for a `List<TaxpayerResponse>` result)
+- `.Produces<T>(...)` for the real success status and type, one `.ProducesProblem(...)` for every failure status step 2 lists for that operation, plus `.WithSummary(...)` and `.WithDescription(...)` — the APIS set `tenant-integration` step 8, `tenant-audit` Check 5 and `tenant-deliverables` all read. The description names the upstream system; state only what the route returns. Don't copy `EServicesSharedModule`'s POST `.Produces(StatusCodes.Status200OK, ...)` (the route returns 201) or EGP's `/zra/taxpayers` `.Produces` type (declares `TaxClearanceCertificateResponse` for a `List<TaxpayerResponse>` result)
 - `POST` that creates returns `Results.Created`; `PATCH` returns `Results.Accepted()`
 - Route segments are lowercase and grouped by source: `/<source>/<resource>/{key}` — the source name is the only grouping in the path
 - Where the csproj enables `<Nullable>`, optional query parameters are `string?` (C1); otherwise plain `string` already binds as optional
@@ -371,7 +388,10 @@ Must report `0 Error(s)`. Then, without running the app:
 - Every selected operation has exactly one route, and no route was generated for an operation the user deselected
 - `inherit` mode only when the selection equals the `EServicesSharedModule` route set
 - No route collides with one the tenant already exposes — `grep -rn "MapGroup\|MapGet\|MapPost\|MapPatch" src/Tenants/<TenantName>/Modules/`
+- `match.methods` in `GATEWAY-CONFIG.md` lists every verb from the step 6 grep
+- `Endpoints:Gateway:BaseUrl` in `appsettings.Development.json` is `http://gateway/`
 - Every generic call passes both type arguments and a `map` delegate; paginated ones map with `MapItems`
+- Every generated route has `.Produces<T>`, one `.ProducesProblem` per status from step 2, `.WithSummary` and `.WithDescription`
 
 The new routes change the tenant's contract. Outside `tenant-pipeline`, which runs it for you, name `/tenant-deliverables <TenantName>` as the next step: it regenerates the OpenAPI JSON, DOCX specification and Postman collection.
 
@@ -388,7 +408,7 @@ Close with what stays outside this skill:
 - Granting the scopes above to the tenant's gateway user
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
 
-End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a prerequisite stops the skill or the build in step 7 fails.
+End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a prerequisite stops the skill or the build in step 7 fails.
 
 ## Sensitive data
 

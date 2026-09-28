@@ -1,7 +1,7 @@
 ---
 name: tenant-tests
 description: Scaffold and write the test project for a ZamConnect tenant — `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a mock HTTP handler standing in for the upstream, and endpoint tests that drive the tenant's real Carter modules or controllers over HTTP. Optionally adds an `[Explicit]` staging fixture that calls the live upstream. Use when the user says "add tests for <Tenant>", "test this integration", "write module tests", "cover <Tenant> endpoints", or types /tenant-tests.
-argument-hint: "<TenantName> [--module <Name> ...] [--coverage full|errors|smoke] [--live] [--no-scaffold] [--auto] [--dry-run]"
+argument-hint: "<TenantName> [--module <Name> ...] [--coverage full|errors|smoke] [--live] [--no-scaffold] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(tail *) Bash(wc *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion
 disable-model-invocation: false
 ---
@@ -28,7 +28,7 @@ Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md
 
 | Argument | Meaning |
 |---|---|
-| `<TenantName>` | Tenant under `src/Tenants/<TenantName>/`. Test project goes to `src/Tests/<TenantName>.Tests/` |
+| `<TenantName>` | Tenant under `src/Tenants/<TenantName>/`. Test project goes to `src/Tests/<TenantName>.Tests/`. Required. When omitted, asked first from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>` |
 | `--module <Name>` | Cover only these modules/controllers; repeatable. Default: every one the tenant exposes |
 | `--live` | Also generate the staging fixture that calls the real upstream (`[Explicit]`, `[Category("Staging")]`) |
 | `--coverage full\|errors\|smoke` | Which cases each route gets — see step 6. Default `full` |
@@ -36,6 +36,7 @@ Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md
 | `--gate <n>/<N>` | Gate mode, set by `tenant-pipeline` |
 | `--auto` | No questions: every default |
 | `--dry-run` | Stop at the review and write nothing |
+| `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
 
 ## Gate
 
@@ -262,7 +263,7 @@ services.AddTransient<Shared.Endpoints.Gateway>(_ => new Shared.Endpoints.Gatewa
     new HttpClient(GatewayHandler) { BaseAddress = new Uri("http://gateway-test") }));
 ```
 
-Override every `Endpoints:Gateway:*` key too — ZPS doesn't, so its mocked factory still loads the committed Development credentials. `EServicesShared` resolves the mocked `Gateway` itself; assert upstream paths (`/t/ndw/...`) on `GatewayHandler.Requests`.
+Override every `Endpoints:Gateway:*` key too — ZPS doesn't, so its mocked factory still loads the committed Development credentials. A tenant with its own `<TenantName>.Endpoints.Gateway` (an upstream reached through the gateway, `tenant-integration` step 1a) binds the same section: re-register it over the same `GatewayHandler`, so one handler records every gateway call. `EServicesShared` resolves the mocked `Gateway` itself; assert upstream paths (`/t/ndw/...`) on `GatewayHandler.Requests`.
 
 ### In-process auth tenants
 
@@ -493,7 +494,7 @@ Findings, never fixed by this skill:
 - This tenant's `appsettings.Development.json` commits credential values (count of keys only, C7)
 - FluentAssertions 8.x licence (Xceed commercial) — repo-wide
 
-End with the equivalent command (R7), e.g. `/tenant-tests PQPS --coverage full --live`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>`.
+End with the equivalent command (R7), e.g. `/tenant-tests PQPS --coverage full --live`, and these answers for the pipeline state: `coverage`, `modules` (only when not all), `live`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>`.
 
 ## Sensitive data
 

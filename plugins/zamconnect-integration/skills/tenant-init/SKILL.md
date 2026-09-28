@@ -1,8 +1,8 @@
 ---
 name: tenant-init
 description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
-argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run]"
-allowed-tools: Read Write Edit Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) Bash(sort *) Bash(uniq *) AskUserQuestion Skill
+argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
+allowed-tools: Read Write Edit Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) Bash(sort *) Bash(uniq *) Bash(docker *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
 
@@ -25,8 +25,9 @@ Repo facts shared with the other skills — usings, config casing, token naming,
 | Dev ports | `--port <https>` | Next free pair from the scan in step 2 |
 | Pipeline | `--no-pipeline` / `--auto` | Guided. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates |
 | Dry run | `--dry-run` | Off. Stops at the review in step 2a and writes nothing |
+| Help | `--help` | Print the arguments and examples, then stop (R14) |
 
-If `<TenantName>` is missing, ask for it in plain text; there's nothing to offer as options. Everything else goes through step 1a.
+If `<TenantName>` is missing, ask for it in plain text before anything else, as the contract's Missing arguments section says for a new tenant (R13): PascalCase, and no existing `src/Tenants/<TenantName>/` folder. Under `--auto`, stop with `missing <TenantName>`. Everything else goes through step 1a.
 
 ## Reference tenants
 
@@ -87,7 +88,7 @@ Command: /tenant-init PQPS --full-name "Plant Quarantine and Phytosanitary Servi
 
 Options: `Apply (Recommended)` · `Adjust` · `Cancel`. `Adjust` asks one `multiSelect` — `Dev ports`, `Pipeline slug`, `Style`, `Full name` — and re-asks only the ones picked. Ports and slug are the values most often overridden: offer the next two free pairs and the hyphenated / unhyphenated slug as options, never "type it in Other".
 
-With `--dry-run`, print the plan and stop here. With `--auto`, skip the call and apply.
+With `--dry-run`, print the plan and stop here. With `--auto`, skip the call and apply. `Cancel` ends the skill; with `--no-pipeline` its last line is `GATE-RESULT: stopped`.
 
 ### 3. Create the files
 
@@ -263,7 +264,7 @@ internal static class OpenApiDocumentation
 
 With no full name yet, write `<TenantName>` alone in that sentence.
 
-Do not add `RegisterGatewayEndpoint` or `EServicesShared` (MOH extras) unless the integration needs the shared e-services surface.
+Do not add `RegisterGatewayEndpoint` or `EServicesShared` (MOH extras). `integrate-shared` adds them, with the `Gateway` section, when the tenant needs the shared e-services surface.
 
 #### Observability
 
@@ -296,21 +297,14 @@ Logs probably don't reach OTLP even with the endpoint set: `UseConfiguredSerilog
 
 4-space indent. `RegisterEndpoints` matches `Endpoints:<ClientClassName>` sections against `IRestEndpoint` class names in the assembly; a section with no matching class is inert, yet every `__Token__` in it still becomes a required deploy variable (C4). So scaffold no placeholder client:
 
-- Default: `"Endpoints": {}`.
-- `--integrates shared`: one `Gateway` section, the key `RegisterGatewayEndpoint` binds (MOH shape) — shown below.
+- Always `"Endpoints": {}`, whatever `--integrates` says.
+- The `Gateway` section (the tenant calling back into the ZamConnect gateway) is written by `integrate-shared` §5, together with the `RegisterGatewayEndpoint` call that binds it, or by `tenant-integration` for an upstream reached through the gateway. Scaffolding it here without that call leaves dead config whose tokens still become required deploy variables.
 - An agency client is added by `tenant-integration`, which names the section after the real client class.
 
 ```json
 {
     "AllowedHosts": "*",
-    "Endpoints": {
-        "Gateway": {
-            "AuthenticationScheme": "Basic",
-            "BaseUrl": "__Endpoints.APIGATEWAY.BaseUrl__",
-            "Username": "__Credentials.<TenantName>Tenant.Username__",
-            "Password": "__Credentials.<TenantName>Tenant.Password__"
-        }
-    },
+    "Endpoints": {},
     "Serilog": {
         "MinimumLevel": {
             "Default": "Information",
@@ -327,11 +321,9 @@ Logs probably don't reach OTLP even with the endpoint set: `UseConfiguredSerilog
 }
 ```
 
-- Tokens follow C4: gateway callback = `__Endpoints.APIGATEWAY.BaseUrl__` + `__Credentials.<Folder>Tenant.Username|Password__`, `<Folder>` the exact folder name. Each one needs a variable in `GSB.<TENANT>.<ENV>` and in `projects-variables`.
-- Key and token are `Username`, never `UserName` (C3); the C# property is `UserName`, binding is case-insensitive.
 - No `WriteTo` block: `UseConfiguredSerilog` already hard-codes a JSON console sink (`LogConfigurationExtensions.cs`) on top of `ReadFrom.Configuration`, so a `Console` entry in `WriteTo` adds a second console sink and every line is written twice. Existing tenants (CEEC) still carry it — don't copy it.
 
-`appsettings.Development.json` mirrors `appsettings.json` with only `BaseUrl` set to `https://api.test.gsb.gov.zm/`; credentials stay `__Credentials.*__` tokens. That is the CEEC shape, not the norm — many tenants' Development files differ and commit literal credentials (C7). Never use another tenant's Development file as the template for credential values.
+`appsettings.Development.json` mirrors `appsettings.json`. The later steps add each client section to both files; there, only `BaseUrl` may be real and credentials stay `__Token__` placeholders. Many tenants' Development files commit literal credentials (C7). Never use another tenant's Development file as the template for credential values.
 
 #### `Dockerfile`
 
@@ -478,6 +470,9 @@ Import with `POST /Import/routes` on the AdminAPI (Admin policy). The body is th
 (`RouteConfigurationPackageDto`). The import creates the `<slug>` scope from `metadata.Scope`, then the
 cluster, then the route; an existing route or cluster with the same id is overwritten.
 
+Locally, don't import by hand: `/tenant-audit <TenantName> --only runtime` applies this package to the
+local Docker `mongo` only, together with a `test<TenantName>` gateway user.
+
 ```json
 {
     "clusters": [
@@ -526,7 +521,7 @@ Registering by hand through `POST /Routes` instead: create the scope first with 
 the route validator rejects a scope that doesn't exist.
 ~~~~
 
-`methods` lists only the verbs the tenant actually exposes; with no modules yet default to `GET` and tell the user to widen it when the business surface lands.
+`methods` lists only the verbs the tenant actually exposes. With no modules yet, default to `GET`. `tenant-integration` §6 and `integrate-shared` §6 widen it to every verb the tenant's routes map.
 
 ### 7. Add to the solution
 
@@ -541,6 +536,31 @@ dotnet build src/Tenants/<TenantName>/<TenantName>.csproj -v q --nologo
 ```
 
 Must report `0 Error(s)`. Pre-existing `NU1903` and `CARTER1` warnings come from `Core` and are not caused by the new tenant.
+
+Then build the image through the compose service from step 5. `dotnet build` passing says nothing about the Dockerfile: a missing `COPY` for a referenced project, a path-casing mismatch, or a wrong `dockerfile:` path only fails here, on the Linux image build the pipeline also runs.
+
+```bash
+docker info >/dev/null 2>&1 && docker compose -f src/.dockercompose/docker-compose.yml build core-<slug>
+```
+
+Must exit 0. On failure, fix the Dockerfile or compose entry and re-run; don't report the scaffold as done. If `docker info` fails (Docker not installed or the engine is not running), stop and tell the user, then report the image build and the start check below as `skipped — Docker not available`, never as passed, with the commands to run later. If the Dockerfile declares `ARG PAT` (private feed), pass `--build-arg PAT=<token>` from the user's environment and never echo it.
+
+Then prove the image starts. A clean build can still crash at startup: a missing config section, a DI registration that can't resolve, `MapCarter()` failing on an unconfigured endpoint.
+
+```bash
+C="docker compose -f src/.dockercompose/docker-compose.yml"
+$C up -d --no-deps core-<slug>
+for i in $(seq 1 12); do
+  $C exec -T core-<slug> wget -qO- http://localhost/health/live 2>/dev/null && break
+  sleep 5
+done
+$C ps core-<slug> --format '{{.State}} {{.Status}}'
+$C logs --no-color --tail 50 core-<slug>
+```
+
+The tenant publishes no host port (step 5), so the probe runs inside the container with the busybox `wget` in the Alpine image. It must print `Healthy` within the 60 s loop, and `ps` must still show `running`, not `exited` or `restarting`. If it fails, read the logs for the first exception. Fix the cause, rebuild and re-run. Don't report the scaffold as done while it fails. Only the log lines about the exception go into the report, never config values.
+
+Then remove the container: `$C rm -sf core-<slug>`. The image stays, and `/tenant-audit` Check 9 starts the container again with the gateway.
 
 Then confirm the three registrations, since a tenant that builds but is unregistered fails silently later:
 
@@ -579,12 +599,14 @@ Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contrac
 
 ## Report
 
-One line per file created, then the solution entry and the build result, then the equivalent command (R7). Close by naming what was deliberately left out so the user can ask for it:
+One line per file created, then the solution entry, the build result, the image build result and the container start result (`ok` / `fail` / `skipped`), then the equivalent command (R7). Close by naming what was deliberately left out so the user can ask for it:
 
 - ADO pipeline definition + `GSB.<TENANT>.<ENV>` variable groups — `helmReleaseName` (must be the compose `<slug>`), `helmNamespace`, `OTEL_SERVICE_NAME` (set it to `core-<slug>`), `OTEL_EXPORTER_OTLP_ENDPOINT`, and a variable for every `__Token__` in `appsettings.json`, mirrored in `projects-variables` (C4) — all created outside the repo. `REPLICAS` and the registry/pool/helm-repo variables come from the existing `GSB.COMMON.<ENV>`; `helmChart`, `helmChartVersion`, `helmVersion`, `dockerId` are inline in `tenant.pipeline.yaml`. `values.tenant.yaml` is generic and needs no per-tenant edit; the release is parameterised through `--set` in `tenant.deployment-jobs.yaml`
 - Gateway import: `POST /Import/routes` with the package in `GATEWAY-CONFIG.md`, then the `<slug>` scope on every consumer's gateway user
 - Business surface: `Modules/`, `Endpoints/`, `Models/`, `Mapper/`
 - Test project `src/Tests/<TenantName>.Tests` — required by `AGENTS.md` and `.ai-factory/rules/base.md`; `/tenant-tests <TenantName>` creates it
+
+With `--no-pipeline` (how `tenant-pipeline` runs step 1), the report's last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build, the image build or the start check fails.
 
 ## Hand-off to the pipeline
 

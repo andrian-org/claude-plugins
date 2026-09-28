@@ -87,6 +87,8 @@ def main():
                         help="Gateway route as registered in YARP, e.g. 'apis' or 'mcti/zabs'")
     parser.add_argument("--output", default=None,
                         help="Write here instead of rewriting the input in place")
+    parser.add_argument("--version", default=None,
+                        help="Document version to write into info.version, e.g. '1.0'")
     args = parser.parse_args()
 
     route = normalize_route(args.route)
@@ -96,6 +98,9 @@ def main():
 
     prefix, changes = apply_route(openapi, route)
     openapi["servers"] = openapi_servers()
+    # The code's OpenApiInfo.Version is the API version ("v1"); the deliverable carries the document version.
+    if args.version:
+        openapi.setdefault("info", {})["version"] = args.version
 
     output = args.output or args.openapi_json
     with open(output, "w", encoding="utf-8") as f:

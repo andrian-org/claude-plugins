@@ -101,14 +101,15 @@ def main() -> int:
         # directory, and the base appsettings ships unsubstituted __Token__ URLs that only the
         # Development layer replaces with something Uri can parse.
         env = {**os.environ, "ASPNETCORE_ENVIRONMENT": "Development"}
+        doc = re.search(r'SwaggerDoc\(\s*"([^"]+)"', (tdir / "Program.cs").read_text(encoding="utf-8"))
         run(["dotnet", "tool", "run", "swagger", "tofile", "--output", "swagger.json",
-             f"{tenant}.dll", "v1"], cwd=bin_dir, env=env, label="swagger tofile")
+             f"{tenant}.dll", doc.group(1) if doc else "v1"], cwd=bin_dir, env=env, label="swagger tofile")
         log.append("built and exported swagger.json")
     elif not swagger.exists():
         sys.exit(f"!! --skip-build but no {swagger}")
 
-    run([sys.executable, str(scripts / "apply_gateway_route.py"), str(swagger), "--route", route],
-        label="apply_gateway_route.py")
+    run([sys.executable, str(scripts / "apply_gateway_route.py"), str(swagger), "--route", route,
+         "--version", args.version], label="apply_gateway_route.py")
 
     spec = json.loads(swagger.read_text(encoding="utf-8"))
     paths = list(spec.get("paths", {}))

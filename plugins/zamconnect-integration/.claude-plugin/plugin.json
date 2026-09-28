@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "zamconnect-integration",
-  "version": "0.4.0",
+  "version": "0.1.0",
   "description": "ZamConnect tenant tooling: tenant scaffolding, integration, audit, tests and delivery documents.",
   "author": {
     "name": "DotGov",

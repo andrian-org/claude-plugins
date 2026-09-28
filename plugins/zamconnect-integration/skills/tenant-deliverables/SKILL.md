@@ -1,8 +1,8 @@
 ---
 name: tenant-deliverables
 description: Generate the full delivery document set for a ZamConnect tenant — the OpenAPI JSON, the Word API Specification and the Postman collection, laid out in the Consumer/Provider/Tenant folders under the tenant's Deliverables directory, with every section of the document filled from the tenant's own source rather than left as boilerplate. Documentation only — never modifies tenant code or any ZamConnect library. Routes are always written with the gateway prefix (`/t/pqps/hub/pesticides`, never the bare controller route). Use when the user says "generate the documents for <Tenant>", "produce the API specification for <Tenant>", "build the deliverable package", "make the tenant docs", or types /tenant-deliverables.
-argument-hint: "<Tenant> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--auto] [--dry-run]"
-allowed-tools: Read Glob Grep Write Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(cp *) Bash(dotnet build *) Bash(dotnet tool run *) Bash(python *) Bash(powershell *) Bash(git status *) Bash(git log *) Bash(git diff *) AskUserQuestion
+argument-hint: "<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--auto] [--dry-run] [--help]"
+allowed-tools: Read Glob Grep Write Skill Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(cp *) Bash(dotnet build *) Bash(dotnet tool run *) Bash(python *) Bash(powershell *) Bash(git status *) Bash(git log *) Bash(git diff *) AskUserQuestion
 disable-model-invocation: false
 ---
 
@@ -84,8 +84,8 @@ Whatever the role, the role word lives in three places, and the last is a separa
 
 | Argument | Meaning |
 |---|---|
-| `<Tenant>` | Tenant code, e.g. `PQPS`, `APIS`, `DAM`. Required |
-| `--route <r>` | Gateway route, without `/t/`. Defaults to the tenant code lowercased. Pass it when the real route differs (`mcti/zabs`, `govzm/ZamPass`) |
+| `<Tenant>` | Tenant code, e.g. `PQPS`, `APIS`, `DAM`. Required. When omitted, asked first from the contract's Missing arguments menu (R13); `--auto` stops with `missing <Tenant>` |
+| `--route <r>` | Gateway route, without `/t/`. Defaults to the route in `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` (what `inspect_tenant.py` reports), then the tenant code lowercased. Pass it when the real route differs (`mcti/zabs`, `govzm/ZamPass`) |
 | `--roles` | Which documents to render. Default: whichever the tenant actually has — `tenant` always, `consumer` when it consumes, `provider` when it provides |
 | `--out <dir>` | Where the package is written — this directory holds the five role folders directly. Default: `src/Tenants/<Tenant>/Deliverables/`. Override only when the user asks for a location outside the repository |
 | `--version <X.Y>` | Document version. Bump only when the contract changed; keep it for a docs-only re-render |
@@ -94,6 +94,7 @@ Whatever the role, the role word lives in three places, and the last is a separa
 | `--gate <n>/<N>` | Gate mode, set by `tenant-pipeline` |
 | `--auto` | No questions. Every default; stops with `unresolved endpoint <path>: pass --provide-paths` when an endpoint is `UNKNOWN` or `Provide?` |
 | `--dry-run` | Run `inspect_tenant.py` and the review, then stop. Nothing is built or written |
+| `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
 
 ## Questions
 
@@ -197,8 +198,8 @@ Each endpoint is exactly one of Consume or Provide, and the assignment is mechan
 
 | Section | The endpoint's data comes from | Recognised by |
 |---|---|---|
-| **Consume** | Another system or tenant, reached back out through the gateway | The module injects the `ZamConnect` client (`Endpoints:ZamConnect`, a `RestEndpoint` pointed at the API gateway) |
-| **Provide** | This tenant's own institution | The module injects the tenant's own client (`Endpoints:<Tenant>`, e.g. `Endpoints:Wcf`) |
+| **Consume** | Another system or tenant, reached back out through the gateway | The module injects a gateway client — `Gateway` (`Endpoints:Gateway`, what `tenant-integration` writes for an upstream behind the gateway), `EServicesShared` or another `*Shared` service (`integrate-shared`), or the legacy `ZamConnect` client (`Endpoints:ZamConnect`) — or derives from a `*SharedModule` |
+| **Provide** | This tenant's own institution | The module injects the tenant's own upstream client — `Endpoints:<System>` or `SoapEndpoints:<System>`, e.g. `Endpoints:Wcf`, `Endpoints:ZimsApi` |
 
 ```bash
 grep -rn "class .*Module(" src/Tenants/<Tenant>/Modules/
@@ -208,7 +209,7 @@ WCF reads straight off that one command: `BusinessEntitiesModule(ZamConnect …)
 
 **Both sections live in the tenant's own route space.** Every endpoint is `/t/<route>/…` whichever section it falls in — `/t/wcf/napsa/members` is a Consume endpoint and `/t/wcf/employers` a Provide one. The split is by where the data originates, not by the shape of the path, so it cannot be inferred from the URL. A tenant whose Consume endpoints carry another system's name in the path (`/pacra/…`, `/napsa/…`, `/nir/…`) makes this look derivable from the route; it is not, and `/t/wcf/employers` is the counterexample.
 
-A tenant with no `Endpoints:<Tenant>` client of its own provides nothing — it is consume-only, and it gets no Provider document.
+A tenant with no upstream client of its own — only gateway clients — provides nothing. It is consume-only, and it gets no Provider document.
 
 ## 4. Produce the OpenAPI document
 
@@ -217,13 +218,13 @@ When the tenant builds and exposes Swashbuckle, generate rather than hand-write.
 ```bash
 dotnet build src/Tenants/<Tenant>/<Tenant>.csproj -c Debug
 cd src/Tenants/<Tenant>/bin/Debug/net10.0
-ASPNETCORE_ENVIRONMENT=Development dotnet tool run swagger tofile --output swagger.json <Tenant>.dll v1
+ASPNETCORE_ENVIRONMENT=Development dotnet tool run swagger tofile --output swagger.json <Tenant>.dll <doc>
 cd -
 python scripts/apply_gateway_route.py \
-  src/Tenants/<Tenant>/bin/Debug/net10.0/swagger.json --route <route>
+  src/Tenants/<Tenant>/bin/Debug/net10.0/swagger.json --route <route> --version <X.Y>
 ```
 
-The working directory and the environment variable both matter and both fail confusingly — the content root comes from the working directory, and the base `appsettings.json` ships unsubstituted `__Token__` URLs that only the Development layer replaces with something `Uri` can parse. `apply_gateway_route.py` is idempotent and also fills `servers` from `scripts/environments.py`.
+`<doc>` is the `SwaggerDoc("<name>", …)` name in `Program.cs` — `v1` usually, `hub` in PQPS; `build_package.py` reads it from there. The working directory and the environment variable both matter and both fail confusingly — the content root comes from the working directory, and the base `appsettings.json` ships unsubstituted `__Token__` URLs that only the Development layer replaces with something `Uri` can parse. `apply_gateway_route.py` is idempotent, fills `servers` from `scripts/environments.py`, and with `--version` sets `info.version` to the document version: the code's `OpenApiInfo.Version` is the API version (`v1` in the `tenant-init` scaffold), not the document's.
 
 For a virtual tenant, or a tenant without Swashbuckle, assemble the document by hand from the route inventory of step 1 and the DTO types each route produces. Same result, same shape: `openapi: 3.0.x`, `info`, `servers`, `paths`, `components.schemas`.
 
@@ -247,6 +248,8 @@ Three published specs ship three different wrong titles — `"HubController"`, `
 ```bash
 grep -rLn "WithTags" src/Tenants/<Tenant>/Modules/     # files listed here have no tags
 ```
+
+A module that derives from a `*SharedModule` (`integrate-shared` `inherit` mode) passes its tag to the base constructor and has no `WithTags` call of its own — not a finding. A finding whose fix sits in `src/Core/` (the shared module's own routes) goes to the report as a Core change: `tenant-integration --spec-only` edits only the tenant.
 
 The fix belongs in the module, and this skill does not make it. Report each module file that needs `.WithTags(…)` so the user can change it and re-run; meanwhile the tag stays as the export produced it.
 
@@ -479,7 +482,7 @@ Write into `src/Tenants/<Tenant>/Deliverables/` itself (unless `--out` overrides
 
 Report: every file written with its path, which gates passed, whether Word repagination succeeded or fell back, and a **Code findings** list of everything the source could not supply — missing `///` comments, missing `.WithTags(…)`, undeclared response codes, committed credentials — each with the file and member to change. These are handed over, never applied: the only files this run touched are the ones listed under `Deliverables/`.
 
-End with the equivalent command (R7), e.g. `/tenant-deliverables PQPS --route pqps --version 1.0 --roles tenant,provider --provide-paths /t/pqps/hub/pesticides`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <gate or reason>` when a gate fails on something other than a reported source gap.
+End with the equivalent command (R7), e.g. `/tenant-deliverables PQPS --route pqps --version 1.0 --roles tenant,provider --provide-paths /t/pqps/hub/pesticides`, and these answers for the pipeline state: `route`, `version`, `roles`, `author`, `providePaths`. When the Findings fix ran, add the line `spec-only: ran`, so `tenant-pipeline` marks the tests and the audit stale. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <gate or reason>` when a gate fails on something other than a reported source gap.
 
 ## Sensitive data
 
