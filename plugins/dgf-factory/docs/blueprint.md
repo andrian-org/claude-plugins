@@ -287,18 +287,18 @@ Start with the spine, then add DGF-specific skills. Do not port all 30 — port 
 | `/dgf-implement` | the state machine; checkbox ledger |
 | `/dgf-verify` | emits `dgf-gate-result` |
 | `/dgf-commit` | conventional commits |
-| `/dgf-fix` | fixes a problem inside the active plan's scope, confirmed by the check that reproduced it, and writes a patch; `--record` writes a patch with no change ([ADR 0021](adr/0021-learning-loop.md)) — *(corrected 2026-09-26)* |
-| `/dgf-evolve` | distils patches into skill-context — an override that may add rules and tighten checks, but never relaxes a STOP, an exit-code row, the status a gate script computes, a Critical Rule or Artifact Ownership, because anyone who commits to the estate can write it; `check_override.py` checks every override before a skill reads it ([ADR 0021](adr/0021-learning-loop.md)) — *(corrected 2026-09-26)* |
+| `/dgf-fix` | fixes a problem inside the active plan's scope, confirmed by the check that reproduced it, and writes a patch; `--record` writes a patch with no change ([ADR 0024](adr/0024-learning-loop-revised.md)) — *(corrected 2026-09-26)* |
+| `/dgf-evolve` | distils patches into skill-context — an override that may add rules and tighten checks, but never relaxes a STOP, an exit-code row, the status a gate script computes, a Critical Rule or Artifact Ownership, because anyone who commits to the estate can write it; `check_override.py` checks every override before a skill reads it ([ADR 0024](adr/0024-learning-loop-revised.md)) — *(corrected 2026-09-26)* |
 
 **Phase 2 — DGF-specific (the actual value):**
 
 | skill | purpose |
 |---|---|
-| `/dgf-component` | scaffold / inspect / validate a component against the catalogue, in **both** schema families and parity-aware — *(corrected 2026-09-19)* |
-| `/dgf-process` | author or modify a process; validate against `process.xsd` / `workflow.xsd` rather than a BPMN model — *(corrected 2026-09-19)* |
-| `/dgf-model` | **[assume]** entities, relations, migrations |
-| `/dgf-audit` | whole-system consistency: process ↔ component ↔ model ↔ permission graph |
-| `/dgf-scaffold` | greenfield bootstrap — **drives the existing template/generator** and verifies its output, rather than emitting files. Stays in phase 3 / milestone 12; the estate is brownfield-dominant — *(decided 2026-09-21, [ADR 0004](adr/0004-authoring-entry-point.md))* |
+| `/dgf-component` | scaffold / inspect / validate a component against the catalogue, in **both** schema families and parity-aware — *(corrected 2026-09-19)*. As built, scaffolding writes one new file, only inside the active plan's scope, and only the artifacts it owns: JSON components and legacy forms, views, grid forms and options — *(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md))* |
+| `/dgf-process` | author or modify a process; validate against `process.xsd` / `workflow.xsd` rather than a BPMN model — *(corrected 2026-09-19)*. As built, XML always and only inside the plan's scope, with the processes a shared workflow reaches named before a modify — *(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md))* |
+| `/dgf-model` | ~~**[assume]** entities, relations, migrations~~ — entities and their relations in `settings.xml`, every reference checked the way its loader resolves it, blocking only where the loader throws (`validate_model.py`, in the gate); a migration is database work outside the root, named and never written — *(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md))* |
+| `/dgf-audit` | whole-system consistency: process ↔ component ↔ model ↔ permission graph. As built, a read-only report — the validators' health, one reference graph per application resolved the engine's way, blast radius, and the role names in use as an unchecked inventory — never a gate — *(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md))* |
+| `/dgf-scaffold` | greenfield bootstrap — **drives the existing template/generator** and verifies its output, rather than emitting files. Stays in phase 3 / milestone 12; the estate is brownfield-dominant — *(decided 2026-09-21, [ADR 0004](adr/0004-authoring-entry-point.md))*. Still blocked: the template has not been identified — *(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md) §7)* |
 
 **Phase 3 — quality and learning:** `/dgf-review`, `/dgf-rules`, `/dgf-rules-check`, `/dgf-qa`, `/dgf-docs`, `/dgf-explore`, `/dgf-grounded`, `/dgf-archive`.
 
@@ -321,6 +321,10 @@ Mirror `.ai-factory/` as `.dgf-factory/`, with process-aware additions:
 ├── archive/
 └── processes/                ← NEW: process-model snapshots + blast-radius maps  [assume]
 ```
+
+> *(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md) §5)* `processes/` is not built.
+> Blast radius is computed on demand from the files, by `scripts/audit_root.py`: a stored map goes
+> stale with the next commit.
 
 ## Gate schema
 
@@ -347,6 +351,8 @@ Keep `schema_version: 1` and the last-block-wins parsing rule so anything built 
 *(added 2026-09-19)* `schema_family` says which family produced a finding. Without it a blocker from an XSD validation is indistinguishable from a JSON one, and the two have different fixes.
 
 *(2026-09-25)* As built, every block comes from one builder, `scripts/lib/gate_result.py`, which computes `status` and `blocking` from the entries rather than taking them as input. A `warnings` array is added beside `blockers`, which now holds only what blocks; `checks_run` lists what ran, and a required check that did not run is a `not-run-<check>` warning. `schema_family` is `json`, `xsd` or `null` on each entry — `"both"` is dropped, since a finding is in one file — and is counted per family at block level. The doctor's gate is `doctor`, and its only next command is `null`. See [ADR 0020](adr/0020-gate-block-contract.md).
+
+*(decided 2026-09-27, [ADR 0023](adr/0023-dgf-specific-skills.md) §5)* The `"process"` and `"components"` gate ids were never built. Process verification is one of the verify gate's validators, the model check joined it as another, and blast radius is `/dgf-audit`'s report, which emits no block: `gate` is `verify` or `doctor`.
 
 ## Build order
 

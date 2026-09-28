@@ -8,12 +8,14 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: the spine and the learning loop landed.** The five spine skills — `/dgf`, `/dgf-plan`,
-> `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — and the learning loop's two — `/dgf-fix`,
-> `/dgf-evolve` — exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
+> **Status: the spine, the learning loop and four DGF-specific skills landed.** The five spine
+> skills — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — the learning loop's
+> two — `/dgf-fix`, `/dgf-evolve` — and `/dgf-component`, `/dgf-process`, `/dgf-model` and
+> `/dgf-audit` exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
 > vendored JSON and legacy XSD schema set) and the **validators**. Plans, scope, routes,
-> change-relative gates, patches and overrides are decided by scripts, checked against DGF's own
-> samples and a known-bad corpus. The DGF-specific skills do not exist yet. The plugin **loads locally** with
+> change-relative gates, the data model, blast radius, patches and overrides are decided by scripts,
+> checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` waits on the estate's
+> bootstrap template. The plugin **loads locally** with
 > `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
@@ -34,8 +36,12 @@ pipeline that builds it is already installed there. See
 
 - **Pre-loaded framework knowledge** — the DGF component catalogue and composition rules ship
   *in* the plugin as versioned, cited references, instead of being re-derived per project
-- **Deterministic validation** — spec well-formedness and component resolution are decided by
-  scripts against DGF's own JSON Schemas and XSDs, never by a model's judgement
+- **Deterministic validation** — spec well-formedness, component resolution and the data model's
+  references are decided by scripts against DGF's own JSON Schemas and XSDs and the engine's own
+  resolution rules, never by a model's judgement
+- **Blast radius** — which processes reach a changed file, in each application, from one reference
+  graph resolved the way the engine resolves it — and a plain statement of what a static walk cannot
+  see
 - **Durable state on disk** — every stage writes an artifact the next stage reads, so you can
   `/clear`, crash, or return days later and resume exactly where you were
 - **Machine-readable gates** — quality commands end with a fenced `dgf-gate-result` block that
@@ -79,6 +85,20 @@ you ask, turns the patches into skill-context rules. Each rule may only tighten 
 script refuses an override that would grant a tool, narrow the gate or install anything, before
 any skill reads it. See [The learning loop](docs/pipeline.md#the-learning-loop).
 
+### Working on the configuration itself
+
+```bash
+/dgf-component inspect DataTable/CaseList      # family, parity, findings, and what reaches it
+/dgf-component scaffold DataTable Pending       # one new component, inside the plan's scope
+/dgf-process modify app/FM/_WORKFLOW/Submit/_workflow.xml   # the reach first, then the edit
+/dgf-model add Orders                           # an entity, and the database work it needs
+/dgf-audit                                      # the whole root: validators, graph, roles
+/dgf-audit --reach webasm/FM/_WORKFLOW/AX.Notify/_workflow.xml   # blast radius, per application
+```
+
+Inspect and validate run anywhere; every write stays inside the active plan's scope, and each kind
+of file has one writing skill. See [The DGF-specific skills](docs/pipeline.md#the-dgf-specific-skills).
+
 ---
 
 ## Documentation
@@ -86,7 +106,7 @@ any skill reads it. See [The learning loop](docs/pipeline.md#the-learning-loop).
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.md) | Prerequisites, repo layout, working on the plugin, trying the spine and the loop |
-| [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate, the learning loop |
+| [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate, the learning loop, the DGF-specific skills and blast radius |
 | [Architecture](docs/architecture.md) | Slice structure, dependency rules, communication |
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |
 | [DGF Knowledge Sourcing](docs/dgf-knowledge.md) | Citing, dating and version-stamping DGF facts |

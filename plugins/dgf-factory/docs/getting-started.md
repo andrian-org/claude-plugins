@@ -43,8 +43,9 @@ relative to it.
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
 | `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` | The pipeline spine — set up, plan, implement, verify, commit. `dgf`, `dgf-plan`, `dgf-implement` and `dgf-verify` carry `references/` too. See [Pipeline Spine](pipeline.md) |
 | `skills/dgf-fix`, `dgf-evolve` | The learning loop — fix inside the plan and record a patch; distil patches into overrides. Each carries its format in `references/`. See [The learning loop](pipeline.md#the-learning-loop) |
-| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); six stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
-| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, and the verify gate `verify_gate.py`. The loop's: `check_patches.py` and `check_override.py`. Their shared `lib/` — `lib/gate_result.py` builds every gate block — and the hash-pinned `requirements.txt`. Shipped |
+| `skills/dgf-component`, `dgf-process`, `dgf-model`, `dgf-audit` | The DGF-specific skills — components, processes and workflows, entities, and the audit with blast radius. `dgf-process` and `dgf-model` carry `templates/`. See [The DGF-specific skills](pipeline.md#the-dgf-specific-skills) |
+| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); nine stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
+| `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, and the audit `audit_root.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, and the verify gate `verify_gate.py`. The loop's: `check_patches.py` and `check_override.py`. Their shared `lib/` — `lib/gate_result.py` builds every gate block — and the hash-pinned `requirements.txt`. Shipped |
 | `tests/` | Not shipped. The `unittest` suite and its fixtures, including the known-bad corpus under `fixtures/known-bad/` |
 | `provenance/` | Not shipped. One ledger per knowledge file: the DGF files its facts were read from, each with a `sha256` |
 | `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts; section 8 runs the unit tests |
@@ -109,7 +110,9 @@ python3 -m venv .venv
 | `validate_config.py` | Resolves each file's family, validates it against its vendored schema the way the runtime reads it, and checks runtime parity | `<path>... [--component-type T] [--view-kind table\|lookup\|grid]` |
 | `resolve_components.py` | Every component type is legal, and every component file a configuration references exists | same arguments as `validate_config.py` |
 | `validate_process.py` | A `process.xml`'s structure and semantics (dead transitions, unreachable states, workflow references, `validationFlow`); a `_workflow.xml`'s `CHANGE_STATE` targets | `[--workspaces-root R] (--all \| <file>...)` |
+| `validate_model.py` | An entity's and a form's references — each `extract`, `slavegrid` and form entity, resolved each loader's way — an entity's own load, and a form's bound cells | `[--workspaces-root R] (--all \| <settings.xml \| _form.xml>...)` |
 | `route_means.py` | Whether a new piece of configuration is written as JSON or legacy XML | `<name>` |
+| `audit_root.py` | The whole root's health, or the processes that reach a file in each application — a report, never a gate | `--workspaces-root R [--reach PATH... \| --base REF \| --changed S:PATH...] [--app NAME] [--skip-validators]` |
 
 `validate_config.py` and `resolve_components.py` walk a directory argument for the legacy
 artifact files and for JSON under `FM/_COMPONENTS/`. They skip JSON elsewhere under `FM/`,
@@ -120,10 +123,17 @@ script takes `--verbose` (or `DEBUG=1`), which traces to stderr.
 .venv/bin/python scripts/validate_config.py <workspaces-root>/<app>/FM/_COMPONENTS
 .venv/bin/python scripts/validate_process.py --all --workspaces-root <workspaces-root>
 .venv/bin/python scripts/route_means.py Uploader
+.venv/bin/python scripts/validate_model.py --all --workspaces-root <workspaces-root>
+.venv/bin/python scripts/audit_root.py --workspaces-root <workspaces-root> --reach webasm/FM/_WORKFLOW/AX.Notify/_workflow.xml
 ```
 
-Each prints a header, a `FAMILY:` line per file, `CHECKS RUN:` and `NOT RUN:` lines, one line
-per finding and a verdict, and exits `0`, `1`, `2` or `3` (see
+`validate_model.py` checks the references every entity and form makes, resolved each loader's way.
+`audit_root.py` with no `--reach` audits the whole root; with it, it names the processes that reach
+the file in each application, and ends with a `LIMIT:` line — a static reach is never complete.
+
+Each validator prints a header, a `FAMILY:` line per file, `CHECKS RUN:` and `NOT RUN:` lines, one
+line per finding and a verdict; `audit_root.py` prints its `ROOT:`, `GRAPH:` or `REACH:` lines in place of
+`FAMILY:` lines. All of them exit `0`, `1`, `2` or `3` (see
 [Skill Authoring](skill-authoring.md#reading-a-validators-output)).
 
 ### The spine's scripts
@@ -139,8 +149,9 @@ per finding and a verdict, and exits `0`, `1`, `2` or `3` (see
 | `check_patches.py` | Whether each patch is well formed, and — with `--cursor` — which ones `/dgf-evolve` has not seen |
 | `check_override.py` | Whether a skill may read its skill-context override: its shape, its sources, nothing forbidden, and which rules need judgement |
 
-Their flags and exit codes are in [Pipeline Spine → The scripts](pipeline.md#the-scripts) and
-[The learning loop](pipeline.md#the-learning-loop).
+Their flags and exit codes are in [Pipeline Spine → The scripts](pipeline.md#the-scripts),
+[The learning loop](pipeline.md#the-learning-loop) and, for `validate_model.py` and
+`audit_root.py`, [The DGF-specific skills](pipeline.md#the-dgf-specific-skills).
 
 ### Tests and maintainer tools
 
@@ -243,7 +254,8 @@ skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
 
 ## What is not here yet
 
-- The DGF-specific skills — `/dgf-component`, `/dgf-process`, `/dgf-audit`
+- `/dgf-scaffold` — a new workspace from the estate's bootstrap template, which has not been
+  identified ([ADR 0023](adr/0023-dgf-specific-skills.md) §7)
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 
@@ -264,7 +276,7 @@ expensive to unwind once they are baked into prompts:
 3. **Then the spine** — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`, `/dgf-commit`.
 4. **Then `dgf-gate-result`** wired into verify, then the rest.
 5. **Then the learning loop** — `/dgf-fix` and `/dgf-evolve`, even if crude.
-6. **Then DGF-specific skills** — `/dgf-component`, `/dgf-audit`.
+6. **Then DGF-specific skills** — `/dgf-component`, `/dgf-process`, `/dgf-model`, `/dgf-audit`.
 7. **Parallelism last.** It is the flashiest part and the least load-bearing.
 
 See [the blueprint](blueprint.md) for the reasoning behind each step.

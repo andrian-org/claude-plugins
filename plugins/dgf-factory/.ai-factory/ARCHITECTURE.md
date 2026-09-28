@@ -58,15 +58,6 @@ plugins/dgf-factory/
 │   │   ├── SKILL.md
 │   │   └── references/                 #   config-template.yaml, description-template.md
 │   │
-│   ├── dgf-component/                  # Slice: component scaffold / inspect / validate
-│   │   ├── SKILL.md                    #   the prompt-program (steps, gates, STOP rules)
-│   │   ├── references/                 #   facts only this slice cites
-│   │   │   └── component-contract.md
-│   │   ├── scripts/                    #   validators only this slice calls
-│   │   │   └── validate_component.py
-│   │   └── templates/                  #   output shapes this slice emits
-│   │       └── component-report.md
-│   │
 │   ├── dgf-plan/                       # Slice: fast / full / ultra planning (exists)
 │   │   ├── SKILL.md
 │   │   └── references/                 #   PLAN-FORMAT.md, ULTRA-FORMAT.md
@@ -81,9 +72,19 @@ plugins/dgf-factory/
 │   ├── dgf-fix/                        # Slice: fix inside the plan's scope, write a patch (exists)
 │   │   ├── SKILL.md
 │   │   └── references/                 #   PATCH-FORMAT.md
-│   └── dgf-evolve/                     # Slice: distil patches into skill-context overrides (exists)
-│       ├── SKILL.md
-│       └── references/                 #   OVERRIDE-FORMAT.md
+│   ├── dgf-evolve/                     # Slice: distil patches into skill-context overrides (exists)
+│   │   ├── SKILL.md
+│   │   └── references/                 #   OVERRIDE-FORMAT.md
+│   ├── dgf-component/                  # Slice: inspect / validate / scaffold a component (exists)
+│   │   └── SKILL.md                    #   the prompt-program (steps, gates, STOP rules)
+│   ├── dgf-process/                    # Slice: inspect / validate / author / modify a process (exists)
+│   │   ├── SKILL.md
+│   │   └── templates/                  #   output shapes this slice emits: process.xml, _workflow.xml
+│   ├── dgf-model/                      # Slice: inspect / validate / add / modify an entity (exists)
+│   │   ├── SKILL.md
+│   │   └── templates/                  #   settings.xml
+│   └── dgf-audit/                      # Slice: read-only — the root's health, and blast radius (exists)
+│       └── SKILL.md
 │
 ├── agents/                             # ── SUBAGENTS ── coordinator, workers, sidecars
 │   ├── dgf-implement-coordinator.md
@@ -97,6 +98,9 @@ plugins/dgf-factory/
 │   ├── schema-families.md              #   JSON vs XSD: parity (67 rows), correspondence, resolution
 │   ├── json-reader.md                  #   how the runtime reads component JSON; dispatch, folders, file refs
 │   ├── process-model.md                #   process.xsd vs the runtime model; reference resolution
+│   ├── data-model.md                   #   entities, fields, relations; what each model loader does
+│   ├── reference-graph.md              #   the reference-edges table: every reference, its rule, Reach
+│   ├── permissions.md                  #   where the root names roles; nothing in it declares one
 │   └── schemas/                        #   vendored copies, version-stamped
 │       ├── MANIFEST.md                 #     DGF version, date, per-file dialect and membership
 │       ├── json/                       #     generated *.schema.json (modern component config)
@@ -107,6 +111,7 @@ plugins/dgf-factory/
 │   ├── validate_config.py              #   family first, schema read the runtime's way, parity gate
 │   ├── resolve_components.py           #   component types legal; referenced component files exist
 │   ├── validate_process.py             #   process structure + semantics; CHANGE_STATE targets
+│   ├── validate_model.py               #   the model's references, each loader's way; a form's cells
 │   ├── route_means.py                  #   ADR 0010's order of means: JSON or legacy XML
 │   ├── locate_plan.py                  #   the workspaces root and the active plan (ADR 0017)
 │   ├── inventory_root.py               #   each workspace, counted; what is not a workspace
@@ -115,6 +120,7 @@ plugins/dgf-factory/
 │   ├── verify_gate.py                  #   the verify gate: every check, the status computed, one block
 │   ├── check_patches.py                #   the patch format; which patches the cursor has not seen
 │   ├── check_override.py               #   may a skill read its override — shape, sources, forbidden, limit
+│   ├── audit_root.py                   #   the whole-root audit, and blast radius per application
 │   ├── requirements.txt                #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                            #   one module per concern
 │       ├── report.py                   #     findings, codes → exit codes, verdict, DEBUG trace
@@ -133,6 +139,10 @@ plugins/dgf-factory/
 │       ├── git.py                      #     read-only git calls; a commit's tree written blob by blob
 │       ├── runner.py                   #     every validator over a root or some of its files
 │       ├── baseline.py                 #     which findings a branch introduced (merge-base comparison)
+│       ├── model.py                    #     each model loader's resolution rule; a form's bound cells
+│       ├── edges.py                    #     one file's references, row by row of reference-edges
+│       ├── graph.py                    #     the reference graph of one application; reach, referrers
+│       ├── roles.py                    #     the role names a root uses, split as the runtime splits them
 │       ├── gate_result.py              #     builds every dgf-gate-result block — stdlib, no package imports
 │       ├── patches.py                  #     the patch file and the patch cursor
 │       └── overrides.py                #     the override template, FORBIDDEN constructs, LIMIT_WORDS
@@ -159,9 +169,10 @@ plugins/dgf-factory/
 
 The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices (`dgf`,
 `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), the learning loop's two (`dgf-fix`,
-`dgf-evolve`), `knowledge/`, `scripts/`, `tests/`, `tools/`, `provenance/` and the files around
-them exist. `dgf-component` and the other
-DGF-specific slices, and `agents/`, arrive with later roadmap milestones. Every gate block is
+`dgf-evolve`), the four DGF-specific slices (`dgf-component`, `dgf-process`, `dgf-model`,
+`dgf-audit`), `knowledge/`, `scripts/`, `tests/`, `tools/`, `provenance/` and the files around
+them exist. `dgf-scaffold`, blocked until the estate's bootstrap template is identified
+([ADR 0023](../docs/adr/0023-dgf-specific-skills.md) §7), and `agents/` arrive later. Every gate block is
 built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `/dgf-verify`,
 `doctor.py` for `/dgf-doctor` — and the skill relays it
 ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md)).
@@ -195,7 +206,10 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
 - ✅ A shared script reads a knowledge fact only through a **machine-read table**, found by
   its `<!-- machine-read: <id> -->` marker and loaded by `scripts/lib/knowledge.py`
   (`knowledge/README.md` §7). The marker is the only coupling. The knowledge file still names
-  no script, and a malformed table is exit `3`, never a fallback
+  no script, and a malformed table is exit `3`, never a fallback. The one exception is
+  `reference-edges`' `Checked by` column, which names the validator that reports an unresolved edge
+  so that the audit does not report it twice ([ADR 0023](../docs/adr/0023-dgf-specific-skills.md)
+  §4–§5) — a validator's file name, never a skill or a pipeline stage
 - ✅ A slice's own script may load a shared library module by path: `doctor.py` loads
   `scripts/lib/knowledge.py` to check every table, and `scripts/lib/gate_result.py` — from its
   own plugin, never the root it checks — to build its gate block. That is why both are
@@ -209,7 +223,7 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   Knowledge states DGF facts; it does not know who reads it.
 - ❌ A shared script imports from a slice, branches on which skill called it, or lists its callers.
   `check_override.py` takes `--skill` and knows no list of readers; the contract test holds which
-  skills read an override ([ADR 0021](../docs/adr/0021-learning-loop.md) §5)
+  skills read an override ([ADR 0024](../docs/adr/0024-learning-loop-revised.md) §5)
 - ✅ `/dgf-evolve` reads each target's shipped `SKILL.md`, read-only, to drop rules the skill
   already covers — the one file of another slice it reads, never its `references/` or `scripts/`.
   It writes only overrides under `.dgf-factory/`, never a shipped skill
@@ -299,45 +313,42 @@ it is not part of the plugin's own architecture and must not be hand-edited or f
 
 ## Code Examples
 
-### A slice calling its own validator (self-containment)
+### A slice calling the shared validators (as built: `/dgf-process`)
+
+A slice owns its prompt and its templates, and calls the shared `scripts/` for every decision a
+script can make. It pre-approves only those scripts — never `Bash(python3 *)`, which would also
+pre-approve `python3 -c …` — and each call has an exit table. From `skills/dgf-process/SKILL.md`:
 
 ```markdown
 ---
-name: dgf-component
-description: Scaffold, inspect or validate a DGF component against the catalogue. Use for "add component", "check component", "is this component valid".
-argument-hint: "[scaffold | inspect | validate] <component-name>"
-allowed-tools: Read Write Glob Grep Bash(python3 *) AskUserQuestion
+name: dgf-process
+description: Inspect, validate, author or modify a DGF process or workflow — … Use for "add a process", "new workflow", "change this workflow", "check this process", "what calls this workflow", "blast radius of this workflow".
+argument-hint: "[inspect | validate | author | modify] <process, workflow or file>"
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference …
 disable-model-invocation: false
-version: 1.0.0
+version: 0.1.0
 ---
 
-# DGF Component
+### Step 5: Scope — decided by the script, before the write
 
-## Workflow
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
 
-### Step 2: Validate the declaration
+| Exit | Action |
+|---|---|
+| `0` | Continue to Step 6. |
+| `1` | A `CHANGE_*` error. **STOP** before writing anything: `/dgf-plan` widens the plan. |
+| `2` | `CHANGE_UNPLANNED_FILE` → the gate will warn on this file. … |
+| `3` | **STOP** and relay it. |
 
-Run the slice's own validator. Do not assess the declaration by reading it.
+### Step 6: Write
 
-```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-component/scripts/validate_component.py" <path>
+Start from `${CLAUDE_PLUGIN_ROOT}/skills/dgf-process/templates/process.xml`, and replace every
+`Example`. Take every fact from `knowledge/process-model.md` and `knowledge/reference-graph.md`.
 ```
 
-Exit codes are a contract:
-
-| code | meaning | action |
-|---|---|---|
-| 0 | valid | continue to Step 3 |
-| 1 | invalid | **STOP.** Report each finding verbatim. Do not repair silently. |
-| 2 | warnings | continue, surface every warning to the user |
-| 3 | usage error | **STOP.** The call is wrong; fix the invocation. |
-
-### Step 3: Confirm against the catalogue
-
-Read `${CLAUDE_PLUGIN_ROOT}/knowledge/component-catalogue.md`.
-If the component is absent from the catalogue, STOP and report it as unknown —
-never infer a contract from a name.
-```
+The template is the slice's own; the scope check, the validators and the knowledge are shared.
+`tests/test_skill_templates.py` proves each template passes its validator, and
+`tests/test_skill_contracts.py` holds every script call to the skill's own `Bash(…)` rule.
 
 ### A shared validator (dependency rule + dual dispatch)
 

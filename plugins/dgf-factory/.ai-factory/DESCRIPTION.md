@@ -16,7 +16,9 @@ Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
 
 ## Current State
 
-Roadmap milestone 11 ("Learning Loop") is built. The repository currently contains:
+Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific Skills") is built
+but for `/dgf-scaffold`, which waits on the estate's bootstrap template (ADR 0023 §7). The repository
+currently contains:
 
 - `README.md` + `docs/` — landing page and documentation set
 - `docs/blueprint.md` — the design document (Part 1 teardown, Part 2 DGF mapping)
@@ -34,18 +36,26 @@ Roadmap milestone 11 ("Learning Loop") is built. The repository currently contai
   and ultra formats, the implementation guide and the gate-result contract
   ([docs/pipeline.md](../docs/pipeline.md)). `/dgf-verify` and `/dgf-doctor` relay a gate block a
   script built; no prompt writes one ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md))
-- `skills/dgf-fix`, `dgf-evolve` — the learning loop ([ADR 0021](../docs/adr/0021-learning-loop.md)):
+- `skills/dgf-fix`, `dgf-evolve` — the learning loop ([ADR 0024](../docs/adr/0024-learning-loop-revised.md)):
   `/dgf-fix` fixes a problem inside the active plan's scope — reproduced, scope decided by
   `check_change.py --skip-validators` before any edit, confirmed by the same check — and writes a
   patch (`references/PATCH-FORMAT.md`); `/dgf-evolve`, run only when asked, distils the new patches
   into skill-context overrides (`references/OVERRIDE-FORMAT.md`), an evolution log and the patch
-  cursor. The six skills that read an override run `check_override.py` first, and a refused
+  cursor. The ten skills that read an override run `check_override.py` first, and a refused
   override is never read. The verify gate suggests `/dgf-fix` for a finding the branch introduced
+- `skills/dgf-component`, `dgf-process`, `dgf-model`, `dgf-audit` — the DGF-specific skills
+  ([ADR 0023](../docs/adr/0023-dgf-specific-skills.md)): inspect and validate anywhere, write only
+  inside the active plan's scope, each only the artifacts it owns (components and legacy forms and
+  views; processes and workflows; entities). `/dgf-audit` is read-only: the root's health, and a
+  file's blast radius — the processes that reach it in each application — with a `LIMIT:` line on
+  every reach. `/dgf-process` and `/dgf-model` ship templates
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
-  machine-read table contract), six stamped facts files (`schema-families`,
+  machine-read table contract), nine stamped facts files (`schema-families`,
   `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,
-  `process-model`) carrying eleven machine-read tables the scripts load (`code-places`, the
-  newest, says where a workspace's script and style load from), and `schemas/` — the
+  `process-model`, and milestone 12's `data-model`, `reference-graph` and `permissions`) carrying
+  fourteen machine-read tables the scripts load (`reference-edges`, the newest, is every reference
+  a configuration file makes, how it resolves, and what the runtime does when its target is
+  missing), and `schemas/` — the
   vendored set (69 JSON + 9 XSD + grammar reference + 3 standalone contracts, ~3.5 MB) with a
   `MANIFEST.md` of dialects and membership. Shipped, so it names no DGF repository path
 - `provenance/` — **not shipped.** One ledger per knowledge file, recording the DGF files its
@@ -55,13 +65,17 @@ Roadmap milestone 11 ("Learning Loop") is built. The repository currently contai
   eight sections; section 8 runs the unit tests), `check_knowledge_stamps.py` (stamps, ledgers
   and vendored digests), `vendor_schemas.py` (re-vendors DGF's schema set, rewriting DGF paths
   on the way in), `run_known_good.py` with `known-good-exceptions.txt` (every validator over
-  DGF's samples, each error excused with evidence — CLEAN at DGF `aa1d5c4c2`), `check_drift.py`
-  (the ledgers' digests against a DGF checkout — CLEAN, 7 ledgers, 255 sources) and
+  DGF's samples, each error excused with evidence — CLEAN at DGF `cccd4325b`), `check_drift.py`
+  (the ledgers' digests against a DGF checkout — CLEAN, 10 ledgers, 323 sources) and
   `requirements.in`
-- `scripts/` — shipped. The four validators skills call: `validate_config.py` (family, schema
+- `scripts/` — shipped. The validators skills call: `validate_config.py` (family, schema
   read the runtime's way, parity), `resolve_components.py` (component types, component file
   references), `validate_process.py` (process structure and semantics, `CHANGE_STATE`
-  targets) and `route_means.py` (ADR 0010's order of means). The spine's four:
+  targets), `validate_model.py` (the references an entity and a form make, resolved each loader's
+  way, and a form's cells — the runner's fourth validator, so the gate checks the model) and
+  `route_means.py` (ADR 0010's order of means). The audit, `audit_root.py` (the whole root's
+  health and a file's blast radius, from the reference graph `lib/graph.py` builds per
+  application; never a gate). The spine's four:
   `locate_plan.py` (the root and the active plan), `inventory_root.py` (each workspace,
   counted), `check_plan.py` (every rule of the plan format, its Commit Plan included, and
   overlaps with other branches' plans) and `check_change.py` (a change against its plan, and new
@@ -70,17 +84,18 @@ Roadmap milestone 11 ("Learning Loop") is built. The repository currently contai
   stdlib-only: `check_patches.py` (the patch format, and which patches are new against the
   cursor) and `check_override.py` (whether a skill may read its override). With them, their
   shared `lib/` — `plan.py`, `git.py`, `runner.py`, `baseline.py`, `gate_result.py` (the one
-  builder of every gate block), `patches.py` and `overrides.py` among its modules — and
+  builder of every gate block), `patches.py`, `overrides.py`, `model.py`, `edges.py`, `graph.py`
+  and `roles.py` among its modules — and
   `requirements.txt`: `lxml` 6.1.3 and
   `jsonschema` 4.25.1, exact pins with hashes, Python 3.9 floor
-- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 64-case known-bad
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 81-case known-bad
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
   when a skill quotes a finding code or passes a flag no script has, and holds the override
   readers and writer to the limit
-- `docs/adr/` — 22 decision records, 0001–0022; the index is `docs/adr/README.md`
+- `docs/adr/` — 24 decision records, 0001–0024; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: the DGF-specific skills, `agents/` and the marketplace entry.
+Not yet created: `/dgf-scaffold`, `agents/` and the marketplace entry.
 
 ## Tech Stack
 
@@ -138,9 +153,10 @@ process specification exists, is wrong. DGF ships formal, machine-checkable proc
 workflow grammars: `process.xsd` (root `Process` → `OnStart`, `States`) and
 `workflow.xsd` (root `Workflow` → `Sequence`, `Input`), which are state-machine-shaped
 rather than BPMN. `format-coverage.md` confirms both are the *live runtime formats* —
-`process.xml` and `_workflow.xml` are XML-only today. The proposed `/dgf-process` skill
-should therefore be re-derived from those two XSDs, alongside `eventBase.schema.json`
-and `dataFetcherConfiguration.schema.json`.
+`process.xml` and `_workflow.xml` are XML-only today. `/dgf-process` was built on those two
+XSDs (decided 2026-09-27, ADR 0023): `validate_process.py` checks a process against
+`process.xsd` and against the runtime model (ADR 0014), and the skill authors both artifacts in
+XML only.
 
 **All seven blueprint open questions are now closed.** **#1** (spec format — both families
 have committed schemas, and the DGF MCP exposes headless validators for each) and **#2**
