@@ -24,7 +24,7 @@ tech-stack analysis and every edit to a skill itself: the plugin is installed re
 overrides are the only thing it writes. Its cursor is a set of names, not a high-water mark, because
 branches merge patches into one ledger in any order.
 
-**Targets:** `dgf`, `dgf-commit`, `dgf-fix`, `dgf-implement`, `dgf-plan`, `dgf-verify`
+**Targets:** `dgf`, `dgf-audit`, `dgf-commit`, `dgf-component`, `dgf-fix`, `dgf-implement`, `dgf-model`, `dgf-plan`, `dgf-process`, `dgf-verify`
 
 These are the skills that check and read an override. `dgf-evolve` reads no override of its own —
 one could steer every override it writes — and `dgf-doctor` reads no estate.
@@ -52,9 +52,9 @@ The argument picks the targets:
 
 | Argument | Targets |
 |---|---|
-| (none) or `all` | all six |
-| one target, with or without `dgf-` — `plan` → `dgf-plan`, `dgf` → `dgf` | that one |
-| anything else | **STOP**, naming the six targets |
+| (none) or `all` | all ten |
+| one target, with or without `dgf-` — `plan` → `dgf-plan`, `audit` → `dgf-audit`, `dgf` → `dgf` | that one |
+| anything else | **STOP**, naming the ten targets |
 
 ### Step 1: The patches
 

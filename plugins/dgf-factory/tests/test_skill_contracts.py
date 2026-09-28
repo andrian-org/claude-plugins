@@ -123,7 +123,8 @@ OVERRIDE_WRITER_LIMIT = ("Every rule you write may only tighten its skill: add a
                          "own artifacts. Refuse a prevention point that would, and log it with its patch.")
 TARGETS = re.compile(r"^\*\*Targets:\*\* (.+)$", re.MULTILINE)
 CHECK_OVERRIDE = re.compile(r'check_override\.py" --workspaces-root "<root>" --skill ([a-z0-9-]+)')
-READERS = ["dgf", "dgf-commit", "dgf-fix", "dgf-implement", "dgf-plan", "dgf-verify"]
+READERS = ["dgf", "dgf-audit", "dgf-commit", "dgf-component", "dgf-fix", "dgf-implement", "dgf-model", "dgf-plan",
+           "dgf-process", "dgf-verify"]
 WRITER = "dgf-evolve"
 
 
@@ -138,7 +139,7 @@ def readers():
 
 
 class Overrides(unittest.TestCase):
-    """A committed skill-context file is repository content anyone can write: it may only tighten a skill (ADR 0021)."""
+    """A committed skill-context file is repository content anyone can write: it may only tighten a skill (ADR 0024)."""
 
     def test_the_readers_are_the_skills_that_check_their_override(self):
         self.assertEqual(list(readers()), READERS)
@@ -171,8 +172,10 @@ class Overrides(unittest.TestCase):
 BASH_RULE = re.compile(r"Bash\(([^)]*)\)")
 PLUGIN_PYTHON = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/.*')
 GIT_COMMAND = re.compile(r"`git |^\s*git |git -C ", re.MULTILINE)
-READ_ONLY = ("dgf-doctor", "dgf-verify")
-NO_GIT = READ_ONLY + ("dgf-evolve", "dgf-fix")  # /dgf-fix's git reads are check_change.py's; /dgf-evolve needs none
+READ_ONLY = ("dgf-audit", "dgf-doctor", "dgf-verify")
+# /dgf-fix's git reads are check_change.py's, and the DGF-specific skills' are the scripts'; /dgf-evolve needs none
+NO_GIT = READ_ONLY + ("dgf-component", "dgf-evolve", "dgf-fix", "dgf-model", "dgf-process")
+TOOL = re.compile(r"(?<![\w(])(Write|Edit|MultiEdit|NotebookEdit)(?![\w(])")
 
 
 def bash_rules(skill_md):
@@ -209,6 +212,12 @@ class Permissions(unittest.TestCase):
                                     f"{doc.relative_to(helpers.PLUGIN_ROOT)}:{number} runs `{call.group(0)}`, "
                                     f"which no Bash rule of {path.parent.name} pre-approves")
 
+    def test_the_read_only_skills_grant_no_write_tool(self):
+        for name in READ_ONLY:
+            lines = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8").splitlines()
+            tools = next(line for line in lines[1:lines.index("---", 1)] if line.startswith("allowed-tools:"))
+            self.assertEqual(TOOL.findall(tools), [], f"{name} is read-only but pre-approves a writing tool")
+
     def test_the_skills_without_git_run_none(self):
         for name in NO_GIT:
             path = SKILLS / name / "SKILL.md"
@@ -216,6 +225,63 @@ class Permissions(unittest.TestCase):
             for doc in [path] + sorted((path.parent / "references").glob("*.md")):
                 self.assertIsNone(GIT_COMMAND.search(doc.read_text(encoding="utf-8")),
                                   f"{doc.relative_to(helpers.PLUGIN_ROOT)} runs git, but {name} pre-approves none")
+
+
+WRITERS = ("dgf-component", "dgf-model", "dgf-process")
+VALIDATES_WRITTEN = re.compile(r'scripts/(?:validate_config|validate_process|resolve_components)\.py".*"<root>/<file>"')
+CHECK_CHANGE = re.compile(r'scripts/check_change\.py"')
+
+
+def sections(skill_md):
+    """[(`### ` heading, its lines)] of a SKILL.md, in order."""
+    found = []
+    for line in skill_md.read_text(encoding="utf-8").splitlines():
+        if line.startswith("### "):
+            found.append((line[4:], []))
+        elif found:
+            found[-1][1].append(line)
+    return found
+
+
+class WritingSkills(unittest.TestCase):
+    """A skill that writes a file confirms it as the scripts behave, with git or without (ADR 0023 §1)."""
+
+    def confirm(self, found):
+        return next(lines for heading, lines in found if "confirm" in heading.lower())
+
+    def test_a_written_file_that_parses_as_neither_family_is_corrected(self):
+        # validate_config, validate_process and resolve_components exit 3 with FAMILY_UNRESOLVED on a file with no XML
+        # declaration that does not parse, or on JSON cut short: the written file's defect, not the call's.
+        for name in WRITERS:
+            rows, after_call = [], False
+            for line in self.confirm(sections(SKILLS / name / "SKILL.md")):
+                if VALIDATES_WRITTEN.search(line):
+                    after_call = True
+                elif after_call and line.startswith("| `3` |"):
+                    rows.append(line)
+                    after_call = False
+            self.assertTrue(rows, f"{name}'s confirm step validates no written file")
+            for row in rows:
+                self.assertIn("FAMILY_UNRESOLVED", row, f"{name}: {row}")
+                self.assertIn("correct it", row, f"{name} stops on a file it wrote instead of correcting it: {row}")
+
+    def test_a_whole_root_confirm_has_a_baseline_taken_before_the_write_for_a_root_without_git(self):
+        # With no git check_change.py has no base tree and counts every finding as new (ADR 0018 §5): a whole-root
+        # confirm is told the change's findings from the root's old ones only by the same run taken before the write.
+        checked = []
+        for name in WRITERS:
+            found = sections(SKILLS / name / "SKILL.md")
+            if not [line for line in self.confirm(found)
+                    if CHECK_CHANGE.search(line) and "--base" in line and "--files" not in line]:
+                continue  # its confirm is narrowed to the file it wrote, which needs no baseline
+            headings = [heading for heading, _ in found]
+            write = next(i for i, heading in enumerate(headings) if re.fullmatch(r"Step \d+: Write", heading))
+            baseline = [line for _, lines in found[:write] for line in lines
+                        if CHECK_CHANGE.search(line) and "--changed" in line
+                        and "--skip-validators" not in line and "--files" not in line]
+            self.assertTrue(baseline, f"{name} confirms over the whole root but takes no baseline before its write")
+            checked.append(name)
+        self.assertEqual(checked, ["dgf-model", "dgf-process"])
 
 
 if __name__ == "__main__":

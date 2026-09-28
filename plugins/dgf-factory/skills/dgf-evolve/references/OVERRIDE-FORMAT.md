@@ -2,13 +2,13 @@
 
 An override is the project's own rules for one dgf-* skill, distilled from patches by `/dgf-evolve`.
 The skill checks it with `check_override.py` before reading it, and applies it only when the check
-accepts it (ADR 0021 §3–§5). This page is the format that check enforces, the evolution log, and the
+accepts it (ADR 0024 §3–§5). This page is the format that check enforces, the evolution log, and the
 cursor.
 
 ## The file
 
 `<paths.skill_context><skill>/SKILL.md` — by default `.dgf-factory/skill-context/<skill>/SKILL.md` —
-for each target: `dgf`, `dgf-commit`, `dgf-fix`, `dgf-implement`, `dgf-plan`, `dgf-verify`.
+for each target: `dgf`, `dgf-audit`, `dgf-commit`, `dgf-component`, `dgf-fix`, `dgf-implement`, `dgf-model`, `dgf-plan`, `dgf-process`, `dgf-verify`.
 
 ## The template
 
