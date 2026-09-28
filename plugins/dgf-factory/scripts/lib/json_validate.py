@@ -307,6 +307,20 @@ class UnknownDialect(Exception):
     pass
 
 
+# A vendored schema whose `$schema` dialect no validator class reads is the plugin's defect, not the file's — though it
+# is reported as SCHEMA_UNSELECTABLE, the code a file with no selectable schema gets. The message says which it is.
+UNKNOWN_DIALECT = "schema dialect `"
+
+
+def add_unknown_dialect(rep, exc):
+    rep.add("SCHEMA_UNSELECTABLE", f"{UNKNOWN_DIALECT}{exc}` is not draft-04 or draft-07")
+
+
+def is_unknown_dialect(finding):
+    """True for the SCHEMA_UNSELECTABLE add_unknown_dialect wrote: about a vendored schema, not the file."""
+    return finding.code == "SCHEMA_UNSELECTABLE" and finding.message.startswith(UNKNOWN_DIALECT)
+
+
 def _validate_selected(selection, instance):
     if selection.kind in ("component", "datasource"):
         yield from validator_for(selection.schema, json_resolve.merged_schema(selection.schema)).iter_errors(instance)
@@ -394,7 +408,7 @@ def validate(document, selection, rep):
         errors = list(_validate_selected(selection, document))
         bound = _BOUND
     except UnknownDialect as exc:
-        rep.add("SCHEMA_UNSELECTABLE", f"schema dialect `{exc}` is not draft-04 or draft-07")
+        add_unknown_dialect(rep, exc)
         return
     finally:
         _BOUND = None
