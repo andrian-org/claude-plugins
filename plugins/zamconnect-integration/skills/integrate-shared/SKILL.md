@@ -252,7 +252,7 @@ with `using Carter;`, `using Shared.Extensions;`, `using Shared.Services;` and `
 ```
 
 - JSON key and token are `Username`, never `UserName` (C3).
-- Token names follow C4 (tenant calling back into the gateway); `<TenantName>` is the exact folder name. Each new token needs a variable in `GSB.<TENANT>.<ENV>` and in the `projects-variables` repo, or the deploy fails.
+- Token names follow C4 (tenant calling back into the gateway); `<TenantName>` is the exact folder name. Each new token needs a variable in each environment, or the deploy fails. Add the three to `src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json` (C9) — `Endpoints.APIGATEWAY.BaseUrl` with `secret: false`, the two credentials with `secret: true`, every `value` `""` — unless they are already listed. Never create the variables anywhere else (C10).
 - In `appsettings.Development.json` the `BaseUrl` is `http://gateway/`, the `gateway` service of `src/.dockercompose/docker-compose.yml`, so a tenant container running locally calls the local Docker gateway, never the test one. Credentials stay `__Token__` placeholders; `/tenant-audit` Check 9 supplies the local test user when it starts the container. Never copy a value from another tenant's Development file (C7).
 - If the tenant already has other `Endpoints` entries, add `Gateway` as a sibling — do not replace the object. If a `Gateway` section is already there (`tenant-integration` writes it for an upstream reached through the gateway), keep it: both clients share that one section and one set of credentials.
 
@@ -402,10 +402,10 @@ One line per file added or changed, then a table of the exposed routes (method, 
 - **Required gateway scopes** — the distinct scopes from that table (e.g. `ndw`, `ndw-nbr`, `zra`, `zra-portal`). The tenant's gateway user must hold every one; `ScopeAuthorizationMiddleware` answers `403 Request not allowed` otherwise.
 - Any note step 2 calls for: explicit person `Id` not forwarded (`nir.person.create`), the `GetCooperativeByRegistrationNumber` upstream bug (`doc.cooperative`).
 
-Close with what stays outside this skill:
+Close with what an administrator does by hand (C10):
 
-- `GSB.<TENANT>.<ENV>` variables (and `projects-variables` entries) for every new token — `Endpoints.APIGATEWAY.BaseUrl`, `Credentials.<TenantName>Tenant.Username`, `Credentials.<TenantName>Tenant.Password` (C4)
-- Granting the scopes above to the tenant's gateway user
+- Add the `ENVIRONMENT-VARIABLES.json` entries this run added to each environment — `Endpoints.APIGATEWAY.BaseUrl`, `Credentials.<TenantName>Tenant.Username`, `Credentials.<TenantName>Tenant.Password` (C4, C9)
+- Grant the scopes above to the tenant's gateway user in each gateway
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
 
 End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a prerequisite stops the skill or the build in step 7 fails.
@@ -414,7 +414,7 @@ End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR 
 
 No credential ever goes into this skill, into anything it generates, or into its report. That means passwords, connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and equally the things that locate them: internal host names, server IP addresses and database endpoints.
 
-- In generated config, a secret is a `__Token__` placeholder. Name the variable group, pipeline variable or secret store that supplies the real value, and leave the value out.
+- In generated config, a secret is a `__Token__` placeholder. List its name in `ENVIRONMENT-VARIABLES.json` (C9) with an empty value, and leave the value out. Never write a registry, Helm, cluster, MongoDB, RA or ZamPass address (C10).
 - A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
 - Never copy a credential out of a file you read, even when the repository already commits it. Finding one in the repo is a finding to report, not a value to reuse.
 - Many tracked `appsettings.Development.json` files — including this tenant's, possibly — already commit literal credentials, and `src/Tenants/Certificates/*.p12` is committed (C7). Never use any tenant's Development file as the template for credential values, never carry an existing literal forward when editing, and write placeholders even where the file around them holds literals. Report the tenant's own literals as a finding without printing them; rotation is a separate ticket.

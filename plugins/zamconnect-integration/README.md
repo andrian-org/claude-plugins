@@ -54,13 +54,25 @@ commit it:
 
 | Skill | What it does |
 |---|---|
-| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments). Adds the Azure pipeline file, the `core-<slug>` docker-compose service, the `GATEWAY-CONFIG.md` import package (scope, cluster, route) and the `ZamConnect.sln` entry. Verifies that `dotnet build` passes, that the Docker image builds, and that the container answers `/health/live`. Boilerplate only — no modules, models or mappers. Then hands over to `/tenant-pipeline` |
+| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments). Adds the Azure pipeline file, the `core-<slug>` docker-compose service, the `GATEWAY-CONFIG.md` import package (scope, cluster, route), the `ENVIRONMENT-VARIABLES.json` variable list and the `ZamConnect.sln` entry. Verifies that `dotnet build` passes, that the Docker image builds, and that the container answers `/health/live`. Boilerplate only — no modules, models or mappers. Then hands over to `/tenant-pipeline` |
 | `/tenant-pipeline <Tenant>` | Runs the whole chain below as one guided flow — a gate per step, a saved state, resume, and stale-marking when an earlier step is re-run |
 | `/tenant-integration <Tenant>` | Builds the integration surface of an existing tenant: the upstream `RestEndpoint`/`SoapEndpoint` client, models, mappers, and the routes the tenant exposes. Takes a Postman collection, OpenAPI spec, REST base URL, WSDL or prose API docs as the source — offered from the files it finds in the repo, with protocol and auth detected from them |
 | `/integrate-shared <Tenant>` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu |
-| `/tenant-audit <Tenant>\|--all` | Drift audit, read-only on the repo. It checks: registration in solution/pipeline/compose; slug consistency across compose/Helm/gateway routes; `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client; literal credentials in `appsettings.json` plus the committed Development-credential baseline; spec readiness; regression guards (.NET 10, no Newtonsoft/AutoMapper, Dockerfile closure, a local image build); and presence of docs, Postman collection and tests. For a single tenant it also runs the tenant through the local Docker gateway (see [Local gateway round-trip](#local-gateway-round-trip)). `--fix` repairs the fixable ones |
+| `/tenant-audit <Tenant>\|--all` | Drift audit, read-only on the repo. It checks: registration in solution/pipeline/compose; slug consistency across compose/Helm/gateway routes; `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client; literal credentials in `appsettings.json` plus the committed Development-credential baseline; `ENVIRONMENT-VARIABLES.json` matching the tokens; spec readiness; regression guards (.NET 10, no Newtonsoft/AutoMapper, Dockerfile closure, a local image build); and presence of docs, Postman collection and tests. For a single tenant it also runs the tenant through the local Docker gateway (see [Local gateway round-trip](#local-gateway-round-trip)). `--fix` repairs the fixable ones |
 | `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
 | `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
+
+## Local only
+
+Every skill works on the local repository and the local Docker stack. Nothing is created in DEV, STG or PROD. The skills leave three handoff files; an administrator applies them by hand:
+
+| File | What the administrator does with it |
+|---|---|
+| `.azure/tenant.azure-pipelines.<slug>.yaml` | Registers the Azure DevOps pipeline that points at it |
+| `src/Tenants/<Tenant>/ENVIRONMENT-VARIABLES.json` | Adds every listed variable to each environment. Names only; secret values are always empty |
+| `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | Imports the scope, cluster and route into each gateway, and grants the scope to each consumer's gateway user |
+
+ZamPass / RA clients are registered by hand by an administrator. The skills write only the `__Token__` placeholders for them, and never record a container registry, Helm, cluster, MongoDB, RA or ZamPass address.
 
 ## Arguments and flags
 

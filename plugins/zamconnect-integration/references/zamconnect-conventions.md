@@ -44,7 +44,8 @@ case-insensitive. Never write `UserName` into JSON or a token.
 ## C4 — Token naming
 
 `replacetokens` runs with `actionOnMissing: fail`: every `__Token__` in `appsettings.json` needs a variable in
-the `GSB.<TENANT>.<ENV>` group **and** in the `projects-variables` repo, or the deploy fails.
+the tenant's environment variables, or the deploy fails. Skills never create those variables; they list every
+one in `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json` (C9) and an administrator adds them by hand.
 
 | Upstream | Section | Tokens |
 |---|---|---|
@@ -85,9 +86,60 @@ grep -liE '"[^"]*(user_?name|password|api_?key|secret|token|thumbprint|private_?
   `BaseUrl` may be real.
 - `tenant-audit` reports them as a baseline count (warn), never printing a value. Rotation is a separate
   ticket, not skill work.
+- Credential suffixes: `user_?name`, `password`, `secret`, `token`, `thumbprint`, `connection_?string`, `key`
+  (`ApiKey`, `PrivateKey`, `PublicKey`), `authheadervalue`.
 
 ## C8 — Live route reference
 
 `docs/zamconnect-test-routes.md` lists every live gateway route, cluster and scope. Conventions it shows:
 route `t_<slug>`, `clusterId` = uppercase tenant, `authorizationPolicy: "Basic"`, `metadata.Scope` = slug.
 Routes often differ from the tenant name — look them up rather than guessing.
+
+## C9 — `ENVIRONMENT-VARIABLES.json`
+
+One file per tenant, `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json`, committed. It lists the **names** of
+every variable a deployment of the tenant reads. An administrator adds them by hand to each environment. It
+never holds a secret value or a host address.
+
+```json
+{
+    "tenant": "<Folder>",
+    "environments": ["DEV", "STG", "PROD"],
+    "variables": [
+        { "name": "helmReleaseName", "secret": false, "value": "<slug>", "description": "Kubernetes service core-<slug>. Must equal the compose slug and the GATEWAY-CONFIG.md cluster address" },
+        { "name": "helmNamespace", "secret": false, "value": "", "description": "Kubernetes namespace. Set by the administrator" },
+        { "name": "OTEL_SERVICE_NAME", "secret": false, "value": "core-<slug>", "description": "Trace service name" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "secret": false, "value": "", "description": "OTLP collector. Unset means no traces are exported" },
+        { "name": "Endpoints.<ClientClassName>.BaseUrl", "secret": false, "value": "", "description": "<System> base URL for the environment" },
+        { "name": "Endpoints.<ClientClassName>.Password", "secret": true, "value": "", "description": "<System> password" }
+    ]
+}
+```
+
+- `name` is the `__Token__` without the surrounding `__`. 4-space indent. Entries are sorted: the four
+  deployment variables first, in the order above, then the tokens in the order they appear in `appsettings.json`.
+- `value` is filled only when it is identical in every environment and is not a secret or a host:
+  `helmReleaseName` and `OTEL_SERVICE_NAME`. Everything else is `""`.
+- `secret: true` for every credential key (C7's suffix list: username, password, API key, secret, token,
+  thumbprint, private/public key, connection string, `AuthHeaderValue`).
+- `tenant-init` creates it. `tenant-integration` and `integrate-shared` add an entry for every token they write
+  and remove the entry of a token they delete. `tenant-audit` Check 4 checks that the file and the tokens in
+  `appsettings.json` match exactly.
+
+## C10 — Local-only scope
+
+Every skill works on the local repository and the local Docker compose stack only.
+
+- **Pipelines.** A skill writes the `.azure/tenant.azure-pipelines.<slug>.yaml` file. It never creates an Azure
+  DevOps pipeline definition, never queues a run, never touches an ADO environment or service connection.
+- **Variables.** A skill writes `ENVIRONMENT-VARIABLES.json` (C9). It never creates or edits a variable group,
+  never calls `az pipelines variable-group`, never writes to a `projects-variables` repository.
+- **Gateway.** A skill writes `GATEWAY-CONFIG.md` in the tenant folder. It is applied only to the local Docker
+  `mongo` (`tenant-audit` Check 9). A skill never calls the AdminAPI, and never writes to a database, of a DEV,
+  test, staging or production gateway. The administrator imports the file there by hand.
+- **ZamPass / RA clients.** Registered by hand by an administrator. A skill writes only the `__Token__`
+  placeholders the client's values go into, and lists them in C9.
+- **No addresses.** Never write into any file, state or report the address or credential of a container
+  registry (Harbor), a Helm repository, a Kubernetes cluster, a MongoDB instance, the Registration Authority,
+  ZamPass or Hydra. The only addresses skills write are the local compose ones (`http://gateway/`,
+  `http://core-<slug>`, `localhost`) and the public gateway base URLs the deliverables document.

@@ -12,7 +12,7 @@ Scaffold a new tenant under `src/Tenants/<TenantName>/`. Produce the boilerplate
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Read it first.
 
-Repo facts shared with the other skills — usings, config casing, token naming, file hygiene, committed secrets, the live route reference — are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` and cited below by section id (C1–C8). Never trust a count in either file; re-derive it.
+Repo facts shared with the other skills — usings, config casing, token naming, file hygiene, committed secrets, the live route reference — are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` and cited below by section id (C1–C10). Never trust a count in either file; re-derive it.
 
 ## Inputs
 
@@ -78,7 +78,7 @@ Work out the pipeline slug (step 4) and `core-<slug>` (step 5) now, so the revie
 
 ```
 Scaffold PQPS (Carter, spec-ready):
-  src/Tenants/PQPS/            csproj, Program.cs, appsettings x2, Dockerfile, launchSettings, Swagger/, GATEWAY-CONFIG.md
+  src/Tenants/PQPS/            csproj, Program.cs, appsettings x2, Dockerfile, launchSettings, Swagger/, GATEWAY-CONFIG.md, ENVIRONMENT-VARIABLES.json
   .azure/tenant.azure-pipelines.pqps.yaml
   src/.dockercompose/docker-compose.yml   + core-pqps
   src/ZamConnect.sln                      + Tenants/PQPS
@@ -103,6 +103,7 @@ Dockerfile
 Properties/launchSettings.json
 Swagger/OpenApiDocumentation.cs
 GATEWAY-CONFIG.md
+ENVIRONMENT-VARIABLES.json
 ```
 
 File hygiene per C6: `.editorconfig` asks for CRLF + UTF-8 BOM on `.cs`; `core.autocrlf` fixes line endings on commit and BOM is optional (APIS has none).
@@ -285,11 +286,11 @@ No packages to add: `ConfigureOpenTelemetry` lives in `Internal.Extensions.Exten
 
 | Variable | Unset behaviour |
 |---|---|
-| `OTEL_SERVICE_NAME` | Falls back to the assembly name, then `zc-tenant`. Set it to `core-<slug>` in the variable group so traces line up with the Kubernetes service name |
+| `OTEL_SERVICE_NAME` | Falls back to the assembly name, then `zc-tenant`. `ENVIRONMENT-VARIABLES.json` sets it to `core-<slug>` so traces line up with the Kubernetes service name |
 | `OTEL_SERVICE_VERSION` | Defaults to `1.0.0` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | **The OTLP exporter is not registered at all.** Logs, traces and metrics stay local and only the Prometheus scrape survives. No error, no warning — a tenant that "has no traces" almost always has this unset |
 
-Nothing in this repo sets those three; they come from the cluster, so name them in the report as a deployment prerequisite alongside the `__Token__` variables.
+Nothing in this repo sets those three; they come from the environment. `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` are entries in `ENVIRONMENT-VARIABLES.json` (step 6a).
 
 Logs probably don't reach OTLP even with the endpoint set: `UseConfiguredSerilog` calls `UseSerilog` without `writeToProviders`, which defaults to `false`, so Serilog most likely bypasses the OpenTelemetry logging provider. Traces and metrics are unaffected. Confirm on a running tenant before stating it either way.
 
@@ -406,24 +407,16 @@ extends:
     tenant: <TenantName>
 ```
 
-`tenant:` is the exact PascalCase folder name — `tenant.pipeline.yaml` uses it for `src/Tenants/${{ parameters.tenant }}/Dockerfile`, the published `appsettings.json` path, and the `GSB.<tenant>.DEV|STG|PROD` variable groups.
+`tenant:` is the exact PascalCase folder name — `tenant.pipeline.yaml` uses it for `src/Tenants/${{ parameters.tenant }}/Dockerfile`, the published `appsettings.json` path, and the tenant's per-environment variables.
 
 Add `buildArguments: "--build-arg PAT=$(DOTGOV_ENGINEERING_NUGET_PAT)"` only if the Dockerfile restores from a private feed (see `tenant.azure-pipelines.zam-mobile.yaml`). Otherwise omit it — it defaults to empty.
 
-The pipeline file alone does not create the build: the `GSB.<TENANT>.<ENV>` variable groups and the ADO pipeline definition pointing at this YAML are set up outside the repo. Say so in the report, and name where each variable the deploy reads comes from:
-
-| Source | Variables |
-|---|---|
-| Inline in `tenant.pipeline.yaml` | `helmChart`, `helmChartVersion`, `helmVersion`, `dockerId` (per branch) |
-| `GSB.COMMON.<ENV>` (exists) | `REPLICAS`, `containerRegistry`, `POOL`, `environment`, `helmRepo`, `helmUsername`, `helmPassword`, `kubeReleaseName` |
-| `GSB.<TENANT>.<ENV>` (new, per tenant) | `helmReleaseName`, `helmNamespace`, and one variable per `__Token__` in `appsettings.json` (C4) |
-
-`variables.common.yaml@PipelineTemplates` is used by the gateway pipelines only; tenant pipelines don't load it.
+**Only the file (C10).** Never create the Azure DevOps pipeline definition, queue a run, or create a variable group. An administrator registers the pipeline and adds the variables from `ENVIRONMENT-VARIABLES.json` (step 6a) by hand. The variables shared by every tenant already exist in the environment and are not listed.
 
 Two consequences worth stating up front:
 
 - **`helmReleaseName` names the Kubernetes service.** The chart deploys `core-$(helmReleaseName)` and sets `apps[0].serviceName` / `containerName` to it. `helmReleaseName` must be the compose slug (step 5, never hyphenated), so the service equals the compose service key from step 5 and the cluster address in step 6, or the gateway route points at nothing.
-- **Deployment substitutes tokens with `actionOnMissing: fail`.** Every `__Placeholder__` left in `appsettings.json` must have a matching variable in the group for that environment or the deploy fails outright. Only `appsettings.json` is published as the settings artifact — `appsettings.Development.json` never leaves the repo, so its values are local-only.
+- **Deployment substitutes tokens with `actionOnMissing: fail`.** Every `__Placeholder__` left in `appsettings.json` must have a matching variable in that environment or the deploy fails outright — which is why each one is listed in `ENVIRONMENT-VARIABLES.json`. Only `appsettings.json` is published as the settings artifact — `appsettings.Development.json` never leaves the repo, so its values are local-only.
 
 ### 5. Add the docker-compose service
 
@@ -448,7 +441,7 @@ Two-space indent, blank line between services. No `ports:` — tenants are not p
 
 ### 6. Write the gateway config handoff
 
-Create `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` — the scope, cluster and route the gateway needs, as one package the AdminAPI can import. This skill does **not** apply it; the file is the handoff artefact.
+Create `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` — the scope, cluster and route the gateway needs, as one package the AdminAPI can import. This skill does **not** apply it anywhere (C10). The file is the handoff artefact: only `/tenant-audit` Check 9 applies it, to the local Docker `mongo`, and an administrator imports it into every other gateway by hand.
 
 Naming follows the live routes (C8):
 
@@ -523,6 +516,12 @@ the route validator rejects a scope that doesn't exist.
 
 `methods` lists only the verbs the tenant actually exposes. With no modules yet, default to `GET`. `tenant-integration` §6 and `integrate-shared` §6 widen it to every verb the tenant's routes map.
 
+### 6a. Write the environment variable list
+
+Create `src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json` in the C9 format with the four deployment variables only: `helmReleaseName` = `<slug>` (the compose slug of step 5, never hyphenated), `helmNamespace` = `""`, `OTEL_SERVICE_NAME` = `core-<slug>`, `OTEL_EXPORTER_OTLP_ENDPOINT` = `""`. `appsettings.json` has no tokens yet (`"Endpoints": {}`); the later steps add one entry per token they write.
+
+This file is the whole variable handoff. Nothing is created in any environment (C10).
+
 ### 7. Add to the solution
 
 ```bash
@@ -586,6 +585,15 @@ grep -n '"authorizationPolicy": "Basic"\|"Scope": "<slug>"\|"routeId": "t_<slug>
 
 Five hits (`clusterId` appears in the cluster and the route); no `"order"`.
 
+And that the variable list holds the four deployment variables and the slug:
+
+```bash
+grep -c '"name": "\(helmReleaseName\|helmNamespace\|OTEL_SERVICE_NAME\|OTEL_EXPORTER_OTLP_ENDPOINT\)"' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json
+grep -n '"value": "<slug>"\|"value": "core-<slug>"' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json
+```
+
+`4`, then two hits.
+
 And that the spec-ready baseline is there:
 
 ```bash
@@ -601,8 +609,7 @@ Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contrac
 
 One line per file created, then the solution entry, the build result, the image build result and the container start result (`ok` / `fail` / `skipped`), then the equivalent command (R7). Close by naming what was deliberately left out so the user can ask for it:
 
-- ADO pipeline definition + `GSB.<TENANT>.<ENV>` variable groups — `helmReleaseName` (must be the compose `<slug>`), `helmNamespace`, `OTEL_SERVICE_NAME` (set it to `core-<slug>`), `OTEL_EXPORTER_OTLP_ENDPOINT`, and a variable for every `__Token__` in `appsettings.json`, mirrored in `projects-variables` (C4) — all created outside the repo. `REPLICAS` and the registry/pool/helm-repo variables come from the existing `GSB.COMMON.<ENV>`; `helmChart`, `helmChartVersion`, `helmVersion`, `dockerId` are inline in `tenant.pipeline.yaml`. `values.tenant.yaml` is generic and needs no per-tenant edit; the release is parameterised through `--set` in `tenant.deployment-jobs.yaml`
-- Gateway import: `POST /Import/routes` with the package in `GATEWAY-CONFIG.md`, then the `<slug>` scope on every consumer's gateway user
+- Administrator, by hand (C10): register the ADO pipeline for `.azure/tenant.azure-pipelines.<slug>.yaml`; add every entry of `ENVIRONMENT-VARIABLES.json` to each environment; import `GATEWAY-CONFIG.md` into each gateway and give every consumer's gateway user the `<slug>` scope; register any ZamPass / RA client the tenant needs
 - Business surface: `Modules/`, `Endpoints/`, `Models/`, `Mapper/`
 - Test project `src/Tests/<TenantName>.Tests` — required by `AGENTS.md` and `.ai-factory/rules/base.md`; `/tenant-tests <TenantName>` creates it
 
@@ -624,7 +631,7 @@ Do not end the turn between the report and the hand-off.
 
 No credential ever goes into this skill, into anything it generates, or into its report. That means passwords, connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and equally the things that locate them: internal host names, server IP addresses and database endpoints.
 
-- In generated config, a secret is a `__Token__` placeholder. Name the variable group, pipeline variable or secret store that supplies the real value, and leave the value out.
+- In generated config, a secret is a `__Token__` placeholder. List its name in `ENVIRONMENT-VARIABLES.json` (C9) with an empty value, and leave the value out. Never write a registry, Helm, cluster, MongoDB, RA or ZamPass address (C10).
 - A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
 - Never copy a credential out of a file you read, even when the repository already commits it. Finding one in the repo is a finding to report, not a value to reuse.
 - Never use another tenant's `appsettings.Development.json` as the template for credential values — many commit literal credentials (C7). A generated Development file keeps `__Token__` placeholders for credentials; only a test `BaseUrl` may be real.

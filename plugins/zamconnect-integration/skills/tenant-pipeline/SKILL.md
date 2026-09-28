@@ -118,6 +118,8 @@ Steps marked `stale` are listed with the reason, e.g. "stale — integration re-
 
 ## Sensitive data
 
+Every step is local only (conventions C10): the chain writes files in the repo and the local Docker stack, and never creates a pipeline, variable, gateway record or ZamPass / RA client in any environment. The closing summary ends with the administrator's manual list: register the pipeline, add the `ENVIRONMENT-VARIABLES.json` entries to each environment, import `GATEWAY-CONFIG.md` into each gateway and grant the consumer scopes, register any ZamPass / RA client.
+
 No credential ever goes into this skill, the state file, or the summary. That means passwords,
 connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and
 equally the things that locate them: internal host names, server IP addresses and database

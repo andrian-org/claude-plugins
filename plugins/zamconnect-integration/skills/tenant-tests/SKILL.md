@@ -22,7 +22,7 @@ Folders under `src/Tests/` without a `*.Tests.csproj` (snapshot projects, untrac
 
 All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`).
 
-Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Shared code/config facts live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` (cited as C1–C8).
+Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Shared code/config facts live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` (cited as C1–C10).
 
 ## Arguments
 
@@ -500,7 +500,7 @@ End with the equivalent command (R7), e.g. `/tenant-tests PQPS --coverage full -
 
 No credential ever goes into this skill, into anything it generates, or into its report. That means passwords, connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and equally the things that locate them: internal host names, server IP addresses and database endpoints.
 
-- In generated config, a secret is a `__Token__` placeholder. Name the variable group, pipeline variable or secret store that supplies the real value, and leave the value out.
+- In generated config, a secret is a `__Token__` placeholder. List its name in `ENVIRONMENT-VARIABLES.json` (C9) with an empty value, and leave the value out. Never write a registry, Helm, cluster, MongoDB, RA or ZamPass address (C10).
 - A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
 - Never copy a credential out of a file you read, even when the repository already commits it. Finding one in the repo is a finding to report, not a value to reuse.
 - Baseline (C7): many tracked `appsettings.Development.json` files, and `src/Tenants/Certificates/*.p12`, commit real secrets. Never use a tenant's Development file as the template for factory overrides or the `appsettings.local.json` shape — fake values in the factory, key names only in the doc comment.

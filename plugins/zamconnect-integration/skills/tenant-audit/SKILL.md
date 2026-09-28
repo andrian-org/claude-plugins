@@ -1,6 +1,6 @@
 ---
 name: tenant-audit
-description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that its API-spec metadata, docs, Postman collection and test project exist, that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in, and that the image builds and the tenant answers through the local Docker gateway once its `GATEWAY-CONFIG.md` and a local test user (`test<Tenant>` / `test`) are written to the local Docker Mongo (health plus one endpoint per module). Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
+description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that `ENVIRONMENT-VARIABLES.json` lists exactly the tenant's tokens, that its API-spec metadata, docs, Postman collection and test project exist, that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in, and that the image builds and the tenant answers through the local Docker gateway once its `GATEWAY-CONFIG.md` and a local test user (`test<Tenant>` / `test`) are written to the local Docker Mongo (health plus one endpoint per module). Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
 argument-hint: "<TenantName>|--all [--only registration|slugs|config|secrets|spec|tests|docs|guards|runtime] [--no-runtime] [--fix [registration]] [--report-only] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Bash(awk *) Bash(sort *) Bash(wc *) Bash(head *) Bash(tail *) Bash(dotnet *) Bash(docker *) Bash(curl *) Edit Write AskUserQuestion
 disable-model-invocation: false
@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 A tenant can build cleanly and still be broken: unregistered in the pipeline, deployed under a name the gateway route does not resolve, or running with an upstream client that was never registered. None of that fails a build. This skill finds it.
 
-Read-only on the repository by default. No repo file is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Checks 8 and 9 touch only the local Docker environment: they build local images, build and start the local stack (`mongo`, `admin-api`, `gateway`) and the tenant container, and apply the tenant's `GATEWAY-CONFIG.md` to the local gateway database. They run under `--report-only` too. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C8).
+Read-only on the repository by default. No repo file is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Checks 8 and 9 touch only the local Docker environment: they build local images, build and start the local stack (`mongo`, `admin-api`, `gateway`) and the tenant container, and apply the tenant's `GATEWAY-CONFIG.md` to the local gateway database. They run under `--report-only` too. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C10).
 
 All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`). Run every command in **Bash** (Git Bash on Windows), not the Grep tool: the patterns below are written to survive CRLF files, which ripgrep/WSL `$` anchors do not.
 
@@ -69,7 +69,7 @@ One string has to be spelled identically in four places, or the gateway routes t
 |---|---|
 | docker-compose service key | `core-<slug>` |
 | docker-compose `container_name` | `core-<slug>.zamconnect` |
-| Helm release / k8s service | `core-$(helmReleaseName)` — `helmReleaseName` lives in the `GSB.<TENANT>.<ENV>` variable group, outside the repo |
+| Helm release / k8s service | `core-$(helmReleaseName)` — the `helmReleaseName` value in `ENVIRONMENT-VARIABLES.json` (C9) |
 | Gateway YARP cluster | `docs/zamconnect-test-routes.md` (C8) |
 
 `<slug>` is the tenant name lowercased with no separators. List every compose service whose key isn't `core-<lowercase folder>`:
@@ -90,7 +90,14 @@ awk -F' *[|] *' -v t=<TenantName> 'toupper($6) == toupper(t) { print $3, $5, $8 
 
 Prints route name, test URL and scope for every route on that cluster. No row = no test-environment route (`warn`; a new tenant won't have one until its gateway package is imported).
 
-The routes doc does not show cluster addresses. `http://core-<slug>` is the expected address; report it and state that `helmReleaseName` and the live cluster destination must equal it. That is a flag for the user, not a verdict — the audit can read neither the variable group nor the gateway admin.
+Repo side, which the audit can verdict: `helmReleaseName` in `ENVIRONMENT-VARIABLES.json` must be `<slug>`, and the `GATEWAY-CONFIG.md` cluster address must be `http://core-<slug>`. Either differing is a `fail`; a missing file is reported by Check 4.
+
+```bash
+grep -oE '"name": "helmReleaseName"[^}]*"value": "[^"]*"' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json | sed -E 's/.*"value": "([^"]*)"/\1/'
+grep -oE '"address": "[^"]*"' src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+The routes doc does not show cluster addresses, and the audit never reads a deployed environment (C10). Say that the values an administrator entered by hand must equal these; that is a flag for the user, not a verdict.
 
 ## Check 3 — Endpoint configuration
 
@@ -191,7 +198,27 @@ Each JSON output line is `<line>:<KeyName>`; the last command lists committed ke
 
 Under `--all`, lead the section with the baseline count (the C7 command) and the key-material paths, then list tenants whose `appsettings.json` hits. Recommend one rotation ticket for the baseline; don't propose per-tenant edits.
 
-Token names that don't follow C4 (e.g. an external upstream on `__Credentials.<T>Tenant.*__`) are `warn` — they deploy, but won't match the `projects-variables` convention.
+Token names that don't follow C4 (e.g. an external upstream on `__Credentials.<T>Tenant.*__`) are `warn` — they deploy, but break the naming convention.
+
+**Variable list (C9).** Every token in `appsettings.json` must be listed in `ENVIRONMENT-VARIABLES.json`, and the file must list nothing else besides the four deployment variables. Names only:
+
+```bash
+grep -oE '__[A-Za-z0-9_.]+__' src/Tenants/<TenantName>/appsettings.json | sed -E 's/^__|__$//g' | sort -u > <scratch>/tokens
+grep -oE '"name": "[^"]+"' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json | sed -E 's/"name": "|"$//g' | grep -vxE 'helmReleaseName|helmNamespace|OTEL_SERVICE_NAME|OTEL_EXPORTER_OTLP_ENDPOINT' | sort -u > <scratch>/listed
+comm -23 <scratch>/tokens <scratch>/listed   # tokens missing from the file
+comm -13 <scratch>/tokens <scratch>/listed   # entries with no token
+grep -nE '"secret": true[^}]*"value": "[^"]' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json | cut -d: -f1
+```
+
+| Finding | Severity |
+|---|---|
+| File missing | `fail` — the administrator has no list, and the deploy fails on the first unlisted token |
+| Token missing from the file | `fail` |
+| Entry with no token | `warn` — a leftover variable |
+| A `secret: true` entry with a non-empty `value` (print the line number only) | `fail` — same as a literal credential |
+| A credential key (C7 suffixes) listed with `secret: false` | `warn` |
+
+Fixable: the file missing, missing entries, and leftover entries. Regenerate in the C9 format, keeping every existing `description` and non-secret `value`.
 
 For an `appsettings.json` hit, check whether it is already in history — `git log --oneline -- <file>` — and say so: removing it from the working tree does not remove it from the repository.
 
@@ -446,7 +473,7 @@ Apply fixes for PQPS? Only the ticked repairs are written. The rest of the repor
 
 With more than 3 fixable findings, show the 3 most severe plus `Fix all <n> fixable findings`. Under `--all`, one option per root cause across tenants, naming the tenants the run actually found: `Add pipeline files for <T1>, <T2>`.
 
-Findings that aren't fixable — a missing endpoint section, a committed credential, a casing or slug mismatch, a regression guard — are **never** options. They stay in the report with the exact block to add.
+Check 4's variable-list repairs are options too (`Regenerate ENVIRONMENT-VARIABLES.json   check 4 — 2 tokens unlisted`). Findings that aren't fixable — a missing endpoint section, a committed credential, a casing or slug mismatch, a regression guard — are **never** options. They stay in the report with the exact block to add.
 
 Apply the picked repairs exactly as tenant-init §4 (pipeline), §5 (compose) and §7 (`dotnet sln add … --solution-folder Tenants`) specify, re-run the checks they belong to, and report the new status.
 
@@ -469,7 +496,7 @@ Severity, highest first:
 
 When Check 9 was skipped, the report's first line says why: Docker not running, or no `GATEWAY-CONFIG.md`. A stopped stack is never a reason — 9a starts it.
 
-Close by naming what the audit cannot see: the `GSB.<TENANT>.<ENV>` variable-group contents, the `projects-variables` repo, the ADO pipeline definitions, and the YARP scope/cluster/route registrations in the test, staging and production gateways. Check 9 covers only the local Docker gateway.
+Close by naming what the audit never reads, because an administrator sets it up by hand (C10): the variables in each environment, the ADO pipeline definitions, the scope/cluster/route records in every non-local gateway, and ZamPass / RA clients. Check 9 covers only the local Docker gateway.
 
 When anything was repaired, end with the equivalent command, e.g. `/tenant-audit PQPS --fix registration`.
 
@@ -477,6 +504,6 @@ When anything was repaired, end with the equivalent command, e.g. `/tenant-audit
 
 No credential ever goes into this skill, into anything it generates, or into its report. That means passwords, connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and equally the things that locate them: internal host names, server IP addresses and database endpoints.
 
-- In generated config, a secret is a `__Token__` placeholder. Name the variable group, pipeline variable or secret store that supplies the real value, and leave the value out.
+- In generated config, a secret is a `__Token__` placeholder. List its name in `ENVIRONMENT-VARIABLES.json` (C9) with an empty value, and leave the value out. Never write a registry, Helm, cluster, MongoDB, RA or ZamPass address (C10).
 - A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
 - Never copy a credential out of a file you read, even when the repository already commits it (C7). Finding one in the repo is a finding to report, not a value to reuse. Secrets commands print key names, line numbers and counts only.

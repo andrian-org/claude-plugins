@@ -238,7 +238,7 @@ Both registrars work the same way: scan the assembly for the marker type, then b
 
 `BaseUrl` is turned into `new Uri(...)` when the client is first created — at `MapCarter()` for a constructor-injected client. It must be a valid absolute URL in **both** files; a placeholder left in `appsettings.Development.json` crashes local runs and the Swagger export that `api-spec-sync` and `tenant-deliverables` run. When `BaseUrl` carries a path (`https://host/api/v2/`), end it with `/` and call relative paths with no leading `/` (`things/{id}`) — a leading `/` drops the base path.
 
-Config keys follow C3: JSON key and token are always `Username`, the C# property is `UserName`. Tokens follow C4; every new `__Token__` needs a variable in `GSB.<TENANT>.<ENV>` and in `projects-variables`, or the deploy fails (`actionOnMissing: fail`).
+Config keys follow C3: JSON key and token are always `Username`, the C# property is `UserName`. Tokens follow C4; every new `__Token__` needs a variable in each environment, or the deploy fails (`actionOnMissing: fail`). Add one entry per new token to `src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json` (C9) — `secret: true` for credential keys, `value: ""` always — and remove the entry of any token this run deletes. Create the file with the four deployment variables first when an older tenant has none. Never create the variables anywhere else (C10).
 
 ### REST
 
@@ -264,7 +264,7 @@ Scheme values are matched **exactly** — `"basic"` configures no auth:
 | `Basic` | `Username`, `Password` |
 | `JWT` | `AuthHeaderValue` = `__Endpoints.<ClientClassName>.ApiKey__` (sent as bearer) |
 | `Custom` | `AuthHeaderName` — the detected / `--auth-header` name, as a literal; `AuthHeaderValue` = `__Endpoints.<ClientClassName>.ApiKey__` |
-| `RA` | DotGov Registration Authority service-to-service token — **internal DotGov services only** (GOVZM, NDR); never for an external system. Per endpoint `ApplicationScopes { Services[], Scopes[] }`; plus `builder.Services.RegisterRa();` (`using Internal.Extensions;`) and a top-level `RegistrationAuthority { BaseUrl, TokenGeneration { CallingServiceFqn, CertificateThumbprint, PrivateKey } }` section, every value a `__Token__`. Copy the shape from GOVZM/NDR `appsettings.json`, never a value |
+| `RA` | DotGov Registration Authority service-to-service token — **internal DotGov services only** (GOVZM, NDR); never for an external system. Per endpoint `ApplicationScopes { Services[], Scopes[] }`; plus `builder.Services.RegisterRa();` (`using Internal.Extensions;`) and a top-level `RegistrationAuthority { BaseUrl, TokenGeneration { CallingServiceFqn, CertificateThumbprint, PrivateKey } }` section, every value a `__Token__`. Copy the shape from GOVZM/NDR `appsettings.json`, never a value. The RA client is registered by hand by an administrator; write only the tokens, never an RA address (C10) |
 | `None` | Nothing else. Write it explicitly |
 
 `AuthHeaderValue` is always a token, never a value found in the source. Optional fields:
@@ -681,7 +681,7 @@ Each pass gets its own client, config section, models and module, and the report
 
 ## Report
 
-State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list what remains outside this skill: every new `__Token__` (by name, never a value), which needs a variable in `GSB.<TENANT>.<ENV>` and in `projects-variables` (C4); the gateway import of `GATEWAY-CONFIG.md` in the test, staging and production gateways (C8), which locally is `/tenant-audit <TenantName> --only runtime`; and the ADO pipeline definition.
+State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list the entries added to or removed from `ENVIRONMENT-VARIABLES.json` (names only, never a value), and what an administrator does by hand (C10): add those variables to each environment, import `GATEWAY-CONFIG.md` into each gateway (locally that is `/tenant-audit <TenantName> --only runtime`), and register any RA / ZamPass client.
 
 Close with the equivalent command for each pass (R7), and these answers for the pipeline state: `sources`, `system`, `auth`, `role`, and `fullName` if it was settled here. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 
@@ -689,6 +689,6 @@ Close with the equivalent command for each pass (R7), and these answers for the 
 
 No credential ever goes into this skill, into anything it generates, or into its report. That means passwords, connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and equally the things that locate them: internal host names, server IP addresses and database endpoints.
 
-- In generated config, a secret is a `__Token__` placeholder — in `appsettings.Development.json` too. Name the variable group, pipeline variable or secret store that supplies the real value, and leave the value out.
+- In generated config, a secret is a `__Token__` placeholder — in `appsettings.Development.json` too. List its name in `ENVIRONMENT-VARIABLES.json` (C9) with an empty value, and leave the value out. Never write a registry, Helm, cluster, MongoDB, RA or ZamPass address (C10).
 - A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
 - Never copy a credential out of a file you read, even when the repository already commits it. Many tracked `appsettings.Development.json` files and `src/Tenants/Certificates/*.p12` do (C7): never carry them forward, never use another tenant's Development file as the template for credential values, and report what you noticed as a finding, not a value to reuse. Rotation is a separate ticket.

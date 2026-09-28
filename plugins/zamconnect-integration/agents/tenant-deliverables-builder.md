@@ -92,8 +92,9 @@ rewrites "Last modified" on a file that did not otherwise change. Inspect by unz
 
 Not in a generated file, not in your report. Passwords, connection strings, keys, tokens,
 certificates, and equally the things that locate them — internal host names, server addresses,
-database endpoints. A secret in generated config is a `__Token__` placeholder naming the
-variable group that supplies it. A credential you find committed in the repository is a finding
+database endpoints. A secret in generated config is a `__Token__` placeholder, listed by name in
+the tenant's `ENVIRONMENT-VARIABLES.json`. Never write a container registry, Helm, cluster,
+MongoDB, RA or ZamPass address. A credential you find committed in the repository is a finding
 to report, never a value to reuse; `inspect_tenant.py` flags these and you pass the flag on
 without the value.
 
