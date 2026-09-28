@@ -3,7 +3,7 @@
 A patch records one fix: what went wrong, why DGF behaved that way, what changed, and how the next
 run avoids it. `/dgf-fix` writes one after every fix, and `--record` writes one without a fix.
 `/dgf-implement` reads the latest ten as cautions; `/dgf-evolve` distils them into skill-context
-rules. `check_patches.py` checks every rule below (ADR 0021 §1).
+rules. `check_patches.py` checks every rule below (ADR 0024 §1).
 
 A patch is **append-only**. Once written, it is never edited or deleted — a later fix writes a
 later patch.

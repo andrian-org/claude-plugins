@@ -1,4 +1,4 @@
-"""scripts/lib/overrides.py: the override template, its sources, and what it may never say (ADR 0021 §3–§5)."""
+"""scripts/lib/overrides.py: the override template, its sources, and what it may never say (ADR 0024 §3–§5)."""
 
 import shutil
 import tempfile
@@ -230,6 +230,12 @@ class Preamble(Base):
         self.assertEqual(self.codes(EXAMPLE.replace("> Updated: 2026-09-26 15:00\n", "")), [])
         self.assertEqual(self.codes(EXAMPLE.replace("> Written by /dgf-evolve from the estate's patches. Each rule "
                                                     "may only tighten /dgf-plan (ADR 0021).\n", "")), [])
+
+    def test_the_written_line_is_a_frozen_format(self):
+        """Every committed override carries this exact line, so it never follows the ADR's number (ADR 0024 §3)."""
+        self.assertEqual(overrides.WRITTEN.encode("utf-8"),
+                         b"> Written by /dgf-evolve from the estate's patches. Each rule may only tighten "
+                         b"/{skill} (ADR 0021).")
 
     def test_the_written_line_names_this_skill(self):
         self.assertOnly("OVERRIDE_SHAPE", EXAMPLE.replace("tighten /dgf-plan (ADR", "tighten /dgf-verify (ADR"), line=3)

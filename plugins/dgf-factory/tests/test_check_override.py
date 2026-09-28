@@ -1,4 +1,4 @@
-"""check_override.py: may a skill read its skill-context override? (ADR 0021 §5)"""
+"""check_override.py: may a skill read its skill-context override? (ADR 0024 §5)"""
 
 import shutil
 import tempfile

@@ -1,4 +1,4 @@
-"""check_patches.py: which patches are well formed, and which the cursor has not seen (ADR 0021 §1)."""
+"""check_patches.py: which patches are well formed, and which the cursor has not seen (ADR 0024 §1)."""
 
 import json
 import shutil

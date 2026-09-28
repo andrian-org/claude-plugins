@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_patches.py — are the estate's patches well formed, and which are new? (ADR 0021 §1)
+"""check_patches.py — are the estate's patches well formed, and which are new? (ADR 0024 §1)
 
 Checks one patch, several, or every `*.md` directly in the patches directory,
 sorted by name:

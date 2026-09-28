@@ -1,4 +1,4 @@
-"""scripts/lib/patches.py: the patch format and the cursor (ADR 0021 §1, §6)."""
+"""scripts/lib/patches.py: the patch format and the cursor (ADR 0024 §1, §6)."""
 
 import json
 import shutil

@@ -1,4 +1,4 @@
-"""overrides.py — read a skill-context override and check it may only tighten its skill (ADR 0021 §3–§5).
+"""overrides.py — read a skill-context override and check it may only tighten its skill (ADR 0024 §3–§5).
 
 An override is `<paths.skill_context>/<skill>/SKILL.md`, in a fixed template:
 
@@ -49,6 +49,8 @@ RULES_HEADING = "## Rules"
 MAX_RULES, MAX_RULE_CHARS, MAX_NAME_CHARS, MAX_BYTES = 40, 600, 100, 32768
 ALLOWED_FLAGS = ("--strict", "--verbose")
 BULLETS = ("source", "rule")
+# A frozen format, not a citation (ADR 0024 §3): every committed override carries this exact line,
+# "(ADR 0021)" included, so it does not follow the number of the ADR that now decides it.
 WRITTEN = "> Written by /dgf-evolve from the estate's patches. Each rule may only tighten /{skill} (ADR 0021)."
 _UPDATED = re.compile(r"> Updated: \d{4}-\d{2}-\d{2} \d{2}:\d{2}\Z")
 

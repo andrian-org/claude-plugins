@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_override.py — may a skill read its skill-context override? (ADR 0021 §5)
+"""check_override.py — may a skill read its skill-context override? (ADR 0024 §5)
 
 Checks `<root>/<skill-context-dir>/<skill>/SKILL.md`, the override one skill
 reads, before that skill reads it:

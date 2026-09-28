@@ -1,4 +1,4 @@
-"""patches.py — read a patch file and the patch cursor (ADR 0021 §1, §6).
+"""patches.py — read a patch file and the patch cursor (ADR 0024 §1, §6).
 
 A patch is `<paths.patches>/<YYYY-MM-DD-HH.mm>-<slug>.md`, written once by
 /dgf-fix and never edited:
