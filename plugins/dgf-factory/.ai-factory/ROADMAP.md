@@ -41,6 +41,32 @@ Task-sized items from finished milestones that no open milestone owns. Pick one 
 - **Trace entry points outside processes.** `_PROFILE` trees, sitemaps, `_form.xml` and view `WORKFLOW:` strings, and JSON `workflow` components start workflows no process names; `profile.xsd` does not compile, so this needs a grammar first (ADR 0023 §8)
 - **A role check**, if an estate ever keeps its roles list in the root (ADR 0023 §6)
 - **`inventory_root.py` counts entities** per workspace (`feature-dgf-specific-skills.md`)
+- **Parse XML as the runtime does, in every validator.** The shared lxml parser (`family.xml_parser`) follows the
+  declared encoding, so it reports `XML_MALFORMED` on files .NET loads — UTF-8 declared `UTF-16`, as `StringWriter`
+  writes, non-ASCII declared `us-ascii`, UTF-32 with a byte-order mark — and refuses a prefix bound to the XML
+  namespace, which .NET allows; it also accepts `version="1.1"`, which .NET refuses (`feature-dgf-specific-skills.md`)
+- **XmlSerializer's refusals before `Table.InitFields`.** A child element in `primarykey`, a root that is not
+  `entity`, a `required` that is not an xsd:boolean, a `type` no `FieldTypeEnum` member names, a bad `xml:space`,
+  `version="1.1"` and BOM-less UTF-16 each make an entity's load throw; `validate_model.py` reports none of them
+  (`feature-dgf-specific-skills.md`)
+- **`xsi:nil` on an entity.** On `fields`, a `field` or the root it binds nothing, a null field, or a null table —
+  each a load that throws or returns nothing — and the entity-load check passes all three
+  (`feature-dgf-specific-skills.md`)
+- **A `settings.xml` with a DTD.** The runtime reads it; `model.read_entity` refuses it, so its entity-load and
+  generated-file checks report `NOT RUN` (`knowledge/data-model.md` §3.6; `feature-dgf-specific-skills.md`)
+- **Match `XmlDocument.LoadXml` in `model._parse_error`** where expat cannot: a prefix or default namespace bound to
+  the XML namespace, and a surrogate pair as two character references. LoadXml takes both, so today's block on them
+  is false (`knowledge/data-model.md` §3.6; `feature-dgf-specific-skills.md`)
+- **A reference into an entity that cannot load.** The entity is blocked once (`MODEL_ENTITY_UNLOADABLE`), but a
+  reference into it still resolves, so an entity broken at the merge-base lets a new reference pass the gate — and
+  the referrer's warning says the runtime generates a default, which it cannot (`feature-dgf-specific-skills.md`)
+- **The audit validates XML outside `FM/`.** A malformed `a/tools/_workflow.xml`, which no loader reads, is reported
+  as a defect in the root; leave it out, as draft JSON is (`feature-dgf-specific-skills.md`)
+- **A reach through a file the graph cannot read reads as complete.** `graph._parse` returns no references on an
+  `OSError`; the report should say so, as the validators' catch does (`feature-dgf-specific-skills.md`)
+- **`/dgf-implement` without git, for a task that deletes.** Step 3.4 runs the whole-root check with no baseline, so
+  it cannot tell whether the removal broke another file; `/dgf-process` and `/dgf-model` take a baseline before the
+  write, and it could do the same (`patches/2026-09-28-14.33.md`)
 
 ## Completed
 
