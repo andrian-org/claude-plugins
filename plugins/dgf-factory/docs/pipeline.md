@@ -190,7 +190,9 @@ introduced:
 
 Findings are compared by code, root-relative file and message — not by line, so an edit above
 a finding does not make it new — and as a multiset, so a second copy is new. Without git or a
-merge-base the baseline is `NOT RUN` and every finding counts as new: stricter, never looser.
+merge-base the baseline is `NOT RUN` and every finding counts as new: stricter, never looser. A
+writing skill without git brings its own, saved before its write (`--save-baseline`, `--baseline`;
+[ADR 0025](adr/0025-saved-baseline-without-git.md)); the gate never does.
 
 On a copy of DGF's samples, a branch that added one dead transition got exactly one new error
 among 2552 pre-existing findings, in about 5 seconds for both runs.
@@ -294,11 +296,17 @@ Their read-only modes — inspect, validate, audit — run anywhere in a root. T
 only inside the active plan, as `/dgf-fix` does: `locate_plan.py` finds the plan, `check_plan.py`
 checks it, and `check_change.py --changed … --skip-validators` decides the scope **before** the write.
 None of them ticks a checkbox — `/dgf-implement` owns the ledger — deletes a file, converts a file's
-family, or emits a gate block. A write that `/dgf-process` or `/dgf-model` confirms over the whole
-root takes, without git, a baseline first: the same `check_change.py` run before the write. With no
-base tree the script counts every finding as new, so the skill treats a finding the baseline also
-holds — same code, file and message — as pre-existing, and never blames the change for an old defect
-in a file it did not touch.
+family, or emits a gate block. `/dgf-process` and `/dgf-model` confirm every write over the whole
+root. Without git there is no merge-base, so the script saves a baseline first ([ADR
+0025](adr/0025-saved-baseline-without-git.md)):
+
+- `check_change.py --save-baseline` before the write keeps the root's findings, unjudged;
+- `--baseline` after it settles against them exactly as the gate settles against a merge-base — an
+  old finding is `INFO PRE_EXISTING`, and a new one keeps its exit.
+
+The key is the gate's own (code, file, message), so a finding whose message the write changed reads
+as new here as it would at the gate. An example is a `webasm` reference whose list of applications
+now differs. The gate never takes a saved baseline.
 
 | Skill | Does | Scripts it runs | Writes |
 |---|---|---|---|

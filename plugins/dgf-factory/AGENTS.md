@@ -225,8 +225,9 @@ gate, `audit_root.py`, and the three knowledge files they read; it stays open fo
   the limit an override may not cross, and the script that checks one — by
   [ADR 0024](docs/adr/0024-learning-loop-revised.md); the DGF-specific skills — authoring scope, the
   artifact partition, the model check, the reference graph and blast radius — by
-  [ADR 0023](docs/adr/0023-dgf-specific-skills.md); 0002, 0003, 0006, 0007, 0008, 0020 and 0021 are
-  superseded history.
+  [ADR 0023](docs/adr/0023-dgf-specific-skills.md); a writing skill's baseline without git — saved
+  before the write, never the gate's — by [ADR 0025](docs/adr/0025-saved-baseline-without-git.md);
+  0002, 0003, 0006, 0007, 0008, 0020 and 0021 are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

@@ -1326,10 +1326,14 @@ Recorded by `/aif-implement`, 2026-09-27.
   `docs/skill-authoring.md` shows the frontmatter as built (reconciled by the seventh `/aif-verify`).
 - **Task 17 — a writing mode without git, and a malformed file, walked by the seventh `/aif-verify`.**
   With no git the whole-root `check_change.py` counts every finding as new, so `/dgf-process` modify and
-  `/dgf-model` add or modify stopped on any old defect in a file they never touched. Both now take a
-  baseline, the same run before the write, and treat a finding it holds as pre-existing. A file a
-  skill writes that does not parse can exit `3` with `FAMILY_UNRESOLVED`, which the confirm rows now
-  send back for correction instead of to "a missing dependency".
+  `/dgf-model` add or modify stopped on any old defect in a file they never touched. The seventh round's
+  fix compared the two runs in prose. The eighth `/aif-verify` found that this broke `rules/base.md`'s
+  Determinism rule, and that an old exit-`3` file still masked a new break. So, by the user's
+  decision of 2026-09-28 ([ADR 0025](../../docs/adr/0025-saved-baseline-without-git.md)),
+  `check_change.py --save-baseline` saves the run before the write and `--baseline` settles the run
+  after it, as against a merge-base. `/dgf-process` now confirms an author over the whole root too.
+  A written file that exits `3` with `FAMILY_UNRESOLVED`, or with `SCHEMA_UNSELECTABLE` naming its
+  root, is sent back for correction instead of to "a missing dependency".
 - **Task 17 — the checks**, 2026-09-27, DGF `cccd4325b`:
 
   ```text

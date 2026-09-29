@@ -121,7 +121,7 @@ files and prints `FAMILY:` lines like the other validators:
 | `locate_plan.py` | `ROOT: <path>`; `PLAN: <path> mode=<m> source=branch\|lone\|fast`, or with `--list` one `PLAN: <path> mode=<m> progress=<done>/<total>` per plan |
 | `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
-| `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file |
+| `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)` — `BASE: <file> (saved before the write, --baseline)` with a saved baseline; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file; with `--save-baseline`, `BASELINE: saved <n> finding(s) — <e> error(s), <w> warning(s) — to <file>` |
 | `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor` |
 | `check_override.py` | `OVERRIDE: <file> skill=<skill> rules=<n>` (`rules=?` when its shape fails), or `OVERRIDE: none — no <file>`; one `RULE: <N> line=<l> sources=<n> name="<name>"` per rule |
 | `audit_root.py` | `ROOT:`; `APPLICATIONS: <app> … (base webasm)`. The whole root: one `GRAPH: <app> nodes= edges= resolved= unresolved= case-only= dynamic=` per application, one `EDGE: <app> <kind> …` per edge kind, one `VALIDATOR: <cli> files=<n> <LABEL> <CODE>=<n> …` per validator, one `ROLE: "<name>" <source>=<n> …` per role name. Reach: per file `REACH: <path> artifact= name= [change=]`, then per application `APP: <app> processes=<n>`, `PROCESS: <app> <reference> via <file>:<line> > … > <path>`, `REFERRER: <app> <kind> <file>:<line>` or `NONE: <app> — …`; `NOT AUDITED: <ws> — …` in their place when `--app` left the file's own application out; `SKIP: <path> — …` for a changed file that is no configuration. Always a final `LIMIT: static reach only — …` |
@@ -133,7 +133,10 @@ code and severity. One that was already there prints as `INFO PRE_EXISTING <file
 <message>`, and one the branch removed as `INFO FIXED <file> [<CODE>] <message>`; neither
 affects the exit. Its summary adds `new: <e> error(s), <w> warning(s); pre-existing: <p>;
 fixed: <f>`. A skill reports new findings verbatim, counts pre-existing ones, and never fixes
-them unasked.
+them unasked. Without git, a writing skill that confirms over the whole root saves the run before
+its write with `--save-baseline <file>` and settles the run after it with `--baseline <file>`,
+which reports the same way ([ADR 0025](adr/0025-saved-baseline-without-git.md)). A baseline it
+cannot use is `BASELINE_UNUSABLE`, exit `3`.
 
 Only a whole-root run records the check `validators` as run. A `check_change.py --files` run —
 `/dgf-implement`'s per-task pre-check — prints `NOT RUN: validators (narrowed to <n> file(s) by

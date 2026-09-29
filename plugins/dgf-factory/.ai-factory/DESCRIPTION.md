@@ -88,11 +88,11 @@ currently contains:
   and `roles.py` among its modules — and
   `requirements.txt`: `lxml` 6.1.3 and
   `jsonschema` 4.25.1, exact pins with hashes, Python 3.9 floor
-- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 81-case known-bad
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 82-case known-bad
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
   when a skill quotes a finding code or passes a flag no script has, and holds the override
   readers and writer to the limit
-- `docs/adr/` — 24 decision records, 0001–0024; the index is `docs/adr/README.md`
+- `docs/adr/` — 25 decision records, 0001–0025; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
 Not yet created: `/dgf-scaffold`, `agents/` and the marketplace entry.
