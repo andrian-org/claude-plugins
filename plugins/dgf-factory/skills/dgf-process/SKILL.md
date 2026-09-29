@@ -103,7 +103,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_process.py" --workspaces-root "<
 | `0` | Clean: every check under `CHECKS RUN` passed |
 | `1` | Blocked — invalid structure, a dead transition, or a reference that resolves nowhere (`WORKFLOW_UNRESOLVED`, `VALIDATION_FLOW_UNRESOLVED`, `CHANGE_STATE_PROCESS_UNRESOLVED`, `CHANGE_STATE_STATE_UNDECLARED`) |
 | `2` | Warnings — `UNREACHABLE_STATE`, `WORKFLOW_APP_DEPENDENT` (a webasm process whose workflow only some applications have), `XSD_RUNTIME_DIVERGENCE`, `CASE_ONLY_MATCH` |
-| `3` | `FAMILY_UNRESOLVED` → the file's own defect: it does not parse as XML, or its root is one no XSD reads — the message says which. Relay it with the other findings. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error, `SCHEMA_UNSELECTABLE` for a file that is not a process or workflow — → **STOP** and relay it. |
+| `3` | A file's own defect: `FAMILY_UNRESOLVED` — it does not parse as XML, having no XML declaration — or `SCHEMA_UNSELECTABLE` — it parses, but its root is neither `Process` nor `Workflow`. Relay it with the other findings. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error — → **STOP** and relay it. |
 
 A reference whose `Checked by` is `—` in `knowledge/reference-graph.md` §1 — a `SubWorkflow`,
 `Invoke`, `UpdateRecord`, `CreateRecord`, `XmlIsland` or `DataSourceStep` target, or the process a
@@ -167,19 +167,23 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root
 | `2` | `CHANGE_UNPLANNED_FILE` → the gate will warn on this file. Under strict mode (`workflow.verify_mode: strict`) the gate would block on it — **STOP**, and have `/dgf-plan` add it to a task. `CHANGE_TASK_FILE_UNCHANGED` is expected here — ignore it. Surface any other `WARN` line. |
 | `3` | **STOP** and relay it. |
 
-**A modify without git takes a baseline now, before the edit.** With no git the change check has no
-base tree, so it counts every finding in the root as new (ADR 0018 §5) — an old defect in a file
-this skill never touches included. Run the whole-root check Step 7 will run, once, and keep its
-`ERROR` and `WARN` lines: they are the root as it was before the edit.
+**Without git, save a baseline now, before the write.** With no git the change check has no base
+tree, and would count every old finding in the root as new (ADR 0018 §5). So the script saves the
+root's findings as they are before the write, and Step 7 compares with them (ADR 0025). Pass the same
+`A:` or `M:` as the scope check:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --save-baseline "<root>/.dgf-factory/baseline.json"
 ```
+
+It judges none of the validators' findings, so its exit is the change checks':
 
 | Exit | Action |
 |---|---|
-| `0`, `1`, `2` | Keep every `ERROR` and `WARN` line, and continue to Step 6. |
-| `3` | An `ERROR FAMILY_UNRESOLVED` line is a file in the root that parses as neither family — a finding like the others: keep it, and continue. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `0` | Continue to Step 6. The `BASELINE:` line says how many findings the root holds now. |
+| `1` | A `CHANGE_*` error → **STOP** before writing anything: `/dgf-plan` widens the plan. |
+| `2` | Continue to Step 6: the change checks' warnings are the scope check's, already handled. |
+| `3` | **STOP** before writing anything, and relay it — `DEPENDENCY_MISSING` with its install command verbatim, or `BASELINE_UNUSABLE` when the file cannot be written. |
 
 ### Step 6: Write
 
@@ -217,27 +221,31 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_process.py" --workspaces-root "<
 | `0` | Continue to the change check. |
 | `1` | An `ERROR` → correct the file and re-run, at most 3 attempts, then **STOP** with the findings. |
 | `2` | Surface every `WARN`. The change check below decides what strict mode does with it. |
-| `3` | `FAMILY_UNRESOLVED` → the file written does not parse as XML, or its root is one no XSD reads — the message says which: correct it, within the same 3 attempts. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED` or `SCHEMA_UNSELECTABLE` on the file written → correct it, within the same 3 attempts: it does not parse as XML, or its root is neither `Process` nor `Workflow` — the message says which. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
-Then the change check. **After a modify, over the whole root — no `--files`:** a renamed or removed
-state breaks the `CHANGE_STATE` steps of workflows the edit never touched (ADR 0014 §2). With git:
+Then the change check, **over the whole root — no `--files` — after an author as after a modify:** a
+renamed or removed state breaks the `CHANGE_STATE` steps of workflows the edit never touched, and a
+new process meets the ones already aimed at it (ADR 0014 §2). With git:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
 ```
 
-After an author, `--files <file>` narrows it to the new file. Without git, after an author,
-`--changed A:<file> --files <file>` in place of `--base`. After a modify, the baseline's command
-again — `--changed M:<file>`, no `--files` — and a finding the baseline also holds, with the same
-code, file and message whatever its line, was in the root before the edit: it is pre-existing, as
-the script's own baseline would call it (ADR 0018 §3). Only the others are new.
+Without git, with the baseline Step 5 saved, in place of `--base`:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --baseline "<root>/.dgf-factory/baseline.json"
+```
+
+— with `A:` after an author. Either way the script reports a finding the root already held as `INFO
+PRE_EXISTING`, and only a new one keeps its code and its exit (ADR 0018 §4, ADR 0025).
 
 | Exit | Action |
 |---|---|
 | `0` | Continue to Step 8. |
-| `1` | Take the new `ERROR` lines — without git, those the baseline does not hold; none left → continue as for `2`. A new `ERROR` → correct it, within the same 3 attempts; one in a file this skill did not write → **STOP** and report it. A `CHANGE_*` error → **STOP**. `PRE_EXISTING` findings are not this change's. |
+| `1` | A new `ERROR` in the file written → correct it, within the same 3 attempts; one in a file this skill did not write → **STOP** and report it. A `CHANGE_*` error → **STOP**. `PRE_EXISTING` findings are not this change's. |
 | `2` | Surface every new `WARN`. Under strict mode a new validator `WARN` is corrected like an error. |
-| `3` | An `ERROR FAMILY_UNRESOLVED` line on the file written → correct it, within the same 3 attempts; on another file, it is pre-existing when the baseline holds it, and otherwise a new `ERROR` in a file this skill did not write. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED` or `SCHEMA_UNSELECTABLE` on the file written → correct it, within the same 3 attempts. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. `BASELINE_UNUSABLE` → **STOP** and relay it: never save a new baseline now, since the root already holds the write. Any other → **STOP** and relay it. |
 
 Then the references no validator checks yet (Step 2) — a `SubWorkflow`, `Invoke`, `UpdateRecord`,
 `CreateRecord`, `XmlIsland` or `DataSourceStep` target, or a process a `StateProcess` step starts:
@@ -266,7 +274,7 @@ line. For an author or a modify, name the file written and any `CHANGE_UNPLANNED
 - ✅ Write XML only — `process.xml` and `_workflow.xml`
 - ✅ Find and check the plan, and decide the scope with `check_change.py --skip-validators`, before a write
 - ✅ Run the reach before a modify, and report it as the regression list
-- ✅ Run the whole-root change check after a modify — without git, against the baseline taken before the edit
+- ✅ Run the whole-root change check after an author or a modify — without git, against the baseline `check_change.py` saved before the write
 - ✅ Take every fact from `knowledge/` and the DGF docs MCP
 
 ### DON'T:
@@ -281,7 +289,8 @@ line. For an author or a modify, name the file written and any `CHANGE_UNPLANNED
 ## Artifact Ownership
 
 - **Writes:** `process.xml` and `_workflow.xml` files — shared or process-local — only inside the
-  plan's scope, one per author or modify.
+  plan's scope, one per author or modify. Without git, `check_change.py` writes
+  `.dgf-factory/baseline.json` for it, which the next save overwrites (ADR 0025).
 - **Reads:** the plan, `.dgf-factory/config.yaml`, its override after `check_override.py`, the
   patches, its templates, the shipped `knowledge/`, and the DGF docs MCP. It never edits the plan.
 
@@ -289,8 +298,8 @@ line. For an author or a modify, name the file written and any `CHANGE_UNPLANNED
 
 1. **XML always.** The runtime reads no process or workflow JSON.
 2. **Only inside the plan's scope.** No plan, no write; the scope script runs before the write.
-3. **Reach before a modify, the whole root after it.** A shared workflow's change reaches processes
-   the edit never names.
+3. **Reach before a modify, the whole root after every write.** A shared workflow's change reaches
+   processes the edit never names, and a new process meets the workflows already aimed at it.
 4. **Never overwrite on author, never delete, never convert.**
 5. **One owner per artifact.** Forms, views and components are `/dgf-component`'s; `settings.xml`
    is `/dgf-model`'s.

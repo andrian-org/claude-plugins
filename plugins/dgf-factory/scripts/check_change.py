@@ -29,12 +29,21 @@ jsonschema; `--skip-validators` runs only the three change checks and needs
 neither. Without git or a merge-base the change checks are NOT RUN and every
 validator finding counts as new — stricter, never looser.
 
+Without git, a writing skill takes its own baseline (ADR 0025): with
+`--changed`, `--save-baseline FILE` saves the run before its write — its
+validator findings are written to FILE and not judged, so its exit is the
+change checks' — and `--baseline FILE` settles the run after the write against
+that one, exactly as against a merge-base tree. A saved baseline is refused
+(BASELINE_UNUSABLE) when it is missing or malformed, or was saved for another
+root or another `--files` scope. The verify gate never passes either flag.
+
 run() is the same check as a function, for scripts/verify_gate.py: it returns
 an Outcome holding the reports, the changed set and each validated file's
 schema family.
 
 Usage:  check_change.py --workspaces-root R --plan P (--base REF | --changed S:PATH ...)
-                        [--files PATH ...] [--skip-validators] [--verbose]
+                        [--files PATH ...] [--skip-validators] [--save-baseline FILE | --baseline FILE]
+                        [--verbose]
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  the change is inside its plan and introduced no finding
@@ -42,8 +51,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
      a new global script, or a new blocking validator finding
   2  warnings: an unplanned or untouched file, a file nothing authors, a new warning
   3  usage error — including a `--files` or `--changed` path that is not plain
-     and root-relative, or a `--base` that starts with `-` — an unreadable plan,
-     or the validators' dependencies missing
+     and root-relative, a `--base` that starts with `-`, or a saved baseline
+     with `--base` or `--skip-validators` — an unreadable plan, a saved baseline
+     that cannot be used, or the validators' dependencies missing
 """
 
 import os
@@ -83,7 +93,26 @@ def build_parser():
                         help="an explicit changed set, root-relative: A:path, M:path or D:path")
     parser.add_argument("--files", nargs="+", metavar="PATH", help="the validator scope, root-relative")
     parser.add_argument("--skip-validators", action="store_true", help="run only the change checks")
+    saved = parser.add_mutually_exclusive_group()
+    saved.add_argument("--save-baseline", metavar="FILE",
+                       help="with --changed: save this run's validator findings, unjudged, as the baseline of the "
+                            "run after the write (ADR 0025)")
+    saved.add_argument("--baseline", metavar="FILE",
+                       help="with --changed: compare the validator findings with the baseline --save-baseline "
+                            "saved before the write (ADR 0025)")
     return parser
+
+
+def refuse_baseline(args):
+    """Exit 3 on a saved baseline the call cannot use: the gate's baseline is the merge-base tree (ADR 0018)."""
+    flag = "--save-baseline" if args.save_baseline else "--baseline" if args.baseline else None
+    if flag is None:
+        return
+    if args.base is not None:
+        report.fail(report.EXIT_USAGE, f"{flag} takes a --changed set: with --base the baseline is the merge-base "
+                                       f"tree (ADR 0018)")
+    if args.skip_validators:
+        report.fail(report.EXIT_USAGE, f"{flag} needs the validators, which --skip-validators leaves out")
 
 
 # --- the changed set ----------------------------------------------------------------
@@ -292,9 +321,15 @@ def validator_report(runs):
     return merged
 
 
-def settle(rep, merged, head, root, base_sha, files, reason):
-    """Fill `merged` with the new findings as themselves, and the rest as PRE_EXISTING or FIXED."""
+def settle(rep, merged, head, root, base_sha, files, reason, saved=None):
+    """Fill `merged` with the new findings as themselves, and the rest as PRE_EXISTING or FIXED.
+
+    `saved` is a baseline a run saved before the write (ADR 0025): its findings hold no root to remove.
+    """
     from lib import baseline
+    if saved is not None:
+        rep.ran("baseline")
+        return _merge(merged, *baseline.compare(head, saved, root, []))
     if base_sha is None:
         rep.skipped("baseline", f"{reason}; every finding counts as new")
         merged.findings.extend(head)
@@ -306,7 +341,10 @@ def settle(rep, merged, head, root, base_sha, files, reason):
         merged.findings.extend(head)
         return len(head), 0, 0
     rep.ran("baseline")
-    new, pre_existing, fixed = baseline.compare(head, base, root, base_forms)
+    return _merge(merged, *baseline.compare(head, base, root, base_forms))
+
+
+def _merge(merged, new, pre_existing, fixed):
     merged.findings.extend(new)
     for finding in pre_existing:
         merged.add("PRE_EXISTING", f"[{finding.code}] {finding.message}", line=finding.line, file=finding.file)
@@ -335,12 +373,13 @@ def summary_lines(merged, validated):
             f"new: {errors} error(s), {warnings} warning(s); pre-existing: {pre}; fixed: {fixed}"]
 
 
-def change_checks(parsed, root, base, changed, rep, outcome):
+def change_checks(parsed, root, base, changed, rep, outcome, saved=None):
     """The BASE:/CHANGE: lines and the three change checks; returns the merge-base sha, or None."""
     outcome.known = set(workspace.workspace_names(root))
     if changed:
         changes, base_sha = parse_changed(changed), None
-        outcome.lines.append("BASE: none (--changed)")
+        outcome.lines.append(f"BASE: {cli.display(Path(saved))} (saved before the write, --baseline)" if saved else
+                             "BASE: none (--changed)")
     else:
         changes, base_sha = changes_from_git(root, base, rep)
         outcome.lines.append(f"BASE: {base_sha} ({base})" if base_sha else f"BASE: none ({base})")
@@ -361,8 +400,23 @@ def change_checks(parsed, root, base, changed, rep, outcome):
     return base_sha
 
 
-def validate(root, files, changed, base_sha, rep, outcome):
-    """The validators at the working tree, settled against the merge-base tree (ADR 0018)."""
+def validate(root, files, changed, base_sha, rep, outcome, save_baseline=None, saved_baseline=None):
+    """The validators at the working tree, settled against the merge-base tree (ADR 0018).
+
+    Without git, a writing skill saves the run before its write (`save_baseline`), whose findings are not judged, and
+    settles the run after it against that one (`saved_baseline`) — ADR 0025. The gate passes neither.
+    """
+    from lib import baseline
+    root = Path(root).resolve()
+    saved = None
+    if saved_baseline is not None:
+        try:
+            saved = baseline.load(saved_baseline, root, files)
+        except baseline.Unusable as exc:
+            report.debug("check_change.validate", "baseline unusable", file=saved_baseline, why=str(exc))
+            rep.add("BASELINE_UNUSABLE", str(exc), file=cli.display(Path(saved_baseline)))
+            rep.skipped("baseline", "the saved baseline cannot be used")
+            return
     runs, head, validated = run_validators(root, files)
     if files is None:
         rep.ran("validators")
@@ -370,19 +424,41 @@ def validate(root, files, changed, base_sha, rep, outcome):
         rep.skipped("validators", f"narrowed to {len(files)} file(s) by --files; the gate's scope is the whole "
                                   f"root (ADR 0004 §3)")
     merged = validator_report(runs)
-    reason = "--changed gives no base tree" if changed else "no merge-base"
-    settle(rep, merged, head, Path(root).resolve(), base_sha, files, reason)
     outcome.reports.append(merged)
     outcome.families = families(runs)
     outcome.validated = validated
+    if save_baseline is not None:
+        save(save_baseline, head, root, files, validated, rep, outcome)
+        return
+    reason = "--changed gives no base tree" if changed else "no merge-base"
+    settle(rep, merged, head, root, base_sha, files, reason, saved=saved)
     outcome.summary.extend(summary_lines(merged, validated))
 
 
-def run(root, plan_path, *, base=None, changed=None, files=None, skip_validators=False, skip_reason=SKIPPED):
+def save(path, head, root, files, validated, rep, outcome):
+    """Save the run's findings as the baseline of the run after the write, and judge none of them (ADR 0025)."""
+    from lib import baseline
+    try:
+        kept = baseline.save(path, head, root, files)
+    except OSError as exc:
+        rep.add("BASELINE_UNUSABLE", f"`{path}` cannot be written: {exc.strerror or exc}", file=cli.display(Path(path)))
+        return
+    errors = sum(1 for f in kept if f.label == "ERROR")
+    warnings = sum(1 for f in kept if f.label == "WARN")
+    rep.skipped("baseline", "this run saves the baseline of the run after the write; its findings are not judged")
+    outcome.lines.append(f"BASELINE: saved {len(kept)} finding(s) — {errors} error(s), {warnings} warning(s) — "
+                         f"to {cli.display(Path(path))}")
+    outcome.summary.append(f"Validated: {validated} file(s)")
+    report.debug("check_change.save", "saved", file=path, findings=len(kept), errors=errors, warnings=warnings)
+
+
+def run(root, plan_path, *, base=None, changed=None, files=None, skip_validators=False, skip_reason=SKIPPED,
+        save_baseline=None, saved_baseline=None):
     """The whole check for one plan → Outcome. `changed` is S:PATH values; KnowledgeTableError propagates.
 
     `skip_reason` is the reason recorded for `validators` and `baseline` when
-    `skip_validators` is set.
+    `skip_validators` is set. `save_baseline` and `saved_baseline` are a writing
+    skill's, with `changed` and no git (ADR 0025); the verify gate passes neither.
     """
     plan_path = str(plan.entrypoint(plan_path))
     rep = report.Report(cli.display(plan_path))
@@ -392,12 +468,12 @@ def run(root, plan_path, *, base=None, changed=None, files=None, skip_validators
         rep.add("PLAN_UNREADABLE", exc.message, line=exc.line)
         return Outcome([rep], [f"PLAN: {rep.file} unreadable"])
     outcome = Outcome([rep], [f"PLAN: {rep.file}"], parsed=parsed)
-    base_sha = change_checks(parsed, root, base, changed, rep, outcome)
+    base_sha = change_checks(parsed, root, base, changed, rep, outcome, saved=saved_baseline)
     if skip_validators:
         rep.skipped("validators", skip_reason)
         rep.skipped("baseline", skip_reason)
     else:
-        validate(root, files, changed, base_sha, rep, outcome)
+        validate(root, files, changed, base_sha, rep, outcome, save_baseline, saved_baseline)
     report.debug("check_change.run", "done", changed="-" if outcome.changes is None else len(outcome.changes),
                  validated=outcome.validated, families=",".join(sorted({str(f) for f in outcome.families.values()})))
     return outcome
@@ -408,12 +484,14 @@ def main(argv):
     if args.verbose:
         report.set_verbose()
     refuse(args.base, args.files, args.changed)
+    refuse_baseline(args)
     root = Path(args.workspaces_root)
     if not root.is_dir():
         report.fail(report.EXIT_USAGE, f"--workspaces-root is not a directory: {args.workspaces_root}")
     try:
         outcome = run(root, args.plan, base=args.base, changed=args.changed, files=args.files,
-                      skip_validators=args.skip_validators)
+                      skip_validators=args.skip_validators, save_baseline=args.save_baseline,
+                      saved_baseline=args.baseline)
     except knowledge.KnowledgeTableError as exc:
         report.fail(report.EXIT_USAGE, f"ERROR KNOWLEDGE_TABLE {exc}")
     return report.render(outcome.reports, header=HEADER, lines=outcome.lines, summary=outcome.summary)

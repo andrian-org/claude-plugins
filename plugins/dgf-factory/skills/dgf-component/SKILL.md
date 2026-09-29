@@ -84,7 +84,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_components.py" "<root>/<file>"
 | `0` | Relay the `FAMILY:` line — the file's family, `json` or `xsd` — and any `INFO` line. |
 | `1` | Relay every `ERROR` line: each is a defect the file has now. Inspect on. |
 | `2` | Relay every `WARN`. `PARITY_NOT_RUNTIME` or `PARITY_PARTIAL` → the runtime does not read this component from JSON, or reads part of it from XML: say it plainly, whatever the schema says. `XSD_LAGS_RUNTIME` is advisory: the legacy grammar lags the runtime (ADR 0016). |
-| `3` | `FAMILY_UNRESOLVED` → the file's own defect: it parses as neither family — not XML or JSON at all, or XML whose root no XSD reads; the message says which. Relay it, and inspect on: the route, the reach and, for a form, `validate_model.py` still apply. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | The file's own defect: `FAMILY_UNRESOLVED` — it parses as neither XML nor JSON — or `SCHEMA_UNSELECTABLE` naming its root — XML whose root no XSD reads. Relay it, and inspect on: the route, the reach and, for a form, `validate_model.py` still apply. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 For the route a new component of this type would take, and its parity row:
 
@@ -141,7 +141,7 @@ files alike. Relay every `ERROR` and `WARN` line, and each script's exit:
 | `0` | Clean in both checks |
 | `1` | Blocked — an `ERROR` line names each defect, for example `COMPONENT_FILE_UNRESOLVED` |
 | `2` | Warnings — parity, a lagging grammar, an unknown property the runtime ignores |
-| `3` | `FAMILY_UNRESOLVED` → a file's own defect: it parses as neither family — the message says why. Relay it with the other findings. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error — → **STOP** and relay it. |
+| `3` | A file's own defect: `FAMILY_UNRESOLVED` — it parses as neither XML nor JSON — or `SCHEMA_UNSELECTABLE` naming its root or a missing `type`. Relay it with the other findings. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error — → **STOP** and relay it. |
 
 Suggest `/dgf-plan` for a defect worth fixing, or `/dgf-fix` when a plan already covers the file.
 
@@ -241,7 +241,7 @@ Each script's exit:
 | `0` | Continue to the change check. |
 | `1` | An `ERROR` → correct the file and re-run, at most 3 attempts, then **STOP** with the findings. |
 | `2` | Surface every `WARN`, a `PARITY_*` one said plainly. The change check below decides what strict mode does with it. |
-| `3` | `FAMILY_UNRESOLVED` → the file written parses as neither family — JSON cut short, or XML that is not well-formed or whose root no XSD reads; the message says which: correct it, within the same 3 attempts. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts: JSON cut short, XML with no declaration that does not parse, or a root no XSD reads — the message says which. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin's own defect — run `/dgf-doctor` and reinstall. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 Then the change check over the new file — with git:
 
@@ -256,7 +256,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root
 | `0` | Continue to Step 8. |
 | `1` | A new `ERROR` in the file → correct it, within the same 3 attempts. A `CHANGE_*` error → **STOP**. |
 | `2` | Surface every `WARN`. Under strict mode a new validator `WARN` is corrected like an error. |
-| `3` | **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 ### Step 8: Report
 

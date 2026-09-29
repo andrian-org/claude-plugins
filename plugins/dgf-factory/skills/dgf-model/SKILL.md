@@ -91,7 +91,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>"
   | `0` | Relay the `FAMILY:` line: `xsd`. |
   | `1` | `XML_MALFORMED` → the file does not parse: relay it. Every break of `settings.xsd` is exit `2`, since that grammar lags the runtime. |
   | `2` | Relay every `WARN`. `XSD_LAGS_RUNTIME` is advisory: that grammar lags the runtime (ADR 0016). |
-  | `3` | `FAMILY_UNRESOLVED` → the file's own defect: it does not parse as XML, or its root is one no XSD reads — the message says which. Relay it, and inspect on: `validate_model.py` still reads the file, and reports a file that does not parse as `XML_MALFORMED`. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+  | `3` | The file's own defect: `FAMILY_UNRESOLVED` — it does not parse as XML, having no XML declaration — or `SCHEMA_UNSELECTABLE` naming its root — it parses, but its root is not `entity`. Relay it, and inspect on: `validate_model.py` still reads the file, and reports one that does not parse as `XML_MALFORMED`. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 - `validate_model.py` checks every reference (the table in Step 2).
 - `audit_root.py` names, per application, the processes that reach the entity — through a form it
@@ -171,19 +171,23 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root
 | `2` | `CHANGE_UNPLANNED_FILE` → the gate will warn on this file. Under strict mode (`workflow.verify_mode: strict`) the gate would block on it — **STOP**, and have `/dgf-plan` add it to a task. `CHANGE_TASK_FILE_UNCHANGED` is expected here — ignore it. Surface any other `WARN` line. |
 | `3` | **STOP** and relay it. |
 
-**Without git, take a baseline now, before the write.** With no git the change check has no base
-tree, so it counts every finding in the root as new (ADR 0018 §5) — an old defect in another entity
-included. Run the whole-root check Step 6 will run, once, with the same `A:` or `M:`, and keep its
-`ERROR` and `WARN` lines: they are the root as it was before the write.
+**Without git, save a baseline now, before the write.** With no git the change check has no base
+tree, and would count every old finding in the root as new (ADR 0018 §5) — an old defect in another
+entity included. So the script saves the root's findings as they are before the write, and Step 6
+compares with them (ADR 0025). Pass the same `A:` or `M:` as the scope check:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --save-baseline "<root>/.dgf-factory/baseline.json"
 ```
+
+It judges none of the validators' findings, so its exit is the change checks':
 
 | Exit | Action |
 |---|---|
-| `0`, `1`, `2` | Keep every `ERROR` and `WARN` line, and continue to Step 5. |
-| `3` | An `ERROR FAMILY_UNRESOLVED` line is a file in the root that parses as neither family — a finding like the others: keep it, and continue. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `0` | Continue to Step 5. The `BASELINE:` line says how many findings the root holds now. |
+| `1` | A `CHANGE_*` error → **STOP** before writing anything: `/dgf-plan` widens the plan. |
+| `2` | Continue to Step 5: the change checks' warnings are the scope check's, already handled. |
+| `3` | **STOP** before writing anything, and relay it — `DEPENDENCY_MISSING` with its install command verbatim, or `BASELINE_UNUSABLE` when the file cannot be written. |
 
 ### Step 5: Write
 
@@ -220,7 +224,7 @@ Each script's exit:
 | `0` | Continue to the change check. |
 | `1` | An `ERROR` → correct the file and re-run, at most 3 attempts, then **STOP** with the findings. A `MODEL_REFERENCE_UNRESOLVED` for a view or grid the runtime cannot generate is cured in this file by naming one that exists; otherwise it is the target table's `settings.xml` — its fields or a title — or a scaffolded view or grid, which is `/dgf-component`'s if the plan covers it: **STOP** and name which. |
 | `2` | Surface every `WARN` — `XSD_LAGS_RUNTIME` is advisory, and a `MODEL_REFERENCE_TEMPLATED` view or grid is one the runtime will write into the workspace. The change check below decides what strict mode does with it. |
-| `3` | `FAMILY_UNRESOLVED` → the file written does not parse as XML, or its root is one no XSD reads — the message says which: correct it, within the same 3 attempts. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts: it does not parse as XML, or its root is not `entity` — the message says which. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 Then the change check **over the whole root — no `--files`:** a removed or renamed field unbinds the
 cells of forms the edit never touched (`knowledge/data-model.md` §4), and a removed entity breaks
@@ -230,17 +234,21 @@ every `extract` that names it (§3.2 there). With git:
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
 ```
 
-— without git, the baseline's command again, `--changed M:<file>` (or `A:<file>`) in place of
-`--base`. A finding the baseline also holds, with the same code, file and message whatever its line,
-was in the root before the write: it is pre-existing, as the script's own baseline would call it
-(ADR 0018 §3). Only the others are new.
+Without git, with the baseline Step 4 saved, in place of `--base`:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --baseline "<root>/.dgf-factory/baseline.json"
+```
+
+— with `A:` after an add. Either way the script reports a finding the root already held as `INFO
+PRE_EXISTING`, and only a new one keeps its code and its exit (ADR 0018 §4, ADR 0025).
 
 | Exit | Action |
 |---|---|
 | `0` | Continue to Step 7. |
-| `1` | Take the new `ERROR` lines — without git, those the baseline does not hold; none left → continue as for `2`. A new `ERROR` → in this file, correct it within the same 3 attempts; a new `MODEL_CELL_UNBOUND` in a form → **STOP**: the form is `/dgf-component`'s, and the plan must cover it; a new `ERROR` in any other file this skill did not write — another entity's `settings.xml` included — → **STOP** and report it. A `CHANGE_*` error → **STOP**. `PRE_EXISTING` findings are not this change's. |
+| `1` | A new `ERROR` in this file → correct it within the same 3 attempts; a new `MODEL_CELL_UNBOUND` in a form → **STOP**: the form is `/dgf-component`'s, and the plan must cover it; a new `ERROR` in any other file this skill did not write — another entity's `settings.xml` included — → **STOP** and report it. A `CHANGE_*` error → **STOP**. `PRE_EXISTING` findings are not this change's. |
 | `2` | Surface every new `WARN`. Under strict mode a new validator `WARN` is corrected like an error. |
-| `3` | An `ERROR FAMILY_UNRESOLVED` line on the file written → correct it, within the same 3 attempts; on another file, it is pre-existing when the baseline holds it, and otherwise a new `ERROR` in a file this skill did not write. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. `BASELINE_UNUSABLE` → **STOP** and relay it: never save a new baseline now, since the root already holds the write. Any other → **STOP** and relay it. |
 
 ### Step 7: The database work
 
@@ -261,7 +269,7 @@ to continue the task the file belongs to, then `/dgf-verify`.
 
 - ✅ Check every reference with `validate_model.py`, which resolves it the loader's way
 - ✅ Find and check the plan, and decide the scope with `check_change.py --skip-validators`, before a write
-- ✅ Run the whole-root change check after a write — without git, against the baseline taken before it
+- ✅ Run the whole-root change check after a write — without git, against the baseline `check_change.py` saved before it
 - ✅ Name the database work a change needs, and whether the plan covers it
 - ✅ Take every fact from `knowledge/data-model.md` and the DGF docs MCP
 
@@ -277,6 +285,8 @@ to continue the task the file belongs to, then `/dgf-verify`.
 ## Artifact Ownership
 
 - **Writes:** an entity's `settings.xml`, only inside the plan's scope, one per add or modify.
+  Without git, `check_change.py` writes `.dgf-factory/baseline.json` for it, which the next save
+  overwrites (ADR 0025).
 - **Reads:** the plan, `.dgf-factory/config.yaml`, its override after `check_override.py`, the
   patches, its template, the shipped `knowledge/`, and the DGF docs MCP. It never edits the plan.
 

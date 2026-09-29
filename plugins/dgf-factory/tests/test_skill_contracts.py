@@ -230,6 +230,11 @@ class Permissions(unittest.TestCase):
 WRITERS = ("dgf-component", "dgf-model", "dgf-process")
 VALIDATES_WRITTEN = re.compile(r'scripts/(?:validate_config|validate_process|resolve_components)\.py".*"<root>/<file>"')
 CHECK_CHANGE = re.compile(r'scripts/check_change\.py"')
+# The written file's own exit-3 codes, sent back for correction: FAMILY_UNRESOLVED (no XML declaration and no parse,
+# or JSON cut short) and SCHEMA_UNSELECTABLE (a declared root no XSD reads).
+CORRECTS_WRITTEN = re.compile(r"`FAMILY_UNRESOLVED`,? or `SCHEMA_UNSELECTABLE`(?: naming its root,)? on the file written "
+                              r"→ correct it, within the same 3 attempts")
+SAVED_BASELINE = '"<root>/.dgf-factory/baseline.json"'
 
 
 def sections(skill_md):
@@ -249,37 +254,52 @@ class WritingSkills(unittest.TestCase):
     def confirm(self, found):
         return next(lines for heading, lines in found if "confirm" in heading.lower())
 
-    def test_a_written_file_that_parses_as_neither_family_is_corrected(self):
-        # validate_config, validate_process and resolve_components exit 3 with FAMILY_UNRESOLVED on a file with no XML
-        # declaration that does not parse, or on JSON cut short: the written file's defect, not the call's.
-        for name in WRITERS:
-            rows, after_call = [], False
-            for line in self.confirm(sections(SKILLS / name / "SKILL.md")):
-                if VALIDATES_WRITTEN.search(line):
-                    after_call = True
-                elif after_call and line.startswith("| `3` |"):
-                    rows.append(line)
-                    after_call = False
-            self.assertTrue(rows, f"{name}'s confirm step validates no written file")
-            for row in rows:
-                self.assertIn("FAMILY_UNRESOLVED", row, f"{name}: {row}")
-                self.assertIn("correct it", row, f"{name} stops on a file it wrote instead of correcting it: {row}")
+    def exit_rows(self, lines, call):
+        """{call line: its table's rows by exit} for every line in `lines` that `call` matches."""
+        found, current = {}, None
+        for line in lines:
+            if call.search(line):
+                current = found.setdefault(line, {})
+            elif current is not None and re.match(r"\| `\d`", line):
+                for code in re.findall(r"`(\d)`", line.split("|")[1]):
+                    current.setdefault(code, line)
+            elif current is not None and current and not line.startswith("|"):
+                current = None
+        return found
 
-    def test_a_whole_root_confirm_has_a_baseline_taken_before_the_write_for_a_root_without_git(self):
-        # With no git check_change.py has no base tree and counts every finding as new (ADR 0018 §5): a whole-root
-        # confirm is told the change's findings from the root's old ones only by the same run taken before the write.
+    def test_a_written_file_that_parses_as_neither_family_is_corrected(self):
+        # validate_config, validate_process and resolve_components exit 3 with FAMILY_UNRESOLVED or SCHEMA_UNSELECTABLE
+        # on a file the skill wrote: its own defect, never the call's. The change check after the write says the same.
+        for name in WRITERS:
+            confirm = self.confirm(sections(SKILLS / name / "SKILL.md"))
+            rows = [table["3"] for pattern in (VALIDATES_WRITTEN, CHECK_CHANGE)
+                    for table in self.exit_rows(confirm, pattern).values() if "3" in table]
+            self.assertGreaterEqual(len(rows), 2, f"{name}: the validators' and the change check's exit-3 rows")
+            for row in rows:
+                self.assertRegex(row, CORRECTS_WRITTEN, f"{name} stops on a file it wrote instead of correcting it")
+
+    def test_a_whole_root_confirm_without_git_is_settled_by_the_script_against_a_saved_baseline(self):
+        # With no git check_change.py has no base tree (ADR 0018 §5); a whole-root confirm is settled by the script
+        # against the run --save-baseline wrote before the write, never by the model (rules/base.md, ADR 0025).
         checked = []
         for name in WRITERS:
             found = sections(SKILLS / name / "SKILL.md")
-            if not [line for line in self.confirm(found)
-                    if CHECK_CHANGE.search(line) and "--base" in line and "--files" not in line]:
+            confirm = self.confirm(found)
+            if not [line for line in confirm if CHECK_CHANGE.search(line) and "--base " in line
+                    and "--files" not in line]:
                 continue  # its confirm is narrowed to the file it wrote, which needs no baseline
-            headings = [heading for heading, _ in found]
-            write = next(i for i, heading in enumerate(headings) if re.fullmatch(r"Step \d+: Write", heading))
-            baseline = [line for _, lines in found[:write] for line in lines
-                        if CHECK_CHANGE.search(line) and "--changed" in line
-                        and "--skip-validators" not in line and "--files" not in line]
-            self.assertTrue(baseline, f"{name} confirms over the whole root but takes no baseline before its write")
+            write = next(i for i, (heading, _) in enumerate(found) if re.fullmatch(r"Step \d+: Write", heading))
+            before = [line for _, lines in found[:write] for line in lines]
+            saves = self.exit_rows(before, re.compile(r'check_change\.py" .*--save-baseline'))
+            self.assertEqual(len(saves), 1, f"{name} saves no baseline before its write")
+            (save, table), = saves.items()
+            self.assertIn(f"--save-baseline {SAVED_BASELINE}", save)
+            self.assertNotIn("--files", save)
+            for code in ("0", "2"):
+                self.assertRegex(table.get(code, ""), r"\| Continue", f"{name}: the baseline run's exit {code}")
+            compares = [line for line in confirm if CHECK_CHANGE.search(line) and "--baseline" in line]
+            self.assertEqual(compares, [line.replace(f"--save-baseline {SAVED_BASELINE}", f"--baseline {SAVED_BASELINE}")
+                                        for line in [save]], f"{name} compares with another run than it saved")
             checked.append(name)
         self.assertEqual(checked, ["dgf-model", "dgf-process"])
 

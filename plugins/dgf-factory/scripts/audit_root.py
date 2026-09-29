@@ -276,7 +276,7 @@ def chain_text(chain, target):
     return " > ".join(hops + [target])
 
 
-def reach_one(rel, status, graphs, root, rep, lines):
+def reach_one(rel, status, graphs, root, rep, lines, narrowed=False):
     from lib import graph as graph_lib
     # Exactly as on Linux, where DGF runs: APFS and NTFS would find `ax.notify` for `AX.Notify`, and the graph,
     # whose nodes carry the case on disk, would then report that nothing reaches it (RULES.md rule 2).
@@ -299,10 +299,13 @@ def reach_one(rel, status, graphs, root, rep, lines):
                  (" deleted — reached through references that now resolve nowhere" if deleted else ""))
     ws = rel.split("/")[0]
     if ws != workspace.BASE_WORKSPACE and ws not in graphs:
-        # Narrowed by --app to other applications: no graph holds this file's own processes, so nothing was walked.
+        # No graph holds this file's own processes, so nothing was walked: --app left its application out, or the
+        # workspace is no application under the root now — a change that deleted it, say.
         lines.append(f"NOT AUDITED: {ws} — --app narrowed the audit to {', '.join(graphs)}, so no process of {ws} "
-                     f"was walked")
-        report.debug("audit_root.reach_one", "not audited", file=rel, workspace=ws, apps=",".join(graphs))
+                     f"was walked" if narrowed else
+                     f"NONE: {ws} — no application `{ws}` is under the root now, so no process of it was walked")
+        report.debug("audit_root.reach_one", "no graph", file=rel, workspace=ws, narrowed=narrowed,
+                     apps=",".join(graphs))
         return
     for app, g in graphs.items():
         if ws not in (app, workspace.BASE_WORKSPACE):
@@ -331,7 +334,7 @@ def audit_reach(args, root, apps, rep, lines):
     graphs = {app: graph.build(root, app) for app in apps}
     rep.ran("graph")
     for rel, status in targets:
-        reach_one(rel, status, graphs, root, rep, lines)
+        reach_one(rel, status, graphs, root, rep, lines, narrowed=bool(args.app))
     rep.ran("reach")  # only once every target is reached
     if args.app:
         narrowed(rep, args.app)

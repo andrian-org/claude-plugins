@@ -43,7 +43,8 @@ class SpineCodes(unittest.TestCase):
     """The pipeline spine's codes force the exits ADR 0017 and ADR 0018 give them."""
 
     EXPECTED = {
-        report.EXIT_USAGE: ("ROOT_NO_WORKSPACE", "PLAN_UNREADABLE", "PLAN_FORMAT_UNSUPPORTED"),
+        report.EXIT_USAGE: ("ROOT_NO_WORKSPACE", "PLAN_UNREADABLE", "PLAN_FORMAT_UNSUPPORTED",
+                            "BASELINE_UNUSABLE"),  # a writing skill's saved baseline (ADR 0025)
         report.EXIT_BLOCKED: (
             "ROOT_NOT_SET_UP", "ROOT_AMBIGUOUS", "PLAN_NOT_FOUND", "PLAN_AMBIGUOUS", "PLAN_FIELD_MISSING",
             "PLAN_FIELD_INVALID", "PLAN_UNKNOWN_WORKSPACE", "PLAN_BASE_REASON_MISSING", "PLAN_BRANCH_MISMATCH",

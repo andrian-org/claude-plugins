@@ -321,6 +321,12 @@ class Audit(unittest.TestCase):
         self.assertNotIn("APP: a", out)  # a's processes cannot reach b's own file
         self.assertNotIn("NONE:", out)   # nothing was walked, so no reach is claimed either way
 
+    def test_a_change_in_a_workspace_no_longer_under_the_root_is_not_blamed_on_app(self):
+        code, out, _ = self.audit("--changed", "D:gone/FM/_WORKFLOW/X/_workflow.xml")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("NOT AUDITED", out)  # no --app was given
+        self.assertIn("NONE: gone — no application `gone` is under the root now, so no process of it was walked", out)
+
     def test_reach_on_a_file_nothing_reaches(self):
         code, out, _ = self.audit("--reach", "webasm/FM/_WORKFLOW/Idle/_workflow.xml")
         self.assertIn("NONE: a — no traced reference reaches it", out)
