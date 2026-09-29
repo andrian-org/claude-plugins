@@ -4,6 +4,13 @@
 const crypto = require('crypto');
 const fs = require('fs');
 
+const raw = db.getMongo().host.split(',')[0];
+const host = raw.startsWith('[') ? raw.slice(1, raw.indexOf(']')) : raw.replace(/:\d+$/, '');
+if (!['localhost', '127.0.0.1', '::1'].includes(host)) {
+  print(`refused: ${host} is not the local compose mongo`);
+  quit(2);
+}
+
 const pkg = JSON.parse(fs.readFileSync(process.env.ZC_PACKAGE, 'utf8'));
 const username = process.env.ZC_TEST_USER;
 const password = process.env.ZC_TEST_PASSWORD;

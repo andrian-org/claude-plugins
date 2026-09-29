@@ -367,6 +367,43 @@ PARAM_HDR = ["**In**", "**Name**", "**Type**", "**Description**"]
 RESP_HDR = ["**Status**", "**Content-Type**", "**Type**", "**Description**"]
 
 
+def strip_office_metadata(parts):
+    """Remove the SharePoint and Office bookkeeping a document picks up in a company library.
+
+    `customXml/` holds the library's content-type schema and the organisation's SharePoint
+    namespace GUIDs, `docProps/custom.xml` the matching ContentTypeId, and `docProps/app.xml`
+    a cached `HLinks` list of every hyperlink the document ever had. None of it is rendered,
+    and all of it reaches whoever receives the file.
+    """
+    for name in [n for n in parts if n.startswith("customXml/")]:
+        del parts[name]
+
+    types = parts["[Content_Types].xml"].decode("utf-8")
+    parts["[Content_Types].xml"] = re.sub(
+        r'<Override PartName="/customXml/[^"]*"[^>]*/>', "", types).encode("utf-8")
+
+    for rels in [n for n in parts if n.endswith(".rels")]:
+        xml = parts[rels].decode("utf-8")
+        parts[rels] = re.sub(r'<Relationship [^>]*Target="[^"]*customXml/[^"]*"[^>]*/>',
+                             "", xml).encode("utf-8")
+
+    if "docProps/custom.xml" in parts:
+        custom = parts["docProps/custom.xml"].decode("utf-8")
+        custom = re.sub(r'<property [^>]*name="(ContentTypeId|MediaServiceImageTags)".*?</property>',
+                        "", custom, flags=re.S)
+        parts["docProps/custom.xml"] = custom.encode("utf-8")
+
+    app = parts["docProps/app.xml"].decode("utf-8")
+    app = re.sub(r"<HLinks>.*?</HLinks>", "", app, flags=re.S)
+    app = re.sub(r"<TotalTime>\d+</TotalTime>", "<TotalTime>0</TotalTime>", app)
+    parts["docProps/app.xml"] = app.encode("utf-8")
+
+    core = parts["docProps/core.xml"].decode("utf-8")
+    core = re.sub(r"<cp:lastPrinted>.*?</cp:lastPrinted>", "", core, flags=re.S)
+    core = re.sub(r"<cp:revision>\d+</cp:revision>", "<cp:revision>1</cp:revision>", core)
+    parts["docProps/core.xml"] = core.encode("utf-8")
+
+
 def scrub_package(path, doc_title):
     """Strip everything the template carried in that must not reach a third party.
 
@@ -379,6 +416,7 @@ def scrub_package(path, doc_title):
     with zipfile.ZipFile(path) as zf:
         parts = {n: zf.read(n) for n in zf.namelist()}
 
+    strip_office_metadata(parts)
     core = parts["docProps/core.xml"].decode("utf-8")
     for tag, value in (("dc:title", doc_title),
                        ("dc:subject", "API Specification"),

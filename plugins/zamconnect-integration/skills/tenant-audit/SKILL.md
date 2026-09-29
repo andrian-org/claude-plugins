@@ -401,6 +401,8 @@ $C exec -T -e ZC_PACKAGE=/tmp/gateway-package.json -e ZC_TEST_USER=test<TenantNa
 $C exec -T mongo rm -f /tmp/gateway-package.json /tmp/apply-local-gateway.js
 ```
 
+The script refuses to run (exit 2, `refused: <host> is not the local compose mongo`) unless mongosh is connected to `localhost`, `127.0.0.1` or `::1`, which is what `docker exec mongo` gives it. Report a refusal as a `fail` and never work around it.
+
 It prints the scope, cluster and route ids with `created` / `exists` / `updated`, plus the user and its scopes. A mongosh error is a `fail`: quote the error message and stop 9b. The script prints no cluster addresses or other config values, and the report shouldn't either.
 
 The gateway picks up the change on its next `YarpStatusWorker` poll, every 30 s. Wait 35 s before 9c.

@@ -179,6 +179,15 @@ if "pageBreakBefore" not in h2:
 
 parts["word/styles.xml"] = styles_xml.encode("utf-8")
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from openapi_to_docx import strip_office_metadata  # noqa: E402
+
+strip_office_metadata(parts)
+core = parts["docProps/core.xml"].decode("utf-8")
+core = re.sub(r"<dc:creator>.*?</dc:creator>", "<dc:creator>dotGov Solutions LLC</dc:creator>", core, flags=re.S)
+core = re.sub(r"<cp:lastModifiedBy>.*?</cp:lastModifiedBy>", "<cp:lastModifiedBy/>", core, flags=re.S)
+parts["docProps/core.xml"] = core.encode("utf-8")
+
 with zipfile.ZipFile(OUTPUT, "w", zipfile.ZIP_DEFLATED) as zf:
     for name, data in parts.items():
         zf.writestr(name, data)

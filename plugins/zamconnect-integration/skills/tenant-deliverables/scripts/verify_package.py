@@ -166,6 +166,15 @@ def check_docx(path: Path, version: str | None) -> list[str]:
         fails.append("dc:creator is not dotGov Solutions LLC")
     if any(n.startswith("[trash]") for n in z.namelist()):
         fails.append("stray [trash] part")
+    if any(n.startswith("customXml/") for n in z.namelist()):
+        fails.append("customXml/ part carries SharePoint library metadata")
+    if "docProps/custom.xml" in z.namelist() and re.search(
+            r'name="(ContentTypeId|MediaServiceImageTags)"', z.read("docProps/custom.xml").decode("utf8")):
+        fails.append("SharePoint ContentTypeId in docProps/custom.xml")
+    if "<HLinks>" in z.read("docProps/app.xml").decode("utf8"):
+        fails.append("cached HLinks list in docProps/app.xml")
+    if "<cp:lastPrinted>" in core:
+        fails.append("cp:lastPrinted populated")
     if "word/media/image1.png" not in z.namelist():
         fails.append("cover logo missing")
 
