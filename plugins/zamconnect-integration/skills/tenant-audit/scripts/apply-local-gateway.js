@@ -4,7 +4,9 @@
 const crypto = require('crypto');
 const fs = require('fs');
 
-const raw = db.getMongo().host.split(',')[0];
+const conn = db.getMongo();
+// mongosh 2.x no longer exposes Mongo.host; fall back to the connection URI.
+const raw = conn.host ? conn.host.split(',')[0] : new URL(conn._uri).host;
 const host = raw.startsWith('[') ? raw.slice(1, raw.indexOf(']')) : raw.replace(/:\d+$/, '');
 if (!['localhost', '127.0.0.1', '::1'].includes(host)) {
   print(`refused: ${host} is not the local compose mongo`);
