@@ -22,7 +22,7 @@ grammar) — and then learns the *system you build with it*.
 Once published, teammates install it from the internal `dotgov` marketplace:
 
 ```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
+claude plugin marketplace add andrian-org/claude-plugins
 claude plugin install dgf-factory@dotgov
 ```
 

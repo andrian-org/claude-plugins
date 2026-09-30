@@ -1,18 +1,27 @@
 # dotGov Claude Code Plugins
 
-Internal plugin marketplace for dotGov Solutions. Hosted in Azure DevOps — access is controlled by
-the `dotgov` project's repo permissions, so only teammates who can clone this repo can install
-from it.
+Internal plugin marketplace for dotGov Solutions. Hosted in a private GitHub repository — access is
+controlled by the repo's permissions, so only teammates who can read this repo can install from it.
 
-Clone URL: `https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins`
+Repository: `https://github.com/andrian-org/claude-plugins`
+
+The marketplace is named `dotgov` (the `name` in `.claude-plugin/marketplace.json`), independent of
+the repo name — install ids are `<plugin>@dotgov`.
 
 ## For teammates: one-time setup
 
-Run the first command in a **normal interactive terminal**, not inside a Claude Code session —
-Git Credential Manager may need to prompt for Azure DevOps sign-in:
+Claude Code runs `git` with interactive prompts turned off, so it needs a credential that is
+already stored for GitHub. Sign in once with the GitHub CLI:
 
 ```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
+gh auth login
+gh auth setup-git
+```
+
+An SSH key loaded in `ssh-agent` works too. Then add the marketplace and install:
+
+```bash
+claude plugin marketplace add andrian-org/claude-plugins
 claude plugin install doc-coverage-audit@dotgov
 ```
 
@@ -22,8 +31,11 @@ Restart Claude Code, then confirm:
 claude plugin list
 ```
 
-If the `add` fails with `unable to get password from user`, you are running non-interactively.
-Do `git clone <url>` once by hand so GCM caches the credential, then retry.
+If the `add` fails with an authentication error (for example `could not read Username`), no
+credential is stored yet: run the two `gh` commands above and retry. On a machine with no GitHub
+SSH key, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` to skip the SSH attempt. The same stored
+credential is what lets Claude Code refresh the marketplace in the background — a `GITHUB_TOKEN`
+environment variable alone does not.
 
 ## Automatic provisioning (recommended)
 
@@ -32,7 +44,7 @@ Let the CLI write the entry rather than hand-authoring it:
 
 ```bash
 cd /path/to/your/project
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins --scope project
+claude plugin marketplace add andrian-org/claude-plugins --scope project
 ```
 
 That produces `.claude/settings.json`:
@@ -42,16 +54,19 @@ That produces `.claude/settings.json`:
   "extraKnownMarketplaces": {
     "dotgov": {
       "source": {
-        "source": "git",
-        "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
+        "source": "github",
+        "repo": "andrian-org/claude-plugins"
       }
     }
   },
-  "enabledPlugins": ["doc-coverage-audit@dotgov"]
+  "enabledPlugins": {
+    "doc-coverage-audit@dotgov": true
+  }
 }
 ```
 
-Add `enabledPlugins` yourself. Commit the file — a fresh clone is then ready to go.
+Add `enabledPlugins` yourself. Commit the file — a fresh clone is then ready to go, once the
+teammate has read access to the repo and the GitHub credential from the setup above.
 
 ## Plugins
 

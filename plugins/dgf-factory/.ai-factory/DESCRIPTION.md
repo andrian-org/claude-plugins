@@ -92,7 +92,7 @@ Not yet created: the DGF-specific skills, `agents/` and the marketplace entry.
 - **Packaging:** Claude Code plugin — `.claude-plugin/plugin.json` + marketplace entry
 - **Target framework (the domain being encoded):** DotGov Framework — .NET 10 / Angular 19
 - **Build system:** none. There is no compile step; the artifacts are Markdown and scripts
-- **Version control:** git, Azure DevOps (`dev.azure.com/dotgov/Core/dotgov-claude-plugins`), base branch `main`
+- **Version control:** git, GitHub (`github.com/andrian-org/claude-plugins`), base branch `main`
 
 ## Target Framework Facts (verified)
 

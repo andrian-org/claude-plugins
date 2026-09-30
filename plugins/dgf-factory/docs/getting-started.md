@@ -13,7 +13,7 @@ samples. Installing it from the marketplace is not yet possible: the plugin load
 | Claude Code | current | The runtime that loads skills and agents |
 | Node.js | ≥ 18 | AI Factory CLI and `.mjs` helper scripts |
 | Python | 3.9+ | Validator scripts and the skill security scanner |
-| Git | any | Azure DevOps remote; LF line endings enforced |
+| Git | any | GitHub remote; LF line endings enforced |
 | uv | any | Only to regenerate `scripts/requirements.txt` |
 
 Read access to the DotGov Framework repository is effectively required — the whole point
@@ -22,8 +22,8 @@ of this plugin is encoding DGF facts, and facts must be verified against the sou
 ## Clone and open
 
 ```bash
-git clone https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
-cd dotgov-claude-plugins/plugins/dgf-factory
+git clone https://github.com/andrian-org/claude-plugins
+cd claude-plugins/plugins/dgf-factory
 ```
 
 Open `plugins/dgf-factory/` as the working directory, not the repo root. The AI Factory
