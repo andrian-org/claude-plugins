@@ -238,6 +238,13 @@ or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no p
 | `reference-edges` | [`reference-graph.md`](reference-graph.md) §1 — `Element` and `Attribute` are multi-valued; `Checked by` names a validator |
 | `run-time-names` | [`reference-graph.md`](reference-graph.md) §3.1 |
 | `role-sources` | [`permissions.md`](permissions.md) §2 |
+| `field-types` | [`data-model.md`](data-model.md) §6.1 |
+| `db-types` | [`data-model.md`](data-model.md) §6.2 |
+| `field-sql-types` | [`data-model.md`](data-model.md) §6.3 — derived by `tools/derive_sql_types.py` |
+| `workspace-minimum` | [`application-layout.md`](application-layout.md) §1 — `Required` and `Rule` are space-separated tokens |
+| `instance-models` | [`application-layout.md`](application-layout.md) §4 |
+| `auth-schemes` | [`application-layout.md`](application-layout.md) §5 — `Keys` is space-separated |
+| `solution-parts` | [`application-layout.md`](application-layout.md) §7 — `Verified values` and `Placeholders` are space-separated |
 
 ## See Also
 

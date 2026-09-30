@@ -1,6 +1,6 @@
 ---
 dgf_version: "1.1.11"
-read_date: 2026-09-28
+read_date: 2026-09-30
 ---
 
 # Data model — entities, fields, relations, and what the loaders do with a reference
@@ -218,6 +218,105 @@ entity.
   it.
 - **Roles and the `aspnet_Applications` row** that registers a workspace are database rows too; see
   [`permissions.md`](permissions.md).
+
+## 6. Field types, `dbtype`, and the SQL type of a column
+
+Unlike §1–§5, this section is derived from the samples, because nothing else answers it: **no DGF code
+turns a `settings.xml` into a `CREATE TABLE`**, and the runtime reads `dbtype` as a free string
+(`Field.DbTypeName`) — it uses it only to tell a database field from a user-defined one (an empty
+`dbtype`), and in one diagnostic that expects a `*By` field to be `Int32`. So the mapping below is a
+tally of the entities that DGF's own samples pair with a table script, not a rule the engine enforces.
+
+### 6.1 The field types
+
+`type` is a `FieldTypeEnum` member (§2); the counts below are §2's, over three workspaces. The vendored `settings.xsd` declares eleven of the thirteen,
+plus two names the runtime does not have, `Decimal` and `Memo`; it lacks `PrimaryKey` and `Checkboxlist`,
+so every file using either warns `XSD_LAGS_RUNTIME`.
+
+<!-- machine-read: field-types -->
+| Type | In settings.xsd | Fact |
+|---|---|---|
+| `PrimaryKey` | no | 0 fields in the samples, which type a key as Text and Guid, or Integer and Int32 |
+| `Lookup` | yes | 931 fields; carries an extract, and may carry a relation |
+| `Picklist` | yes | 802 fields; carries an extract, and may carry a binding |
+| `Checkboxlist` | no | 0 fields in the samples |
+| `Text` | yes | 3987 fields; the type of a string, of a Guid and of the key of most tables |
+| `Html` | yes | 1 field |
+| `Integer` | yes | 832 fields |
+| `Float` | yes | 25 fields |
+| `Money` | yes | 55 fields |
+| `Boolean` | yes | 567 fields |
+| `DateTime` | yes | 1000 fields |
+| `EditableGrid` | yes | 146 fields; carries the slave grid, and has no column of its own |
+| `Image` | yes | 51 fields |
+
+### 6.2 The `dbtype` values
+
+`dbtype` names the column's .NET type. An empty `dbtype` is a field with no column of its own — a
+lookup's display, an editable grid, a user-defined field; 200 fields in the two workspaces' entities
+have one. These are the values the samples use with a table script, counted over the `webasm` and `dgf`
+entities.
+
+<!-- machine-read: db-types -->
+| Dbtype | Fact |
+|---|---|
+| `String` | 1093 fields |
+| `StringUnicode` | 117 fields |
+| `Boolean` | 236 fields |
+| `DateTime` | 356 fields |
+| `DateTimeOffset` | 2 fields |
+| `Decimal` | 29 fields |
+| `Double` | 10 fields |
+| `Guid` | 521 fields |
+| `Int16` | 451 fields |
+| `Int32` | 240 fields |
+| `Int64` | 81 fields |
+| `Byte[]` | 19 fields |
+
+Four spellings occur once or twice and are not a sound basis for a column: `Text` (2 fields, one of
+which sits on a `BIT` column), `Integer` (1, on a `SMALLINT`), `smallint` (1) and the empty string above.
+
+### 6.3 The SQL type of a column
+
+`tools/derive_sql_types.py` pairs every `FM/_DATA/<T>/settings.xml` in the `webasm` and `dgf` sample
+workspaces with the baseline's `dbo/Tables/<T>.sql` by exact case, and reads each field's `dbtype` and
+`size` and the column's declared type. **86 pairs; 1752 fields; 1627 of them have a column, 13 of which
+are computed (`AS`) and skipped, leaving 1614 tallied.** Per `dbtype` it reports the majority SQL type
+and its share.
+
+The size rule says how the column's length relates to the field's `size`:
+
+| Size rule | Meaning |
+|---|---|
+| `size` | the column length is the field's `size`; a `(MAX)` column has the size `2147483647` |
+| `none` | the column has no length, precision or scale |
+| `precision` | a `DECIMAL` column; precision and scale are never in the settings file |
+| `fixed` | the column has a length or precision that no field attribute gives |
+| `max` | a `(MAX)` column whose field has no `size` |
+
+<!-- machine-read: field-sql-types -->
+| Dbtype | Size rule | SQL type | Evidence |
+|---|---|---|---|
+| `String` | size | VARCHAR(size) | 468/551 fields; alternatives NVARCHAR(size) 77, NCHAR(size) 6 |
+| `StringUnicode` | size | NVARCHAR(size) | 55/55 fields |
+| `Boolean` | none | BIT | 130/130 fields |
+| `DateTime` | none | DATETIME | 168/176 fields; alternatives DATE 4, SMALLDATETIME 4; 10 more fields are DATETIME2(7) |
+| `DateTimeOffset` | fixed | DATETIMEOFFSET(7) | 1/1 fields |
+| `Decimal` | precision | DECIMAL(18,2) | 13/14 fields; alternative DECIMAL(18) 1; 3 more fields are MONEY |
+| `Double` | fixed | FLOAT(53) | 6/6 fields |
+| `Guid` | none | UNIQUEIDENTIFIER | 246/246 fields |
+| `Int16` | none | SMALLINT | 243/244 fields; alternative TINYINT 1 |
+| `Int32` | none | INT | 125/126 fields; alternative SMALLINT 1 |
+| `Int64` | none | BIGINT | 26/27 fields; alternative SMALLINT 1 |
+| `Byte[]` | max | VARBINARY(MAX) | 4/4 fields; 5 more fields are IMAGE |
+
+Two facts the tally shows and a reader would otherwise guess:
+
+- **A unicode string is spelled `StringUnicode`**, not `String` with a flag: all 55 of those fields sit on
+  `NVARCHAR`. `String` is `VARCHAR` in 468 of 551 fields and `NVARCHAR` in 77, so a string that must hold
+  non-Latin text is `StringUnicode`.
+- **A decimal's precision and scale are never in the settings file**; the columns hold `DECIMAL (18, 2)`
+  in 13 of 14 cases. A column of any other precision is a choice the settings file cannot state.
 
 ## See Also
 

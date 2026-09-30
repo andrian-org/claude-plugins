@@ -23,6 +23,13 @@ EXPECTED_ROWS = {
     "reference-edges": 21,
     "run-time-names": 3,
     "role-sources": 6,
+    "field-types": 13,
+    "db-types": 12,
+    "field-sql-types": 12,
+    "workspace-minimum": 6,
+    "auth-schemes": 3,
+    "instance-models": 2,
+    "solution-parts": 11,
 }
 
 

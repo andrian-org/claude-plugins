@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entity version="4.0">
+  <datasource type="DB" name="Beta" />
+  <primarykey>Name</primarykey>
+  <fields>
+    <field name="Name" type="Text" dbtype="String" size="10" />
+    <field name="Uni" type="Text" dbtype="StringUnicode" size="5" />
+  </fields>
+</entity>

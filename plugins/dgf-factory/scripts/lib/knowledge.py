@@ -101,6 +101,41 @@ TABLES = {
         ("Source", "File", "Element", "Attribute", "Separator", "Meaning"),
         {"Separator": {",", "—"}},
     ),
+    "field-types": (
+        "data-model.md",
+        ("Type", "In settings.xsd", "Fact"),
+        {"In settings.xsd": {"yes", "no"}},
+    ),
+    "db-types": (
+        "data-model.md",
+        ("Dbtype", "Fact"),
+        {},
+    ),
+    "field-sql-types": (
+        "data-model.md",
+        ("Dbtype", "Size rule", "SQL type", "Evidence"),
+        {"Size rule": {"size", "none", "precision", "fixed", "max"}},
+    ),
+    "workspace-minimum": (
+        "application-layout.md",
+        ("File", "Root", "Required", "Rule", "Fact"),
+        {},
+    ),
+    "auth-schemes": (
+        "application-layout.md",
+        ("Provider", "Section", "Keys", "Fact"),
+        {},
+    ),
+    "instance-models": (
+        "application-layout.md",
+        ("Model", "Mounts", "Sitemap", "Applications row", "Fact"),
+        {"Mounts": {"shared", "own"}, "Sitemap": {"override", "own"}, "Applications row": {"per-instance"}},
+    ),
+    "solution-parts": (
+        "application-layout.md",
+        ("Part", "Verified values", "Placeholders", "Fact"),
+        {},
+    ),
 }
 
 # `Resolves as` in reference-edges -> how many parts a reference passes to the rule. A row whose
