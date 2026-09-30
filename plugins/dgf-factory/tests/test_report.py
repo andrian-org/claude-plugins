@@ -88,7 +88,7 @@ class LearningCodes(unittest.TestCase):
 
 
 class ModelCodes(unittest.TestCase):
-    """The model's codes block only where the loader throws (ADR 0023 §3)."""
+    """The model's codes block only where the loader throws (ADR 0027 §3)."""
 
     EXPECTED = {
         report.EXIT_BLOCKED: ("MODEL_REFERENCE_UNRESOLVED", "MODEL_ENTITY_UNLOADABLE", "MODEL_CELL_UNBOUND"),
@@ -102,7 +102,7 @@ class ModelCodes(unittest.TestCase):
 
 
 class AuditCodes(unittest.TestCase):
-    """The audit's codes: a report, never a gate (ADR 0023 §5)."""
+    """The audit's codes: a report, never a gate (ADR 0027 §5)."""
 
     EXPECTED = {
         report.EXIT_USAGE: ("AUDIT_REACH_NOT_ARTIFACT", "AUDIT_CHECK_FAILED"),

@@ -13,13 +13,13 @@ Work on one entity: the folder `FM/_DATA/<Entity>/` and its `settings.xml` — i
 fields, and the references its fields make (`extract`, `relation`, `slavegrid`, `binding`).
 **Inspect** and **validate** only read. **Add** writes a new `settings.xml` and **modify** edits one,
 and both work only inside the active plan's scope, decided by a script before the write
-(ADR 0023 §1).
+(ADR 0027 §1).
 
 **The references are checked the way each loader resolves them** (`knowledge/data-model.md` §3):
 a table's name is cleaned before `BASE:` is tested, a dialog has no base path, and a missing table
 or dialog throws while a missing view, grid or form is generated and written into the workspace —
 unless that generation throws, which depends on the table's fields (§3.6).
-`validate_model.py` blocks only where the loader throws (ADR 0023 §3).
+`validate_model.py` blocks only where the loader throws (ADR 0027 §3).
 
 **The schema is not in the workspaces root.** An entity's `datasource` names a database table or
 view, and a relation's `table` a junction table (`knowledge/data-model.md` §1, §3.3): a change to
@@ -151,7 +151,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root
 | `2` | Continue, and surface every `WARN` line. |
 | `3` | **STOP** and relay it. |
 
-**The partition** (ADR 0023 §2): this skill writes an entity's `settings.xml` only. A form, view,
+**The partition** (ADR 0027 §2): this skill writes an entity's `settings.xml` only. A form, view,
 grid form or options file → **STOP**: `/dgf-component`'s. A process or workflow → **STOP**:
 `/dgf-process`'s.
 

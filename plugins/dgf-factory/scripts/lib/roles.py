@@ -1,4 +1,4 @@
-"""roles.py — every role name a workspaces root uses, and where (ADR 0023 §6, DD9).
+"""roles.py — every role name a workspaces root uses, and where (ADR 0027 §6, DD9).
 
 Nothing in a root declares a role: roles are database rows
 (knowledge/permissions.md §1). So this is an inventory, not a check. It reads

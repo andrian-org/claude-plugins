@@ -8,7 +8,7 @@ cannot drift apart. Over a root it validates:
   - every file a directory walk collects — the legacy artifact files and the
     component JSON — with validate_config and resolve_components;
   - of those, every entity `settings.xml` and every `_form.xml`, with
-    validate_model too: the references they make, and a form's cells (ADR 0023 §3).
+    validate_model too: the references they make, and a form's cells (ADR 0027 §3).
 
 With `files` (paths relative to the root), the same three lists are made and
 kept to those files, so a file is routed to exactly the validators the

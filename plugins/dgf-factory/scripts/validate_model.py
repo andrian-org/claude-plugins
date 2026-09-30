@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""validate_model.py — check the references an entity and a form make, and an entity's own load (ADR 0023 §3).
+"""validate_model.py — check the references an entity and a form make, and an entity's own load (ADR 0027 §3).
 
 For each `FM/_DATA/<E>/settings.xml` and `FM/_DATA/<E>/_forms/<f>/_form.xml`,
 every reference-edges row whose `Checked by` is this script

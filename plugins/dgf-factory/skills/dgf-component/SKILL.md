@@ -13,11 +13,11 @@ Work on one piece of component configuration: a modern JSON component under
 `FM/_COMPONENTS/<Type>/<name>.json`, or a legacy form, table view, lookup view, grid form or
 options file under `FM/_DATA/<table>/`. **Inspect** and **validate** only read, and run anywhere
 in a workspaces root. **Scaffold** writes one new file, and only inside the active plan's scope,
-decided by a script before the write (ADR 0023 §1).
+decided by a script before the write (ADR 0027 §1).
 
 Every file keeps its family, and a passing JSON schema is not the runtime reading JSON: parity is
 checked by the script, not assumed. A process or a workflow is `/dgf-process`'s to write, and an
-entity's `settings.xml` is `/dgf-model`'s (ADR 0023 §2).
+entity's `settings.xml` is `/dgf-model`'s (ADR 0027 §2).
 
 AI Factory has no component skill: it is framework-agnostic. This skill takes the shape of
 `/dgf-fix` for writing — plan first, scope by script, confirm by the same check — and adds the
@@ -182,7 +182,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type or legacy artifact>
 | `2` | The same, with a `PARITY_PARTIAL` warning: part of the component is still read from XML. Say which part. |
 | `3` | `ROUTE_NO_ROW` → **STOP**: no route is ever guessed. |
 
-**The partition** (ADR 0023 §2). A route to
+**The partition** (ADR 0027 §2). A route to
 `process.xml` or `_workflow.xml` → **STOP**: that is `/dgf-process`'s. A route to an entity's
 `settings.xml` → **STOP**: that is `/dgf-model`'s. Everything else — a JSON component, a `form`,
 `table-view`, `lookup-view`, `grid-form` or `options` file — is this skill's.

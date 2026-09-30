@@ -1,4 +1,4 @@
-"""graph.py — the reference graph of one application, resolved the engine's way (ADR 0023 §4, DD8).
+"""graph.py — the reference graph of one application, resolved the engine's way (ADR 0027 §4, DD8).
 
 A node is a configuration file, named by its path relative to the workspaces
 root. An edge is one reference, read by edges.py from a reference-edges row

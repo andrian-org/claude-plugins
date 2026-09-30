@@ -219,7 +219,7 @@ same change — and keep its header exactly as it is. The marker is the only cou
 knowledge file and the code that reads it: the file still states DGF facts and names no script — with
 one exception. The `Checked by` column of `reference-edges` names the plugin validator that reports an
 edge resolving nowhere, so that such a reference is reported once and by one script
-([ADR 0023](../docs/adr/0023-dgf-specific-skills.md) §4–§5). It names a validator's file, never a skill
+([ADR 0027](../docs/adr/0027-dgf-specific-skills-revised.md) §4–§5). It names a validator's file, never a skill
 or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no provenance.
 
 | Table id | File |

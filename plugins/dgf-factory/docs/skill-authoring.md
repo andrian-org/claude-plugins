@@ -141,7 +141,7 @@ cannot use is `BASELINE_UNUSABLE`, exit `3`.
 Only a whole-root run records the check `validators` as run. A `check_change.py --files` run —
 `/dgf-implement`'s per-task pre-check — prints `NOT RUN: validators (narrowed to <n> file(s) by
 --files; …)`, so a narrowed run can never read as a gate pass
-([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0022](adr/0022-gate-block-contract-revised.md) §4).
+([ADR 0026](adr/0026-authoring-entry-point-revised.md) §3, [ADR 0022](adr/0022-gate-block-contract-revised.md) §4).
 
 Each finding code has one fixed severity, and the exit code is the worst across all files,
 with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and

@@ -75,10 +75,10 @@ plugins/dgf-factory/
 | `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
 | `patches.py` | The patch file — name, fields, sections — and the patch cursor ([ADR 0024](adr/0024-learning-loop-revised.md) §1) |
 | `overrides.py` | The override template, its sources, the `FORBIDDEN` constructs and the `LIMIT_WORDS` it hands to judgement (ADR 0024 §5) |
-| `model.py` | Each model loader's own resolution rule — table, form, lookup view, dialog, grid — an entity's own load, and a form's bound cells ([ADR 0023](adr/0023-dgf-specific-skills.md) §3) |
+| `model.py` | Each model loader's own resolution rule — table, form, lookup view, dialog, grid — an entity's own load, and a form's bound cells ([ADR 0027](adr/0027-dgf-specific-skills-revised.md) §3) |
 | `edges.py` | One file's references, read row by row of the `reference-edges` table: elements, condition, values, rule; no edge kind is named in code |
-| `graph.py` | The reference graph of one application, reach over it, referrers, unreached shared workflows (ADR 0023 §4) |
-| `roles.py` | Every role name the root uses, read from the `role-sources` table, split as the runtime splits it (ADR 0023 §6) |
+| `graph.py` | The reference graph of one application, reach over it, referrers, unreached shared workflows (ADR 0027 §4) |
+| `roles.py` | Every role name the root uses, read from the `role-sources` table, split as the runtime splits it (ADR 0027 §6) |
 | `gate_result.py` | Builds, validates and renders every `dgf-gate-result` block, its status computed from its entries ([ADR 0022](adr/0022-gate-block-contract-revised.md)); stdlib only, and imports nothing from its package, so `doctor.py` loads it by path |
 
 `verify_gate.py` is the verify gate: it runs `check_plan.py`'s and `check_change.py`'s checks

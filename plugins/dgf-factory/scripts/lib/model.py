@@ -1,4 +1,4 @@
-"""model.py — resolve the data model's references the way each loader does (ADR 0023 §3, DD6).
+"""model.py — resolve the data model's references the way each loader does (ADR 0027 §3, DD6).
 
 knowledge/data-model.md §3 is the source, loader by loader:
 

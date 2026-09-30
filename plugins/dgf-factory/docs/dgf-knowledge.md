@@ -148,7 +148,7 @@ assumptions `[assume]`. Two are now known to be wrong or unsupported:
   `OnStart`, `States`) and `workflow.xsd` (root `Workflow` → `Sequence`, `Input`) are
   machine-checkable, state-machine-shaped grammars, and `format-coverage.md` confirms both
   are the live runtime formats. `/dgf-process` was built on them (decided 2026-09-27,
-  [ADR 0023](adr/0023-dgf-specific-skills.md)): `validate_process.py` checks a process against
+  [ADR 0027](adr/0027-dgf-specific-skills-revised.md)): `validate_process.py` checks a process against
   `process.xsd` and against the runtime model ([ADR 0014](adr/0014-process-verification-runtime-resolution.md)),
   and the skill authors both artifacts in XML only.
 - **"Build a system from scratch" is not the whole picture.** Consumer apps compose
@@ -161,7 +161,7 @@ binary is needed.
 
 **Nothing is still open.** The four remaining questions were closed on 2026-09-21 and
 recorded in [`docs/adr/`](adr/README.md): the estate is brownfield-dominant and a skill's unit
-of work is the whole workspaces root ([0004](adr/0004-authoring-entry-point.md)); process
+of work is the whole workspaces root ([0026](adr/0026-authoring-entry-point-revised.md)); process
 verification is structural-plus-our-own-semantics, with no headless execution
 ([0014](adr/0014-process-verification-runtime-resolution.md), superseding 0006 and 0002); validators run on Python
 with `lxml` and `jsonschema`, reading JSON the way the runtime does

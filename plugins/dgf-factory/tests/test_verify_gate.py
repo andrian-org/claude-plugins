@@ -402,7 +402,7 @@ class WithABase(Base):
 
 @unittest.skipUnless(helpers.have_dependencies() and helpers.have_git(), "needs lxml, jsonschema and git")
 class ModelInTheGate(Base):
-    """validate_model.py is one of the runner's validators, so its findings reach the gate (ADR 0023 §3)."""
+    """validate_model.py is one of the runner's validators, so its findings reach the gate (ADR 0027 §3)."""
 
     ENTITY = ('<entity><primarykey>Id</primarykey><fields><field name="Id" type="PrimaryKey"/>'
               '<field name="S" type="Lookup"><extract table="{table}"/></field></fields></entity>\n')

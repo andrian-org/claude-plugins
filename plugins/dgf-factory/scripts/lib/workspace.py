@@ -166,7 +166,7 @@ def _resolve(scope, parts, owner, root, module_fn, app=None, **trace):
     """Look `parts` up in webasm (BASE_SCOPE) or in the selected workspace (SELECTED_SCOPE).
 
     From a webasm owner the selected workspace is whichever application runs the
-    file: every application, unless `app` fixes one (ADR 0023 §4). `app` never
+    file: every application, unless `app` fixes one (ADR 0027 §4). `app` never
     changes a BASE_SCOPE lookup, nor one from an application's own file.
     """
     root = Path(os.path.abspath(root))

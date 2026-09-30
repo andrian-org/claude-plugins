@@ -1,4 +1,4 @@
-"""scripts/lib/runner.py: the validators the gate and the known-good run share (ADR 0018 §2, ADR 0023 §3)."""
+"""scripts/lib/runner.py: the validators the gate and the known-good run share (ADR 0018 §2, ADR 0027 §3)."""
 
 import shutil
 import tempfile

@@ -1,8 +1,8 @@
 ---
 id: 0004
 title: Brownfield-first, scoped to the whole workspaces root
-status: accepted
-date: 2026-09-21
+status: superseded-by-0026
+date: 2026-09-29
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [scope, planning, roadmap]

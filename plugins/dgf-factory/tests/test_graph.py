@@ -1,4 +1,4 @@
-"""scripts/lib/graph.py: the reference graph of one application, and reach over it (ADR 0023 §4)."""
+"""scripts/lib/graph.py: the reference graph of one application, and reach over it (ADR 0027 §4)."""
 
 import json
 import shutil

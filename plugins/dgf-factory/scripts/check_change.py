@@ -24,7 +24,7 @@ list. Paths under `.dgf-factory/` are the pipeline's own and are ignored.
 The validators run over the whole root, or over `--files` (root-relative).
 Only a whole-root run records the check `validators` as run: a `--files` run
 prints `NOT RUN: validators (narrowed to N file(s) by --files …)`, because the
-gate's scope is the whole root (ADR 0004 §3, ADR 0022 §4). They need lxml and
+gate's scope is the whole root (ADR 0026 §3, ADR 0022 §4). They need lxml and
 jsonschema; `--skip-validators` runs only the three change checks and needs
 neither. Without git or a merge-base the change checks are NOT RUN and every
 validator finding counts as new — stricter, never looser.
@@ -422,7 +422,7 @@ def validate(root, files, changed, base_sha, rep, outcome, save_baseline=None, s
         rep.ran("validators")
     else:
         rep.skipped("validators", f"narrowed to {len(files)} file(s) by --files; the gate's scope is the whole "
-                                  f"root (ADR 0004 §3)")
+                                  f"root (ADR 0026 §3)")
     merged = validator_report(runs)
     outcome.reports.append(merged)
     outcome.families = families(runs)

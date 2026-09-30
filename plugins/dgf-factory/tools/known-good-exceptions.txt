@@ -90,7 +90,7 @@ EXCEPTION SCHEMA_INVALID zims/FM/_COMPONENTS/DataSource/DataBaseUserByNrc.json {
 EXCEPTION SCHEMA_INVALID zims/FM/_COMPONENTS/DataSource/QueryByNRC.json {} -- {} where filters/sortParameters are a List<>: the reader throws on an object for a list (the .NET probe in provenance/knowledge/json-reader.md), so the DataSource cannot be read
 EXCEPTION SCHEMA_INVALID zims/FM/_COMPONENTS/DataSource/UserByNrc.json {} -- {} where filters/sortParameters are a List<>: the reader throws on an object for a list (the .NET probe in provenance/knowledge/json-reader.md), so the DataSource cannot be read
 
-# --- model defects the known-good run found (2026-09-27, validate_model.py; ADR 0023 §3) ---
+# --- model defects the known-good run found (2026-09-27, validate_model.py; ADR 0027 §3) ---
 # A zims entity names a zims table with `BASE:`, which reads webasm's FM/_DATA: the Calendar* entities are zims's own.
 EXCEPTION MODEL_REFERENCE_UNRESOLVED zims/FM/_DATA/CalendarEventAttachment/settings.xml L11 -- extract table BASE:CalendarEvents: TableManager.GetXmlWorkPath reads webasm's FM/_DATA, where it does not exist, and LoadAsync throws `Settings file for the table … not found` (TableManager.cs L16-43)
 EXCEPTION MODEL_REFERENCE_UNRESOLVED zims/FM/_DATA/CalendarEvents/settings.xml L24 -- extract table BASE:CalendarEventTypes: TableManager.GetXmlWorkPath reads webasm's FM/_DATA, where it does not exist, and LoadAsync throws `Settings file for the table … not found` (TableManager.cs L16-43)

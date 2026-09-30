@@ -19,14 +19,14 @@ Two reports, both read-only, from one script, `audit_root.py`:
   one in each application, and its direct referrers.
 
 The graph is resolved by the engine's own rules, per application: a `webasm` file is read as each
-application reads it (ADR 0023 §4). **Blast radius is a report, not a gate.** This skill writes
+application reads it (ADR 0027 §4). **Blast radius is a report, not a gate.** This skill writes
 nothing and emits no `dgf-gate-result` block; the verify gate's `affected_processes` stays the
 change's own footprint (ADR 0022 §6).
 
 **A reach is never complete.** A static walk cannot see names assigned at run time, processes chosen
 from the database, open handlers, or entry points outside processes. Every report carries a
 `LIMIT:` line that says so, and this skill relays it every time (`knowledge/reference-graph.md` §3,
-ADR 0023 §8).
+ADR 0027 §8).
 
 AI Factory has no audit skill: its framework-agnostic gates stop at the change. This one asks what
 the change reaches.

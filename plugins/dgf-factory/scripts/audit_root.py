@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""audit_root.py — audit a workspaces root, or show a change's blast radius (ADR 0023 §5).
+"""audit_root.py — audit a workspaces root, or show a change's blast radius (ADR 0027 §5).
 
 Two modes, both read-only, and neither emits a dgf-gate-result block: blast
 radius is a report, not a gate (ADR 0022 §6 is unchanged).
@@ -94,7 +94,7 @@ def check_inputs(args):
 def narrowed(rep, app):
     rep.skipped("applications", f"narrowed to {app} by --app; the other applications were not audited")
     rep.add("AUDIT_NARROWED", f"the audit covers {app} and webasm only — a narrowed audit is never the whole root's "
-                              f"(ADR 0004 §3)")
+                              f"(ADR 0026 §3)")
 
 
 # --- the whole root --------------------------------------------------------------------

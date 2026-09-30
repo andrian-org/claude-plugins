@@ -1,4 +1,4 @@
-"""scripts/lib/roles.py: the role names a root uses, read as the runtime reads them (ADR 0023 §6)."""
+"""scripts/lib/roles.py: the role names a root uses, read as the runtime reads them (ADR 0027 §6)."""
 
 import os
 import shutil

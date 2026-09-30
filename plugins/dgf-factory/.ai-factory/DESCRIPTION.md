@@ -17,7 +17,7 @@ Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
 ## Current State
 
 Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific Skills") is built
-but for `/dgf-scaffold`, which waits on the estate's bootstrap template (ADR 0023 §7). The repository
+but for `/dgf-scaffold`, which ADR 0027 §7 designs and which is not yet built. The repository
 currently contains:
 
 - `README.md` + `docs/` — landing page and documentation set
@@ -44,7 +44,7 @@ currently contains:
   cursor. The ten skills that read an override run `check_override.py` first, and a refused
   override is never read. The verify gate suggests `/dgf-fix` for a finding the branch introduced
 - `skills/dgf-component`, `dgf-process`, `dgf-model`, `dgf-audit` — the DGF-specific skills
-  ([ADR 0023](../docs/adr/0023-dgf-specific-skills.md)): inspect and validate anywhere, write only
+  ([ADR 0027](../docs/adr/0027-dgf-specific-skills-revised.md)): inspect and validate anywhere, write only
   inside the active plan's scope, each only the artifacts it owns (components and legacy forms and
   views; processes and workflows; entities). `/dgf-audit` is read-only: the root's health, and a
   file's blast radius — the processes that reach it in each application — with a `LIMIT:` line on
@@ -154,7 +154,7 @@ workflow grammars: `process.xsd` (root `Process` → `OnStart`, `States`) and
 `workflow.xsd` (root `Workflow` → `Sequence`, `Input`), which are state-machine-shaped
 rather than BPMN. `format-coverage.md` confirms both are the *live runtime formats* —
 `process.xml` and `_workflow.xml` are XML-only today. `/dgf-process` was built on those two
-XSDs (decided 2026-09-27, ADR 0023): `validate_process.py` checks a process against
+XSDs (decided 2026-09-27, ADR 0027): `validate_process.py` checks a process against
 `process.xsd` and against the runtime model (ADR 0014), and the skill authors both artifacts in
 XML only.
 
@@ -162,7 +162,7 @@ XML only.
 have committed schemas, and the DGF MCP exposes headless validators for each) and **#2**
 (component enumeration — yes, statically enumerable) were answered from the repository. The
 other five are recorded in [`docs/adr/`](../docs/adr/README.md): **#3** authoring entry point
-and scope ([0004](../docs/adr/0004-authoring-entry-point.md)), **#7** default team rules
+and scope ([0026](../docs/adr/0026-authoring-entry-point-revised.md)), **#7** default team rules
 ([0005](../docs/adr/0005-default-team-rules.md)), **#5** process verification
 ([0014](../docs/adr/0014-process-verification-runtime-resolution.md), superseding 0006, which
 superseded 0002), **#6** version

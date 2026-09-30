@@ -1,4 +1,4 @@
-"""scripts/audit_root.py: the whole-root audit and blast radius, read-only, never a gate (ADR 0023 §5)."""
+"""scripts/audit_root.py: the whole-root audit and blast radius, read-only, never a gate (ADR 0027 §5)."""
 
 import hashlib
 import shutil

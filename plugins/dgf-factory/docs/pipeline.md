@@ -24,7 +24,7 @@ Every decision a script can make is made by a script; the skills decide only wha
 ```
 
 The unit of work is the **whole workspaces root**, not one workspace
-([ADR 0004](adr/0004-authoring-entry-point.md)). A change in `webasm` is live in every
+([ADR 0026](adr/0026-authoring-entry-point-revised.md)). A change in `webasm` is live in every
 application, and a change in one file can break a file it never touched, so the gate always
 looks at the whole root.
 
@@ -291,7 +291,7 @@ fixed in the estate.
 
 ## The DGF-specific skills
 
-Four skills work on the estate's configuration itself ([ADR 0023](adr/0023-dgf-specific-skills.md)).
+Four skills work on the estate's configuration itself ([ADR 0027](adr/0027-dgf-specific-skills-revised.md)).
 Their read-only modes — inspect, validate, audit — run anywhere in a root. Their writing modes run
 only inside the active plan, as `/dgf-fix` does: `locate_plan.py` finds the plan, `check_plan.py`
 checks it, and `check_change.py --changed … --skip-validators` decides the scope **before** the write.
@@ -374,11 +374,11 @@ run-time name is flagged `AUDIT_REFERENCE_DYNAMIC`, and an unreached shared work
 candidate, never proof of dead code. Roles are listed, never checked: nothing in the root declares
 one (`knowledge/permissions.md` §1).
 
-`/dgf-scaffold` — a new workspace from the estate's bootstrap template — is not built: the template
-has not been identified (ADR 0023 §7, ADR 0004).
+`/dgf-scaffold` — a new application from an empty folder, generated from shipped templates — is designed
+but not built yet (ADR 0027 §7, ADR 0026 §2).
 
 ## See Also
 
 - [Getting Started](getting-started.md#trying-the-spine) — running the spine's scripts on a copy of DGF's samples, and trying the loop
 - [Skill Authoring](skill-authoring.md#reading-a-validators-output) — the output lines each script prints
-- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0022, which shape the spine, 0024, which decides the loop, and 0023, which decides the DGF-specific skills
+- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0022, which shape the spine, 0024, which decides the loop, and 0027, which decides the DGF-specific skills and designs `/dgf-scaffold`, with 0026 beside it for the scope

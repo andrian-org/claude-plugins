@@ -73,7 +73,7 @@ plugins/dgf-factory/
 │   ├── validate_config.py      #   family, schema (read the runtime's way) and parity, both families
 │   ├── resolve_components.py   #   component types (JSON and forms) and component file references
 │   ├── validate_process.py     #   process structure + semantics; workflow CHANGE_STATE targets
-│   ├── validate_model.py       #   an entity's and a form's references, an entity's load, a form's cells (ADR 0023 §3)
+│   ├── validate_model.py       #   an entity's and a form's references, an entity's load, a form's cells (ADR 0027 §3)
 │   ├── route_means.py          #   ADR 0010's order of means: JSON or legacy XML for a new config
 │   ├── locate_plan.py          #   the workspaces root and the active plan (ADR 0017 §6)
 │   ├── inventory_root.py       #   each workspace, counted; what is not one
@@ -82,7 +82,7 @@ plugins/dgf-factory/
 │   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0022)
 │   ├── check_patches.py        #   the patches' format, and which are new against the cursor (ADR 0024)
 │   ├── check_override.py       #   may a skill read its override: shape, sources, forbidden, limit (ADR 0024)
-│   ├── audit_root.py           #   the whole-root audit, or a file's reach per application (ADR 0023 §5)
+│   ├── audit_root.py           #   the whole-root audit, or a file's reach per application (ADR 0027 §5)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
 │   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
 │                               #   process_checks, plan, git, runner, baseline, gate_result, patches, overrides,
@@ -120,8 +120,7 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: `/dgf-scaffold`, blocked until the estate's bootstrap template is identified
-(ADR 0023 §7), and `agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
+Not yet created: `/dgf-scaffold`, designed in ADR 0027 §7 and not yet built, and `agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
 the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
 milestone 8, the pipeline spine with milestone 9, the wired gate contract — `lib/gate_result.py`,
 `verify_gate.py`, the Commit Plan check — with milestone 10, and the learning loop —
@@ -138,8 +137,8 @@ gate, `audit_root.py`, and the three knowledge files they read; it stays open fo
 | [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability (including DGF paths in shipped files), line endings; emits the gate block |
 | [scripts/validate_config.py](scripts/validate_config.py) | The dual-family config validator: family first, the runtime's JSON reader, the parity gate |
 | [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
-| [scripts/validate_model.py](scripts/validate_model.py) | The data model's references, resolved each loader's way, blocking only where the loader throws; an entity's own load; a form's cells (ADR 0023 §3) |
-| [scripts/audit_root.py](scripts/audit_root.py) | The whole-root audit and blast radius: validators, the graph per application, unresolved references, roles — never a gate (ADR 0023 §5) |
+| [scripts/validate_model.py](scripts/validate_model.py) | The data model's references, resolved each loader's way, blocking only where the loader throws; an entity's own load; a form's cells (ADR 0027 §3) |
+| [scripts/audit_root.py](scripts/audit_root.py) | The whole-root audit and blast radius: validators, the graph per application, unresolved references, roles — never a gate (ADR 0027 §5) |
 | [scripts/lib/edges.py](scripts/lib/edges.py) | Reads one file's references row by row of the `reference-edges` table; no edge kind is named in code |
 | [scripts/lib/graph.py](scripts/lib/graph.py) | The reference graph of one application, and reach over it |
 | [scripts/check_plan.py](scripts/check_plan.py) | Every rule a plan must meet (ADR 0017), and the overlap with other branches' plans |
@@ -161,7 +160,7 @@ gate, `audit_root.py`, and the three knowledge files they read; it stays open fo
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
 | [docs/adr/0024-learning-loop-revised.md](docs/adr/0024-learning-loop-revised.md) | The learning loop: patches, overrides, the limit an override may not cross, and the script that checks one |
-| [docs/adr/0023-dgf-specific-skills.md](docs/adr/0023-dgf-specific-skills.md) | The DGF-specific skills: authoring scope, the artifact partition, the model check, the graph, blast radius, roles |
+| [docs/adr/0027-dgf-specific-skills-revised.md](docs/adr/0027-dgf-specific-skills-revised.md) | The DGF-specific skills: authoring scope, the artifact partition, the model check, the graph, blast radius, roles |
 | [.ai-factory/config.yaml](.ai-factory/config.yaml) | Language, paths, git and workflow settings for the pipeline |
 | [.ai-factory/rules/base.md](.ai-factory/rules/base.md) | Naming, error handling, exit-code contract, skill authoring rules |
 | [.mcp.json](.mcp.json) | MCP servers available to agents in this project |
@@ -225,9 +224,11 @@ gate, `audit_root.py`, and the three knowledge files they read; it stays open fo
   the limit an override may not cross, and the script that checks one — by
   [ADR 0024](docs/adr/0024-learning-loop-revised.md); the DGF-specific skills — authoring scope, the
   artifact partition, the model check, the reference graph and blast radius — by
-  [ADR 0023](docs/adr/0023-dgf-specific-skills.md); a writing skill's baseline without git — saved
+  [ADR 0027](docs/adr/0027-dgf-specific-skills-revised.md), whose §7 also designs `/dgf-scaffold`, and
+  the scaffold's reversal of "drive a template" together with the whole-root unit by
+  [ADR 0026](docs/adr/0026-authoring-entry-point-revised.md); a writing skill's baseline without git — saved
   before the write, never the gate's — by [ADR 0025](docs/adr/0025-saved-baseline-without-git.md);
-  0002, 0003, 0006, 0007, 0008, 0020 and 0021 are superseded history.
+  0002, 0003, 0004, 0006, 0007, 0008, 0020, 0021 and 0023 are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

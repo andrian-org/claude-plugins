@@ -1,4 +1,4 @@
-"""scripts/validate_model.py end to end, on synthetic workspaces roots (ADR 0023 §3)."""
+"""scripts/validate_model.py end to end, on synthetic workspaces roots (ADR 0027 §3)."""
 
 import shutil
 import tempfile

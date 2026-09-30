@@ -249,7 +249,7 @@ def sections(skill_md):
 
 
 class WritingSkills(unittest.TestCase):
-    """A skill that writes a file confirms it as the scripts behave, with git or without (ADR 0023 §1)."""
+    """A skill that writes a file confirms it as the scripts behave, with git or without (ADR 0027 §1)."""
 
     def confirm(self, found):
         return next(lines for heading, lines in found if "confirm" in heading.lower())

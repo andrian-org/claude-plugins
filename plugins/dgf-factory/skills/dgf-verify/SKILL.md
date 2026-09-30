@@ -14,7 +14,7 @@ it introduced?** The answer comes from one script, `verify_gate.py`. It runs the
 task audit, the change check and the whole-root validators, computes the status, and prints one
 `dgf-gate-result` block. This skill relays it.
 
-The gate's scope is the **whole workspaces root** (ADR 0004): a change in one file can break a
+The gate's scope is the **whole workspaces root** (ADR 0026): a change in one file can break a
 file it never touched. Findings the estate already had are compared away against the
 merge-base (ADR 0018): they are reported as `PRE_EXISTING`, and never block.
 

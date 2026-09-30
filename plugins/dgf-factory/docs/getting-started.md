@@ -254,8 +254,8 @@ skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
 
 ## What is not here yet
 
-- `/dgf-scaffold` — a new workspace from the estate's bootstrap template, which has not been
-  identified ([ADR 0023](adr/0023-dgf-specific-skills.md) §7)
+- `/dgf-scaffold` — a new application from an empty folder, designed in
+  [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §7 and not yet built
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 

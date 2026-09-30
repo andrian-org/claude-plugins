@@ -1,4 +1,4 @@
-"""edges.py — read one file's references, row by row of the reference-edges table (ADR 0023 §4).
+"""edges.py — read one file's references, row by row of the reference-edges table (ADR 0027 §4).
 
 knowledge/reference-graph.md §1 says which elements are references, and this
 module reads them: for a row, the elements its `Element` names, the step each

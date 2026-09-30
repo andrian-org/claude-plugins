@@ -197,7 +197,7 @@ class Resolvers(unittest.TestCase):
 
 
 class OneApplication(unittest.TestCase):
-    """`app` fixes the selected workspace of a webasm reference (ADR 0023 §4)."""
+    """`app` fixes the selected workspace of a webasm reference (ADR 0027 §4)."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

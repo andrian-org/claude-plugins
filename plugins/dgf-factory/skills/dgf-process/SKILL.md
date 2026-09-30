@@ -12,7 +12,7 @@ version: 0.1.0
 Work on one process (`FM/_PROCESS/<P>/process.xml`) or one workflow — shared
 (`FM/_WORKFLOW/<X>/_workflow.xml`) or process-local (`FM/_PROCESS/<P>/<X>/_workflow.xml`).
 **Inspect** and **validate** only read. **Author** writes a new file and **modify** edits one, and
-both work only inside the active plan's scope, decided by a script before the write (ADR 0023 §1).
+both work only inside the active plan's scope, decided by a script before the write (ADR 0027 §1).
 
 **XML always.** The runtime reads `process.xml` and `_workflow.xml` only; a `Workflow` or
 `ProcessFlow` JSON file validates against a schema the runtime ignores
@@ -136,7 +136,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root
 | `2` | Continue, and surface every `WARN` line. |
 | `3` | **STOP** and relay it. |
 
-**The partition** (ADR 0023 §2): this skill writes `process.xml` and `_workflow.xml` only. A form,
+**The partition** (ADR 0027 §2): this skill writes `process.xml` and `_workflow.xml` only. A form,
 view or component → **STOP**: `/dgf-component`'s. An entity's `settings.xml` → **STOP**:
 `/dgf-model`'s.
 
