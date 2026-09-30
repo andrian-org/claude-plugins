@@ -240,7 +240,7 @@ or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no p
 | `role-sources` | [`permissions.md`](permissions.md) §2 |
 | `field-types` | [`data-model.md`](data-model.md) §6.1 |
 | `db-types` | [`data-model.md`](data-model.md) §6.2 |
-| `field-sql-types` | [`data-model.md`](data-model.md) §6.3 — derived by `tools/derive_sql_types.py` |
+| `field-sql-types` | [`data-model.md`](data-model.md) §6.3 |
 | `workspace-minimum` | [`application-layout.md`](application-layout.md) §1 — `Required` and `Rule` are space-separated tokens |
 | `instance-models` | [`application-layout.md`](application-layout.md) §4 |
 | `auth-schemes` | [`application-layout.md`](application-layout.md) §5 — `Keys` is space-separated |

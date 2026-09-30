@@ -235,7 +235,9 @@ class Structure(Base):
     def test_a_tree_folder_whose_node_file_is_missing(self):
         node = next(p for p in self.files("FM/_PROFILE/*/*/*.xml") if p.name != "_tree.xml")
         node.unlink()
-        self.assertIn("SCAFFOLD_STRUCTURE_INVALID", self.codes("structure"))
+        found = self.run_part("structure")
+        self.assertTrue(any(c == "SCAFFOLD_STRUCTURE_INVALID" and node.name in m and "is missing" in m
+                            for c, m in found), found)
 
     def test_a_node_file_with_the_wrong_root(self):
         node = next(p for p in self.files("FM/_PROFILE/*/*/*.xml") if p.name != "_tree.xml")

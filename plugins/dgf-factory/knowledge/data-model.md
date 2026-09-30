@@ -278,7 +278,7 @@ which sits on a `BIT` column), `Integer` (1, on a `SMALLINT`), `smallint` (1) an
 
 ### 6.3 The SQL type of a column
 
-`tools/derive_sql_types.py` pairs every `FM/_DATA/<T>/settings.xml` in the `webasm` and `dgf` sample
+The tally pairs every `FM/_DATA/<T>/settings.xml` in the `webasm` and `dgf` sample
 workspaces with the baseline's `dbo/Tables/<T>.sql` by exact case, and reads each field's `dbtype` and
 `size` and the column's declared type. **86 pairs; 1752 fields; 1627 of them have a column, 13 of which
 are computed (`AS`) and skipped, leaving 1614 tallied.** Per `dbtype` it reports the majority SQL type

@@ -616,33 +616,23 @@ skill that relays a reach report never calls it complete.
 
 ## Errata
 
-- **2026-09-27** — §3's "Each loader keeps its own resolution rule" said a table's name is cleaned before
-  `BASE:` is tested and "a grid's is not"; it now names the three rules below. Context ("Grids") still
-  says `EditableGridManager` does not clean the table name, as it was first read. It does not clean it
-  itself, but every grid loads through `LoadAsync(tableName, gridName)`, which loads the table with
-  `TableManager.LoadAsync` first and builds the grid path from the loaded table's already-cleaned name, so
-  a grid resolves exactly as a lookup view does. The three rules that differ are: workflows and processes
-  match `BASE:` ordinally; a table, and the views, grids and forms in its folder, is cleaned and then
-  matches `BASE:` in any case; a dialog has no base path at all. The Alternative "One `BASE:` rule for
-  every loader" stands on those three. Context's "Forms" bullet says
-  a form folder with no `_form.xml` throws: it throws only when the table has a `default` form to copy,
-  and a grid folder the same; with no `default`, a generated file is saved there. Context's "Cells and
-  bindings" bullet reads as if a cell that names no field were tolerated: only a cell with no `name` is
-  the empty cell, and a bound cell that names no field throws in `Form.AddFields` — which is why
-  `MODEL_CELL_UNBOUND` is exit `1` under §3's own rule — while a form with no `tabs` element binds no cell
-  at all. None of this changes what §3 decides; the facts are `knowledge/data-model.md` §3–§4 and
-  `knowledge/reference-graph.md` §1. Source: `EditableGridManager.cs:22-26`, `:50-53`, `:88-92`;
-  `FormManager.cs:131-144`; `Form.cs:58-76`, at DGF `cccd4325b`; found by `/aif-verify`.
-- **2026-09-27** — Context's static-reach bullet counted `STATEPROCESS:` 165 in `_PROFILE` and 47 JSON
-  `workflow` components; the samples hold 172 and 44, which `knowledge/reference-graph.md` §3 already
-  states, so Context now says 172 and 44. Context's "Lookup views" bullet says a missing view is built
-  "no throw", and its "Forms" bullet that a missing form is generated, as first read. The generated file
-  can itself fail: `LookUpViewManager.GetXmlTemplate` reads the name of the first `Text` field that is not
-  the key, a null reference when the table has none; `FormManager.GetXmlTemplate` throws on a field
-  with no `uimask` when there is no `default` to copy; and every generator — the grid's too — pastes the
-  names and titles it uses unescaped, so values that leave the file unparsable, such as a bare `&`, make
-  `SaveXml`'s parse throw. §3's
-  rule — a reference blocks only where its loader throws — covers all three unchanged, and so decides the
-  same; the facts are `knowledge/data-model.md` §3.2, §3.4, §3.6 and §4. Source: a count over DGF's samples;
-  `LookUpViewManager.cs:43-69`, `:100-146`; `FormManager.cs:55-120`, `:131-139`;
-  `EditableGridManager.cs:99-125`, at DGF `cccd4325b`; found by `/aif-verify`.
+ADR 0023's two errata of 2026-09-27 are folded into Context ("ADR 0023's errata, folded in"), and are not repeated here.
+
+- **2026-10-01** — §7 was written before the scaffold was built, and differs from it in five places. None
+  changes what §7 decides. Source: the built scaffold (`feature/dgf-scaffold`), the plan's `## Results`, and
+  `knowledge/application-layout.md` §3.1, §5 and §6.
+  - §7.4 lists `docker/ui/<Deployment>.json`. The UI's settings are inline compose `configs` content instead, because
+    a bind-mounted file is not interpolated by compose, and the stack gains `docker/traefik/dynamic.yml` for its
+    certificate.
+  - §7.7 lists a `unicode` field. There is none: `dbtype` `StringUnicode` selects `NVARCHAR` (55 of 55 fields in
+    DGF's samples), and `String` selects `VARCHAR`.
+  - §7.8 names the providers `dgpass` and `azuread`. They are `basic`, `dgpass` and `azure`, the shell's own login
+    method names; the sections are `Authentication:Basic`, `Authentication:DGPassOIDC` and `Authentication:AzureOIDC`.
+  - §7.8 says `roles[]` become `AspNetRoles` rows per instance. `AspNetRoles` has one unique index, on `NormalizedName`
+    alone, and the framework seeds roles in code only when the table is empty, so each role is written once (the
+    built-in roles included), under the first instance.
+  - §7.5 and ADR 0026 leave the `ApplicationId` column's nullability open. The generated application tables declare it
+    `NULL`: nothing in the runtime fills it, so `NOT NULL` would fail every insert.
+  - Two things §7 did not foresee: the host does not start without its `Integrations` sections, so the generated settings
+    carry them as placeholders; and a secret-named key must hold exactly one `${VAR}`, so the SQL and Redis connection
+    strings are variables.

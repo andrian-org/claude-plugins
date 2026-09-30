@@ -12,15 +12,15 @@ The files read are in the maintainer provenance ledger for this file.
 
 Every fact is read from the framework's code, its samples or its compose files, never from what an
 estate's applications happen to contain. Where the framework pins nothing — a package id, an image
-tag, a feed, a location for the database baseline — this file says **not pinned**, and a generator
+tag, a feed, a location for the database baseline — this file says **not pinned**, and whoever builds on it
 must leave the value to a placeholder. Where a fact could not be found, it says **not found**.
 
 ## 1. The workspace minimum
 
 A new application workspace is a directory beside `webasm` under the workspaces root. The reference
-layout is the `dgf` sample workspace. The rows below are the files a generated workspace carries and
-that this plugin's post-generation check reads; `Root` and `Required` are what the reference layout's
-file has, and an XML file's are checked with `xml.etree`. The runtime's serializers bind by name and
+layout is the `dgf` sample workspace. The rows below are the files a new workspace carries that no
+DGF schema describes; `Root` and `Required` are what the reference layout's file has, and an XML
+file's can be read with `xml.etree`. The runtime's serializers bind by name and
 fail on none of the `Required` names, so `Required` is a property of the layout, not a runtime error.
 For a JSON file `Root` is `—` and `Required` names top-level keys.
 
@@ -34,7 +34,7 @@ For a JSON file `Root` is `—` and `Required` names top-level keys.
 | `FM/_PROFILE/<profile>/<group>/_tree.xml` | Tree | @title @name Folders | members-group | A profile tree; one per `router` component, in the `Members` group unless a role narrows it |
 | `FM/_PROFILE/<profile>/<group>/<node>.xml` | mapNode | @type set | node-per-folder | The node file a tree folder names |
 
-The `Rule` tokens are the checks the post-generation check makes of a file:
+The `Rule` tokens name a property of the file, each stated once here:
 
 | Token | Meaning |
 |---|---|
@@ -108,7 +108,7 @@ Facts behind the rows:
 - **A second mode exists.** When the setting `WorkspaceProvider_ApplicationUrlColumn` names a column,
   `InitAsync` selects every row whose column is not null, and `Current` matches the row whose
   `SiteName` equals the request's host: one process serving several applications. This is not what
-  the local stack's several-instance sample does (§4), and this plugin's scaffold does not use it.
+  the local stack's several-instance sample does (§4).
 - **Partitioning by `ApplicationId`.** The framework writes the current workspace's id to its own
   rows: the audit trail (`atApplicationId`), process instances, user events, notifications and the
   identity tables. In the baseline the column is `UNIQUEIDENTIFIER` and, in the tables read, `NOT NULL`
@@ -150,7 +150,7 @@ and prints a line either way. It sets the two sign types to their own defaults.
   `PackageReference` or `SqlCmdVariable` exists in any database project; nothing documents how a
   consumer project extends the baseline; the only stated relation is that a consumer can
   schema-compare against the dacpac. **No image, package or dacpac location for the baseline is
-  pinned**: it is built from the framework's source. A generated database project therefore has no
+  pinned**: it is built from the framework's source. A consumer's database project therefore has no
   reference to the baseline, and its post-deployment scripts run against the tables the baseline has
   already created.
 
@@ -256,7 +256,7 @@ Facts behind the rows:
   (optional) and the environment, in that order, and ends by mapping controllers and running.
 - **The API library is a project reference in the framework's repository, and no package id is pinned.**
   It sets no `PackageId`, no description and no version of its own; the only version is the props file's
-  `1.1.11`. A generic scaffold's `PackageReference` id, version and feed are therefore not pinned by the
+  `1.1.11`. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
   framework: the id is by default the assembly name, `DGF.API`, which is not confirmed by any pack
   configuration.
 - **Startup requires** `ConnectionStrings:LocalSqlServer` (the host throws when it is absent), the
@@ -345,5 +345,4 @@ services and the stubs.
   is published, if anywhere.
 - The role normalizer the identity library applies (§3.1); it is outside the framework's code.
 - How the several-instance sample sets each instance's `WorkspaceName` (§4).
-- Whether a later framework version changes these facts. The maintainer's drift check compares the
-  files this file was read from with a framework checkout.
+- Whether a later framework version changes these facts.
