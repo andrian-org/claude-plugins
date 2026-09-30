@@ -174,7 +174,7 @@ PLUGIN_PYTHON = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/.*')
 GIT_COMMAND = re.compile(r"`git |^\s*git |git -C ", re.MULTILINE)
 READ_ONLY = ("dgf-audit", "dgf-doctor", "dgf-verify")
 # /dgf-fix's git reads are check_change.py's, and the DGF-specific skills' are the scripts'; /dgf-evolve needs none
-NO_GIT = READ_ONLY + ("dgf-component", "dgf-evolve", "dgf-fix", "dgf-model", "dgf-process")
+NO_GIT = READ_ONLY + ("dgf-component", "dgf-evolve", "dgf-fix", "dgf-model", "dgf-process", "dgf-scaffold")
 TOOL = re.compile(r"(?<![\w(])(Write|Edit|MultiEdit|NotebookEdit)(?![\w(])")
 
 
@@ -246,6 +246,43 @@ def sections(skill_md):
         elif found:
             found[-1][1].append(line)
     return found
+
+
+class Scaffold(unittest.TestCase):
+    """/dgf-scaffold creates an application in an empty folder: no root, no plan, no override, no pipeline state (ADR 0027 §7)."""
+
+    SKILL = SKILLS / "dgf-scaffold"
+
+    def texts(self):
+        return [self.SKILL / "SKILL.md"] + sorted((self.SKILL / "references").glob("*.md"))
+
+    def test_it_never_names_the_pipelines_directory_as_a_place_to_write(self):
+        for doc in self.texts():
+            for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
+                if ".dgf-factory" in line:
+                    self.assertRegex(line, r"(?i)(no |never|nor|reads and writes no|writes nothing under|anything under)",
+                                     f"{doc.name}:{number} names .dgf-factory as something other than a thing it does not touch")
+
+    def test_it_is_not_an_override_reader(self):
+        # a skill that names the skill-context directory is one the override check applies to (ADR 0024 §5)
+        for doc in self.texts():
+            self.assertNotIn("skill-context", doc.read_text(encoding="utf-8"), doc.name)
+            self.assertNotIn("check_override", doc.read_text(encoding="utf-8"), doc.name)
+
+    def test_it_runs_only_its_own_two_scripts(self):
+        rules = bash_rules(self.SKILL / "SKILL.md")
+        self.assertEqual(rules, ['python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/*'])
+        called = set()
+        for doc in self.texts():
+            called |= {m.group(1) for m in SCRIPT_CALL.finditer(doc.read_text(encoding="utf-8"))}
+        self.assertEqual(called, {"skills/dgf-scaffold/scripts/design.py", "skills/dgf-scaffold/scripts/generate.py"})
+
+    def test_every_step_has_an_exit_table_for_the_script_it_runs(self):
+        text = (self.SKILL / "SKILL.md").read_text(encoding="utf-8")
+        for step in ("Step 0", "Step 2", "Step 5", "Step 6"):
+            section = text.split(f"### {step}", 1)[1].split("### Step", 1)[0]
+            self.assertRegex(section, r"\| Exit \|", step)
+            self.assertIn("`3`", section, step)
 
 
 class WritingSkills(unittest.TestCase):

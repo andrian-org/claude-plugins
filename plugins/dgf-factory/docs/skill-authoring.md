@@ -237,6 +237,17 @@ reports the drift**. It does not silently make the architectural choice that the
 stage existed to pre-commit. Expensive thinking happens once; cheap execution happens
 many times.
 
+## A slice script that loads a shared library module
+
+A script under `skills/<skill>/scripts/` is the skill's own: no other skill calls it. It may load a module of
+`scripts/lib/` **by path** with `importlib.util.spec_from_file_location`, as `doctor.py` does, but only a module
+that imports nothing from its own package — a relative import cannot resolve when a file is loaded by path.
+Those modules are `report.py`, `knowledge.py` and `gate_result.py`; `cli.py` and `workspace.py` are not among
+them. A slice script that needs argument parsing therefore has its own parser, whose `error()` exits `3`, and its
+own exact-case helper over `os.scandir`. `/dgf-scaffold`'s `design.py` and `generate.py` are the worked example.
+Their codes are registered in `report.CODES`, like every other script's, and a known-bad case names such a script
+by its plugin-relative path (`skills/dgf-scaffold/scripts/design.py`).
+
 ## Before you ship a skill
 
 - [ ] `description` contains the phrases a user would actually type

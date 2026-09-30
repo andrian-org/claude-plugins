@@ -8,14 +8,14 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: the spine, the learning loop and four DGF-specific skills landed.** The five spine
+> **Status: the spine, the learning loop and the DGF-specific skills landed.** The five spine
 > skills — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — the learning loop's
-> two — `/dgf-fix`, `/dgf-evolve` — and `/dgf-component`, `/dgf-process`, `/dgf-model` and
-> `/dgf-audit` exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
+> two — `/dgf-fix`, `/dgf-evolve` — and `/dgf-component`, `/dgf-process`, `/dgf-model`, `/dgf-audit`
+> and `/dgf-scaffold` exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
 > vendored JSON and legacy XSD schema set) and the **validators**. Plans, scope, routes,
 > change-relative gates, the data model, blast radius, patches and overrides are decided by scripts,
-> checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` waits on the estate's
-> bootstrap template. The plugin **loads locally** with
+> checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` creates a new application
+> from an empty folder, from templates the plugin ships. The plugin **loads locally** with
 > `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
 > See [the blueprint](docs/blueprint.md) for the build order.
 

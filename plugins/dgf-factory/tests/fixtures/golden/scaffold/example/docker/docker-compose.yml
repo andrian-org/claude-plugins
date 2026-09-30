@@ -1,0 +1,422 @@
+# The local stack of Inspections: a database, a cache, a log server, one API and one UI per deployment, and traefik in front.
+# Every value that is a secret, a host, a feed or an image is a ${VAR} — copy .env.example to .env and fill it in (docs/configuration.md).
+name: inspections
+
+services:
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "${TLS_CERT_DIR}:/certificates:ro"
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_PID: Developer
+    ports:
+      - "${MSSQL_PORT}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # Publishes the framework's own database baseline. DGF pins no image for it: build one from the framework's
+  # database project and name it in DGF_DB_INIT_IMAGE.
+  db-init:
+    image: "${DGF_DB_INIT_IMAGE}"
+    environment:
+      MSSQL_HOST: sqlserver
+      MSSQL_PORT: "1433"
+      MSSQL_USER: sa
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_DB: "${MSSQL_DB}"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+  # Publishes this application's tables and seed rows into the same database, after the baseline.
+  db-app:
+    build:
+      context: ../database/Inspections.Database
+    environment:
+      MSSQL_HOST: sqlserver
+      MSSQL_PORT: "1433"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_DB: "${MSSQL_DB}"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  seq:
+    image: datalust/seq:2024.3
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "True"
+    volumes:
+      - seq-data:/data
+
+  publicapi-landspublic:
+    image: inspections-publicapi-landspublic
+    build:
+      context: ..
+      dockerfile: src/PublicApi/Dockerfile
+      args:
+        NUGET_FEED_URL: "${NUGET_FEED_URL}"
+      secrets:
+        - nuget_token
+    environment:
+      ASPNETCORE_ENVIRONMENT: "LandsPublic"
+      DGF_WORKSPACES_ROOT_PATH: /workspaces
+      ConnectionStrings__LocalSqlServer: "${DB_CONNECTION_STRING}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+      DistributedCachingOptions__RedisConnectionString: "${REDIS_CONNECTION}"
+      Authentication__SessionOptions__CookieDomain: "${COOKIE_DOMAIN}"
+      Integrations__RegistrationAuthority__BaseUrl: "${RA_BASE_URL}"
+      Integrations__RegistrationAuthority__TokenGeneration__CallingServiceFqn: "${RA_CALLING_SERVICE}"
+      Integrations__RegistrationAuthority__TokenGeneration__CertificateThumbprint: "${RA_CERTIFICATE_THUMBPRINT}"
+      Integrations__RegistrationAuthority__TokenGeneration__PrivateKey: "${RA_PRIVATE_KEY}"
+      Integrations__DgSign__BaseUrl: "${SIGN_BASE_URL}"
+      Integrations__DgSign__ApplicationScopes__Services__0: "${SIGN_SERVICE}"
+      Integrations__DgSign__ApplicationScopes__Scopes__0: "${SIGN_SCOPE}"
+      Integrations__DgNotify__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotify__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotify__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Integrations__DgNotify__SenderEmail: "${NOTIFY_SENDER_EMAIL}"
+      Integrations__DgNotifyOtp__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Serilog__WriteTo__1__Args__serverUrl: "${SEQ_URL}"
+      AdminSeedOptions__Accounts__0__Username: "${ADMIN_USERNAME}"
+      AdminSeedOptions__Accounts__0__Password: "${ADMIN_PASSWORD}"
+      AdminSeedOptions__Accounts__0__Email: "${ADMIN_EMAIL}"
+      WebAppHost: "https://${PUBLICAPI_LANDSPUBLIC_UI_HOST}"
+      ReverseProxyHost: "https://${PUBLICAPI_LANDSPUBLIC_API_HOST}"
+      CorsOrigins__0: "https://${PUBLICAPI_LANDSPUBLIC_UI_HOST}"
+      Authentication__DGPassOIDC__Authority: "${PUBLICAPI_LANDSPUBLIC_DGPASS_AUTHORITY}"
+      Authentication__DGPassOIDC__ClientId: "${PUBLICAPI_LANDSPUBLIC_DGPASS_CLIENT_ID}"
+      Authentication__DGPassOIDC__ClientSecret: "${PUBLICAPI_LANDSPUBLIC_DGPASS_CLIENT_SECRET}"
+    volumes:
+      - "../workspaces/inspections:/workspaces/lands"
+      - "../workspaces/inspections/_application-lands.sitemap:/workspaces/lands/_application.sitemap:ro"
+      - "../workspaces/webasm:/workspaces/webasm"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.publicapi-landspublic.rule=Host(`${PUBLICAPI_LANDSPUBLIC_API_HOST}`)"
+      - traefik.http.routers.publicapi-landspublic.entrypoints=websecure
+      - traefik.http.routers.publicapi-landspublic.tls=true
+      - traefik.http.services.publicapi-landspublic.loadbalancer.server.port=4000
+    depends_on:
+      db-app:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  publicapi-landspublic-ui:
+    image: "${DGF_UI_IMAGE}"
+    configs:
+      - source: publicapi-landspublic-ui-settings
+        target: /usr/share/nginx/html/assets/appsettings.json
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.publicapi-landspublic-ui.rule=Host(`${PUBLICAPI_LANDSPUBLIC_UI_HOST}`)"
+      - traefik.http.routers.publicapi-landspublic-ui.entrypoints=websecure
+      - traefik.http.routers.publicapi-landspublic-ui.tls=true
+      - traefik.http.services.publicapi-landspublic-ui.loadbalancer.server.port=80
+    depends_on:
+      - publicapi-landspublic
+
+  publicapi-deedspublic:
+    image: inspections-publicapi-deedspublic
+    build:
+      context: ..
+      dockerfile: src/PublicApi/Dockerfile
+      args:
+        NUGET_FEED_URL: "${NUGET_FEED_URL}"
+      secrets:
+        - nuget_token
+    environment:
+      ASPNETCORE_ENVIRONMENT: "DeedsPublic"
+      DGF_WORKSPACES_ROOT_PATH: /workspaces
+      ConnectionStrings__LocalSqlServer: "${DB_CONNECTION_STRING}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+      DistributedCachingOptions__RedisConnectionString: "${REDIS_CONNECTION}"
+      Authentication__SessionOptions__CookieDomain: "${COOKIE_DOMAIN}"
+      Integrations__RegistrationAuthority__BaseUrl: "${RA_BASE_URL}"
+      Integrations__RegistrationAuthority__TokenGeneration__CallingServiceFqn: "${RA_CALLING_SERVICE}"
+      Integrations__RegistrationAuthority__TokenGeneration__CertificateThumbprint: "${RA_CERTIFICATE_THUMBPRINT}"
+      Integrations__RegistrationAuthority__TokenGeneration__PrivateKey: "${RA_PRIVATE_KEY}"
+      Integrations__DgSign__BaseUrl: "${SIGN_BASE_URL}"
+      Integrations__DgSign__ApplicationScopes__Services__0: "${SIGN_SERVICE}"
+      Integrations__DgSign__ApplicationScopes__Scopes__0: "${SIGN_SCOPE}"
+      Integrations__DgNotify__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotify__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotify__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Integrations__DgNotify__SenderEmail: "${NOTIFY_SENDER_EMAIL}"
+      Integrations__DgNotifyOtp__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Serilog__WriteTo__1__Args__serverUrl: "${SEQ_URL}"
+      AdminSeedOptions__Accounts__0__Username: "${ADMIN_USERNAME}"
+      AdminSeedOptions__Accounts__0__Password: "${ADMIN_PASSWORD}"
+      AdminSeedOptions__Accounts__0__Email: "${ADMIN_EMAIL}"
+      WebAppHost: "https://${PUBLICAPI_DEEDSPUBLIC_UI_HOST}"
+      ReverseProxyHost: "https://${PUBLICAPI_DEEDSPUBLIC_API_HOST}"
+      CorsOrigins__0: "https://${PUBLICAPI_DEEDSPUBLIC_UI_HOST}"
+      Authentication__DGPassOIDC__Authority: "${PUBLICAPI_DEEDSPUBLIC_DGPASS_AUTHORITY}"
+      Authentication__DGPassOIDC__ClientId: "${PUBLICAPI_DEEDSPUBLIC_DGPASS_CLIENT_ID}"
+      Authentication__DGPassOIDC__ClientSecret: "${PUBLICAPI_DEEDSPUBLIC_DGPASS_CLIENT_SECRET}"
+    volumes:
+      - "../workspaces/inspections:/workspaces/deeds"
+      - "../workspaces/inspections/_application-deeds.sitemap:/workspaces/deeds/_application.sitemap:ro"
+      - "../workspaces/webasm:/workspaces/webasm"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.publicapi-deedspublic.rule=Host(`${PUBLICAPI_DEEDSPUBLIC_API_HOST}`)"
+      - traefik.http.routers.publicapi-deedspublic.entrypoints=websecure
+      - traefik.http.routers.publicapi-deedspublic.tls=true
+      - traefik.http.services.publicapi-deedspublic.loadbalancer.server.port=4000
+    depends_on:
+      db-app:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  publicapi-deedspublic-ui:
+    image: "${DGF_UI_IMAGE}"
+    configs:
+      - source: publicapi-deedspublic-ui-settings
+        target: /usr/share/nginx/html/assets/appsettings.json
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.publicapi-deedspublic-ui.rule=Host(`${PUBLICAPI_DEEDSPUBLIC_UI_HOST}`)"
+      - traefik.http.routers.publicapi-deedspublic-ui.entrypoints=websecure
+      - traefik.http.routers.publicapi-deedspublic-ui.tls=true
+      - traefik.http.services.publicapi-deedspublic-ui.loadbalancer.server.port=80
+    depends_on:
+      - publicapi-deedspublic
+
+  staffapi-landsstaff:
+    image: inspections-staffapi-landsstaff
+    build:
+      context: ..
+      dockerfile: src/StaffApi/Dockerfile
+      args:
+        NUGET_FEED_URL: "${NUGET_FEED_URL}"
+      secrets:
+        - nuget_token
+    environment:
+      ASPNETCORE_ENVIRONMENT: "LandsStaff"
+      DGF_WORKSPACES_ROOT_PATH: /workspaces
+      ConnectionStrings__LocalSqlServer: "${DB_CONNECTION_STRING}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+      DistributedCachingOptions__RedisConnectionString: "${REDIS_CONNECTION}"
+      Authentication__SessionOptions__CookieDomain: "${COOKIE_DOMAIN}"
+      Integrations__RegistrationAuthority__BaseUrl: "${RA_BASE_URL}"
+      Integrations__RegistrationAuthority__TokenGeneration__CallingServiceFqn: "${RA_CALLING_SERVICE}"
+      Integrations__RegistrationAuthority__TokenGeneration__CertificateThumbprint: "${RA_CERTIFICATE_THUMBPRINT}"
+      Integrations__RegistrationAuthority__TokenGeneration__PrivateKey: "${RA_PRIVATE_KEY}"
+      Integrations__DgSign__BaseUrl: "${SIGN_BASE_URL}"
+      Integrations__DgSign__ApplicationScopes__Services__0: "${SIGN_SERVICE}"
+      Integrations__DgSign__ApplicationScopes__Scopes__0: "${SIGN_SCOPE}"
+      Integrations__DgNotify__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotify__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotify__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Integrations__DgNotify__SenderEmail: "${NOTIFY_SENDER_EMAIL}"
+      Integrations__DgNotifyOtp__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Serilog__WriteTo__1__Args__serverUrl: "${SEQ_URL}"
+      AdminSeedOptions__Accounts__0__Username: "${ADMIN_USERNAME}"
+      AdminSeedOptions__Accounts__0__Password: "${ADMIN_PASSWORD}"
+      AdminSeedOptions__Accounts__0__Email: "${ADMIN_EMAIL}"
+      WebAppHost: "https://${STAFFAPI_LANDSSTAFF_UI_HOST}"
+      ReverseProxyHost: "https://${STAFFAPI_LANDSSTAFF_API_HOST}"
+      CorsOrigins__0: "https://${STAFFAPI_LANDSSTAFF_UI_HOST}"
+      Authentication__AzureOIDC__Authority: "${STAFFAPI_LANDSSTAFF_AZURE_AUTHORITY}"
+      Authentication__AzureOIDC__TenantId: "${STAFFAPI_LANDSSTAFF_AZURE_TENANT_ID}"
+      Authentication__AzureOIDC__ClientId: "${STAFFAPI_LANDSSTAFF_AZURE_CLIENT_ID}"
+      Authentication__AzureOIDC__ClientSecret: "${STAFFAPI_LANDSSTAFF_AZURE_CLIENT_SECRET}"
+    volumes:
+      - "../workspaces/inspections:/workspaces/lands"
+      - "../workspaces/inspections/_application-lands.sitemap:/workspaces/lands/_application.sitemap:ro"
+      - "../workspaces/webasm:/workspaces/webasm"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.staffapi-landsstaff.rule=Host(`${STAFFAPI_LANDSSTAFF_API_HOST}`)"
+      - traefik.http.routers.staffapi-landsstaff.entrypoints=websecure
+      - traefik.http.routers.staffapi-landsstaff.tls=true
+      - traefik.http.services.staffapi-landsstaff.loadbalancer.server.port=4000
+    depends_on:
+      db-app:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  staffapi-landsstaff-ui:
+    image: "${DGF_UI_IMAGE}"
+    configs:
+      - source: staffapi-landsstaff-ui-settings
+        target: /usr/share/nginx/html/assets/appsettings.json
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.staffapi-landsstaff-ui.rule=Host(`${STAFFAPI_LANDSSTAFF_UI_HOST}`)"
+      - traefik.http.routers.staffapi-landsstaff-ui.entrypoints=websecure
+      - traefik.http.routers.staffapi-landsstaff-ui.tls=true
+      - traefik.http.services.staffapi-landsstaff-ui.loadbalancer.server.port=80
+    depends_on:
+      - staffapi-landsstaff
+
+  staffapi-deedsstaff:
+    image: inspections-staffapi-deedsstaff
+    build:
+      context: ..
+      dockerfile: src/StaffApi/Dockerfile
+      args:
+        NUGET_FEED_URL: "${NUGET_FEED_URL}"
+      secrets:
+        - nuget_token
+    environment:
+      ASPNETCORE_ENVIRONMENT: "DeedsStaff"
+      DGF_WORKSPACES_ROOT_PATH: /workspaces
+      ConnectionStrings__LocalSqlServer: "${DB_CONNECTION_STRING}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+      DistributedCachingOptions__RedisConnectionString: "${REDIS_CONNECTION}"
+      Authentication__SessionOptions__CookieDomain: "${COOKIE_DOMAIN}"
+      Integrations__RegistrationAuthority__BaseUrl: "${RA_BASE_URL}"
+      Integrations__RegistrationAuthority__TokenGeneration__CallingServiceFqn: "${RA_CALLING_SERVICE}"
+      Integrations__RegistrationAuthority__TokenGeneration__CertificateThumbprint: "${RA_CERTIFICATE_THUMBPRINT}"
+      Integrations__RegistrationAuthority__TokenGeneration__PrivateKey: "${RA_PRIVATE_KEY}"
+      Integrations__DgSign__BaseUrl: "${SIGN_BASE_URL}"
+      Integrations__DgSign__ApplicationScopes__Services__0: "${SIGN_SERVICE}"
+      Integrations__DgSign__ApplicationScopes__Scopes__0: "${SIGN_SCOPE}"
+      Integrations__DgNotify__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotify__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotify__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Integrations__DgNotify__SenderEmail: "${NOTIFY_SENDER_EMAIL}"
+      Integrations__DgNotifyOtp__BaseUrl: "${NOTIFY_BASE_URL}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Services__0: "${NOTIFY_SERVICE}"
+      Integrations__DgNotifyOtp__ApplicationScopes__Scopes__0: "${NOTIFY_SCOPE}"
+      Serilog__WriteTo__1__Args__serverUrl: "${SEQ_URL}"
+      AdminSeedOptions__Accounts__0__Username: "${ADMIN_USERNAME}"
+      AdminSeedOptions__Accounts__0__Password: "${ADMIN_PASSWORD}"
+      AdminSeedOptions__Accounts__0__Email: "${ADMIN_EMAIL}"
+      WebAppHost: "https://${STAFFAPI_DEEDSSTAFF_UI_HOST}"
+      ReverseProxyHost: "https://${STAFFAPI_DEEDSSTAFF_API_HOST}"
+      CorsOrigins__0: "https://${STAFFAPI_DEEDSSTAFF_UI_HOST}"
+      Authentication__AzureOIDC__Authority: "${STAFFAPI_DEEDSSTAFF_AZURE_AUTHORITY}"
+      Authentication__AzureOIDC__TenantId: "${STAFFAPI_DEEDSSTAFF_AZURE_TENANT_ID}"
+      Authentication__AzureOIDC__ClientId: "${STAFFAPI_DEEDSSTAFF_AZURE_CLIENT_ID}"
+      Authentication__AzureOIDC__ClientSecret: "${STAFFAPI_DEEDSSTAFF_AZURE_CLIENT_SECRET}"
+    volumes:
+      - "../workspaces/inspections:/workspaces/deeds"
+      - "../workspaces/inspections/_application-deeds.sitemap:/workspaces/deeds/_application.sitemap:ro"
+      - "../workspaces/webasm:/workspaces/webasm"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.staffapi-deedsstaff.rule=Host(`${STAFFAPI_DEEDSSTAFF_API_HOST}`)"
+      - traefik.http.routers.staffapi-deedsstaff.entrypoints=websecure
+      - traefik.http.routers.staffapi-deedsstaff.tls=true
+      - traefik.http.services.staffapi-deedsstaff.loadbalancer.server.port=4000
+    depends_on:
+      db-app:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  staffapi-deedsstaff-ui:
+    image: "${DGF_UI_IMAGE}"
+    configs:
+      - source: staffapi-deedsstaff-ui-settings
+        target: /usr/share/nginx/html/assets/appsettings.json
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.staffapi-deedsstaff-ui.rule=Host(`${STAFFAPI_DEEDSSTAFF_UI_HOST}`)"
+      - traefik.http.routers.staffapi-deedsstaff-ui.entrypoints=websecure
+      - traefik.http.routers.staffapi-deedsstaff-ui.tls=true
+      - traefik.http.services.staffapi-deedsstaff-ui.loadbalancer.server.port=80
+    depends_on:
+      - staffapi-deedsstaff
+
+# The UI reads its settings from assets/appsettings.json. Compose interpolates inline config content,
+# which a bind-mounted file would not get.
+configs:
+  publicapi-landspublic-ui-settings:
+    content: |
+      {
+        "apiUrl": "https://${PUBLICAPI_LANDSPUBLIC_API_HOST}",
+        "dateFormat": "dd/MM/yyyy",
+        "timeFormat": "HH:mm",
+        "dateTimeFormat": "dd/MM/yyyy HH:mm",
+        "inactivityTimeout": 3600,
+        "minimumLevel": "info"
+      }
+  publicapi-deedspublic-ui-settings:
+    content: |
+      {
+        "apiUrl": "https://${PUBLICAPI_DEEDSPUBLIC_API_HOST}",
+        "dateFormat": "dd/MM/yyyy",
+        "timeFormat": "HH:mm",
+        "dateTimeFormat": "dd/MM/yyyy HH:mm",
+        "inactivityTimeout": 3600,
+        "minimumLevel": "info"
+      }
+  staffapi-landsstaff-ui-settings:
+    content: |
+      {
+        "apiUrl": "https://${STAFFAPI_LANDSSTAFF_API_HOST}",
+        "dateFormat": "dd/MM/yyyy",
+        "timeFormat": "HH:mm",
+        "dateTimeFormat": "dd/MM/yyyy HH:mm",
+        "inactivityTimeout": 3600,
+        "minimumLevel": "info"
+      }
+  staffapi-deedsstaff-ui-settings:
+    content: |
+      {
+        "apiUrl": "https://${STAFFAPI_DEEDSSTAFF_API_HOST}",
+        "dateFormat": "dd/MM/yyyy",
+        "timeFormat": "HH:mm",
+        "dateTimeFormat": "dd/MM/yyyy HH:mm",
+        "inactivityTimeout": 3600,
+        "minimumLevel": "info"
+      }
+
+secrets:
+  nuget_token:
+    environment: NUGET_FEED_TOKEN
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  seq-data:

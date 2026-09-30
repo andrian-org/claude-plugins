@@ -1,0 +1,12 @@
+{
+  "cli": "skills/dgf-scaffold/scripts/generate.py",
+  "args": [
+    "--folder",
+    "app",
+    "--check"
+  ],
+  "exit": 1,
+  "codes": [
+    "SCAFFOLD_LITERAL_SECRET"
+  ]
+}

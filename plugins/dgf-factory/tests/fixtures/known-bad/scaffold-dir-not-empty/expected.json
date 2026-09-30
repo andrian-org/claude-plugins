@@ -1,0 +1,12 @@
+{
+  "cli": "skills/dgf-scaffold/scripts/design.py",
+  "args": [
+    "--folder",
+    "app",
+    "--empty-only"
+  ],
+  "exit": 1,
+  "codes": [
+    "SCAFFOLD_DIR_NOT_EMPTY"
+  ]
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entity version="4.0">
+  <header title="PermitType" />
+  <description title="" />
+  <datasource type="DB" name="PermitType" />
+  <primarykey>Id</primarykey>
+  <audittrail create="false" update="false" delete="false" search="false" />
+  <fields>
+    <field name="Id" type="Integer" dbtype="Int32" format="" title="Id" description="" size="" required="true" readonly="true" uimask="001111" />
+    <field name="Name" type="Text" dbtype="String" format="" title="Name" description="" size="100" required="true" readonly="false" uimask="001111" />
+    <field name="ApplicationId" type="Text" dbtype="Guid" format="" title="Workspace" description="" size="" required="false" readonly="false" uimask="001111" />
+  </fields>
+</entity>

@@ -1,0 +1,13 @@
+{
+  "cli": "skills/dgf-scaffold/scripts/design.py",
+  "args": [
+    "--folder",
+    "app",
+    "--knowledge-dir",
+    "knowledge"
+  ],
+  "exit": 1,
+  "codes": [
+    "SCAFFOLD_SQL_TYPE_UNKNOWN"
+  ]
+}

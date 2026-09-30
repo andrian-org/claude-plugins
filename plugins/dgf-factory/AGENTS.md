@@ -16,10 +16,10 @@ The pipeline spine exists — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verif
 `/dgf-commit`, beside `/dgf-doctor` — on the knowledge base and the validators, and so does the
 learning loop — `/dgf-fix` records a patch for each fix inside a plan's scope, `/dgf-evolve`
 distils patches into skill-context overrides that `check_override.py` checks before any skill
-reads one. Four DGF-specific skills exist too — `/dgf-component`, `/dgf-process`, `/dgf-model`
+reads one. Five DGF-specific skills exist too — `/dgf-component`, `/dgf-process`, `/dgf-model`
 write one kind of configuration each, only inside a plan's scope, and `/dgf-audit` reports the
 root's health and a file's blast radius from a reference graph resolved per application;
-`/dgf-scaffold` waits on the estate's bootstrap template. See
+`/dgf-scaffold` creates a new application from an empty folder, generated from shipped templates. See
 [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified framework facts,
 [docs/pipeline.md](docs/pipeline.md) for how a change flows, and [docs/adr/](docs/adr/README.md)
 for the decisions that shape it.
@@ -56,7 +56,9 @@ plugins/dgf-factory/
 │   ├── dgf-component/          #   inspect, validate or scaffold a component, both families
 │   ├── dgf-process/            #   inspect, validate, author or modify a process or workflow; templates/
 │   ├── dgf-model/              #   inspect, validate, add or modify an entity's settings.xml; templates/
-│   └── dgf-audit/              #   read-only: the root's health, and a file's blast radius
+│   ├── dgf-audit/              #   read-only: the root's health, and a file's blast radius
+│   └── dgf-scaffold/           #   a new application from an empty folder; scripts/ design, generate, check;
+│                               #     templates/ solution, workspace, patterns + manifest.json; references/DESIGN-FORMAT.md
 ├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
@@ -68,6 +70,7 @@ plugins/dgf-factory/
 │   ├── data-model.md           #   entities, fields, relations; what each model loader does with a reference
 │   ├── reference-graph.md      #   every reference as an edge: its rule, When absent, When empty, Reach, Checked by
 │   ├── permissions.md          #   where the root names roles; that nothing in it declares one
+│   ├── application-layout.md   #   a new application: workspace minimum, application row, roles, sign-in, host, local stack (§7 tables)
 │   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (dialects, membership)
 ├── scripts/                    # SHIPPED validators skills call — exit 0/1/2/3, one output format (docs/skill-authoring.md)
 │   ├── validate_config.py      #   family, schema (read the runtime's way) and parity, both families
@@ -94,6 +97,7 @@ plugins/dgf-factory/
 │   ├── check-dual-schema-docs.sh  # doc, decision-record, manifest and stamp contracts; section 8 runs the tests
 │   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
 │   ├── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
+│   ├── derive_sql_types.py        # the SQL type of each dbtype, tallied from DGF's settings/table pairs (data-model.md §6)
 │   ├── run_known_good.py          # every validator over DGF's samples (via scripts/lib/runner.py); each error excused
 │   ├── known-good-exceptions.txt  # the evidenced excuses, and the warning baseline
 │   ├── check_drift.py             # the provenance ledgers' digests against a DGF checkout
@@ -120,13 +124,14 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: `/dgf-scaffold`, designed in ADR 0027 §7 and not yet built, and `agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
+Not yet created: `agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
 the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
 milestone 8, the pipeline spine with milestone 9, the wired gate contract — `lib/gate_result.py`,
 `verify_gate.py`, the Commit Plan check — with milestone 10, and the learning loop —
 `/dgf-fix`, `/dgf-evolve`, `check_patches.py`, `check_override.py` — with milestone 11. Milestone
 12 added `/dgf-component`, `/dgf-process`, `/dgf-model` and `/dgf-audit`, `validate_model.py` in the
-gate, `audit_root.py`, and the three knowledge files they read; it stays open for `/dgf-scaffold`.
+gate, `audit_root.py`, and the three knowledge files they read; `/dgf-scaffold`, with `knowledge/application-layout.md`
+and the field-type tables, closed it.
 
 ## Key Entry Points
 
@@ -152,6 +157,10 @@ gate, `audit_root.py`, and the three knowledge files they read; it stays open fo
 | [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | What the verify gate's block holds and how its status is computed |
 | [scripts/lib/report.py](scripts/lib/report.py) | Every finding code and the exit code it forces — the single source of severity |
 | [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to `tools/known-good-exceptions.txt` |
+| [skills/dgf-scaffold/scripts/design.py](skills/dgf-scaffold/scripts/design.py) | The scaffold's design check: the folder is empty, names, references, data model, SQL types, what is open, every default |
+| [skills/dgf-scaffold/scripts/generate.py](skills/dgf-scaffold/scripts/generate.py) | Renders a new application from the design and `templates/manifest.json`; `--check` is the post-generation check (`check.py`) |
+| [skills/dgf-scaffold/references/DESIGN-FORMAT.md](skills/dgf-scaffold/references/DESIGN-FORMAT.md) | The design file, `docs/application.json`: every key, its rule and its default |
+| [knowledge/application-layout.md](knowledge/application-layout.md) | What a new DGF application is made of — the framework facts the scaffold's templates rest on |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
 | [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What the vendored schema set holds: directories, dialects, membership |
 | [provenance/knowledge/schemas/MANIFEST.md](provenance/knowledge/schemas/MANIFEST.md) | Maintainer-only: the DGF commit, upstream and shipped `sha256` per file, the path rewrite, the re-vendor process |

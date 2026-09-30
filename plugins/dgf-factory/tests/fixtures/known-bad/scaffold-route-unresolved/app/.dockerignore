@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+docker/
+docs/
+workspaces/
+database/
+.git/

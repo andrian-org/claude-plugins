@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view>
+  <header title="" />
+  <description title="" />
+  <row keyfield="{{module.entity_obj.key}}">
+{{#each module.entity_obj.fields}}
+    <cell name="{{name}}" title="{{title}}" />
+{{/each}}
+  </row>
+  <fetch>
+    <sort>
+      <column name="{{module.entity_obj.key}}" ascending="true" />
+    </sort>
+    <filter />
+  </fetch>
+</view>

@@ -374,8 +374,73 @@ run-time name is flagged `AUDIT_REFERENCE_DYNAMIC`, and an unreached shared work
 candidate, never proof of dead code. Roles are listed, never checked: nothing in the root declares
 one (`knowledge/permissions.md` §1).
 
-`/dgf-scaffold` — a new application from an empty folder, generated from shipped templates — is designed
-but not built yet (ADR 0027 §7, ADR 0026 §2).
+## Starting an application
+
+`/dgf-scaffold` is the one command that runs before the pipeline has anything to run on. It creates a new
+DGF application in an **empty folder**, and hands the new workspaces root to `/dgf`; every change after that is
+brownfield work for `/dgf-plan` and `/dgf-implement` ([ADR 0026](adr/0026-authoring-entry-point-revised.md)
+§1–§2, [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §7). DGF ships no bootstrap template or generator,
+so the skill generates the application itself, from templates this plugin ships, DGF-generic:
+
+```text
+empty folder + "an inspections app for two directorates: a permit register and an approval service, DGPass sign-in"
+  0 empty?     design.py --empty-only                                 (script)
+  1 design     the model turns the request into docs/application.json
+  2 check      names, references, data model, SQL types; what is open; every default   (design.py)
+  3 survey     ask only what is open; back to 2
+  4 confirm    the defaults (DEFAULT: lines) and the tree (generate.py --dry-run)
+  5 generate   solution + database + workspaces + artefacts, from shipped templates   (generate.py)
+  6 check      secrets, structure, routes, and the validators over the generated files (generate.py --check)
+  7 report     how to run it, every value to fill in, next: /dgf <folder>/workspaces
+```
+
+It does nothing in a folder that is not empty (only a `.git` folder and `docs/application.json` are allowed),
+and it adds nothing to an existing application. It reads and writes no `.dgf-factory/`, checks no override
+and reads no patches, since there is no root and no plan.
+
+**What is generated.** One thin host project per API, on the `DGF.API` package, with an `appsettings.json` and one
+`appsettings.<Deployment>.json` per deployment; an SDK-style `Microsoft.Build.Sql` database project with the
+application's tables, an `aspnet_Applications` row per instance and the roles; the workspaces, each with the
+minimum a new application needs (a route table whose landing route is not `/`, a `/login` route and page, the
+application map, a profile tree per router) and a `register`, `service` or `page` pattern per module; a compose
+stack with traefik, SQL Server, Redis and Seq; and the documentation. The design file stays in `docs/`, and the
+generator run from it into a new empty folder reproduces the application.
+
+**Never literal.** A secret, a host, a feed, a registry and an image tag are each a `${VAR}`, declared in
+`docker/.env.example` and `docs/configuration.md`. The application does not run until they are filled, and until
+four things DGF pins no consumer artifact for are supplied: the base workspace, the image that publishes the
+framework's database baseline, the DGF UI image, and a NuGet feed serving `DGF.API`.
+
+**Two scripts and a check.** Both scripts are slice-local (`skills/dgf-scaffold/scripts/`), need neither
+`lxml` nor `jsonschema` (only `--check` runs the validators, which do), and take `--verbose`:
+
+| Script | Decides | Usage |
+|---|---|---|
+| `design.py` | The folder is empty; the design's names, references, options, data model and column types; what is open; every default | `--folder DIR [--empty-only] [--knowledge-dir DIR]` |
+| `generate.py` | Renders the design into the folder — everything in memory first, then staged and moved into place, and undone on any failure; `--dry-run` prints the targets; `--check` is the post-generation check | `--folder DIR [--dry-run \| --check]` |
+
+| Exit | `design.py` | `generate.py` |
+|---|---|---|
+| `0` | complete: nothing is open, nothing conflicts | written, planned, or sound |
+| `1` | a conflict: `SCAFFOLD_DIR_NOT_EMPTY`, `SCAFFOLD_NAME_INVALID`, `SCAFFOLD_OPTION_INVALID`, `SCAFFOLD_REFERENCE_INVALID`, `SCAFFOLD_MODEL_INVALID`, `SCAFFOLD_SQL_TYPE_UNKNOWN` | `SCAFFOLD_TARGET_EXISTS`; or, from `--check`, `SCAFFOLD_LITERAL_SECRET`, `SCAFFOLD_VAR_UNDECLARED`, `SCAFFOLD_STRUCTURE_INVALID`, `SCAFFOLD_ROUTE_UNRESOLVED`, `SCAFFOLD_VALIDATION_FAILED` |
+| `2` | values are open: one `SCAFFOLD_ASK` each, and a `DEFAULT:` line per default | — |
+| `3` | `SCAFFOLD_DESIGN_UNREADABLE`, or usage | `SCAFFOLD_DESIGN_INCOMPLETE`, `SCAFFOLD_TEMPLATE_MISSING`, `SCAFFOLD_WRITE_FAILED`, `DEPENDENCY_MISSING` from `--check` |
+
+**The post-generation check decides; the skill relays it.** In order: the secrets and variables (every value of a
+key that names a secret is one `${VAR}`, every variable used is declared in both places, every placeholder in an
+`appsettings` file is set by the compose service that runs it); the structure of the files no validator reads
+(the application maps, the profile trees and their node files, against the `workspace-minimum` table); the routes
+(every route names a page that exists, by exact case; the landing route is first and is not `/`; `/login` has a
+login page); and `validate_config.py`, `resolve_components.py` and `validate_model.py` — and `validate_process.py`
+when there is a process — over the generated workspaces, never over the copied base and never with `--all`. INFO
+is allowed, and so is `NO_SCHEMA` on a `sitemap.json`, which every site map gets. A failed check is a generator
+defect: the skill stops and quotes it, and never patches the output.
+
+**What it does not know.** The solution files — C#, SQL, compose, MSBuild — pass no validator; they are held only
+by the check and, where `dotnet` and Docker exist, by a real build. The instance model is the framework's own: an
+instance is a `WorkspaceName` with its own `aspnet_Applications` row, and isolation between instances is by the
+`ApplicationId` column alone. See [DESIGN-FORMAT.md](../skills/dgf-scaffold/references/DESIGN-FORMAT.md) for the
+design file, and `knowledge/application-layout.md` for the framework facts every template rests on.
 
 ## See Also
 

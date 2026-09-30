@@ -1,0 +1,31 @@
+{
+  "type": "page",
+  "name": "home",
+  "content": [
+    {
+      "type": "container",
+      "cols": 12,
+      "content": [
+        {
+          "type": "row",
+          "content": [
+            {
+              "type": "text",
+              "name": "homeTitle",
+              "value": "Lands Directorate",
+              "size": "xlarge",
+              "cols": 12
+            },
+            {
+              "type": "text",
+              "name": "homeIntro",
+              "value": "Welcome. Sign in to use the services of Inspections Portal.",
+              "cols": 12
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "noSuchProperty": 1
+}

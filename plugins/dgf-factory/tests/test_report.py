@@ -116,6 +116,33 @@ class AuditCodes(unittest.TestCase):
                 self.assertEqual(report.CODES.get(code), exit_code, code)
 
 
+class ScaffoldCodes(unittest.TestCase):
+    """The scaffold's codes: a conflict blocks, an open value asks, an unreadable design or a failed write is a usage error."""
+
+    EXPECTED = {
+        report.EXIT_BLOCKED: (
+            "SCAFFOLD_DIR_NOT_EMPTY", "SCAFFOLD_NAME_INVALID", "SCAFFOLD_OPTION_INVALID",
+            "SCAFFOLD_REFERENCE_INVALID", "SCAFFOLD_MODEL_INVALID", "SCAFFOLD_SQL_TYPE_UNKNOWN",
+            "SCAFFOLD_TARGET_EXISTS", "SCAFFOLD_LITERAL_SECRET", "SCAFFOLD_VAR_UNDECLARED",
+            "SCAFFOLD_STRUCTURE_INVALID", "SCAFFOLD_ROUTE_UNRESOLVED", "SCAFFOLD_VALIDATION_FAILED",
+        ),
+        report.EXIT_WARNINGS: ("SCAFFOLD_ASK",),
+        report.EXIT_USAGE: (
+            "SCAFFOLD_DESIGN_UNREADABLE", "SCAFFOLD_DESIGN_INCOMPLETE", "SCAFFOLD_TEMPLATE_MISSING",
+            "SCAFFOLD_WRITE_FAILED",
+        ),
+    }
+
+    def test_every_scaffold_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+    def test_no_scaffold_code_is_unlisted(self):
+        listed = {code for codes in self.EXPECTED.values() for code in codes}
+        self.assertEqual({c for c in report.CODES if c.startswith("SCAFFOLD_")}, listed)
+
+
 class Rendering(unittest.TestCase):
     def test_output_order_and_verdict(self):
         rep = report.Report("f.json", "json")

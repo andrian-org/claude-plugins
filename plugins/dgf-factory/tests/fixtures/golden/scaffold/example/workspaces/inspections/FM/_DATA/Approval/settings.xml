@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entity version="4.0">
+  <header title="Approval" />
+  <description title="" />
+  <datasource type="DB" name="Approval" />
+  <primarykey>Id</primarykey>
+  <audittrail create="false" update="false" delete="false" search="false" />
+  <fields>
+    <field name="Id" type="Integer" dbtype="Int32" format="" title="Id" description="" size="" required="true" readonly="true" uimask="001111" />
+    <field name="Applicant" type="Text" dbtype="StringUnicode" format="" title="Applicant" description="" size="200" required="true" readonly="false" uimask="001111" />
+    <field name="Summary" type="Text" dbtype="String" format="" title="Summary" description="" size="2147483647" required="false" readonly="false" uimask="001111" />
+    <field name="SubmittedOn" type="DateTime" dbtype="DateTime" format="datetime" title="SubmittedOn" description="" size="" required="false" readonly="false" uimask="001111" />
+    <field name="ApplicationId" type="Text" dbtype="Guid" format="" title="Workspace" description="" size="" required="false" readonly="false" uimask="001111" />
+  </fields>
+</entity>

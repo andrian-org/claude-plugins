@@ -1,0 +1,16 @@
+{
+  "type": "page",
+  "name": "loginPage",
+  "content": [
+    {
+      "type": "login",
+      "name": "login",
+      "title": "{{workspace.title}}",
+      "authenticationMethods": [
+{{#each workspace.methods}}
+        { "name": "{{name}}", "title": "{{title}}" }{{#if !@last}},{{/if}}
+{{/each}}
+      ]
+    }
+  ]
+}

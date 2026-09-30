@@ -16,9 +16,8 @@ Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
 
 ## Current State
 
-Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific Skills") is built
-but for `/dgf-scaffold`, which ADR 0027 §7 designs and which is not yet built. The repository
-currently contains:
+Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific Skills") is built,
+`/dgf-scaffold` included (ADR 0027 §7). The repository currently contains:
 
 - `README.md` + `docs/` — landing page and documentation set
 - `docs/blueprint.md` — the design document (Part 1 teardown, Part 2 DGF mapping)
@@ -92,10 +91,10 @@ currently contains:
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
   when a skill quotes a finding code or passes a flag no script has, and holds the override
   readers and writer to the limit
-- `docs/adr/` — 25 decision records, 0001–0025; the index is `docs/adr/README.md`
+- `docs/adr/` — 27 decision records, 0001–0027; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: `/dgf-scaffold`, `agents/` and the marketplace entry.
+Not yet created: `agents/` and the marketplace entry.
 
 ## Tech Stack
 

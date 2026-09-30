@@ -227,6 +227,23 @@ branch introduced as `ERROR` or `WARN`. To drive the same flow through the skill
 plugin with `--plugin-dir` and run `/dgf /tmp/estate`, then `/dgf-plan`, `/dgf-implement`,
 `/dgf-verify` and `/dgf-commit` inside the copy. See [Pipeline Spine](pipeline.md).
 
+## Starting a new application
+
+`/dgf-scaffold` needs an **empty folder** and creates a whole application in it — see
+[Starting an application](pipeline.md#starting-an-application). To try its scripts without the skill, write a
+`docs/application.json` (the example in
+[DESIGN-FORMAT.md](../skills/dgf-scaffold/references/DESIGN-FORMAT.md)) into a new folder, and from the plugin
+root, with the validators' virtualenv on `PATH`:
+
+```bash
+python3 skills/dgf-scaffold/scripts/design.py --folder ../my-app        # exit 2 lists what to answer; 0 when complete
+python3 skills/dgf-scaffold/scripts/generate.py --folder ../my-app --dry-run
+python3 skills/dgf-scaffold/scripts/generate.py --folder ../my-app
+python3 skills/dgf-scaffold/scripts/generate.py --folder ../my-app --check
+```
+
+Then `/dgf ../my-app/workspaces` sets the new root up for the pipeline.
+
 ## Trying the loop
 
 The loop's two scripts need no DGF checkout and no `config.yaml`. On a scratch root, write a patch
@@ -254,8 +271,6 @@ skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
 
 ## What is not here yet
 
-- `/dgf-scaffold` — a new application from an empty folder, designed in
-  [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §7 and not yet built
 - `agents/` — coordinators and workers
 - A marketplace entry in `../../.claude-plugin/marketplace.json`
 
