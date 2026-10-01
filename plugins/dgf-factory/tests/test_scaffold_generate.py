@@ -90,12 +90,13 @@ class Manifest(unittest.TestCase):
     def test_every_template_file_is_in_the_manifest(self):
         listed = {entry["template"] for entry in gen.load_manifest()["entries"]}
         on_disk = {p.relative_to(gen.TEMPLATES).as_posix() for p in gen.TEMPLATES.rglob("*")
-                   if p.is_file() and p.name != "manifest.json"}
+                   if p.is_file() and p.name != "manifest.json"
+                   and not sh.BUILD_OUTPUT & set(p.relative_to(gen.TEMPLATES).parts)}
         self.assertEqual(on_disk - listed, set(), "a template no entry renders")
 
     def test_every_template_is_lf_only_utf8_without_a_bom(self):
         for path in gen.TEMPLATES.rglob("*"):
-            if path.is_file():
+            if path.is_file() and not sh.BUILD_OUTPUT & set(path.relative_to(gen.TEMPLATES).parts):
                 data = path.read_bytes()
                 self.assertNotIn(b"\r", data, path)
                 self.assertFalse(data.startswith(b"\xef\xbb\xbf"), path)

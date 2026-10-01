@@ -73,10 +73,14 @@ def generated(doc, parent):
     return folder
 
 
+BUILD_OUTPUT = {"obj", "bin"}  # an IDE that finds a .csproj restores it, and leaves these behind
+
+
 def tree(folder):
-    """{relative path: bytes} of every file under `folder`."""
+    """{relative path: bytes} of every file under `folder`, build output left out."""
     folder = Path(folder)
-    return {p.relative_to(folder).as_posix(): p.read_bytes() for p in sorted(folder.rglob("*")) if p.is_file()}
+    return {p.relative_to(folder).as_posix(): p.read_bytes() for p in sorted(folder.rglob("*"))
+            if p.is_file() and not BUILD_OUTPUT & set(p.relative_to(folder).parts)}
 
 
 def copy_of(folder, parent):

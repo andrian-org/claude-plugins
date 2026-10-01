@@ -83,8 +83,14 @@ plugins/dgf-factory/
 │   ├── dgf-model/                      # Slice: inspect / validate / add / modify an entity (exists)
 │   │   ├── SKILL.md
 │   │   └── templates/                  #   settings.xml
-│   └── dgf-audit/                      # Slice: read-only — the root's health, and blast radius (exists)
-│       └── SKILL.md
+│   ├── dgf-audit/                      # Slice: read-only — the root's health, and blast radius (exists)
+│   │   └── SKILL.md
+│   └── dgf-scaffold/                   # Slice: a new application from an empty folder (exists)
+│       ├── SKILL.md
+│       ├── references/                 #   DESIGN-FORMAT.md — the design file, docs/application.json
+│       ├── scripts/                    #   slice-local: design.py (the design check), generate.py (render, --check),
+│       │                               #   check.py, render.py (template engine), context.py (template context)
+│       └── templates/                  #   manifest.json + solution/, workspace/, patterns/{register,service,page}/
 │
 ├── agents/                             # ── SUBAGENTS ── coordinator, workers, sidecars
 │   ├── dgf-implement-coordinator.md
@@ -101,6 +107,7 @@ plugins/dgf-factory/
 │   ├── data-model.md                   #   entities, fields, relations; what each model loader does
 │   ├── reference-graph.md              #   the reference-edges table: every reference, its rule, Reach
 │   ├── permissions.md                  #   where the root names roles; nothing in it declares one
+│   ├── application-layout.md           #   a new application: workspace minimum, application row, roles, sign-in, host, stack
 │   └── schemas/                        #   vendored copies, version-stamped
 │       ├── MANIFEST.md                 #     DGF version, date, per-file dialect and membership
 │       ├── json/                       #     generated *.schema.json (modern component config)
@@ -155,6 +162,7 @@ plugins/dgf-factory/
 │   ├── check-dual-schema-docs.sh       #   doc, decision-record, manifest, stamp contracts; runs tests/
 │   ├── check_knowledge_stamps.py       #   stamps, ledgers, vendored-schema digests
 │   ├── vendor_schemas.py               #   re-vendors DGF's schemas, rewriting DGF paths
+│   ├── derive_sql_types.py             #   the SQL type of each dbtype, tallied from DGF's settings/table pairs
 │   ├── run_known_good.py               #   every validator over DGF's samples, held to the exceptions file
 │   ├── known-good-exceptions.txt       #   evidenced excuses + the warning baseline
 │   ├── check_drift.py                  #   provenance ledgers' digests against a DGF checkout
@@ -169,10 +177,11 @@ plugins/dgf-factory/
 
 The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices (`dgf`,
 `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), the learning loop's two (`dgf-fix`,
-`dgf-evolve`), the four DGF-specific slices (`dgf-component`, `dgf-process`, `dgf-model`,
-`dgf-audit`), `knowledge/`, `scripts/`, `tests/`, `tools/`, `provenance/` and the files around
-them exist. `dgf-scaffold`, blocked until the estate's bootstrap template is identified
-([ADR 0023](../docs/adr/0023-dgf-specific-skills.md) §7), and `agents/` arrive later. Every gate block is
+`dgf-evolve`), the five DGF-specific slices (`dgf-component`, `dgf-process`, `dgf-model`,
+`dgf-audit`, `dgf-scaffold`), `knowledge/`, `scripts/`, `tests/`, `tools/`, `provenance/` and the files around
+them exist. `dgf-scaffold` generates a new application because DGF ships no bootstrap template
+([ADR 0026](../docs/adr/0026-authoring-entry-point-revised.md) §2, [ADR 0027](../docs/adr/0027-dgf-specific-skills-revised.md)
+§7); `agents/` arrives later. Every gate block is
 built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `/dgf-verify`,
 `doctor.py` for `/dgf-doctor` — and the skill relays it
 ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md)).
@@ -208,12 +217,14 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   (`knowledge/README.md` §7). The marker is the only coupling. The knowledge file still names
   no script, and a malformed table is exit `3`, never a fallback. The one exception is
   `reference-edges`' `Checked by` column, which names the validator that reports an unresolved edge
-  so that the audit does not report it twice ([ADR 0023](../docs/adr/0023-dgf-specific-skills.md)
+  so that the audit does not report it twice ([ADR 0027](../docs/adr/0027-dgf-specific-skills-revised.md)
   §4–§5) — a validator's file name, never a skill or a pipeline stage
 - ✅ A slice's own script may load a shared library module by path: `doctor.py` loads
   `scripts/lib/knowledge.py` to check every table, and `scripts/lib/gate_result.py` — from its
-  own plugin, never the root it checks — to build its gate block. That is why both are
-  stdlib-only and import nothing from their own package
+  own plugin, never the root it checks — to build its gate block. `/dgf-scaffold`'s `design.py` and
+  `generate.py` load `report.py` and `knowledge.py` the same way, and their sibling modules (`render.py`,
+  `context.py`, `check.py`) by path from their own folder. That is why these modules are stdlib-only and
+  import nothing from their own package; a slice script that needs argument parsing has its own parser
 - ✅ A slice hands work to another slice by **invoking it as a command** (`/dgf-verify`)
   or by **writing an artifact** the other slice reads
 - ❌ A slice reads another slice's `references/`, `scripts/` or `templates/` directly —
@@ -260,6 +271,11 @@ only:
   never the prose above it.
 - **Command invocation.** A slice may invoke another as a command when the user's flow
   calls for it, but never reaches into its files.
+
+`/dgf-scaffold` is the one writer that runs before there is a root or a plan: it writes a new
+application only into an empty folder, only through `generate.py`, and hands over by telling
+the user to run `/dgf` on the new workspaces root ([ADR 0026](../docs/adr/0026-authoring-entry-point-revised.md)
+§2). Every later change to that application is the pipeline's.
 
 Shared `knowledge/` is read-only to every slice. It changes through a deliberate edit,
 with its `provenance/` ledger updated in the same change, never as a side effect of
