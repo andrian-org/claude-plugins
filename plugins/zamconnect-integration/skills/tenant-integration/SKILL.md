@@ -1,7 +1,7 @@
 ---
 name: tenant-integration
 description: Build the integration surface of an existing ZamConnect tenant — upstream REST or SOAP client(s) under Endpoints/, request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides whether the client derives from RestEndpoint or SoapEndpoint. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "expose these endpoints on <Tenant>", or types /tenant-integration.
-argument-hint: "<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth Basic|JWT|Custom|RA|None (REST) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]"
+argument-hint: "<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap|rest,soap] [--auth Basic|JWT|Custom|RA|None (REST) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]"
 disable-model-invocation: false
 ---
 
@@ -25,7 +25,7 @@ Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username`
 | `<TenantName>` | Existing tenant under `src/Tenants/` | Required. Asked first, from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>`. If the folder is missing, run `tenant-init` first |
 | `--source <url\|path>` | Integration source; repeatable | Asked (step 1, source question) |
 | `--expose <METHOD /route>` | A route the tenant should expose; repeatable | Every upstream operation, confirmed in the review |
-| `--protocol rest\|soap` | Overrides the classification in step 1a | Detected from the source |
+| `--protocol rest\|soap\|rest,soap` | Runs one typed pass per upstream, per protocol listed, REST first (step 1, Protocol passes). The pass's protocol settles a classification step 1a leaves open | Untyped passes, protocol detected from the source |
 | `--auth <scheme>` / `--auth-header <name>` | Upstream auth. REST: `Basic`, `JWT`, `Custom`, `RA`, `None`. SOAP: `Basic`, `ClientCertificate`, `None`. `--auth-header` goes with `Custom` | Detected from the source. Asked only when it can't be |
 | `--system <Name>` | Upstream system name: the client class, `Models/<Name>/`, the config section and tokens | Derived from the source title. Asked only under `Customize…` or when there's nothing to derive it from |
 | `--role provide\|consume` | Whether the exposed routes serve this tenant's own institution (`provide`) or data reached back through the gateway (`consume`). `tenant-deliverables` uses it to split the Consume/Provide documents | `provide` |
@@ -48,11 +48,32 @@ Only with `--gate <n>/<N>`. **One** `AskUserQuestion` call holds the gate and, u
 | `Step <n>/<N>` | `/tenant-integration <T>` — build the upstream client, models, mappers and exposed routes. Run it? | `Proceed (Recommended)` — protocol and auth detected from the source, every operation exposed, public DTOs + mapper, spec-ready · `Customize…` — also choose system name, auth, data role, DTO strategy, module grouping, timeout · `Skip` · `Stop` |
 | `Source` | The source question from step 1 below | discovered sources |
 
+With `--protocol rest,soap` the question says the order — "build the REST API clients first, then the SOAP service clients, one upstream at a time" — and `Source` is the first REST pass's source question.
+
 `Skip` → end with `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`. Either way, ignore the source answer.
 
 ## 1. Collect inputs
 
 Don't write code until every input is settled. Ask through `AskUserQuestion` only, never in plain text.
+
+### Protocol passes
+
+The skill works one upstream at a time: a **pass** is steps 1 to 7 for one upstream system (its sources may be several files, such as a WSDL and its guide), then step 9. `--protocol` decides whether the passes are typed:
+
+| `--protocol` | Passes |
+|---|---|
+| absent | Untyped. The source question lists every candidate; step 1a detects the protocol per pass; step 9 offers `Add another integration source` |
+| `rest` or `soap` | Typed, that protocol only. It settles a classification step 1a leaves open |
+| `rest,soap` | Typed, as a queue: every REST pass first, then every SOAP pass. `tenant-pipeline` passes this when the intake picked both `Agency REST API` and `Agency SOAP service` |
+
+In a typed pass:
+
+- The source question asks only for the pass's protocol (below).
+- Step 9 keeps offering another upstream of the **same** protocol until the developer says that protocol is done, then starts the next protocol in the queue. The skill doesn't end while a listed protocol hasn't been either integrated or explicitly skipped with its own `Skip <protocol> for now` option.
+- `--source` values are classified up front (step 1a), and each goes to a pass of its own protocol. A pass with no `--source` asks.
+- A `Customize…` gate answer holds for every pass. The proposal questions, endpoint selection and review (R6) are asked per pass, for that upstream.
+
+Under `--auto`, each listed protocol needs a `--source` of its own; one without stops with `missing --source <url|path> for <protocol>` (R10).
 
 ### Discover sources
 
@@ -79,6 +100,14 @@ Integration source for TT — select one or more, or paste a URL or path in Othe
 
 With more than 3 candidates, show the best 3 plus `Show all <N> found`. That option re-asks with the rest, spread over up to 4 questions (R9).
 
+**In a typed pass**, list only candidates of the pass's protocol, from the peek: REST — OpenAPI / Swagger, Postman with JSON bodies; SOAP — `.wsdl`, Postman whose requests carry a `<soap:Envelope>`. A `.docx` / `.pdf` whose protocol the peek can't tell is listed in both. Leave out candidates an earlier pass already integrated. The question text names the protocol and where the queue stands:
+
+```
+REST API source for TT — upstream 2 of REST, SOAP follows. Select one or more, or paste a URL or path in Other.
+  [ ] postman collections/TT-Registry.postman_collection.json    Postman · 8 requests · JSON bodies (REST)
+  [ ] Integration Requests/TT Registry API.docx                  API document · converted to Markdown first
+```
+
 **When nothing was found**, single-select:
 
 ```
@@ -91,6 +120,8 @@ No integration source for TT in the repo. Paste a URL or path in Other, or:
 - `Search Downloads and Desktop` — run the same `find` over `"$HOME/Downloads" "$HOME/Desktop"` with `-mtime -30`, then ask the found-candidates form. If that finds nothing too, fall back to this question without that option.
 - `Wait while I add files` — `mkdir -p "src/Tenants/<T>/Deliverables/Integration Requests"`, say where it is, then ask `Files added?` with `Rescan (Recommended)` / `Skip the integration for now`.
 - `Skip the integration for now` — end. In gate mode: `GATE-RESULT: skipped`.
+
+In a typed pass the question says `No REST API source for TT in the repo`, and the last option is `Skip REST for now` (`Skip SOAP for now`): it ends that protocol's passes and starts the next one in the queue. After the last protocol, the skill ends — in gate mode `GATE-RESULT: ran` when any pass was built, `GATE-RESULT: skipped` when none was.
 
 Other may hold several sources, one per line. A local file from outside the repo belongs in `Integration Requests/` — offer to copy it there as part of the review, not as a separate question.
 
@@ -209,6 +240,8 @@ Everything downstream follows from this one choice:
 A tenant may do both — `RegisterEndpoints` and `RegisterSoapEndpoints` are independent and can be called side by side, each scanning the same assembly for its own marker type. IFMIS is the reference for a tenant that consumes SOAP while exposing REST.
 
 If the sources are genuinely silent on protocol, ask with header `Protocol`: `REST — JSON over HTTP` / `SOAP — XML envelopes`, with the reason detection failed in the question text. Do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol rest|soap` overrides the classification when the user already knows.
+
+In a typed pass, the pass's protocol settles a classification the source leaves open. A source that clearly reads as the other protocol — a WSDL or `<soap:Envelope>` bodies in a REST pass, an OpenAPI spec in a SOAP pass — isn't integrated in that pass. Echo it (R11) — `Read as: WSDL · SOAP 1.1 — this is a REST pass` — and ask with header `Protocol`. In a `rest,soap` queue: `Queue it for the SOAP passes (Recommended)` — then ask the REST source question again · `Choose another REST source`. With a single `--protocol`: `Integrate it as SOAP` · `Choose another REST source`.
 
 ## 2. Read the tenant and its neighbours
 
@@ -672,18 +705,30 @@ The documents themselves are step 6 of `tenant-pipeline` (`/tenant-deliverables 
 
 ## 9. Another integration?
 
-Tenants often reach more than one upstream (`MCTI` → ZABS + ZMA, `MLSS` → four systems). Unless `--auto` is set, ask with header `Next`:
+Tenants often reach more than one upstream (`MCTI` → ZABS + ZMA, `MLSS` → four systems). Unless `--auto` is set, ask with header `Next`.
+
+Untyped passes:
 
 - `Done — continue (Recommended)`
 - `Add another integration source` — back to step 1 for the next upstream. Keep what's been built, and skip anything already answered for this tenant, such as the full name
 
-Each pass gets its own client, config section, models and module, and the report covers all passes.
+Typed passes stay on the current protocol until the developer ends it. The question text lists what that protocol has so far and what comes next:
+
+```
+TT — REST so far: Zims. SOAP is next.
+  ( ) Add another REST API           back to step 1, REST source question
+  ( ) Done with REST — go to SOAP    starts the first SOAP pass (Recommended)
+```
+
+On the last protocol in the queue (or the only one), the second option is `Done with SOAP — continue (Recommended)`, which ends the skill. `Add another …` keeps what's been built and skips anything already answered for this tenant, such as the full name. Under `--auto`, every `--source` of a protocol gets its own pass and nothing is asked.
+
+Each pass gets its own client, config section, models and module, and the report covers all passes, grouped by protocol.
 
 ## Report
 
 State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list the entries added to or removed from `ENVIRONMENT-VARIABLES.json` (names only, never a value), and what an administrator does by hand (C10): add those variables to each environment, import `GATEWAY-CONFIG.md` into each gateway (locally that is `/tenant-audit <TenantName> --only runtime`), and register any RA / ZamPass client.
 
-Close with the equivalent command for each pass (R7), and these answers for the pipeline state: `sources`, `system`, `auth`, `role`, and `fullName` if it was settled here. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
+Close with the equivalent command for each pass (R7) — with `--protocol` set to that pass's protocol — and these answers for the pipeline state, one entry per pass: `protocol`, `sources`, `system`, `auth`, `role`, plus `fullName` if it was settled here. A protocol skipped with `Skip <protocol> for now` is reported as skipped. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 
 ## Sensitive data
 

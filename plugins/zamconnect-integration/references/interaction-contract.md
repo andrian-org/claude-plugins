@@ -115,7 +115,7 @@ because the tenant `Dockerfile` copies that folder into the image.
     "integrates": ["soap"],
     "fullName": "Plant Quarantine and Phytosanitary Service",
     "integrations": [
-      { "sources": ["src/Tenants/PQPS/Deliverables/Integration Requests/pqps.wsdl"], "system": "Pqps", "auth": "Basic", "role": "provide" }
+      { "protocol": "soap", "sources": ["src/Tenants/PQPS/Deliverables/Integration Requests/pqps.wsdl"], "system": "Pqps", "auth": "Basic", "role": "provide" }
     ]
   },
   "steps": [

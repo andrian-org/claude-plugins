@@ -108,14 +108,14 @@ Every skill takes `--help` (or `-h`): it prints its arguments, their defaults an
 
 ### `/tenant-integration`
 
-`<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap] [--auth <scheme>] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--no-spec-ready] [--spec-only] [--help]`
+`<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap|rest,soap] [--auth <scheme>] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--no-spec-ready] [--spec-only] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Existing tenant (required) |
 | `--source <url\|path>` | Integration source: Postman collection, OpenAPI spec, REST base URL, WSDL or prose docs; repeatable. Without it, the skill offers the sources it finds in the repo |
 | `--expose <METHOD /route>` | Endpoints the tenant should expose; repeatable. Default: every upstream operation |
-| `--protocol rest\|soap` | Override the REST/SOAP classification derived from the source |
+| `--protocol rest\|soap\|rest,soap` | Integrate one upstream at a time for each protocol listed, REST first, asking for another of the same protocol until you mark it done. Also settles a REST/SOAP classification the source leaves open |
 | `--auth` / `--auth-header` | Upstream auth — REST: `Basic`, `JWT`, `Custom`, `RA`, `None`; SOAP: `Basic`, `ClientCertificate`, `None` — and, for `Custom`, the header name. Default: detected from the source |
 | `--system <Name>` | Upstream system name — client class, models folder, config token. Default: derived from the source title |
 | `--role provide\|consume` | Where the routes' data comes from; feeds the Consume/Provide split of the deliverables. Default `provide` |
