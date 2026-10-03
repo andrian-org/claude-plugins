@@ -16,16 +16,16 @@ grammar) — and then learns the *system you build with it*.
 > change-relative gates, the data model, blast radius, patches and overrides are decided by scripts,
 > checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` creates a new application
 > from an empty folder, from templates the plugin ships. The plugin **loads locally** with
-> `claude --plugin-dir plugins/dgf-factory`; it is **not registered in the marketplace**.
+> `claude --plugin-dir plugins/dgf-factory`, and is registered in the `andrian-org` marketplace.
 > See [the blueprint](docs/blueprint.md) for the build order.
 
 ## Quick Start
 
-Once published, teammates install it from the internal `dotgov` marketplace:
+Teammates install it from the internal `andrian-org` marketplace:
 
 ```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
-claude plugin install dgf-factory@dotgov
+claude plugin marketplace add andrian-org/claude-plugins
+claude plugin install dgf-factory@andrian-org
 ```
 
 To work **on** the plugin, clone the repo and open `plugins/dgf-factory/` — the AI Factory

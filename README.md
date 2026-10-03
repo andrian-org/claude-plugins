@@ -1,19 +1,20 @@
 # dotGov Claude Code Plugins
 
-Internal plugin marketplace for dotGov Solutions. Hosted in Azure DevOps — access is controlled by
-the `dotgov` project's repo permissions, so only teammates who can clone this repo can install
+Internal plugin marketplace for dotGov Solutions, named `andrian-org`. Hosted on GitHub — access
+is controlled by the repo's permissions, so only teammates who can clone this repo can install
 from it.
 
-Clone URL: `https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins`
+Repo: [`andrian-org/claude-plugins`](https://github.com/andrian-org/claude-plugins)
 
 ## For teammates: one-time setup
 
 Run the first command in a **normal interactive terminal**, not inside a Claude Code session —
-Git Credential Manager may need to prompt for Azure DevOps sign-in:
+git may need to prompt for GitHub sign-in:
 
 ```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
-claude plugin install doc-coverage-audit@dotgov
+claude plugin marketplace add andrian-org/claude-plugins
+claude plugin install doc-coverage-audit@andrian-org
+claude plugin install dgf-factory@andrian-org
 ```
 
 Restart Claude Code, then confirm:
@@ -22,17 +23,17 @@ Restart Claude Code, then confirm:
 claude plugin list
 ```
 
-If the `add` fails with `unable to get password from user`, you are running non-interactively.
-Do `git clone <url>` once by hand so GCM caches the credential, then retry.
+If the `add` fails with an authentication error, you are running non-interactively or have no
+GitHub credential cached. Run `gh auth login` (or `git clone` the repo once by hand), then retry.
 
 ## Automatic provisioning (recommended)
 
-Any project repo can declare this marketplace so teammates get the plugin with no setup at all.
+Any project repo can declare this marketplace so teammates get the plugins with no setup at all.
 Let the CLI write the entry rather than hand-authoring it:
 
 ```bash
 cd /path/to/your/project
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins --scope project
+claude plugin marketplace add andrian-org/claude-plugins --scope project
 ```
 
 That produces `.claude/settings.json`:
@@ -40,14 +41,17 @@ That produces `.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "dotgov": {
+    "andrian-org": {
       "source": {
-        "source": "git",
-        "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
+        "source": "github",
+        "repo": "andrian-org/claude-plugins"
       }
     }
   },
-  "enabledPlugins": ["doc-coverage-audit@dotgov"]
+  "enabledPlugins": {
+    "doc-coverage-audit@andrian-org": true,
+    "dgf-factory@andrian-org": true
+  }
 }
 ```
 
@@ -58,6 +62,7 @@ Add `enabledPlugins` yourself. Commit the file — a fresh clone is then ready t
 | Plugin | What it does |
 |---|---|
 | `doc-coverage-audit` | Maps a deliverables checklist to the documents that actually exist, with verified links and gap analysis. Built for close-out, hand-over, due diligence and audit evidence. |
+| `dgf-factory` | A DotGov Framework-aware plan → implement → verify → commit pipeline, backed by deterministic validators that check both component config families — modern JSON and legacy XSD. |
 
 ## Contributing a plugin
 
@@ -84,8 +89,8 @@ The nesting matters: `skills/<skill-name>/SKILL.md`, not `skills/SKILL.md`. A fl
 
    ```bash
    claude plugin marketplace add /path/to/this/repo
-   claude plugin install <your-plugin>@dotgov
-   claude plugin details <your-plugin>@dotgov      # check token cost
+   claude plugin install <your-plugin>@andrian-org
+   claude plugin details <your-plugin>@andrian-org      # check token cost
    ```
 
 5. If you also keep a copy in `~/.claude/skills/`, delete it — two registrations of the same
@@ -100,7 +105,7 @@ with a vague description never fires.
 
 ### Keep an eye on token cost
 
-`claude plugin details <name>@dotgov` reports always-on cost, which every session pays. Keep
+`claude plugin details <name>@andrian-org` reports always-on cost, which every session pays. Keep
 `SKILL.md` lean and push detail into `references/` files that load only when needed.
 
 ### Versioning and releases

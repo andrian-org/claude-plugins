@@ -22,8 +22,8 @@ of this plugin is encoding DGF facts, and facts must be verified against the sou
 ## Clone and open
 
 ```bash
-git clone https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
-cd dotgov-claude-plugins/plugins/dgf-factory
+git clone https://github.com/andrian-org/claude-plugins
+cd claude-plugins/plugins/dgf-factory
 ```
 
 Open `plugins/dgf-factory/` as the working directory, not the repo root. The AI Factory
