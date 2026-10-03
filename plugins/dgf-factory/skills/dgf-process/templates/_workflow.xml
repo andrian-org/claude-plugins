@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A minimal workflow: an empty sequence. Replace every `Example`, then add steps from
+  knowledge/reference-graph.md §1 — Invoke, SubWorkflow, UpdateRecord, StateProcess and the rest.
+-->
+<Workflow name="Example" title="Example">
+  <Sequence>
+  </Sequence>
+</Workflow>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view>
+  <header title="" />
+  <description title="" />
+  <row keyfield="Id">
+    <cell name="Id" title="Id" />
+    <cell name="Applicant" title="Applicant" />
+    <cell name="Summary" title="Summary" />
+    <cell name="SubmittedOn" title="SubmittedOn" />
+  </row>
+  <fetch>
+    <sort>
+      <column name="Id" ascending="true" />
+    </sort>
+    <filter />
+  </fetch>
+</view>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>{{app.name}}.{{api.name}}</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DGF pins no package id: DGF.API is the assembly name. Point NuGet at the feed that serves it. -->
+    <PackageReference Include="DGF.API" Version="{{dgf_version}}" />
+  </ItemGroup>
+
+</Project>

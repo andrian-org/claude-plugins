@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Process title="Approval service" table="Approval" keyName="Id" allowBack="false" allowHistory="true" allowAddSteps="false" allowAnonymouslyProcessing="false" assignTasks="true">
+  <OnStart action="WORKFLOW:/Approval.Draft" name="Draft" title="Draft" description="Capture the request.">
+    <Transitions>
+      <Transition state="Submitted" color="green" title="Submit" />
+    </Transitions>
+  </OnStart>
+  <States>
+    <State name="Draft" type="Task" action="WORKFLOW:/Approval.Draft" title="Draft" description="Capture the request.">
+      <Transitions>
+        <Transition state="Submitted" color="green" title="Submit" />
+      </Transitions>
+    </State>
+    <State name="Submitted" type="Task" action="WORKFLOW:/Approval.Submitted" title="Submitted" description="The request is submitted.">
+      <Transitions>
+        <Transition state="InReview" color="blue" title="Send to review" />
+        <Transition state="Draft" color="black" title="Withdraw" />
+      </Transitions>
+    </State>
+    <State name="InReview" type="Task" action="WORKFLOW:/Approval.InReview" title="In review" description="A reviewer decides the request.">
+      <OnInit>
+        <Task state="NEW" role="Supervisor" />
+      </OnInit>
+      <OnFinalize>
+        <Task state="COMPLETE" />
+      </OnFinalize>
+      <Transitions>
+        <Transition state="Approved" color="green" title="Approve" />
+        <Transition state="Rejected" color="red" title="Reject" />
+      </Transitions>
+    </State>
+    <State name="Approved" type="Task" action="WORKFLOW:/Approval.Approved" title="Approved" description="The request is approved.">
+      <Transitions>
+        <Transition state="End" color="black" title="Finish" />
+      </Transitions>
+    </State>
+    <State name="Rejected" type="Task" action="WORKFLOW:/Approval.Rejected" title="Rejected" description="The request is rejected.">
+      <Transitions>
+        <Transition state="End" color="black" title="Finish" />
+      </Transitions>
+    </State>
+  </States>
+</Process>

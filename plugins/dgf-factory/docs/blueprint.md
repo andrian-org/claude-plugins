@@ -1,4 +1,4 @@
-[← DGF Schemas](dgf-schemas.md) · [Back to README](../README.md)
+[← Decision Records](adr/README.md) · [Back to README](../README.md)
 
 > **Note:** this page moved from `ARCHITECTURE-BLUEPRINT.md` in the plugin root.
 > File paths in Part 2 are relative to the **plugin root** (`plugins/dgf-factory/`),
@@ -231,7 +231,7 @@ AI Factory ships as an npm CLI that installs into 15+ agents. This is a **Claude
 | `src/core/mcp.ts` MCP wiring | **keep as `.mcp.json`** if DGF has tooling worth exposing |
 | skills corpus | **keep — this is the whole plugin** |
 | subagents | **keep** — `.claude/agents/*.md`, ship as-is then specialize |
-| extensions/injections | **defer** — add only if other teams need to extend it |
+| extensions/injections | **out of scope** — there is no injection mechanism in a plugin, and this plugin ships its own skills rather than layering onto generic ones ([ADR 0001](adr/0001-independent-plugin-with-ai-factory-derived-architecture.md)) |
 
 Proposed layout, consistent with `plugins/doc-coverage-audit/`:
 
@@ -282,23 +282,23 @@ Start with the spine, then add DGF-specific skills. Do not port all 30 — port 
 
 | skill | note |
 |---|---|
-| `/dgf` | setup; writes DESCRIPTION / config; detects DGF version, module layout, existing processes |
+| `/dgf` | setup; writes DESCRIPTION / config; records the DGF version the user declares — nothing in a workspaces root states it, so it is never detected ([ADR 0019](adr/0019-declared-dgf-version.md)) — and inventories the workspaces — *(corrected 2026-09-25)* |
 | `/dgf-plan` | fast / full / ultra, same three modes |
 | `/dgf-implement` | the state machine; checkbox ledger |
 | `/dgf-verify` | emits `dgf-gate-result` |
 | `/dgf-commit` | conventional commits |
-| `/dgf-fix` | writes patches |
-| `/dgf-evolve` | distils patches into skill-context |
+| `/dgf-fix` | fixes a problem inside the active plan's scope, confirmed by the check that reproduced it, and writes a patch; `--record` writes a patch with no change ([ADR 0024](adr/0024-learning-loop-revised.md)) — *(corrected 2026-09-26)* |
+| `/dgf-evolve` | distils patches into skill-context — an override that may add rules and tighten checks, but never relaxes a STOP, an exit-code row, the status a gate script computes, a Critical Rule or Artifact Ownership, because anyone who commits to the estate can write it; `check_override.py` checks every override before a skill reads it ([ADR 0024](adr/0024-learning-loop-revised.md)) — *(corrected 2026-09-26)* |
 
 **Phase 2 — DGF-specific (the actual value):**
 
 | skill | purpose |
 |---|---|
-| `/dgf-component` | scaffold / inspect / validate a component against the catalogue, in **both** schema families and parity-aware — *(corrected 2026-09-19)* |
-| `/dgf-process` | author or modify a process; validate against `process.xsd` / `workflow.xsd` rather than a BPMN model — *(corrected 2026-09-19)* |
-| `/dgf-model` | **[assume]** entities, relations, migrations |
-| `/dgf-audit` | whole-system consistency: process ↔ component ↔ model ↔ permission graph |
-| `/dgf-scaffold` | greenfield system bootstrap from a structured interview |
+| `/dgf-component` | scaffold / inspect / validate a component against the catalogue, in **both** schema families and parity-aware — *(corrected 2026-09-19)*. As built, scaffolding writes one new file, only inside the active plan's scope, and only the artifacts it owns: JSON components and legacy forms, views, grid forms and options — *(decided 2026-09-27, [ADR 0027](adr/0027-dgf-specific-skills-revised.md))* |
+| `/dgf-process` | author or modify a process; validate against `process.xsd` / `workflow.xsd` rather than a BPMN model — *(corrected 2026-09-19)*. As built, XML always and only inside the plan's scope, with the processes a shared workflow reaches named before a modify — *(decided 2026-09-27, [ADR 0027](adr/0027-dgf-specific-skills-revised.md))* |
+| `/dgf-model` | ~~**[assume]** entities, relations, migrations~~ — entities and their relations in `settings.xml`, every reference checked the way its loader resolves it, blocking only where the loader throws (`validate_model.py`, in the gate); a migration is database work outside the root, named and never written — *(decided 2026-09-27, [ADR 0027](adr/0027-dgf-specific-skills-revised.md))* |
+| `/dgf-audit` | whole-system consistency: process ↔ component ↔ model ↔ permission graph. As built, a read-only report — the validators' health, one reference graph per application resolved the engine's way, blast radius, and the role names in use as an unchecked inventory — never a gate — *(decided 2026-09-27, [ADR 0027](adr/0027-dgf-specific-skills-revised.md))* |
+| `/dgf-scaffold` | greenfield bootstrap — ~~**drives the existing template/generator** and verifies its output, rather than emitting files~~. Stays in phase 3 / milestone 12; the estate is brownfield-dominant — *(decided 2026-09-21, originally ADR 0026)*. No template exists, so as designed it generates a new DGF-generic application itself from shipped templates, only into an empty folder, and checks what it generated — *(decided 2026-09-29, [ADR 0026](adr/0026-authoring-entry-point-revised.md) §2, [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §7)* |
 
 **Phase 3 — quality and learning:** `/dgf-review`, `/dgf-rules`, `/dgf-rules-check`, `/dgf-qa`, `/dgf-docs`, `/dgf-explore`, `/dgf-grounded`, `/dgf-archive`.
 
@@ -321,6 +321,10 @@ Mirror `.ai-factory/` as `.dgf-factory/`, with process-aware additions:
 ├── archive/
 └── processes/                ← NEW: process-model snapshots + blast-radius maps  [assume]
 ```
+
+> *(decided 2026-09-27, [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §5)* `processes/` is not built.
+> Blast radius is computed on demand from the files, by `scripts/audit_root.py`: a stored map goes
+> stale with the next commit.
 
 ## Gate schema
 
@@ -346,6 +350,10 @@ Keep `schema_version: 1` and the last-block-wins parsing rule so anything built 
 
 *(added 2026-09-19)* `schema_family` says which family produced a finding. Without it a blocker from an XSD validation is indistinguishable from a JSON one, and the two have different fixes.
 
+*(2026-09-25)* As built, every block comes from one builder, `scripts/lib/gate_result.py`, which computes `status` and `blocking` from the entries rather than taking them as input. A `warnings` array is added beside `blockers`, which now holds only what blocks; `checks_run` lists what ran, and a required check that did not run is a `not-run-<check>` warning. `schema_family` is `json`, `xsd` or `null` on each entry — `"both"` is dropped, since a finding is in one file — and is counted per family at block level. The doctor's gate is `doctor`, and its only next command is `null`. See [ADR 0020](adr/0020-gate-block-contract.md).
+
+*(decided 2026-09-27, [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §5)* The `"process"` and `"components"` gate ids were never built. Process verification is one of the verify gate's validators, the model check joined it as another, and blast radius is `/dgf-audit`'s report, which emits no block: `gate` is `verify` or `doctor`.
+
 ## Build order
 
 1. **Write the DGF knowledge references first.** Component catalogue, process semantics, binding rules, naming conventions, common mistakes. Everything else depends on these, and no amount of pipeline quality compensates for wrong framework facts.
@@ -362,16 +370,26 @@ Keep `schema_version: 1` and the last-block-wins parsing rule so anything built 
 
 These are the facts the skills will encode. Wrong answers are expensive to unwind.
 
+> **All seven are closed** *(2026-09-21; revised 2026-09-23)*. Question #4 was the last: what
+> `/dgf-implement` does was decided on 2026-09-23.
+> The question text below is left unchanged as the historical record of what was unknown; each
+> closed question carries a block linking the decision that closed it.
+> The decisions themselves live in [`docs/adr/`](adr/README.md).
+
 1. **Process definitions** — what format on disk (XML/JSON/DSL/DB)? Is there a CLI or library to validate one without running the app? That determines whether `/dgf-process` can have a real validator or only prompt heuristics.
    > **ANSWERED (2026-09-19).** XML on disk, validated by XSD: `process.xsd` (root `Process` → `OnStart`, `States`) and `workflow.xsd` (root `Workflow` → `Sequence`, `Input`). No app run is needed — the DGF MCP exposes headless validators for both families (`validate_process_xml`, `validate_workflow_xml`, `validate_component_config`, `validate_*_json`). `/dgf-process` can have a real validator. See [DGF Schemas](dgf-schemas.md).
 2. **Component declaration** — how is a component registered and discovered? Can the set of valid components be enumerated statically?
    > **ANSWERED (2026-09-18).** Yes — `ComponentServiceProvider` holds a name→type registry populated by a `RegisterComponentServices()` reflection scan.
 3. **Greenfield vs. brownfield** — is "build a system from scratch" the dominant case? If yes, `/dgf-scaffold` moves to phase 1.
+   > **ANSWERED (2026-09-21).** No — **mostly brownfield**, so the conditional evaluates to no and `/dgf-scaffold` stays in phase 3 / milestone 12. When a new system does start it comes **from a template or generator**, never from nothing, so the scaffold skill drives that tool rather than emitting files. The unit of work is the **whole workspaces root** — every workspace plus the `webasm` base and the `applibs*` libraries — which is the only scope at which a base-workspace change can be verified against the applications that inherit it. **Revised (2026-09-29):** no bootstrap template exists to drive (searched three times), so `/dgf-scaffold` generates a new, DGF-generic application itself from shipped templates, only into an empty folder, and every change after the first is brownfield; the whole-root unit stands. See [ADR 0026](adr/0026-authoring-entry-point-revised.md). Originally decided in ADR 0026.
 4. **Generated vs. hand-written** — how much of a DGF system is code the agent writes versus configuration it composes? If mostly configuration, "implement a task" means something quite different from AI Factory's assumption and `/dgf-implement` needs reshaping.
-   > **SUBSTANTIALLY ANSWERED (2026-09-19).** Mostly configuration — and today that configuration is **XML** for the five legacy artifact types (form, workflow, process, settings, view). `format-coverage.md` records the Wave-1 policy: AI generates XML for all five regardless of partial JSON parity. `/dgf-implement` therefore composes and validates configuration far more than it writes code.
+   > **ANSWERED (2026-09-19; decided 2026-09-23).** Mostly configuration. The 2026-09-19 answer stopped there: the five legacy artifact types (form, workflow, process, settings, view) are **XML**, and `format-coverage.md` records the Wave-1 policy that AI generates XML for all five regardless of partial JSON parity. **Decided (2026-09-23):** `/dgf-implement` is a configuration composer with an order of means. First, modern JSON components under `FM/_COMPONENTS/`, routed per component from `format-coverage.md`. Second, legacy XML, only where no JSON alternative exists; the five legacy types, Form included, stay XML. Third, a little JavaScript or CSS, only as a plan task marked `kind: code` with the reason configuration cannot express it. It writes no other code. The XML path is built to shrink as DGF migrates components to JSON. See [ADR 0010](adr/0010-dgf-implement-scope.md).
 5. **Test story** — what does verification look like for a process? Is there a way to execute a process definition headlessly?
+   > **ANSWERED (2026-09-21).** Asymmetric. **Structure** is deterministic and headless today — the MCP's process/workflow validators are one-line XSD wrappers over `XsdValidationService`, and `DgfMcpServer.csproj` has zero `<ProjectReference>`, so no engine build is needed. **Semantics** are checked by nothing DGF ships: `process.xsd` contains no `xs:key`/`xs:keyref`/`xs:unique`, so the grammar cannot verify a `Transition/@state` names a declared `State/@name`; `XmlCrossReferenceValidator.cs:94` excludes process outright; and `DiagnosticCheckService`'s process branch is commented out and DB-bound. **Execution is not headless** — stepping a process needs a case record and therefore the database. So this plugin's gates verify structure plus its own semantic checks, and make no claim about runtime behaviour. Originally decided in ADR 0002. **Revised (2026-09-23):** ADR 0002's rules failed DGF's own 23 sample processes — `End` is a reserved terminal state, states are entered by workflow `CHANGE_STATE` steps, and `process.xsd` lags the runtime model — so XSD failures on runtime-bound constructs are now warnings, unreachable-state is advisory, and workflow and change-state references are resolved (ADR 0006). **Revised (2026-09-24):** ADR 0006's resolution rules blocked 62 of the samples' 172 workflow references, most of which the runtime loads — references resolve by the engine's own rules, one path per form with no fallback: a bare reference is process-local, and a `/X` in a `webasm` process resolves in whichever application runs it, so a reference that resolves in only some applications is a warning naming them. See [ADR 0014](adr/0014-process-verification-runtime-resolution.md).
 6. **Versioning** — do DGF versions differ enough that references need version gates?
+   > **ANSWERED (2026-09-21).** **Yes.** `RELEASE-1.1.15.md` §"Breaking Changes" is the proof: `expandAll` and `paging` were "accepted in configuration and then ignored", and now take effect — `"paging"` on an eager TreeTable moved from silently dropped to a hard configuration error. The same JSON validates against the same schema in 1.1.14 and 1.1.15 and is merely fatal in one, so schema validation cannot substitute for a version gate. The mechanism: **stamp every fact** (DGF version, read date, per-source SHA256), **range only behavioural facts**, never the structural majority. Originally decided in ADR 0003, then revised in ADR 0008. **Revised (2026-09-23):** the version is read from `Directory.Build.props` for determinism, not currency — it lags the tags — and `until: null` means "no known end", not "true at `dgf_version`". **Revised again (2026-09-23):** shipped files carry no DGF paths ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)), so each fact's sources and digests moved out of `knowledge/` into a maintainer-only ledger under `provenance/`, and the digest checks became maintainer checks. See [ADR 0013](adr/0013-version-gating-provenance-ledger.md).
 7. **Team conventions** — which dotGov-specific rules should ship as defaults in `RULES.md` rather than being discovered per project?
+   > **ANSWERED (2026-09-21).** Seven ship as defaults, each tagged with how it is enforced: XML-always for the five legacy artifact types (*script*), declarative behaviour only in `FM/` artifacts (*gate*), base-workspace edits need justification (*gate*), DGF-seam scope discipline (*prompt-only*), plus auth, test stack and workspace layout as shipped stack facts. Nothing was rejected as project-specific, which the ADR records as a weak rather than a clean result. `RULES.md` itself stays owned by `/dgf-rules`. See [ADR 0005](adr/0005-default-team-rules.md).
 
 ## References
 
@@ -384,6 +402,7 @@ These are the facts the skills will encode. Wrong answers are expensive to unwin
 
 ## See Also
 
+- [Architecture Decision Records](adr/README.md) — the decisions that closed the open questions above
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — how the facts this blueprint depends on get verified and version-stamped
 - [DGF Schemas](dgf-schemas.md) — the two schema families, and the corrections dated 2026-09-19 above
 - [Architecture](architecture.md) — the slice structure and dependency rules that came out of this design

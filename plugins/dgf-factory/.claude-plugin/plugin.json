@@ -1,0 +1,20 @@
+{
+  "name": "dgf-factory",
+  "version": "0.1.0",
+  "description": "A DotGov Framework-aware plan/implement/verify pipeline, backed by deterministic validators that resolve both component config families — modern JSON and legacy XSD — before reporting success.",
+  "author": {
+    "name": "dotGov Solutions",
+    "email": "andrian.mamei@dotgovsolutions.net"
+  },
+  "homepage": "https://github.com/andrian-org/claude-plugins",
+  "license": "UNLICENSED",
+  "keywords": [
+    "dgf",
+    "dotgov-framework",
+    "dotnet",
+    "angular",
+    "validation",
+    "json-schema",
+    "xsd"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "type": "table",
+  "tableName": "Permit",
+  "viewName": "default",
+  "singleResult": false
+}

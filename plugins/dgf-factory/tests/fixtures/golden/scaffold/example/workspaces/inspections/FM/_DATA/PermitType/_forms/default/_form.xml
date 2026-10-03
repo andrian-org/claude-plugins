@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form labelwidth="160">
+  <header title="default" />
+  <description title="" />
+  <tabs>
+    <tab title="PermitType" name="tab_main">
+      <sections>
+        <section name="sec_main" title="PermitType" showlabel="false" decoration="line" columns="1">
+          <rows>
+            <row>
+              <cell title="Name" name="Name" />
+            </row>
+          </rows>
+        </section>
+      </sections>
+    </tab>
+  </tabs>
+  <hidden>
+    <cell name="ApplicationId" title="ApplicationId">
+      <properties oncreatevalue="~APPLICATIONID" />
+    </cell>
+  </hidden>
+</form>

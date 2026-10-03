@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <!-- Root Element -->
+    <xs:element name="view" type="lookupViewType"/>
+
+    <!-- Main Lookup View Type -->
+    <xs:complexType name="lookupViewType">
+        <xs:sequence>
+            <xs:element name="header" type="headerType" minOccurs="0"/>
+            <xs:element name="description" type="descriptionType" minOccurs="0"/>
+            <xs:element name="row" type="lookupRowType" minOccurs="0"/>
+            <xs:element name="fetch" type="lookupFetchType" minOccurs="0"/>
+            <xs:element name="handlers" type="lookupHandlersType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="select" type="xs:boolean"/>
+        <xs:attribute name="preview" type="xs:boolean"/>
+        <xs:attribute name="check" type="xs:boolean"/>
+        <xs:attribute name="icon" type="xs:boolean"/>
+    </xs:complexType>
+
+    <!-- Header Type -->
+    <xs:complexType name="headerType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="title" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Description Type -->
+    <xs:complexType name="descriptionType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="title" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Lookup Row Type -->
+    <xs:complexType name="lookupRowType">
+        <xs:sequence>
+            <xs:element name="cell" type="lookupCellType" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="keyfield" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Lookup Cell Type -->
+    <xs:complexType name="lookupCellType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="title" type="xs:string" use="required"/>
+                <xs:attribute name="width" type="xs:integer"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Lookup Fetch Type -->
+    <xs:complexType name="lookupFetchType">
+        <xs:sequence>
+            <xs:element name="sort" type="lookupSortType" minOccurs="0"/>
+            <xs:element name="filter" type="lookupFilterType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Lookup Sort Type -->
+    <xs:complexType name="lookupSortType">
+        <xs:sequence>
+            <xs:element name="column" type="sortColumnType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Sort Column Type -->
+    <xs:complexType name="sortColumnType">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="ascending" type="xs:boolean" use="required"/>
+    </xs:complexType>
+
+    <!-- Lookup Filter Type -->
+    <xs:complexType name="lookupFilterType">
+        <xs:sequence>
+            <xs:element name="condition" type="lookupConditionType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Lookup Condition Type -->
+    <xs:complexType name="lookupConditionType">
+        <xs:attribute name="attribute" type="xs:string" use="required"/>
+        <xs:attribute name="operator" type="lookupOperatorType" use="required"/>
+        <xs:attribute name="value" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Lookup Operator Type -->
+    <xs:simpleType name="lookupOperatorType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="eq"/>
+            <xs:enumeration value="ne"/>
+            <xs:enumeration value="lt"/>
+            <xs:enumeration value="le"/>
+            <xs:enumeration value="gt"/>
+            <xs:enumeration value="ge"/>
+            <xs:enumeration value="like"/>
+            <xs:enumeration value="not-like"/>
+            <xs:enumeration value="in"/>
+            <xs:enumeration value="not-in"/>
+            <xs:enumeration value="empty"/>
+            <xs:enumeration value="not-empty"/>
+            <xs:enumeration value="eq-true"/>
+            <xs:enumeration value="eq-false"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Lookup Handlers Type -->
+    <xs:complexType name="lookupHandlersType">
+        <xs:sequence>
+            <xs:element name="property" type="lookupHandlerActionType" minOccurs="0"/>
+            <xs:element name="create" type="lookupHandlerActionType" minOccurs="0"/>
+            <xs:element name="view" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="view_ro" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Lookup Handler Action Type -->
+    <xs:complexType name="lookupHandlerActionType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="enabled" type="xs:boolean" use="required"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+</xs:schema>

@@ -1,0 +1,23 @@
+# dgf-factory configuration — written by /dgf, read by every dgf-* skill.
+# Paths are relative to the workspaces root, the directory that holds .dgf-factory/.
+# The scripts never read this file: the skills read it and pass its values as arguments.
+dgf:
+  version: "{{DGF_VERSION}}"          # the DGF version this estate runs, or "unknown"
+language:
+  ui: {{LANGUAGE_UI}}
+  artifacts: {{LANGUAGE_ARTIFACTS}}
+paths:
+  description: .dgf-factory/DESCRIPTION.md
+  plan: .dgf-factory/PLAN.md          # fast plans
+  plans: .dgf-factory/plans/          # full plans and ultra bundles
+  patches: .dgf-factory/patches/      # read if present
+  skill_context: .dgf-factory/skill-context/
+  evolutions: .dgf-factory/evolutions/  # /dgf-evolve's logs and patch cursor
+git:
+  enabled: {{GIT_ENABLED}}
+  base_branch: {{BASE_BRANCH}}
+  create_branches: {{GIT_ENABLED}}
+  branch_prefix: {{BRANCH_PREFIX}}
+  skip_push_after_commit: false
+workflow:
+  verify_mode: normal                 # normal | strict

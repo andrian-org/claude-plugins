@@ -1,0 +1,693 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "IframeConfiguration",
+  "definitions": {
+    "ComponentConfigurationBase": {
+      "type": "object",
+      "x-abstract": true,
+      "additionalProperties": false,
+      "properties": {
+        "StorageKey": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Key used to persist component state (data, value, selection) in browser session/local storage. When set, the component restores its last state on page reload."
+        },
+        "Hidden": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the component is not rendered in the UI. Use propertyConverters.hidden to make this conditional at runtime based on data values."
+        },
+        "Type": {
+          "description": "Discriminator that determines which Angular component is rendered. Must match a ComponentType enum value verbatim — values are PascalCase: \"Form\", \"DataTable\", \"ComboBox\", \"Text\", \"Button\", \"Calendar\", etc. (lowercase or camelCase will fail validation). The UI factory uses this to instantiate the correct Angular component class.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ComponentType"
+            }
+          ]
+        },
+        "Uid": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Optional secondary unique identifier. Used internally for tracking and correlation when Name alone is insufficient."
+        },
+        "Name": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Unique identifier for this component instance within the application. Used to reference this component from events (as ComponentName target), parameters (as ${Name} token), button ComponentAction targets, and the ref binding system. Must be unique per page/form context."
+        },
+        "Path": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "File system path used to load this component's configuration from an external JSON file. When set, the SiteMapManager replaces this component with the fully resolved content loaded from the specified path. Enables reusable component definitions stored as separate files."
+        },
+        "Description": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Human-readable description of this component's purpose. Used for accessibility annotations and documentation; not displayed in the UI by default."
+        },
+        "Cols": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Width of this component in Bootstrap grid columns (1–12). Components are arranged in 12-column rows; use Cols=6 for half-width, Cols=12 for full-width. Omit to use the component's default width.",
+          "format": "int32"
+        },
+        "Ref": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Binds this component to a named data source declared on a parent Page or container, using dot-notation: \"pageName.dataSourceName\".\nThe UI resolves the bound data source from the component store and uses it as this component's display data.\nIMPORTANT: If the component also has its own DataSource property configured, the component's own DataSource takes precedence over Ref.\nUse Ref when this component shares an already-loaded page-level data source and does not need its own independent fetch.\nUse an explicit DataSource instead when the component needs its own parameters, pagination, or filtering logic.\nExample: a ListBox with Ref=\"servicePassportPage.whoCanApply\" displays data from that page-level data source."
+        },
+        "Compact": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, applies compact/dense styling to reduce vertical spacing. Useful inside data-dense layouts such as DataTable row templates or sidebar panels."
+        },
+        "MetaData": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Arbitrary key-value metadata attached to this component. Special keys recognized by the framework: \"requireUser\" (\"authenticated\" or \"guest\") controls visibility based on auth state; \"requireClaims\" (array of claim filter objects) applies claim-based access control. The SiteMapManager strips nodes that fail these checks before serving to the client.",
+          "additionalProperties": {}
+        },
+        "PropertyConverters": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Conditional property override map evaluated as JavaScript expressions at runtime in the Angular UI.\nStructure: outer key = camelCase property name to override on THIS component (e.g., \"required\", \"disabled\",\n\"hidden\", \"readonly\", \"value\", \"color\", \"background\"); inner key = JavaScript expression string\nevaluated against the current data context using ${field} tokens; inner value = the property value\napplied when the expression is truthy. All entries are evaluated; last matching expression wins.\nSupported in expressions: ===, !==, ==, !=, &&, ||, .includes(), parseInt(), array literals.\nExample — conditional icon/color based on status:\n{ \"value\": { \"${item.VerifyStatus.key} === '2'\": \"dge-status-failed\" },\n  \"color\": { \"${item.VerifyStatus.key} === '2'\": \"red\", \"${item.VerifyStatus.key} != '2'\": \"green\" } }\nExample — make field readonly when count is zero:\n{ \"readonly\": { \"parseInt(${AttachCount}) == 0\": true, \"parseInt(${AttachCount}) != 0\": false } }\nExample — complex visibility with array check:\n{ \"hidden\": { \"['10','31'].includes(${passport.ServiceID}) && ${User.currentEntityId} === ''\": true } }\nUse AddPropertyConverter(propertyName, valueToAssign, expressionToCheck) as a C# server-side helper.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "Parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Parameters sent with every data request from this component. They serve four distinct roles:\n            \nROLE 1 — SERVER CONTEXT: Forward fixed or user-session values to the data source.\n  Example: [{ \"name\": \"CreatedBy\", \"value\": \"~UserID\" }, { \"name\": \"AppId\", \"value\": \"~APPLICATIONID\" }]\n            \nROLE 2 — FILTER / SEARCH: Narrow DataSource results server-side.\n  Example: [{ \"name\": \"StatusId\", \"value\": \"1\" }]  — only active records\n            \nROLE 3 — REQUEST GATING: When required=true, the request is blocked until the value is non-empty.\n  Use this to prevent a component from fetching until a dependency is satisfied.\n  Example: [{ \"name\": \"CaseId\", \"value\": \"${caseCombo}\", \"required\": true }]\n  The component will not fire any request until caseCombo has a value.\n            \nROLE 4 — REACTIVE CASCADING: Bind to another component's value using ${componentName}.\n  The Angular UI watches the resolved value; when it changes, the component automatically\n  re-fetches its data with the new parameter value. This is the standard pattern for\n  dependent dropdowns (e.g., Country → District).\n  Example: District ComboBox: [{ \"name\": \"CountryId\", \"value\": \"${countryCombo}\", \"required\": true }]\n  When the user selects a country, District re-fetches filtered to that country.\n  required=true also prevents District from fetching before Country is selected.\n            \nMIRRORING RULE: Every parameter declared in the DataSource's Parameters list must also appear\nhere so the Angular UI knows to collect and forward it. Exception: \"page\" and \"pageSize\" are\nauto-forwarded from Paging — do NOT add them manually.\n            \nFor the full list of value expression syntax (component accessors, global accessors, system tokens),\nsee ComponentParameter.Value documentation.",
+          "items": {
+            "$ref": "#/definitions/ComponentParameter"
+          }
+        },
+        "ComponentScript": {
+          "description": "Script hooks executed in the Angular browser context for this component. Use to implement client-side logic that reacts to component lifecycle events without server round-trips.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/ComponentScript"
+            }
+          ]
+        },
+        "Events": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Cross-component event handlers. Key = event name emitted by this component type:\nForms emit \"onSubmited\", \"onDeleted\", \"onLoaded\"; Uploaders emit \"onUploaded\", \"onDeleted\";\nInputs/ComboBoxes emit \"onChange\", \"onClick\"; DataTable emits \"onRowSelected\", \"onRowDeleted\".\nEach list entry targets another component by ComponentName and triggers an Action on it.\nAvailable actions: \"data\" (reload data), \"validate\", \"schema\", \"schemaAndData\", \"save\", \"saveAndClose\".\nEntries can include their own Parameters list with token syntax to forward event payload context.\nExample — after Form submits, trigger EligibilityComponent to re-validate:\n{ \"onSubmited\": [{ \"componentName\": \"eligibility-component\", \"action\": \"validate\",\n  \"parameters\": [{ \"name\": \"CaseId\", \"value\": \"${item.data.CaseId}\", \"required\": true }] }] }",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/EventBase"
+            }
+          }
+        },
+        "Validators": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Declarative custom validators attached to this component. Each entry contributes to the parent\nFormGroup.valid channel — failing validators block NEXT/SAVE through the existing gate.\nFor aggregating components without a real FormControl (DataTable, DocumentGrid, ...), the\nframework registers a shadow FormControl named <Name>__validity on the parent\nFormGroup that carries the validator's errors.\nComponent names containing the reserved infix __ are rejected at form load.\nSee ValidatorBase for the entry shape and the validator reference docs at\nget_doc_page('Components/Behavior/Validators.md').",
+          "items": {
+            "$ref": "#/definitions/ValidatorBase"
+          }
+        },
+        "Messages": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Validation and informational messages attached to this component. Populated by the server-side Validate() method when configuration is invalid. Also used by the UI to display inline error/warning/info messages below the component.",
+          "items": {
+            "$ref": "#/definitions/ComponentMessage"
+          }
+        },
+        "CssClass": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "One or more CSS class names (space-separated) applied to the component's root element. Supports both Bootstrap utility classes and application-specific design system classes."
+        }
+      }
+    },
+    "ComponentType": {
+      "type": "string",
+      "description": "",
+      "x-enumNames": [
+        "None",
+        "Login",
+        "Search",
+        "Toggle",
+        "ComboBox",
+        "RadioButton",
+        "RadioGroup",
+        "Checkbox",
+        "Text",
+        "Button",
+        "Image",
+        "Date",
+        "Time",
+        "DateTime",
+        "Uploader",
+        "Page",
+        "ListBox",
+        "Form",
+        "Breadcrumb",
+        "PdfViewer",
+        "TreeView",
+        "Tab",
+        "Row",
+        "Section",
+        "DataTable",
+        "Link",
+        "Number",
+        "TextBox",
+        "Container",
+        "ProcessFlow",
+        "Workflow",
+        "WorkflowNew",
+        "Router",
+        "Route",
+        "Icon",
+        "Query",
+        "Pay",
+        "Separator",
+        "ReferenceComponent",
+        "DropdownTree",
+        "Option",
+        "Internal",
+        "Textarea",
+        "Booking",
+        "Range",
+        "EligibilityCriteria",
+        "CorporateAccount",
+        "RoleSwitcher",
+        "TeamSwitcher",
+        "Iframe",
+        "CodeViewer",
+        "SelectButton",
+        "Template",
+        "PowerBi",
+        "Calendar",
+        "ProcessMonitor",
+        "Header",
+        "Footer",
+        "ProfileMenu",
+        "InputGroup",
+        "PhoneNumber",
+        "TreeTable",
+        "Badge",
+        "Card",
+        "Accordion",
+        "DataFetcher",
+        "SignaturePadSig100",
+        "Carousel"
+      ],
+      "enum": [
+        "None",
+        "Login",
+        "Search",
+        "Toggle",
+        "ComboBox",
+        "RadioButton",
+        "RadioGroup",
+        "Checkbox",
+        "Text",
+        "Button",
+        "Image",
+        "Date",
+        "Time",
+        "DateTime",
+        "Uploader",
+        "Page",
+        "ListBox",
+        "Form",
+        "Breadcrumb",
+        "PdfViewer",
+        "TreeView",
+        "Tab",
+        "Row",
+        "Section",
+        "DataTable",
+        "Link",
+        "Number",
+        "TextBox",
+        "Container",
+        "ProcessFlow",
+        "Workflow",
+        "WorkflowNew",
+        "Router",
+        "Route",
+        "Icon",
+        "Query",
+        "Pay",
+        "Separator",
+        "ReferenceComponent",
+        "DropdownTree",
+        "Option",
+        "Internal",
+        "Textarea",
+        "Booking",
+        "Range",
+        "EligibilityCriteria",
+        "CorporateAccount",
+        "RoleSwitcher",
+        "TeamSwitcher",
+        "Iframe",
+        "CodeViewer",
+        "SelectButton",
+        "Template",
+        "PowerBi",
+        "Calendar",
+        "ProcessMonitor",
+        "Header",
+        "Footer",
+        "ProfileMenu",
+        "InputGroup",
+        "PhoneNumber",
+        "TreeTable",
+        "Badge",
+        "Card",
+        "Accordion",
+        "DataFetcher",
+        "SignaturePadSig100",
+        "Carousel"
+      ]
+    },
+    "ComponentParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Name"
+      ],
+      "properties": {
+        "Name": {
+          "type": "string",
+          "description": "Parameter key name sent to the data source. Must match the parameter name declared in the DataSource's Parameters list and the server-side handler.",
+          "minLength": 1
+        },
+        "Value": {
+          "description": "Value or binding expression for this parameter. Can be a literal string or any of the following token types:\n            \nCOMPONENT TOKENS (reactive — re-fetches when source changes):\n  ${componentName}                        — primary bound value of a named component (input, combo, etc.)\n  ${componentName.@properties.propName}   — a schema property of another component\n  ${componentName.@parameters.paramName}  — a parameter value of another component\n  ${componentName.@data.field.subField}   — nested data field loaded by another component\n            \nROW CONTEXT TOKENS (only valid inside DataTable column templates / row actions):\n  ${item.ColumnName}                      — field from the current DataTable row\n  ${item.Nested.Field}                    — nested field from the current row\n            \nGLOBAL / USER TOKENS:\n  ${@user.currentEntityId}                — authenticated user's entity ID\n  ${@user.currentRoleName}                — authenticated user's role\n  ${@user.fullName}                       — user display name\n  ${@request.path.parameters.id}          — current route path parameter\n  ${@request.query.parameters.search}     — current URL query parameter\n  ${@settings.apiUrl}                     — application setting value\n  ${@i18n('key', 'default')}              — translated string\n  ${formName.@form.valid}                 — Angular form validity boolean\n            \nSYSTEM TOKENS (resolved server-side):\n  ~UserID          — current authenticated user ID\n  ~NOW             — current server timestamp\n  ~APPLICATIONID   — current application ID\n            \nLiteral values (no token) are sent as-is: \"value\": \"1\", \"value\": \"Active\"",
+          "oneOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "Required": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the component's data request is blocked (not sent) until this parameter resolves to a non-null, non-empty value.\nThis is the primary mechanism for two patterns:\n            \nREQUEST GATING: Prevent a fetch from firing with incomplete data.\n  Example: a DataTable that must not load until a case is selected in a ComboBox.\n  [{ \"name\": \"CaseId\", \"value\": \"${caseCombo}\", \"required\": true }]\n            \nCASCADE GUARD: Combined with a ${componentName} binding, required=true ensures a dependent\n  component (e.g., District dropdown) does not fetch until its parent (e.g., Country) has a value.\n  When the parent value clears, the child's request is blocked again automatically.\n            \nWhen false or omitted, missing/empty parameter values are forwarded as-is and the request fires regardless."
+        },
+        "RequiredMessage": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Custom message displayed when this required parameter cannot be resolved. Defaults to a generic \"missing required parameter\" message if omitted."
+        }
+      }
+    },
+    "ComponentScript": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "OnValueChange": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "JavaScript code string executed in the browser each time this component's value changes. Use to calculate derived field values, conditionally show/hide other components, or enforce cross-field business rules without server round-trips. Has access to the component's Angular context and the NGXS store via injected services."
+        }
+      }
+    },
+    "EventBase": {
+      "type": "object",
+      "description": "Defines a single declarative event handler that one component dispatches to another when a named event fires\n(e.g. onChange, onClick, onValueChange, onDataLoaded).\nUse as an entry inside a component's events dictionary to wire cross-component communication\nwithout writing JavaScript — populating fields from a fetched record, toggling section visibility,\nlocking inputs, raising toasts, chaining DataFetchers, or forwarding to another component's pass-through action.\nWhen to use this vs. alternatives:\nReacting to another component's event (value change, data load, click) → Events / EventBase.\nComputing a property from this component's own state (no fetch, reactive) →\n      PropertyConverters.\nLoading server data on a field change and mutating other fields →\n      DataFetcher + its onValueChange events (still EventBase entries).\nCustom AJAX or complex timing the declarative DSL can't express → ComponentScript escape hatch.\nTwo action families — see Action for the full verb list and semantics:\nPass-through verbs (data, validate, schema, schemaAndData,\n      save, saveAndClose) forward to the target's ActionService.triggerComponentAction.\nMutation verbs (setValue, clearValue, setReadonly, setRequired,\n      toggleVisible, notify, setProperty) imperatively update target state via the\n      FormSharedService bridge, the same channel that backs the legacy frm.* JS API.\nExpression DSL — ValueExpression and When run in a sandboxed JS evaluator\nwith { result, source, form } in scope plus ${...} token interpolation\n(${componentName.@data.field}, ${@user.role}, ${@form.valid},\n${@request.path.parameters.id}, bare ${FieldName} for parent-form FormControl values).\nStandard JS operators, ternaries, optional chaining, array methods, and parseInt/.includes\nare supported; window, document, fetch, eval, and storage APIs are blocked.\nConstraints:\nEmitter must be mounted inside a DGF FormComponent; cross-form dispatch is not supported.\nTargets must be real DGF components (matched by ComponentName) — non-DGF DOM nodes\n      cannot be targeted. Exception: notify is global and ignores ComponentName.\nMultiple handlers in one event array execute in declared order; sequence mutations before\n      pass-through reloads (setValue then data) to avoid clobbering.\nHandlers are skipped silently when When is falsy.\nSee Events.md\nfor the full handler reference, action-verb matrix, and copy-paste recipes.\nAuto-populate a name input and lock a section after a fetch:\n{\n  \"events\": {\n    \"onValueChange\": [\n      { \"componentName\": \"fullNameInput\",  \"action\": \"setValue\",      \"valueExpression\": \"result.FirstName + ' ' + result.LastName\" },\n      { \"componentName\": \"appealsSection\", \"action\": \"toggleVisible\", \"valueExpression\": \"result.IsEligible === true\" },\n      { \"componentName\": \"structureCombo\", \"action\": \"setReadonly\",   \"valueExpression\": \"result.total === 1\" }\n    ]\n  }\n}",
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "The name of this event handler entry. Typically identifies the handler within the list for debugging purposes."
+        },
+        "ComponentName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Name of the target component to trigger when this event fires. Must match the Name property of an existing component on the current page or form context."
+        },
+        "Action": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Action to invoke on the target component when this event fires.\nExisting actions: data (reload data), validate, schema,\nschemaAndData, save, saveAndClose.\nNew mutation verbs (used with DataFetcher onValueChange events,\nButton onClick events, and any component event that needs to imperatively update the UI):\nVerbEffect on target\nsetValue\n      Sets the target component's value to the result of ValueExpression\n      evaluated against { result, source, form }. Works on any input component.\nclearValue\n      Forces the target component's value to null/empty. Equivalent to\n      setValue with ValueExpression = \"null\" but more explicit and readable.\nsetReadonly\n      Toggles the readonly flag on the target component.\n      ValueExpression must evaluate to a boolean.\nsetRequired\n      Toggles the required flag on the target component.\n      ValueExpression must evaluate to a boolean.\ntoggleVisible\n      Sets the hidden flag on the target component to\n      !ValueExpression (i.e., the component is visible when\n      ValueExpression is truthy). Works on any component including sections.\nnotify\n      Shows a toast/inline notification. Uses Message and\n      Severity. ComponentName is ignored for this verb —\n      notification is global.\nsetProperty\n      Sets an arbitrary named property on the target component. Use\n      PropertyName to specify which property and ValueExpression\n      for its value. Useful for updating labels, colors, CSS classes, and other display\n      properties that are not covered by the other verbs.\nExpression context for ValueExpression and When:\n{ result, source, form } where result is the raw dataSource response,\nsource is the component that emitted the event, and form is the parent\nform model (if applicable). The existing PropertyConverters expression evaluator\n(execSecureEval in utils.ts) is reused — supported operators:\n===, !==, ==, !=, &&, ||,\n.includes(), parseInt(), array literals.\nToken interpolation — the same ${...} syntax that PropertyConverters\nsupport is also resolved before evaluation, so expressions can reference other\ncomponents and global accessors without going through result:\n${componentName.@data.value}, ${@user.role}, ${@form.valid},\n${@request.path.parameters.id}, ${@i18n('key', 'fallback')}.\nMix freely with the event-context variables — e.g.,\n\"when\": \"result.total > 0 && ${@user.role} === 'Admin'\".\nAuto-select and lock a child dropdown when parent yields exactly one match:\n{ \"componentName\": \"structureCombo\", \"action\": \"setValue\",\n  \"valueExpression\": \"result.total === 1 ? result.items[0].key : null\",\n  \"when\": \"result.total !== undefined\" }\nShow a warning notification when a duplicate record is detected:\n{ \"action\": \"notify\", \"when\": \"result.total > 0\",\n  \"message\": \"This combination already exists.\", \"severity\": \"warning\" }"
+        },
+        "Parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Additional parameters forwarded to the target component when the action is triggered. Supports the same token syntax as ComponentParameter: ${componentName}, ${item.fieldName}, ~UserID, ~NOW. Use to pass context from the event source (e.g., the submitted form's record ID) to the target component.",
+          "items": {
+            "$ref": "#/definitions/ComponentModelParameter"
+          }
+        },
+        "ValueExpression": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "JavaScript expression evaluated in the Angular browser context against { result, source, form }.\nThe resolved value is applied as follows depending on Action:\nsetValue / setProperty — the expression result becomes the new property value.\nsetReadonly / setRequired — the expression result is coerced to boolean.\ntoggleVisible — component is shown when truthy, hidden when falsy.\nclearValue / notify — this field is ignored.\nSupports token syntax: result.FieldName, result.total === 1,\nresult.items[0].key, parseInt(result.count) > 0.\nOptional — when omitted for setValue, the raw result object is used as-is."
+        },
+        "When": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Optional JavaScript gate expression evaluated against { result, source, form } before\nthe action is dispatched. When set, the action is skipped if this expression evaluates\nto falsy. Supports the same syntax as ValueExpression.\nExample — only clear when the check returns results:\n\"when\": \"result.total > 0\""
+        },
+        "Message": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Notification text displayed to the user when Action is notify.\nSupports inline HTML for formatted messages. Ignored for all other action verbs."
+        },
+        "Severity": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Severity level for notify action. Controls toast styling.\nAccepted values: info (default), success, warning, error.\nIgnored for all other action verbs."
+        },
+        "PropertyName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Name of the property to set on the target component when Action is\nsetProperty. Must be a valid camelCase property name of the target component's model\n(e.g., \"label\", \"cssClass\", \"color\"). The value is supplied via\nValueExpression. Ignored for all other action verbs."
+        }
+      }
+    },
+    "ComponentModelParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Name"
+      ],
+      "properties": {
+        "Name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "Value": {
+          "oneOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "Required": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "RequiredMessage": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      }
+    },
+    "ValidatorBase": {
+      "type": "object",
+      "description": "Defines a declarative custom validator attached to a DGF component. Used to express\nbusiness validity rules that participate in the same FormGroup.valid channel\nthat already gates NEXT and SAVE — including rules on aggregating components\n(DataTable, DocumentGrid, RichSection) that have no real FormControl.\n            \nWhen to use this vs. alternatives:\n\"All rows of a DataTable must satisfy a row predicate\" → ValidatorBase.\n\"Sum of allocations must equal 100%\" → ValidatorBase on the parent or aggregating component.\n\"Field must match a regex\" → built-in Pattern / Angular validator, NOT this.\n\"Toggle a field's visibility based on another field\" → PropertyConverters.\n            \nExpression DSL — Expression, When, Message, and\nSeverity run in a sandboxed JS evaluator with { value, source, form } in scope\n(Phase 2 adds result / fetcher-key context for backend validators) plus ${...} token\ninterpolation. Standard JS operators, ternaries, optional chaining, array methods, and\nparseInt/.includes are supported. window, document, fetch,\neval, and storage APIs are blocked.\n            \nForm gating contract:\nFor a component with a real FormControl, a failing validator sets control.errors[key],\n      which makes FormGroup.valid false and gates NEXT/SAVE.\nFor an aggregating component (DataTable, …) without a FormControl, the framework registers a\n      shadow FormControl named <componentName>__validity on the parent FormGroup that\n      carries the validator's errors. The shadow is hidden from ${...} token resolution.\nValidators with Severity = Warning or Info never mark the form invalid; they\n      render as advisories in the UI only.\n            \nSee get_doc_page('Components/Behavior/Validators.md')\nfor the full reference and copy-paste recipes.\n            \nBlock NEXT until every DataTable row is signed:\n{\n  \"type\": \"dataTable\",\n  \"name\": \"applicationsTable\",\n  \"validators\": [\n    {\n      \"key\": \"allFormsSigned\",\n      \"expression\": \"value.items.every(r => r.IsSigned === true)\",\n      \"message\": \"All application forms must be signed before continuing.\"\n    }\n  ]\n}",
+      "additionalProperties": false,
+      "properties": {
+        "Key": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Stable identifier for this validator. Surfaces in FormControl.errors[key] and is the address\nauthors use when programmatically clearing the error (e.g. frm.clearCustomErrors(name)).\nRequired. Must be unique within a single component's validators[] array."
+        },
+        "Expression": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "JavaScript expression. Returns true / truthy when the rule is satisfied (valid),\nor false / falsy / a string when the rule fails (invalid). When the expression\nreturns a string, that string is used as the error message — overriding Message.\nRequired. Evaluated in the sandboxed evaluator with { value, source, form } in scope."
+        },
+        "Message": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Error text rendered when Expression evaluates to falsy.\nSupports ${...} token interpolation against the same evaluation context as Expression\n— e.g. \"Only ${value.signedCount} of ${value.totalCount} items are signed.\".\nMissing tokens render as empty strings; the validator still applies."
+        },
+        "When": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Optional gate. When set and evaluates to falsy, the validator is SKIPPED (treated as valid) for the\ncurrent render. Use to conditionally apply rules — e.g. \"passport docs required only when applicant is foreign\".\nSame expression DSL as Expression."
+        },
+        "ValidateOn": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Determines when the validator runs. Defaults to onChange.\nonChange — re-evaluates reactively whenever the component value or any referenced token changes.\n      The engine caches fetcher results by parameter snapshot, so expensive backend probes only re-fire when their inputs change.\nonSave — deferred to save time. Use for backend probes that are too expensive to fire reactively\n      (duplicate lookups, rate-limited external services). The submit flow awaits any pending probe through\n      the save-time barrier before reading form.valid.\nFor explicit-only firing (polling, \"Re-check\" buttons), compose onChange with a sibling DataFetcher's\nmanualTrigger flag and the revalidate event verb. A separate manual trigger value was\nconsidered and rejected as gratuitous complexity."
+        },
+        "Severity": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Severity of the failure. Accepts the literal values \"error\", \"warning\", or \"info\",\nOR a ${...} token expression that resolves to one of those at evaluation time\n(e.g. \"${result.data.severity}\" in a backend-driven validator). Invalid resolution\nfalls back to \"error\" with a one-time warning in the browser console.\nDefaults to \"error\". Only \"error\" contributes to FormGroup.invalid;\n\"warning\" and \"info\" are advisory-only."
+        },
+        "DataFetcher": {
+          "description": "Inline single-fetcher sugar (Phase 2). The probe result is exposed to Expression\nand Message as the local variable result — equivalent to\nDataFetchers = { [\"result\"] = value }. Mutually exclusive with DataFetchers\nand Fetcher. When more than one is set the mapper applies priority order:\nFetcher → DataFetcher → DataFetchers.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/InlineDataFetcherDefinition"
+            }
+          ]
+        },
+        "DataFetchers": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Inline multi-fetcher map (Phase 2). Each entry's resolved envelope is exposed to\nExpression and Message by its key — e.g. a map entry\n\"dup\" surfaces as dup.ok, dup.data, dup.error.\nReserved keys: value, source, form, result\n(the last reserved only when this property is used — collides with the\nDataFetcher sugar). Mutually exclusive with DataFetcher\nand Fetcher. When more than one is set the mapper applies priority order:\nFetcher → DataFetcher → DataFetchers.",
+          "additionalProperties": {
+            "$ref": "#/definitions/InlineDataFetcherDefinition"
+          }
+        },
+        "Fetcher": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Named reference to a sibling <dataFetcher> component on the same form (Phase 2 escape hatch).\nUse when the validator needs the full DataFetcher surface (events, manualTrigger,\nNGXS-addressable result) instead of the narrow inline definition. Mutually exclusive with\nDataFetcher and DataFetchers."
+        }
+      }
+    },
+    "InlineDataFetcherDefinition": {
+      "type": "object",
+      "description": "Inline, validator-private data-fetcher definition. Narrow projection of DataFetcher\n(the full headless DataFetcher component) carrying only the fields a validator needs to issue\nan HTTP probe against a backend dataSource and expose the response to its expression.\n            \nUsed by DataFetcher (singular sugar) and\nDataFetchers (plural map). Differs from a fully-fledged\nDataFetcher component in three deliberate ways:\nNo name — fetcher results are addressed by validator-map key, never by\n      a global registry name. Validator-scoped only.\nNo manualTrigger — validators fire reactively when their context changes;\n      there is no Button → ComponentAction handoff for inline probes.\nNo events — fetcher output flows into the validator's expression context\n      ({ dup, bl, fund, ... }), not into the form-wide event dispatcher.\n            \nAuthors needing the full DataFetcher surface (events, manualTrigger, NGXS-addressable\nresult) should declare a sibling <dataFetcher> component on the form and reference it\nfrom the validator via Fetcher.\n            \nDuplicate-applicant check on an NRC field:\n{\n  \"dataSourcePath\": \"validators/CheckDuplicateApplicant\",\n  \"parameters\": [\n    { \"name\": \"NRC\", \"value\": \"${value}\", \"required\": true }\n  ]\n}",
+      "additionalProperties": false,
+      "properties": {
+        "DataSourcePath": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Relative path to the backend dataSource the validator probes. Server-only —\nstripped from the client payload at UI-mapping time and replaced by Uid\n(see IValidatorFetcherSanitizer), so the backend dataSource path never reaches the\nbrowser. Resolved by the runtime fetcher service the same way as the full DataFetcher\ncomponent. Required on the authored/server-side definition."
+        },
+        "Uid": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Opaque, per-session handle the client uses to invoke this probe without ever seeing the\nbackend dataSource path. Populated at UI-mapping time by IValidatorFetcherSanitizer,\nwhich caches the path server-side and nulls DataSourcePath on the client copy.\nNull on the server-side configuration. When set, the probe is resolved server-side from the\ncached configuration keyed by this uid (the same uid → config → dataSourcePath path the\nDataFetcher component uses)."
+        },
+        "Parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Parameter bindings sent with the probe. Supports the same token DSL as\nValue plus the validator-local sandbox identifier\n${value} (the host component's current value).",
+          "items": {
+            "$ref": "#/definitions/ComponentParameter"
+          }
+        },
+        "ValueExpression": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Optional post-processing expression evaluated against the raw backend response.\nWhen present, the validator's expression sees the expression result as data\ninstead of the raw payload. Same DSL as Expression."
+        },
+        "TimeoutMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Per-fetcher timeout in milliseconds. Defaults to the engine default (10000ms).\nOn timeout, the validator's envelope resolves to { status: 'error', error.code: 'TIMEOUT' };\nthe validator fails closed (the expression is not evaluated).",
+          "format": "int32"
+        }
+      }
+    },
+    "ComponentMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Message": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "The message text displayed to the user in the component's message area."
+        },
+        "Type": {
+          "description": "Severity level of this message. Info = informational note, Warning = non-blocking issue, Error = blocking validation failure, Success = positive feedback.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ComponentMessageType"
+            }
+          ]
+        },
+        "Position": {
+          "description": "Controls where the message is rendered relative to the component. Defaults to Bottom.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ComponentMessagePosition"
+            }
+          ]
+        },
+        "Hidden": {
+          "type": "boolean",
+          "description": "When true, this message is not rendered in the UI regardless of its Type. Use to suppress messages programmatically without removing them from the collection."
+        },
+        "PropertyConverters": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Conditional property override map evaluated as JavaScript expressions at runtime in the Angular UI.\nStructure: outer key = camelCase property name to override on THIS component (e.g., \"required\", \"disabled\",\n\"hidden\", \"readonly\", \"value\", \"color\", \"background\"); inner key = JavaScript expression string\nevaluated against the current data context using ${field} tokens; inner value = the property value\napplied when the expression is truthy. All entries are evaluated; last matching expression wins.\nSupported in expressions: ===, !==, ==, !=, &&, ||, .includes(), parseInt(), array literals.\nExample — conditional icon/color based on status:\n{ \"value\": { \"${item.VerifyStatus.key} === '2'\": \"dge-status-failed\" },\n  \"color\": { \"${item.VerifyStatus.key} === '2'\": \"red\", \"${item.VerifyStatus.key} != '2'\": \"green\" } }\nExample — make field readonly when count is zero:\n{ \"readonly\": { \"parseInt(${AttachCount}) == 0\": true, \"parseInt(${AttachCount}) != 0\": false } }\nExample — complex visibility with array check:\n{ \"hidden\": { \"['10','31'].includes(${passport.ServiceID}) && ${User.currentEntityId} === ''\": true } }\nUse AddPropertyConverter(propertyName, valueToAssign, expressionToCheck) as a C# server-side helper.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      }
+    },
+    "ComponentMessageType": {
+      "type": "integer",
+      "description": "",
+      "x-enumNames": [
+        "Info",
+        "Warning",
+        "Error",
+        "Success"
+      ],
+      "enum": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "ComponentMessagePosition": {
+      "type": "integer",
+      "description": "",
+      "x-enumNames": [
+        "Bottom",
+        "Top"
+      ],
+      "enum": [
+        0,
+        1
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/ComponentConfigurationBase"
+    },
+    {
+      "type": "object",
+      "description": "Embeds external content via iframe. Use for third-party content integration, external applications, or embedded web pages.\nSupports customizable width and height.",
+      "additionalProperties": false,
+      "properties": {
+        "Source": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "URL of the external page to embed in the iframe."
+        },
+        "Height": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Height of the iframe element as a CSS value (e.g., \"600px\", \"100%\")."
+        },
+        "Width": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Width of the iframe element as a CSS value (e.g., \"100%\", \"800px\")."
+        }
+      }
+    }
+  ]
+}

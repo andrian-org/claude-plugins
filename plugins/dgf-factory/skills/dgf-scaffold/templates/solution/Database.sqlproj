@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.Build.Sql/2.2.0">
+
+  <PropertyGroup>
+    <Name>{{database.project}}</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
+    <ModelCollation>1033, CI</ModelCollation>
+    <SqlServerVerification>False</SqlServerVerification>
+    <TreatTSqlWarningsAsErrors>true</TreatTSqlWarningsAsErrors>
+    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Build.Sql globs every .sql file as schema; the deployment scripts are not schema. -->
+    <Build Remove="Scripts/**/*.sql" />
+    <Build Remove="ContinuousDeployment/**/*.sql" />
+    <PostDeploy Include="Scripts/Script.PostDeployment.sql" />
+    <None Include="ContinuousDeployment/**/*.sql" />
+  </ItemGroup>
+
+</Project>

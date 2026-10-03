@@ -30,10 +30,25 @@
   every component directory must live at plugin root, never nested inside it.
 - `<plugin>/skills/<name>/SKILL.md` — one directory per skill, auto-discovered
 - `<plugin>/agents/*.md` — subagent definitions, auto-discovered
-- `<plugin>/scripts/` — shared helpers
+- `<plugin>/scripts/` — shared runtime validators that skills call. **Shipped.**
+- `<plugin>/knowledge/` — stamped DGF facts and the vendored schema set. **Shipped.**
+- `<plugin>/tools/` — repo-maintenance checks and the schema vendoring tool that
+  contributors run by hand. **Not shipped.** A maintenance tool never goes in `scripts/`.
+- `<plugin>/provenance/` — one ledger per knowledge file: the DGF files its facts came from,
+  each with a `sha256`. **Not shipped.**
 - `.ai-factory/` — pipeline artifacts, single-writer ownership per command
 - Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`. Never hardcode absolute paths,
   `~/` shortcuts, or working-directory-relative paths.
+- **No DGF repository paths in shipped files.** "Shipped" is `SHIPPED_DIRS` in
+  `skills/dgf-doctor/scripts/doctor.py`. A developer's install has no DGF checkout, so a
+  shipped file names a DGF source by knowledge file, DGF docs MCP call
+  (`get_doc_page('<page>')`) or type name, never by path. A fact's source paths go in its
+  `provenance/` ledger, never in `knowledge/`. Workspace layout paths such as
+  `FM/_COMPONENTS/` are fine. `doctor.py` reports a violation as `DGF_PATH`, exit `1`
+  ([ADR 0012](../../docs/adr/0012-no-dgf-paths-in-shipped-files.md)).
+- **Re-vendor schemas only with `tools/vendor_schemas.py`.** Never copy or hand-edit a file
+  under `knowledge/schemas/`. The tool rewrites DGF paths and regenerates the digests, and a
+  hand edit fails `tools/check_knowledge_stamps.py`.
 
 ## Skill Authoring
 
@@ -82,7 +97,8 @@ version: 1.0.0
 
 DGF supports two configuration formats — modern JSON component config and legacy XML —
 because it still runs systems written against the older one. These rules are expressed
-through the exit codes above.
+through the exit codes above, decided in [ADR 0011](../../docs/adr/0011-schema-parity-authority.md),
+and implemented by `scripts/validate_config.py`. Call it rather than re-implementing them.
 
 - **Resolve the family before parsing.** XML declaration or a known XSD root element →
   XSD family. Parses as a JSON object → JSON family.
@@ -90,13 +106,24 @@ through the exit codes above.
   Defaulting to JSON makes every legacy XML config look like malformed JSON.
 - **Valid against neither family → exit 1 (blocked)**, reporting which families were
   attempted.
-- **Parity gate.** After a successful family match, consult runtime parity. A config in a
-  family the runtime does not parse for that component — `Workflow`, `ProcessFlow`, and
-  every `◐` row in DGF's `format-coverage.md` — is **exit 2 (warning)** at minimum,
-  reporting `schema-valid but not runtime-supported`. Passing schema validation is not
-  proof of runtime support.
+- **Parity gate.** After a successful family match, consult runtime parity in
+  `knowledge/schema-families.md` §6 — the shipped copy of DGF's `format-coverage.md`, all 67
+  rows. A config in a family the runtime does not parse for that component — `Workflow`,
+  `ProcessFlow`, and every `◐` row — is **exit 2 (warning)** at minimum, reporting
+  `schema-valid but not runtime-supported`. Passing schema validation is not proof of
+  runtime support.
+- **Validate JSON the way the runtime reads it** ([ADR 0015](../../docs/adr/0015-validator-runtime-and-json-reader.md)),
+  never with a case-sensitive, strict validator. Property names and enum names match in any
+  case, the `type` key alone is exact, nested components dispatch by their own `type`, and
+  a number never reads from a string. An unknown property is a **warning**: the runtime
+  ignores it. The facts are in `knowledge/json-reader.md`.
+- **Legacy grammars other than `process.xsd` lag the runtime**
+  ([ADR 0016](../../docs/adr/0016-legacy-xsd-lag.md)). A failure against one is an
+  `XSD_LAGS_RUNTIME` warning (exit 2) until that grammar has a runtime-divergence list of its
+  own. `process.xsd` has one, so a `process.xml` failure it does not explain blocks.
 - **Never infer a counterpart from a filename.** `options.xsd` is not
-  `StaticOptionsDataSource`. Use the verified correspondence map in `docs/dgf-schemas.md`.
+  `StaticOptionsDataSource`. Use the verified correspondence map in `docs/dgf-schemas.md`,
+  shipped as the `correspondence` table in `knowledge/schema-families.md` §5.
 - **Resolve JSON schemas the way `SchemaIndexService` does, not by globbing.** Honour the
   standalone allow-list, the DataSource discriminators (`table`, `rawsql`, `static`, …),
   and the exclusion of `$ref`-only sub-schemas (`RowConfig`, `SectionConfig`,

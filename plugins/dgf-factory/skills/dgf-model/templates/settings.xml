@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A minimal entity: its data source, its primary key and two fields. Replace every `Example`.
+  The datasource names a database table or view outside the workspaces root; the table and its
+  columns are database work (knowledge/data-model.md §5). Every field carries a `uimask`:
+  required for grid, required for form, valid for grid, valid for form, allow create, valid for report.
+-->
+<entity version="4.0">
+  <header title="Example" />
+  <description title="" />
+  <datasource type="DB" name="Example" />
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="Integer" dbtype="Int32" format="" title="Id" description="" size="" required="true" readonly="true" uimask="001111" />
+    <field name="Name" type="Text" dbtype="StringUnicode" format="" title="Name" description="" size="100" required="true" readonly="false" uimask="011111" />
+  </fields>
+</entity>

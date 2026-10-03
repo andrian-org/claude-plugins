@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Process title="Case" table="Cases" keyName="id" allowBack="false" allowHistory="true" assignTasks="false">
+  <OnStart action="">
+    <Transitions>
+      <Transition state="Open" />
+    </Transitions>
+  </OnStart>
+  <States>
+    <State name="Open" type="Task" action="WORKFLOW:BASE:Review">
+      <Transitions>
+        <Transition state="End" />
+      </Transitions>
+    </State>
+  </States>
+</Process>
