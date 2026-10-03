@@ -10,3 +10,12 @@ drives.json
 .venv/
 __pycache__/
 *.pyc
+
+# .NET: build output from opening a scaffold template or fixture in an IDE
+bin/
+obj/
+.vs/
+*.user
+
+# Claude Code: each contributor's personal settings
+**/.claude/settings.local.json

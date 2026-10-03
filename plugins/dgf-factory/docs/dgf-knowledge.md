@@ -66,6 +66,12 @@ knowledge/
 ├── composition-specs.md       # declarative composition + EventBase verbs
 ├── naming-conventions.md
 ├── schema-families.md         # JSON vs XSD: parity, correspondence, resolution
+├── json-reader.md             # how the runtime reads component JSON
+├── process-model.md           # process.xsd vs the runtime model; how process references resolve
+├── data-model.md              # entities, fields, relations; what each model loader does with a reference
+├── reference-graph.md         # every reference as an edge — the reference-edges table — and what
+│                              #   a static walk of them cannot see
+├── permissions.md             # where a root names roles, and that nothing in it declares one
 └── schemas/                   # vendored copies, version-stamped
     ├── MANIFEST.md            #   DGF version, date, per-file dialect and membership
     ├── json/                  #   generated *.schema.json (modern component config)
@@ -93,6 +99,13 @@ their mitigations in [DGF Schemas](dgf-schemas.md):
   per file.
 - The schema ledger records the DGF commit SHA, because the deployed MCP can lag the
   repository and the vendored set needs a knowable position between the two.
+
+The three files milestone 12 added were read from the engine's loaders, not its samples or its
+XSDs: what `TableManager`, `FormManager`, `LookUpViewManager`, `LookUpDialogManager` and
+`EditableGridManager` do with a reference, and what each workflow step loads and when. Where the
+first draft of the milestone's plan disagreed with the code — a grid's table name is cleaned before
+`BASE:` is tested; a form cell that names no field throws — the ledger records the difference and
+the file states the code.
 
 Nothing in `knowledge/` may name a skill, a step number or a pipeline stage. Knowledge
 states DGF facts; it does not know who reads it. A file that says "in Step 3 of
@@ -134,9 +147,10 @@ assumptions `[assume]`. Two are now known to be wrong or unsupported:
   formal process specification exists was also wrong: `process.xsd` (root `Process` →
   `OnStart`, `States`) and `workflow.xsd` (root `Workflow` → `Sequence`, `Input`) are
   machine-checkable, state-machine-shaped grammars, and `format-coverage.md` confirms both
-  are the live runtime formats. The proposed `/dgf-process` skill should be re-derived
-  from those two XSDs alongside `eventBase.schema.json` and
-  `dataFetcherConfiguration.schema.json`.
+  are the live runtime formats. `/dgf-process` was built on them (decided 2026-09-27,
+  [ADR 0027](adr/0027-dgf-specific-skills-revised.md)): `validate_process.py` checks a process against
+  `process.xsd` and against the runtime model ([ADR 0014](adr/0014-process-verification-runtime-resolution.md)),
+  and the skill authors both artifacts in XML only.
 - **"Build a system from scratch" is not the whole picture.** Consumer apps compose
   existing plugins declaratively, which means "implement a task" often means *composing
   configuration*, not writing code. That reshapes what `/dgf-implement` should do.
@@ -147,7 +161,7 @@ binary is needed.
 
 **Nothing is still open.** The four remaining questions were closed on 2026-09-21 and
 recorded in [`docs/adr/`](adr/README.md): the estate is brownfield-dominant and a skill's unit
-of work is the whole workspaces root ([0004](adr/0004-authoring-entry-point.md)); process
+of work is the whole workspaces root ([0026](adr/0026-authoring-entry-point-revised.md)); process
 verification is structural-plus-our-own-semantics, with no headless execution
 ([0014](adr/0014-process-verification-runtime-resolution.md), superseding 0006 and 0002); validators run on Python
 with `lxml` and `jsonschema`, reading JSON the way the runtime does

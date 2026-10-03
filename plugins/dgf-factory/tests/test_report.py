@@ -43,7 +43,8 @@ class SpineCodes(unittest.TestCase):
     """The pipeline spine's codes force the exits ADR 0017 and ADR 0018 give them."""
 
     EXPECTED = {
-        report.EXIT_USAGE: ("ROOT_NO_WORKSPACE", "PLAN_UNREADABLE", "PLAN_FORMAT_UNSUPPORTED"),
+        report.EXIT_USAGE: ("ROOT_NO_WORKSPACE", "PLAN_UNREADABLE", "PLAN_FORMAT_UNSUPPORTED",
+                            "BASELINE_UNUSABLE"),  # a writing skill's saved baseline (ADR 0025)
         report.EXIT_BLOCKED: (
             "ROOT_NOT_SET_UP", "ROOT_AMBIGUOUS", "PLAN_NOT_FOUND", "PLAN_AMBIGUOUS", "PLAN_FIELD_MISSING",
             "PLAN_FIELD_INVALID", "PLAN_UNKNOWN_WORKSPACE", "PLAN_BASE_REASON_MISSING", "PLAN_BRANCH_MISMATCH",
@@ -71,7 +72,7 @@ class SpineCodes(unittest.TestCase):
 
 
 class LearningCodes(unittest.TestCase):
-    """The learning loop's codes force the exits ADR 0021 gives them."""
+    """The learning loop's codes force the exits ADR 0024 gives them."""
 
     EXPECTED = {
         report.EXIT_BLOCKED: ("PATCH_NAME_INVALID", "PATCH_UNREADABLE", "PATCH_FIELD_MISSING", "PATCH_FIELD_INVALID",
@@ -84,6 +85,62 @@ class LearningCodes(unittest.TestCase):
         for exit_code, codes in self.EXPECTED.items():
             for code in codes:
                 self.assertEqual(report.CODES.get(code), exit_code, code)
+
+
+class ModelCodes(unittest.TestCase):
+    """The model's codes block only where the loader throws (ADR 0027 §3)."""
+
+    EXPECTED = {
+        report.EXIT_BLOCKED: ("MODEL_REFERENCE_UNRESOLVED", "MODEL_ENTITY_UNLOADABLE", "MODEL_CELL_UNBOUND"),
+        report.EXIT_WARNINGS: ("MODEL_REFERENCE_TEMPLATED", "MODEL_REFERENCE_APP_DEPENDENT"),
+    }
+
+    def test_every_model_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+
+class AuditCodes(unittest.TestCase):
+    """The audit's codes: a report, never a gate (ADR 0027 §5)."""
+
+    EXPECTED = {
+        report.EXIT_USAGE: ("AUDIT_REACH_NOT_ARTIFACT", "AUDIT_CHECK_FAILED"),
+        report.EXIT_WARNINGS: ("AUDIT_REFERENCE_UNRESOLVED", "AUDIT_NARROWED"),
+        report.EXIT_CLEAN: ("AUDIT_WORKFLOW_UNREACHED", "AUDIT_REFERENCE_DYNAMIC"),
+    }
+
+    def test_every_audit_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+
+class ScaffoldCodes(unittest.TestCase):
+    """The scaffold's codes: a conflict blocks, an open value asks, an unreadable design or a failed write is a usage error."""
+
+    EXPECTED = {
+        report.EXIT_BLOCKED: (
+            "SCAFFOLD_DIR_NOT_EMPTY", "SCAFFOLD_NAME_INVALID", "SCAFFOLD_OPTION_INVALID",
+            "SCAFFOLD_REFERENCE_INVALID", "SCAFFOLD_MODEL_INVALID", "SCAFFOLD_SQL_TYPE_UNKNOWN",
+            "SCAFFOLD_TARGET_EXISTS", "SCAFFOLD_LITERAL_SECRET", "SCAFFOLD_VAR_UNDECLARED",
+            "SCAFFOLD_STRUCTURE_INVALID", "SCAFFOLD_ROUTE_UNRESOLVED", "SCAFFOLD_VALIDATION_FAILED",
+        ),
+        report.EXIT_WARNINGS: ("SCAFFOLD_ASK",),
+        report.EXIT_USAGE: (
+            "SCAFFOLD_DESIGN_UNREADABLE", "SCAFFOLD_DESIGN_INCOMPLETE", "SCAFFOLD_TEMPLATE_MISSING",
+            "SCAFFOLD_WRITE_FAILED",
+        ),
+    }
+
+    def test_every_scaffold_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+    def test_no_scaffold_code_is_unlisted(self):
+        listed = {code for codes in self.EXPECTED.values() for code in codes}
+        self.assertEqual({c for c in report.CODES if c.startswith("SCAFFOLD_")}, listed)
 
 
 class Rendering(unittest.TestCase):

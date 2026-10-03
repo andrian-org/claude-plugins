@@ -118,6 +118,7 @@ class Resolved:
 class Unresolved:
     path: str
     reason: str = ""  # why the engine cannot load it, when the path alone does not say
+    throws: bool = False  # the loader throws on this one, whatever the edge's `When absent` says
 
 
 @dataclass(frozen=True)
@@ -161,12 +162,18 @@ def _relative(path, root):
         return Path(path).as_posix()
 
 
-def _resolve(scope, parts, owner, root, module_fn, **trace):
-    """Look `parts` up in webasm (BASE_SCOPE) or in the selected workspace (SELECTED_SCOPE)."""
+def _resolve(scope, parts, owner, root, module_fn, app=None, **trace):
+    """Look `parts` up in webasm (BASE_SCOPE) or in the selected workspace (SELECTED_SCOPE).
+
+    From a webasm owner the selected workspace is whichever application runs the
+    file: every application, unless `app` fixes one (ADR 0027 §4). `app` never
+    changes a BASE_SCOPE lookup, nor one from an application's own file.
+    """
     root = Path(os.path.abspath(root))
+    trace = {"owner": Path(owner).name if owner is not None else "-", "scope": scope, **trace}
     if scope == ROOTED_SCOPE:
         result = Unresolved("/" + "/".join(parts), ROOTED_REASON)
-        report.debug(module_fn, "rooted", result="Unresolved", **trace)
+        report.debug(module_fn, "rooted", app=app or "-", result="Unresolved", **trace)
         return result
     if scope == BASE_SCOPE or not is_base(owner):
         base = root / BASE_WORKSPACE if scope == BASE_SCOPE else Path(owner)
@@ -175,16 +182,30 @@ def _resolve(scope, parts, owner, root, module_fn, **trace):
         result = (Resolved(shown) if status == OK else
                   CaseOnly(shown, _relative(actual, root)) if status == CASE_ONLY else
                   Unresolved(shown))
-        report.debug(module_fn, "resolved", candidates=[shown], result=type(result).__name__, **trace)
+        report.debug(module_fn, "resolved", app=app or "-", candidates=[shown], result=type(result).__name__, **trace)
         return result
+    if app is not None:
+        return _resolve_in(root, app, parts, module_fn, **trace)
     resolved_in, missing_in = [], []
-    for app in applications(root):
-        (resolved_in if exact_file(root / app, parts)[0] == OK else missing_in).append(app)
+    for each in applications(root):
+        (resolved_in if exact_file(root / each, parts)[0] == OK else missing_in).append(each)
     shown = "/".join(["<app>"] + parts)
     result = (Resolved(shown, tuple(resolved_in)) if resolved_in and not missing_in else
               AppDependent(shown, resolved_in, missing_in))
-    report.debug(module_fn, "per application", candidates=[shown], resolved=",".join(resolved_in),
+    report.debug(module_fn, "per application", app="-", candidates=[shown], resolved=",".join(resolved_in),
                  missing=",".join(missing_in), result=type(result).__name__, **trace)
+    return result
+
+
+def _resolve_in(root, app, parts, module_fn, **trace):
+    """A selected-scope reference from webasm, with `app` as the selected workspace."""
+    shown = "/".join([app] + parts)
+    status, actual = exact_file(root / app, parts)
+    result = (Resolved(shown) if status == OK else
+              CaseOnly(shown, _relative(actual, root)) if status == CASE_ONLY else
+              Unresolved(shown))
+    report.debug(module_fn, "in one application", app=app, candidates=[shown], result=type(result).__name__,
+                 **trace)
     return result
 
 
@@ -247,13 +268,13 @@ def workflow_location(name):
     return SELECTED_SCOPE, [FM, "_WORKFLOW"] + _segments(name) + ["_workflow.xml"]
 
 
-def resolve_workflow_name(name, owner, root, module_fn="workspace.resolve_workflow_name", **trace):
+def resolve_workflow_name(name, owner, root, module_fn="workspace.resolve_workflow_name", app=None, **trace):
     """Resolve a workflow name exactly as WorkflowManager loads it."""
     scope, parts = workflow_location(name)
-    return _resolve(scope, parts, owner, root, module_fn, value=name, form=scope, **trace)
+    return _resolve(scope, parts, owner, root, module_fn, app=app, value=name, form=scope, **trace)
 
 
-def resolve_workflow_ref(value, process_ref, owner, root):
+def resolve_workflow_ref(value, process_ref, owner, root, app=None):
     """Resolve a process `action` (or a MultiTask action); None when it is not a workflow reference."""
     kind, name = presentation(value)
     if kind != "WORKFLOW":
@@ -262,12 +283,12 @@ def resolve_workflow_ref(value, process_ref, owner, root):
         # RenderUiControlAsync reads name[0], which throws on an empty name.
         return Unresolved("", "has an empty workflow name — the engine throws on it")
     loaded = action_workflow_name(name, process_ref)
-    return resolve_workflow_name(loaded, owner, root, "workspace.resolve_workflow_ref", action=value)
+    return resolve_workflow_name(loaded, owner, root, "workspace.resolve_workflow_ref", app=app, action=value)
 
 
-def resolve_validation_flow(value, owner, root):
+def resolve_validation_flow(value, owner, root, app=None):
     """Resolve `Process/@validationFlow`: a workflow name used verbatim (process-model.md §2.4)."""
-    return resolve_workflow_name(value, owner, root, "workspace.resolve_validation_flow")
+    return resolve_workflow_name(value, owner, root, "workspace.resolve_validation_flow", app=app)
 
 
 # --- process references -------------------------------------------------------
@@ -284,10 +305,10 @@ def process_location(name):
     return SELECTED_SCOPE, [FM, "_PROCESS"] + _segments(name) + ["process.xml"]
 
 
-def resolve_process(name, owner, root):
+def resolve_process(name, owner, root, app=None):
     """Resolve a process name — a StateProcess step's `process` — to its process.xml."""
     scope, parts = process_location(name)
-    return _resolve(scope, parts, owner, root, "workspace.resolve_process", value=name, form=scope)
+    return _resolve(scope, parts, owner, root, "workspace.resolve_process", app=app, value=name, form=scope)
 
 
 # --- component file references ------------------------------------------------
@@ -308,7 +329,7 @@ def component_location(name, member):
     return SELECTED_SCOPE, [FM, "_COMPONENTS", member] + _segments(name + ".json")
 
 
-def resolve_component_file(name, member, owner, root):
+def resolve_component_file(name, member, owner, root, app=None):
     """Resolve a component file reference: a layout child's `path`, or a ReferenceComponent's target."""
     scope, parts = component_location(name, member)
-    return _resolve(scope, parts, owner, root, "workspace.resolve_component_file", value=name, form=scope)
+    return _resolve(scope, parts, owner, root, "workspace.resolve_component_file", app=app, value=name, form=scope)

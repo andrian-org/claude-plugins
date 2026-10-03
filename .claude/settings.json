@@ -1,6 +1,6 @@
 {
   "extraKnownMarketplaces": {
-    "dotgov": {
+    "andrian-org": {
       "source": {
         "source": "github",
         "repo": "andrian-org/claude-plugins"
@@ -8,6 +8,7 @@
     }
   },
   "enabledPlugins": {
-    "doc-coverage-audit@dotgov": true
+    "doc-coverage-audit@andrian-org": true,
+    "dgf-factory@andrian-org": true
   }
 }

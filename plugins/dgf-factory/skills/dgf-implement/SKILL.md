@@ -169,6 +169,10 @@ Take every fact from the shipped knowledge and the DGF docs MCP, never from memo
   `EventBase` verbs and DataFetcher (§3), where script and style load from (§5);
 - `${CLAUDE_PLUGIN_ROOT}/knowledge/process-model.md` — how process and workflow references
   resolve (§2), and the reserved `End` (§3);
+- `${CLAUDE_PLUGIN_ROOT}/knowledge/data-model.md` — entities, fields and their relations, how each
+  model loader resolves a table, view, dialog, grid or form (§3), and which cells a form binds (§4);
+- `${CLAUDE_PLUGIN_ROOT}/knowledge/reference-graph.md` — every reference a configuration file
+  makes, how it resolves, and what the runtime does when its target is missing (§1–§2);
 - the vendored schemas under `${CLAUDE_PLUGIN_ROOT}/knowledge/schemas/` — `json/` for component
   JSON, `xsd/` for legacy XML;
 - the DGF docs MCP: `get_component_doc`, `get_json_schema_details`, `get_component_examples`,

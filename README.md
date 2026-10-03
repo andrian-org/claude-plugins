@@ -3,10 +3,10 @@
 Internal plugin marketplace for dotGov Solutions. Hosted in a private GitHub repository — access is
 controlled by the repo's permissions, so only teammates who can read this repo can install from it.
 
-Repository: `https://github.com/andrian-org/claude-plugins`
+Repository: [`andrian-org/claude-plugins`](https://github.com/andrian-org/claude-plugins)
 
-The marketplace is named `dotgov` (the `name` in `.claude-plugin/marketplace.json`), independent of
-the repo name — install ids are `<plugin>@dotgov`.
+The marketplace is named `andrian-org` (the `name` in `.claude-plugin/marketplace.json`) — install
+ids are `<plugin>@andrian-org`.
 
 ## For teammates: one-time setup
 
@@ -22,7 +22,8 @@ An SSH key loaded in `ssh-agent` works too. Then add the marketplace and install
 
 ```bash
 claude plugin marketplace add andrian-org/claude-plugins
-claude plugin install doc-coverage-audit@dotgov
+claude plugin install doc-coverage-audit@andrian-org
+claude plugin install dgf-factory@andrian-org
 ```
 
 Restart Claude Code, then confirm:
@@ -39,7 +40,7 @@ environment variable alone does not.
 
 ## Automatic provisioning (recommended)
 
-Any project repo can declare this marketplace so teammates get the plugin with no setup at all.
+Any project repo can declare this marketplace so teammates get the plugins with no setup at all.
 Let the CLI write the entry rather than hand-authoring it:
 
 ```bash
@@ -52,7 +53,7 @@ That produces `.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "dotgov": {
+    "andrian-org": {
       "source": {
         "source": "github",
         "repo": "andrian-org/claude-plugins"
@@ -60,7 +61,8 @@ That produces `.claude/settings.json`:
     }
   },
   "enabledPlugins": {
-    "doc-coverage-audit@dotgov": true
+    "doc-coverage-audit@andrian-org": true,
+    "dgf-factory@andrian-org": true
   }
 }
 ```
@@ -73,6 +75,7 @@ teammate has read access to the repo and the GitHub credential from the setup ab
 | Plugin | What it does |
 |---|---|
 | `doc-coverage-audit` | Maps a deliverables checklist to the documents that actually exist, with verified links and gap analysis. Built for close-out, hand-over, due diligence and audit evidence. |
+| `dgf-factory` | A DotGov Framework-aware plan → implement → verify → commit pipeline, backed by deterministic validators that check both component config families — modern JSON and legacy XSD. |
 
 ## Contributing a plugin
 
@@ -99,8 +102,8 @@ The nesting matters: `skills/<skill-name>/SKILL.md`, not `skills/SKILL.md`. A fl
 
    ```bash
    claude plugin marketplace add /path/to/this/repo
-   claude plugin install <your-plugin>@dotgov
-   claude plugin details <your-plugin>@dotgov      # check token cost
+   claude plugin install <your-plugin>@andrian-org
+   claude plugin details <your-plugin>@andrian-org      # check token cost
    ```
 
 5. If you also keep a copy in `~/.claude/skills/`, delete it — two registrations of the same
@@ -115,7 +118,7 @@ with a vague description never fires.
 
 ### Keep an eye on token cost
 
-`claude plugin details <name>@dotgov` reports always-on cost, which every session pays. Keep
+`claude plugin details <name>@andrian-org` reports always-on cost, which every session pays. Keep
 `SKILL.md` lean and push detail into `references/` files that load only when needed.
 
 ### Versioning and releases

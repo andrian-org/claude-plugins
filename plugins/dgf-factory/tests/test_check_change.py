@@ -303,6 +303,115 @@ class Validators(Base):
         self.assertNotIn("validators", checks.split(": ", 1)[1].split(", "))
 
 
+@unittest.skipUnless(helpers.have_dependencies(), "lxml / jsonschema not installed")
+class SavedBaseline(Base):
+    """Without git, a run saved before the write is the baseline of the run after it (ADR 0025)."""
+
+    MOVE = "app/FM/_WORKFLOW/Move/_workflow.xml"
+    OLD_ERROR = "other/FM/_PROCESS/Case/process.xml"
+    OLD_EXIT_3 = "app/FM/_DATA/Junk/settings.xml"
+
+    def setUp(self):
+        super().setUp()
+        helpers.make_root(self.root, {
+            # an untouched workflow whose CHANGE_STATE names the process the change edits (ADR 0014 §2)
+            self.MOVE: '<Workflow><Sequence><StateProcess name="s" mode="CHANGE_STATE" process="Case" '
+                       'state="Open"/></Sequence></Workflow>\n',
+            # old defects in files the change never touches: a dead transition, and a file that parses as neither
+            # family, whose FAMILY_UNRESOLVED is an exit-3 code
+            self.OLD_ERROR: GOOD_PROCESS.replace('state="End"', 'state="Closed"'),
+            self.OLD_EXIT_3: "<entity><fields></entity>\n",
+        })
+        self.saved = self.tmp / "baseline.json"
+
+    def save(self, *extra):
+        return self.run_check(f"M:{PROCESS}", extra=("--save-baseline", self.saved, *extra))
+
+    def compare(self, *extra):
+        code, out, _ = self.run_check(f"M:{PROCESS}", extra=("--baseline", self.saved, *extra))
+        self.out = out
+        return code, [line.split()[1] for line in out.splitlines() if line.split()[:1] in (["ERROR"], ["WARN"])]
+
+    def test_without_a_baseline_an_old_exit_3_file_decides_the_exit(self):
+        code, found = self.codes(f"M:{PROCESS}", extra=())
+        self.assertEqual(code, 3, self.out)
+        self.assertIn("FAMILY_UNRESOLVED", found)
+
+    def test_the_saving_run_judges_no_validator_finding(self):
+        code, out, _ = self.save()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.saved.is_file())
+        self.assertRegex(out, r"BASELINE: saved \d+ finding\(s\) — \d+ error\(s\), \d+ warning\(s\) — to ")
+        self.assertNotRegex(out, r"(?m)^(ERROR|WARN) (DEAD_TRANSITION|FAMILY_UNRESOLVED)")
+
+    def test_old_findings_are_pre_existing_so_a_harmless_edit_is_clean(self):
+        self.save()
+        (self.root / PROCESS).write_text(GOOD_PROCESS.replace('title="Case"', 'title="Case file"'), encoding="utf-8")
+        code, found = self.compare()
+        self.assertEqual((code, found), (0, []), self.out)
+        self.assertIn("CHECKS RUN:", self.out)
+        self.assertRegex(self.out, r"INFO PRE_EXISTING \S*Junk/settings\.xml \[FAMILY_UNRESOLVED\]")
+        self.assertRegex(self.out, r"INFO PRE_EXISTING \S*other/FM/_PROCESS/Case/process\.xml\S* \[DEAD_TRANSITION\]")
+
+    def test_a_break_in_an_untouched_file_is_new_and_blocks_despite_an_old_exit_3(self):
+        self.save()
+        (self.root / PROCESS).write_text(GOOD_PROCESS.replace('"Open"', '"Opened"'), encoding="utf-8")
+        code, found = self.compare()
+        self.assertEqual(code, 1, self.out)
+        self.assertEqual(found, ["CHANGE_STATE_STATE_UNDECLARED"])
+        self.assertIn(self.MOVE, self.out)
+        self.assertIn("new: 1 error(s)", self.out)
+
+    def test_a_malformed_file_the_change_writes_is_new(self):
+        self.save()
+        (self.root / PROCESS).write_text("<Process><States></Process>\n", encoding="utf-8")
+        code, found = self.compare()
+        self.assertEqual(code, 3, self.out)
+        self.assertIn("FAMILY_UNRESOLVED", found)
+        self.assertRegex(self.out, rf"ERROR FAMILY_UNRESOLVED \S*{PROCESS}")
+
+    def test_a_baseline_that_cannot_be_used_is_exit_3(self):
+        cases = {"missing": None, "not json": "{", "no findings": '{"format": 1}'}
+        for name, text in cases.items():
+            with self.subTest(name):
+                if text is None:
+                    self.saved.unlink(missing_ok=True)
+                else:
+                    self.saved.write_text(text, encoding="utf-8")
+                code, found = self.compare()
+                self.assertEqual(code, 3, self.out)
+                self.assertEqual(found, ["BASELINE_UNUSABLE"])
+
+    def test_a_baseline_saved_for_another_root_or_scope_is_exit_3(self):
+        self.save()
+        other = helpers.make_root(self.tmp / "elsewhere", ROOT)
+        code, out, _ = helpers.run_cli("check_change.py", "--workspaces-root", other, "--plan", self.plan,
+                                       "--changed", f"M:{PROCESS}", "--baseline", self.saved)
+        self.assertEqual(code, 3, out)
+        self.assertIn("BASELINE_UNUSABLE", out)
+        code, found = self.compare("--files", PROCESS)
+        self.assertEqual((code, found), (3, ["BASELINE_UNUSABLE"]), self.out)
+
+    def test_the_baseline_flags_take_a_changed_set_and_the_validators(self):
+        for extra in (("--save-baseline", self.saved, "--baseline", self.saved),
+                      ("--baseline", self.saved, "--skip-validators"),
+                      ("--save-baseline", self.saved, "--skip-validators")):
+            with self.subTest(extra):
+                code, _, err = self.run_check(f"M:{PROCESS}", extra=extra)
+                self.assertEqual(code, 3, err)
+        code, _, err = helpers.run_cli("check_change.py", "--workspaces-root", self.root, "--plan", self.plan,
+                                       "--base", "main", "--baseline", self.saved)
+        self.assertEqual(code, 3, err)
+        self.assertIn("--changed", err)
+
+    def test_the_gate_never_passes_a_saved_baseline(self):
+        # the gate's baseline is the merge-base tree alone (ADR 0018); a saved one is a writing skill's (ADR 0025)
+        source = (helpers.PLUGIN_ROOT / "scripts" / "verify_gate.py").read_text(encoding="utf-8")
+        self.assertNotRegex(source, r"saved_baseline|save_baseline")
+        outcome = check_change.run(self.root, self.plan, changed=[f"M:{PROCESS}"])
+        self.assertEqual([check for check, _ in outcome.reports[0].not_run], ["baseline"])
+
+
 @unittest.skipUnless(helpers.have_dependencies() and helpers.have_git(), "needs lxml, jsonschema and git")
 class RunWithABase(Base):
     def setUp(self):

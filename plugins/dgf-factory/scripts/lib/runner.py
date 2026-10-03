@@ -6,7 +6,9 @@ cannot drift apart. Over a root it validates:
   - every `<ws>/FM/_PROCESS/<P>/process.xml` and every workflow, with
     validate_process's checks (structure, semantics, references);
   - every file a directory walk collects — the legacy artifact files and the
-    component JSON — with validate_config and resolve_components.
+    component JSON — with validate_config and resolve_components;
+  - of those, every entity `settings.xml` and every `_form.xml`, with
+    validate_model too: the references they make, and a form's cells (ADR 0027 §3).
 
 With `files` (paths relative to the root), the same three lists are made and
 kept to those files, so a file is routed to exactly the validators the
@@ -23,7 +25,7 @@ from types import SimpleNamespace
 
 from . import cli, deps, report
 
-VALIDATORS = ("validate_process.py", "validate_config.py", "resolve_components.py")
+VALIDATORS = ("validate_process.py", "validate_config.py", "resolve_components.py", "validate_model.py")
 PROCESS_SEMANTICS = "process-semantics"  # validate_config's pointer to validate_process
 
 
@@ -62,6 +64,7 @@ def run(root, files=None):
     deps.require()
     import resolve_components
     import validate_config
+    import validate_model
     import validate_process
     from . import process_checks
     options = SimpleNamespace(component_type=None, view_kind=None)
@@ -82,6 +85,8 @@ def run(root, files=None):
     for path in configs:
         runs["validate_config.py"].append(validate_config.validate_file(path, options))
         runs["resolve_components.py"].append(resolve_components.check_file(path, options))
+        if validate_model.artifact_of(path, root):
+            runs["validate_model.py"].append(validate_model.check_file(path, root))
     _drop_satisfied_pointers(runs)
     for name, reports in runs.items():
         for rep in reports:

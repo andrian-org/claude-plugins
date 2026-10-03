@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entity version="4.0">
+  <datasource type="DB" name="Alpha" />
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="Integer" dbtype="Int32" size="" />
+    <field name="Name" type="Text" dbtype="String" size="50" />
+    <field name="Title" type="Text" dbtype="String" size="20" />
+    <field name="Note" type="Text" dbtype="String" size="2147483647" />
+    <field name="Amount" type="Money" dbtype="Decimal" size="" />
+    <field name="Missing" type="Text" dbtype="String" size="10" />
+    <field name="Calc" type="Text" dbtype="String" size="10" />
+  </fields>
+</entity>

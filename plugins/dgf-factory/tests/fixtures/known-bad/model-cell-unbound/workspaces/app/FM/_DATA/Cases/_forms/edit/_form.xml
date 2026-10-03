@@ -1,0 +1,16 @@
+<form>
+  <tabs>
+    <tab>
+      <sections>
+        <section>
+          <rows>
+            <row>
+              <cell name="Id"/>
+              <cell name="Removed"/>
+            </row>
+          </rows>
+        </section>
+      </sections>
+    </tab>
+  </tabs>
+</form>

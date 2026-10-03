@@ -16,7 +16,10 @@ The pipeline spine exists — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verif
 `/dgf-commit`, beside `/dgf-doctor` — on the knowledge base and the validators, and so does the
 learning loop — `/dgf-fix` records a patch for each fix inside a plan's scope, `/dgf-evolve`
 distils patches into skill-context overrides that `check_override.py` checks before any skill
-reads one. The DGF-specific skills do not exist yet. See
+reads one. Five DGF-specific skills exist too — `/dgf-component`, `/dgf-process`, `/dgf-model`
+write one kind of configuration each, only inside a plan's scope, and `/dgf-audit` reports the
+root's health and a file's blast radius from a reference graph resolved per application;
+`/dgf-scaffold` creates a new application from an empty folder, generated from shipped templates. See
 [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified framework facts,
 [docs/pipeline.md](docs/pipeline.md) for how a change flows, and [docs/adr/](docs/adr/README.md)
 for the decisions that shape it.
@@ -49,7 +52,13 @@ plugins/dgf-factory/
 │   ├── dgf-verify/             #   the change gate; references/GATE-RESULT-CONTRACT.md
 │   ├── dgf-commit/             #   conventional commits scoped by workspace
 │   ├── dgf-fix/                #   fix inside the plan's scope, record a patch; references/PATCH-FORMAT.md
-│   └── dgf-evolve/             #   distil patches into overrides; references/OVERRIDE-FORMAT.md
+│   ├── dgf-evolve/             #   distil patches into overrides; references/OVERRIDE-FORMAT.md
+│   ├── dgf-component/          #   inspect, validate or scaffold a component, both families
+│   ├── dgf-process/            #   inspect, validate, author or modify a process or workflow; templates/
+│   ├── dgf-model/              #   inspect, validate, add or modify an entity's settings.xml; templates/
+│   ├── dgf-audit/              #   read-only: the root's health, and a file's blast radius
+│   └── dgf-scaffold/           #   a new application from an empty folder; scripts/ design, generate, check;
+│                               #     templates/ solution, workspace, patterns + manifest.json; references/DESIGN-FORMAT.md
 ├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
@@ -58,22 +67,29 @@ plugins/dgf-factory/
 │   ├── naming-conventions.md   #   directory/file/type names a generator must reproduce exactly
 │   ├── json-reader.md          #   how the runtime reads component JSON: options, dispatch, folders, file refs
 │   ├── process-model.md        #   process.xsd vs the runtime model; how references resolve
+│   ├── data-model.md           #   entities, fields, relations; what each model loader does with a reference
+│   ├── reference-graph.md      #   every reference as an edge: its rule, When absent, When empty, Reach, Checked by
+│   ├── permissions.md          #   where the root names roles; that nothing in it declares one
+│   ├── application-layout.md   #   a new application: workspace minimum, application row, roles, sign-in, host, local stack (§7 tables)
 │   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (dialects, membership)
 ├── scripts/                    # SHIPPED validators skills call — exit 0/1/2/3, one output format (docs/skill-authoring.md)
 │   ├── validate_config.py      #   family, schema (read the runtime's way) and parity, both families
 │   ├── resolve_components.py   #   component types (JSON and forms) and component file references
 │   ├── validate_process.py     #   process structure + semantics; workflow CHANGE_STATE targets
+│   ├── validate_model.py       #   an entity's and a form's references, an entity's load, a form's cells (ADR 0027 §3)
 │   ├── route_means.py          #   ADR 0010's order of means: JSON or legacy XML for a new config
 │   ├── locate_plan.py          #   the workspaces root and the active plan (ADR 0017 §6)
 │   ├── inventory_root.py       #   each workspace, counted; what is not one
 │   ├── check_plan.py           #   a plan's header, tasks, Commit Plan, file classes, routes, bundle, overlaps
 │   ├── check_change.py         #   a branch's change against its plan and the merge-base (ADR 0018)
 │   ├── verify_gate.py          #   the verify gate: every check, the status computed, one block (ADR 0022)
-│   ├── check_patches.py        #   the patches' format, and which are new against the cursor (ADR 0021)
-│   ├── check_override.py       #   may a skill read its override: shape, sources, forbidden, limit (ADR 0021)
+│   ├── check_patches.py        #   the patches' format, and which are new against the cursor (ADR 0024)
+│   ├── check_override.py       #   may a skill read its override: shape, sources, forbidden, limit (ADR 0024)
+│   ├── audit_root.py           #   the whole-root audit, or a file's reach per application (ADR 0027 §5)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
 │   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
-│                               #   process_checks, plan, git, runner, baseline, gate_result, patches, overrides
+│                               #   process_checks, plan, git, runner, baseline, gate_result, patches, overrides,
+│                               #   model, edges, graph, roles
 ├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
@@ -81,6 +97,7 @@ plugins/dgf-factory/
 │   ├── check-dual-schema-docs.sh  # doc, decision-record, manifest and stamp contracts; section 8 runs the tests
 │   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
 │   ├── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
+│   ├── derive_sql_types.py        # the SQL type of each dbtype, tallied from DGF's settings/table pairs (data-model.md §6)
 │   ├── run_known_good.py          # every validator over DGF's samples (via scripts/lib/runner.py); each error excused
 │   ├── known-good-exceptions.txt  # the evidenced excuses, and the warning baseline
 │   ├── check_drift.py             # the provenance ledgers' digests against a DGF checkout
@@ -92,7 +109,7 @@ plugins/dgf-factory/
 │   ├── skill-authoring.md      #   SKILL.md contract, gates, exit codes
 │   ├── dgf-knowledge.md        #   sourcing and version-stamping DGF facts
 │   ├── dgf-schemas.md          #   the two schema families: JSON + XSD, parity, vendoring
-│   ├── pipeline.md             #   the five spine skills, .dgf-factory/, the plan format, the change gate
+│   ├── pipeline.md             #   the spine, .dgf-factory/, the plan format, the change gate, the loop, the DGF-specific skills
 │   └── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
 ├── .mcp.json                   # MCP servers — dgf-mcp only; both dev config and shipped
 ├── .ai-factory.json            # AI Factory 2.18.1 install receipts (managed-skill ownership)
@@ -107,12 +124,14 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: the DGF-specific skills (`dgf-component`, `dgf-process`, `dgf-audit`) and
-`agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
+Not yet created: `agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
 the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
 milestone 8, the pipeline spine with milestone 9, the wired gate contract — `lib/gate_result.py`,
 `verify_gate.py`, the Commit Plan check — with milestone 10, and the learning loop —
-`/dgf-fix`, `/dgf-evolve`, `check_patches.py`, `check_override.py` — with milestone 11.
+`/dgf-fix`, `/dgf-evolve`, `check_patches.py`, `check_override.py` — with milestone 11. Milestone
+12 added `/dgf-component`, `/dgf-process`, `/dgf-model` and `/dgf-audit`, `validate_model.py` in the
+gate, `audit_root.py`, and the three knowledge files they read; `/dgf-scaffold`, with `knowledge/application-layout.md`
+and the field-type tables, closed it.
 
 ## Key Entry Points
 
@@ -123,10 +142,14 @@ milestone 8, the pipeline spine with milestone 9, the wired gate contract — `l
 | [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability (including DGF paths in shipped files), line endings; emits the gate block |
 | [scripts/validate_config.py](scripts/validate_config.py) | The dual-family config validator: family first, the runtime's JSON reader, the parity gate |
 | [scripts/validate_process.py](scripts/validate_process.py) | Process verification as ADR 0014 defines it, over a workspaces root |
+| [scripts/validate_model.py](scripts/validate_model.py) | The data model's references, resolved each loader's way, blocking only where the loader throws; an entity's own load; a form's cells (ADR 0027 §3) |
+| [scripts/audit_root.py](scripts/audit_root.py) | The whole-root audit and blast radius: validators, the graph per application, unresolved references, roles — never a gate (ADR 0027 §5) |
+| [scripts/lib/edges.py](scripts/lib/edges.py) | Reads one file's references row by row of the `reference-edges` table; no edge kind is named in code |
+| [scripts/lib/graph.py](scripts/lib/graph.py) | The reference graph of one application, and reach over it |
 | [scripts/check_plan.py](scripts/check_plan.py) | Every rule a plan must meet (ADR 0017), and the overlap with other branches' plans |
 | [scripts/check_change.py](scripts/check_change.py) | The change checks: scope, means, planned files, and new findings against the merge-base (ADR 0018) |
 | [scripts/verify_gate.py](scripts/verify_gate.py) | The verify gate `/dgf-verify` relays: the plan and change checks in-process, the task audit, the computed block (ADR 0022) |
-| [scripts/check_override.py](scripts/check_override.py) | Whether a skill may read its skill-context override; the six readers run it first, and a refused override is never read (ADR 0021) |
+| [scripts/check_override.py](scripts/check_override.py) | Whether a skill may read its skill-context override; the ten readers run it first, and a refused override is never read (ADR 0024) |
 | [scripts/lib/overrides.py](scripts/lib/overrides.py) | The override template, its sources, the `FORBIDDEN` constructs and the `LIMIT_WORDS` — what the check decides and what it hands to judgement |
 | [scripts/check_patches.py](scripts/check_patches.py) | The patch format (`lib/patches.py`), and which patches `/dgf-evolve` has not seen |
 | [scripts/lib/gate_result.py](scripts/lib/gate_result.py) | The one builder of every `dgf-gate-result` block — status from the entries, refusals, rendering; stdlib only |
@@ -134,14 +157,19 @@ milestone 8, the pipeline spine with milestone 9, the wired gate contract — `l
 | [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | What the verify gate's block holds and how its status is computed |
 | [scripts/lib/report.py](scripts/lib/report.py) | Every finding code and the exit code it forces — the single source of severity |
 | [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to `tools/known-good-exceptions.txt` |
+| [skills/dgf-scaffold/scripts/design.py](skills/dgf-scaffold/scripts/design.py) | The scaffold's design check: the folder is empty, names, references, data model, SQL types, what is open, every default |
+| [skills/dgf-scaffold/scripts/generate.py](skills/dgf-scaffold/scripts/generate.py) | Renders a new application from the design and `templates/manifest.json`; `--check` is the post-generation check (`check.py`) |
+| [skills/dgf-scaffold/references/DESIGN-FORMAT.md](skills/dgf-scaffold/references/DESIGN-FORMAT.md) | The design file, `docs/application.json`: every key, its rule and its default |
+| [knowledge/application-layout.md](knowledge/application-layout.md) | What a new DGF application is made of — the framework facts the scaffold's templates rest on |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
 | [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What the vendored schema set holds: directories, dialects, membership |
 | [provenance/knowledge/schemas/MANIFEST.md](provenance/knowledge/schemas/MANIFEST.md) | Maintainer-only: the DGF commit, upstream and shipped `sha256` per file, the path rewrite, the re-vendor process |
-| [docs/pipeline.md](docs/pipeline.md) | How a change flows through the five spine skills, and what each script decides |
+| [docs/pipeline.md](docs/pipeline.md) | How a change flows through the spine, the loop and the DGF-specific skills, and what each script decides |
 | [docs/blueprint.md](docs/blueprint.md) | The design. Read Part 2 §"Build order" before writing any skill. |
 | [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) | Project scope, verified DGF facts, the delivery model |
 | [docs/adr/README.md](docs/adr/README.md) | Decision records — read before reopening a settled question |
-| [docs/adr/0021-learning-loop.md](docs/adr/0021-learning-loop.md) | The learning loop: patches, overrides, the limit an override may not cross, and the script that checks one |
+| [docs/adr/0024-learning-loop-revised.md](docs/adr/0024-learning-loop-revised.md) | The learning loop: patches, overrides, the limit an override may not cross, and the script that checks one |
+| [docs/adr/0027-dgf-specific-skills-revised.md](docs/adr/0027-dgf-specific-skills-revised.md) | The DGF-specific skills: authoring scope, the artifact partition, the model check, the graph, blast radius, roles |
 | [.ai-factory/config.yaml](.ai-factory/config.yaml) | Language, paths, git and workflow settings for the pipeline |
 | [.ai-factory/rules/base.md](.ai-factory/rules/base.md) | Naming, error handling, exit-code contract, skill authoring rules |
 | [.mcp.json](.mcp.json) | MCP servers available to agents in this project |
@@ -169,7 +197,7 @@ milestone 8, the pipeline spine with milestone 9, the wired gate contract — `l
 |---|---|---|
 | README | `README.md` | Plugin landing page |
 | Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, loading it locally, trying the spine |
-| Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate, learning loop |
+| Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate, learning loop, the DGF-specific skills |
 | Architecture | `docs/architecture.md` | Slice structure and dependency rules |
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
@@ -203,8 +231,13 @@ milestone 8, the pipeline spine with milestone 9, the wired gate contract — `l
   status is computed, what it may claim, which command it suggests — by
   [ADR 0022](docs/adr/0022-gate-block-contract-revised.md); the learning loop — patches, overrides,
   the limit an override may not cross, and the script that checks one — by
-  [ADR 0021](docs/adr/0021-learning-loop.md); 0002, 0003, 0006, 0007, 0008 and 0020 are superseded
-  history.
+  [ADR 0024](docs/adr/0024-learning-loop-revised.md); the DGF-specific skills — authoring scope, the
+  artifact partition, the model check, the reference graph and blast radius — by
+  [ADR 0027](docs/adr/0027-dgf-specific-skills-revised.md), whose §7 also designs `/dgf-scaffold`, and
+  the scaffold's reversal of "drive a template" together with the whole-root unit by
+  [ADR 0026](docs/adr/0026-authoring-entry-point-revised.md); a writing skill's baseline without git — saved
+  before the write, never the gate's — by [ADR 0025](docs/adr/0025-saved-baseline-without-git.md);
+  0002, 0003, 0004, 0006, 0007, 0008, 0020, 0021 and 0023 are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.

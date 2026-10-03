@@ -1,0 +1,61 @@
+{
+  "type": "page",
+  "name": "Approval",
+  "content": [
+    {
+      "type": "container",
+      "cols": 12,
+      "content": [
+        {
+          "type": "row",
+          "content": [
+            {
+              "type": "text",
+              "name": "approvalTitle",
+              "value": "Approval service",
+              "size": "xlarge",
+              "cols": 12
+            },
+            {
+              "type": "dataTable",
+              "name": "approvalTable",
+              "title": "Approval",
+              "dataSourcePath": "Approval",
+              "allowRefresh": true,
+              "showHeaders": true,
+              "cols": 12,
+              "paging": { "pageSize": 20 },
+              "columns": [
+                {
+                  "name": "Id",
+                  "title": "Id",
+                  "displayType": "number",
+                  "allowSort": true
+                },
+                {
+                  "name": "Applicant",
+                  "title": "Applicant",
+                  "displayType": "text",
+                  "allowSort": true
+                },
+                {
+                  "name": "Summary",
+                  "title": "Summary",
+                  "displayType": "text",
+                  "allowSort": true
+                },
+                {
+                  "name": "SubmittedOn",
+                  "title": "SubmittedOn",
+                  "displayType": "dateTime",
+                  "format": "dd MMM yyyy HH:mm",
+                  "allowSort": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

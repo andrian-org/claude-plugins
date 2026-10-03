@@ -12,23 +12,25 @@ One directory per skill. The entry file is named exactly `SKILL.md` — auto-dis
 matches that name only, uppercase.
 
 ```text
-skills/dgf-component/
+skills/dgf-process/
 ├── SKILL.md              # the prompt-program
-├── references/           # facts only this skill cites
-├── scripts/              # validators only this skill calls
-└── templates/            # output shapes this skill emits
+├── references/           # facts only this skill cites (none yet for dgf-process)
+├── scripts/              # validators only this skill calls (none: it calls the shared scripts/)
+└── templates/            # output shapes this skill emits: process.xml, _workflow.xml
 ```
 
 ## Frontmatter contract
 
+The frontmatter of `skills/dgf-component/SKILL.md`, the skill this example once sketched:
+
 ```yaml
 ---
 name: dgf-component
-description: Scaffold, inspect or validate a DGF component against the catalogue. Use for "add component", "check component", "is this component valid".
-argument-hint: "[scaffold | inspect | validate] <component-name>"
-allowed-tools: Read Write Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
+description: Inspect, validate or scaffold a DGF component — modern JSON under FM/_COMPONENTS or a legacy form, view, grid or options file — in both schema families and parity-aware, writing only inside the active plan's scope. Use for "add a component", "check this component", "is this component valid", "scaffold a DataTable", "what uses this component".
+argument-hint: "[inspect | validate | scaffold] <file, Type/name or Type>"
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details mcp__plugin_dgf-factory_dgf-mcp__get_component_examples mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference mcp__plugin_dgf-factory_dgf-mcp__build_form_xml
 disable-model-invocation: false
-version: 1.0.0
+version: 0.1.0
 ---
 ```
 
@@ -66,11 +68,11 @@ window — a user can `/clear` mid-run and pick up where they left off, but only
 step reads its state rather than assuming it.
 
 A skill that reads a skill-context override checks it first, in its context step, with the block
-the six readers share word for word except the skill name: `check_override.py --workspaces-root
+the ten readers share word for word except the skill name: `check_override.py --workspaces-root
 "<root>" --skill <its own name> …`, an exit table — `0` apply it, or `OVERRIDE: none`; `1` refused,
 do not read it; `2` apply it and judge each `OVERRIDE_TOUCHES_LIMIT` rule; `3` **STOP** — and the
 limit sentence. `tests/test_skill_contracts.py` finds the readers by that call and holds each to
-its own `--skill` and the sentence ([ADR 0021](adr/0021-learning-loop.md) §4–§5).
+its own `--skill` and the sentence ([ADR 0024](adr/0024-learning-loop-revised.md) §4–§5).
 
 ## The exit-code contract
 
@@ -107,19 +109,22 @@ message — text that can come from a workspace or another branch — print esca
 `route_means.py` answers a question rather than checking files, so it prints a single
 `ROUTE: json|xml <where> — <reason>` line in place of 2–4.
 
-The pipeline spine's five scripts read plans and roots, and the learning loop's two read patches
-and overrides, rather than configuration files, so they print their own lines in place of 2.
-`check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py` and `check_override.py`
-then print the same `CHECKS RUN:` and `NOT RUN:` lines; all seven print findings and a verdict:
+The pipeline spine's five scripts read plans and roots, the learning loop's two read patches
+and overrides, and `audit_root.py` reads a whole root, rather than configuration files, so they
+print their own lines in place of 2. `check_plan.py`, `check_change.py`, `verify_gate.py`,
+`check_patches.py`, `check_override.py` and `audit_root.py` then print the same `CHECKS RUN:` and
+`NOT RUN:` lines; all eight print findings and a verdict. `validate_model.py` reads configuration
+files and prints `FAMILY:` lines like the other validators:
 
 | Script | Lines in place of `FAMILY:` |
 |---|---|
 | `locate_plan.py` | `ROOT: <path>`; `PLAN: <path> mode=<m> source=branch\|lone\|fast`, or with `--list` one `PLAN: <path> mode=<m> progress=<done>/<total>` per plan |
 | `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
-| `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file |
+| `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)` — `BASE: <file> (saved before the write, --baseline)` with a saved baseline; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file; with `--save-baseline`, `BASELINE: saved <n> finding(s) — <e> error(s), <w> warning(s) — to <file>` |
 | `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor` |
 | `check_override.py` | `OVERRIDE: <file> skill=<skill> rules=<n>` (`rules=?` when its shape fails), or `OVERRIDE: none — no <file>`; one `RULE: <N> line=<l> sources=<n> name="<name>"` per rule |
+| `audit_root.py` | `ROOT:`; `APPLICATIONS: <app> … (base webasm)`. The whole root: one `GRAPH: <app> nodes= edges= resolved= unresolved= case-only= dynamic=` per application, one `EDGE: <app> <kind> …` per edge kind, one `VALIDATOR: <cli> files=<n> <LABEL> <CODE>=<n> …` per validator, one `ROLE: "<name>" <source>=<n> …` per role name. Reach: per file `REACH: <path> artifact= name= [change=]`, then per application `APP: <app> processes=<n>`, `PROCESS: <app> <reference> via <file>:<line> > … > <path>`, `REFERRER: <app> <kind> <file>:<line>` or `NONE: <app> — …`; `NOT AUDITED: <ws> — …` in their place when `--app` left the file's own application out; `SKIP: <path> — …` for a changed file that is no configuration. Always a final `LIMIT: static reach only — …` |
 | `verify_gate.py` | `ROOT:`; `check_plan.py`'s lines; `check_change.py`'s lines after its `PLAN:`; one `CODE TASK: <N> reason="<reason>"` per `kind: code` task. Its summary adds `Shown: 20 of <n> PRE_EXISTING — …` when it cuts them, and `STATUS: pass\|warn\|fail`; then the verdict, a blank line, and the gate block |
 
 `check_change.py` compares the validators' findings with the merge-base
@@ -128,12 +133,15 @@ code and severity. One that was already there prints as `INFO PRE_EXISTING <file
 <message>`, and one the branch removed as `INFO FIXED <file> [<CODE>] <message>`; neither
 affects the exit. Its summary adds `new: <e> error(s), <w> warning(s); pre-existing: <p>;
 fixed: <f>`. A skill reports new findings verbatim, counts pre-existing ones, and never fixes
-them unasked.
+them unasked. Without git, a writing skill that confirms over the whole root saves the run before
+its write with `--save-baseline <file>` and settles the run after it with `--baseline <file>`,
+which reports the same way ([ADR 0025](adr/0025-saved-baseline-without-git.md)). A baseline it
+cannot use is `BASELINE_UNUSABLE`, exit `3`.
 
 Only a whole-root run records the check `validators` as run. A `check_change.py --files` run —
 `/dgf-implement`'s per-task pre-check — prints `NOT RUN: validators (narrowed to <n> file(s) by
 --files; …)`, so a narrowed run can never read as a gate pass
-([ADR 0004](adr/0004-authoring-entry-point.md) §3, [ADR 0022](adr/0022-gate-block-contract-revised.md) §4).
+([ADR 0026](adr/0026-authoring-entry-point-revised.md) §3, [ADR 0022](adr/0022-gate-block-contract-revised.md) §4).
 
 Each finding code has one fixed severity, and the exit code is the worst across all files,
 with `3` beating everything. A skill quotes `ERROR` lines verbatim, surfaces every `WARN`, and
@@ -228,6 +236,17 @@ When a plan bundle conflicts with the current code, the executing skill **stops 
 reports the drift**. It does not silently make the architectural choice that the planning
 stage existed to pre-commit. Expensive thinking happens once; cheap execution happens
 many times.
+
+## A slice script that loads a shared library module
+
+A script under `skills/<skill>/scripts/` is the skill's own: no other skill calls it. It may load a module of
+`scripts/lib/` **by path** with `importlib.util.spec_from_file_location`, as `doctor.py` does, but only a module
+that imports nothing from its own package — a relative import cannot resolve when a file is loaded by path.
+Those modules are `report.py`, `knowledge.py` and `gate_result.py`; `cli.py` and `workspace.py` are not among
+them. A slice script that needs argument parsing therefore has its own parser, whose `error()` exits `3`, and its
+own exact-case helper over `os.scandir`. `/dgf-scaffold`'s `design.py` and `generate.py` are the worked example.
+Their codes are registered in `report.CODES`, like every other script's, and a known-bad case names such a script
+by its plugin-relative path (`skills/dgf-scaffold/scripts/design.py`).
 
 ## Before you ship a skill
 

@@ -97,9 +97,10 @@ each the root and a DGF-shaped question; they return summaries, never whole file
 - **How DGF builds it.** Ask the DGF docs MCP, yourself: `search_docs`, `how_to_build`,
   `get_recipes_for` and `get_component_doc` for the components the change needs.
 
-How a reference resolves is in `${CLAUDE_PLUGIN_ROOT}/knowledge/process-model.md` §2 and
-`${CLAUDE_PLUGIN_ROOT}/knowledge/json-reader.md` §2.1. Cite those files; do not restate their
-rules from memory.
+How a reference resolves is in `${CLAUDE_PLUGIN_ROOT}/knowledge/process-model.md` §2,
+`${CLAUDE_PLUGIN_ROOT}/knowledge/json-reader.md` §2.1, `${CLAUDE_PLUGIN_ROOT}/knowledge/data-model.md`
+§3 and `${CLAUDE_PLUGIN_ROOT}/knowledge/reference-graph.md` §1–§2. Cite those files; do not restate
+their rules from memory.
 
 ### Step 1.2: Identifier
 

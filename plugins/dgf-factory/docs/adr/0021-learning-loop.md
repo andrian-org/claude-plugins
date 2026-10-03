@@ -1,8 +1,8 @@
 ---
 id: 0021
 title: "The learning loop: /dgf-fix records patches inside a plan's scope, and /dgf-evolve writes overrides a script checks, which may only tighten a skill"
-status: accepted
-date: 2026-09-26
+status: superseded-by-0024
+date: 2026-09-27
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [learning, pipeline, overrides]

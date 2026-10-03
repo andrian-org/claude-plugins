@@ -1,0 +1,6 @@
+<entity>
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="PrimaryKey"/>
+  </fields>
+</entity>

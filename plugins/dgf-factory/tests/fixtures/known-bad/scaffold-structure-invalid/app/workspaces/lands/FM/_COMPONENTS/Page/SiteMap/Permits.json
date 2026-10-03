@@ -1,0 +1,82 @@
+{
+  "type": "page",
+  "name": "Permits",
+  "content": [
+    {
+      "type": "container",
+      "cols": 12,
+      "content": [
+        {
+          "type": "row",
+          "content": [
+            {
+              "type": "text",
+              "name": "permitsTitle",
+              "value": "Permit register",
+              "size": "xlarge",
+              "cols": 12
+            },
+            {
+              "type": "dataTable",
+              "name": "permitsTable",
+              "title": "Permit",
+              "dataSourcePath": "Permit",
+              "allowRefresh": true,
+              "showHeaders": true,
+              "cols": 12,
+              "paging": { "pageSize": 20 },
+              "columns": [
+                {
+                  "name": "Id",
+                  "title": "Id",
+                  "displayType": "number",
+                  "allowSort": true
+                },
+                {
+                  "name": "Reference",
+                  "title": "Reference",
+                  "displayType": "text",
+                  "allowSort": true
+                },
+                {
+                  "name": "Holder",
+                  "title": "Holder",
+                  "displayType": "text",
+                  "allowSort": true
+                },
+                {
+                  "name": "PermitTypeId",
+                  "title": "PermitTypeId",
+                  "displayType": "text",
+                  "displayProperty": "value",
+                  "allowSort": true
+                },
+                {
+                  "name": "IssuedOn",
+                  "title": "IssuedOn",
+                  "displayType": "dateTime",
+                  "format": "dd MMM yyyy HH:mm",
+                  "allowSort": true
+                },
+                {
+                  "name": "Fee",
+                  "title": "Fee",
+                  "displayType": "number",
+                  "format": "n2",
+                  "allowSort": true
+                },
+                {
+                  "name": "Active",
+                  "title": "Active",
+                  "displayType": "boolean",
+                  "format": "yesNo",
+                  "allowSort": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

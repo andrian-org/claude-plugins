@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A minimal process: OnStart moves the case to one state, and that state's one transition ends it.
+  Replace every `Case`, then add states, transitions and actions from knowledge/process-model.md.
+  `table` is the database table the case lives in, not an entity folder (knowledge/reference-graph.md §2).
+-->
+<Process title="Case" table="Case" keyName="id" allowBack="false" allowHistory="true" assignTasks="false">
+  <OnStart action="">
+    <Transitions>
+      <Transition state="Open" />
+    </Transitions>
+  </OnStart>
+  <States>
+    <State name="Open" type="Task">
+      <Transitions>
+        <Transition state="End" />
+      </Transitions>
+    </State>
+  </States>
+</Process>

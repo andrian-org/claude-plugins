@@ -96,7 +96,8 @@ def run_cli(script, *args, env=None, cwd=None):
     """Run a script under scripts/ (or an absolute path) → (exit code, stdout, stderr)."""
     path = Path(script)
     if not path.is_absolute():
-        path = SCRIPTS / script
+        # a script of the shared corpus is under scripts/; a slice's own is named from the plugin root
+        path = PLUGIN_ROOT / script if str(script).startswith("skills/") else SCRIPTS / script
     full_env = dict(os.environ)
     full_env.pop("DEBUG", None)
     full_env.pop("LOG_LEVEL", None)

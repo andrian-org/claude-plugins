@@ -170,7 +170,8 @@ class DoctorOnACopy(unittest.TestCase):
 
     def test_expected_slices_report_present_or_not_yet_built(self):
         code, out, _ = self.run_doctor()
-        for name in ("dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit", "dgf-fix", "dgf-evolve"):
+        for name in ("dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit", "dgf-fix", "dgf-evolve",
+                     "dgf-component", "dgf-process", "dgf-audit", "dgf-model", "dgf-scaffold"):
             self.assertRegex(out, rf"INFO  skills/{name}/ — (present|not yet built)")
         self.write_skill("dgf-plan", self.FRONTMATTER)
         _, out, _ = self.run_doctor()

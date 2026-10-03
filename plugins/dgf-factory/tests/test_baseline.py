@@ -1,5 +1,6 @@
-"""The merge-base baseline: lib/baseline.py and check_change.py --base (ADR 0018)."""
+"""The merge-base baseline: lib/baseline.py and check_change.py --base (ADR 0018) — and a saved one (ADR 0025)."""
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -78,6 +79,72 @@ class Compare(unittest.TestCase):
     def test_a_relative_root_is_never_stripped(self):
         self.assertEqual(baseline.root_forms("/a/b"), ["/a/b"])
         self.assertNotIn(".", baseline.root_forms("."))
+
+
+class Saved(unittest.TestCase):
+    """A run saved before a write stands for the tree before it (ADR 0025): save() and load(), stdlib only."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        self.path = self.root / ".dgf-factory" / "baseline.json"
+        self.path.parent.mkdir()
+
+    def round_trip(self, before, files=None):
+        baseline.save(self.path, before, self.root, files)
+        return baseline.load(self.path, self.root, files)
+
+    def rows(self, **overrides):
+        data = {"format": baseline.FORMAT, "root": str(self.root), "files": None,
+                "findings": [{"code": "DEAD_TRANSITION", "file": "app/p.xml", "line": 3, "message": "m"}]}
+        data.update(overrides)
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+
+    def test_a_message_carrying_the_root_is_saved_without_it_and_still_matches_after_the_write(self):
+        message = f"`{self.root}/app/p.xml` moves to `Nowhere`"
+        saved = self.round_trip([finding("DEAD_TRANSITION", "app/p.xml", message, line=5)])
+        rows = json.loads(self.path.read_text(encoding="utf-8"))["findings"]  # the file names its root; rows do not
+        self.assertEqual(rows[0]["message"], "`app/p.xml` moves to `Nowhere`")
+        after = [finding("DEAD_TRANSITION", "app/p.xml", message, line=9)]  # lines moved; the key has none
+        new, pre, fixed = baseline.compare(after, saved, self.root, [])
+        self.assertEqual((len(new), len(pre), len(fixed)), (0, 1, 0))
+
+    def test_a_second_copy_of_a_saved_key_is_new(self):
+        one = finding("SCHEMA_INVALID", "app/c.json", "bad")
+        new, pre, _ = baseline.compare([one, one], self.round_trip([one]), self.root, [])
+        self.assertEqual((len(new), len(pre)), (1, 1))
+
+    def test_an_info_finding_is_never_saved(self):
+        info, error = finding("NO_SERVICE", "app/c.json", "legal"), finding("WORKFLOW_UNRESOLVED", "app/p.xml", "gone")
+        self.assertEqual(baseline.save(self.path, [info, error], self.root, None), [error])
+        self.assertEqual([f.code for f in baseline.load(self.path, self.root, None)], ["WORKFLOW_UNRESOLVED"])
+
+    def test_the_scope_is_compared_whatever_its_order(self):
+        self.round_trip([], files=["b.xml", "a.xml"])
+        self.assertEqual(baseline.load(self.path, self.root, ["a.xml", "b.xml"]), [])
+        with self.assertRaises(baseline.Unusable):
+            baseline.load(self.path, self.root, None)
+
+    def test_a_baseline_that_cannot_stand_for_the_tree_is_refused(self):
+        row = {"code": "DEAD_TRANSITION", "file": "app/p.xml", "line": 3, "message": "m"}
+        cases = {
+            "another format": {"format": 2},
+            "another root": {"root": "/somewhere/else"},
+            "another scope": {"files": ["app/p.xml"]},
+            "no findings list": {"findings": "none"},
+            "an unknown code": {"findings": [dict(row, code="NOT_A_CODE")]},
+            "a code that is no string": {"findings": [dict(row, code=["DEAD_TRANSITION"])]},
+            "a row that is no object": {"findings": ["DEAD_TRANSITION"]},
+            "a line that is text": {"findings": [dict(row, line="3")]},
+            "a message that is no string": {"findings": [dict(row, message=None)]},
+        }
+        for name, overrides in cases.items():
+            with self.subTest(name):
+                self.rows(**overrides)
+                with self.assertRaises(baseline.Unusable):
+                    baseline.load(self.path, self.root, None)
+        self.rows()
+        self.assertEqual(len(baseline.load(self.path, self.root, None)), 1)  # and the unchanged rows load
 
 
 @unittest.skipUnless(helpers.have_git() and helpers.have_dependencies(), "needs git, lxml and jsonschema")

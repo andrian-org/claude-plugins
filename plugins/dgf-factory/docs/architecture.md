@@ -27,7 +27,8 @@ plugins/dgf-factory/
 ├── skills/<name>/               # SLICES — SKILL.md + references/ + scripts/ + templates/
 │   ├── dgf-doctor/              #   the install check, with its own scripts/doctor.py
 │   ├── dgf, dgf-plan, dgf-implement, dgf-verify, dgf-commit/   # the pipeline spine
-│   └── dgf-fix, dgf-evolve/     #   the learning loop — patches, and overrides that only tighten
+│   ├── dgf-fix, dgf-evolve/     #   the learning loop — patches, and overrides that only tighten
+│   └── dgf-component, dgf-process, dgf-model, dgf-audit/   # the DGF-specific skills; two ship templates/
 ├── agents/*.md                  # subagents (not yet built)
 ├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
@@ -35,6 +36,7 @@ plugins/dgf-factory/
 │   ├── validate_config.py       #   family, schema and parity, both families
 │   ├── resolve_components.py    #   component types and component file references
 │   ├── validate_process.py      #   process structure and semantics, change-state targets
+│   ├── validate_model.py        #   the references an entity and a form make, an entity's load, a form's cells
 │   ├── route_means.py           #   JSON or legacy XML for a new configuration
 │   ├── locate_plan.py           #   the workspaces root and the active plan
 │   ├── inventory_root.py        #   each workspace, counted; what is not one
@@ -43,6 +45,7 @@ plugins/dgf-factory/
 │   ├── verify_gate.py           #   the verify gate: every check, the computed status, one block
 │   ├── check_patches.py         #   the patch format; which patches the cursor has not seen
 │   ├── check_override.py        #   may a skill read its override: shape, sources, forbidden, limit
+│   ├── audit_root.py            #   the whole-root audit, and a file's reach per application
 │   ├── requirements.txt         #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                     #   what the scripts share (below)
 ├── .mcp.json                    # MCP servers
@@ -70,8 +73,12 @@ plugins/dgf-factory/
 | `git.py` | The read-only git calls — changed files, refs, and a commit's tree written blob by blob |
 | `runner.py` | Every validator over a root or some of its files; `tools/run_known_good.py` uses the same runner |
 | `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
-| `patches.py` | The patch file — name, fields, sections — and the patch cursor ([ADR 0021](adr/0021-learning-loop.md) §1) |
-| `overrides.py` | The override template, its sources, the `FORBIDDEN` constructs and the `LIMIT_WORDS` it hands to judgement (ADR 0021 §5) |
+| `patches.py` | The patch file — name, fields, sections — and the patch cursor ([ADR 0024](adr/0024-learning-loop-revised.md) §1) |
+| `overrides.py` | The override template, its sources, the `FORBIDDEN` constructs and the `LIMIT_WORDS` it hands to judgement (ADR 0024 §5) |
+| `model.py` | Each model loader's own resolution rule — table, form, lookup view, dialog, grid — an entity's own load, and a form's bound cells ([ADR 0027](adr/0027-dgf-specific-skills-revised.md) §3) |
+| `edges.py` | One file's references, read row by row of the `reference-edges` table: elements, condition, values, rule; no edge kind is named in code |
+| `graph.py` | The reference graph of one application, reach over it, referrers, unreached shared workflows (ADR 0027 §4) |
+| `roles.py` | Every role name the root uses, read from the `role-sources` table, split as the runtime splits it (ADR 0027 §6) |
 | `gate_result.py` | Builds, validates and renders every `dgf-gate-result` block, its status computed from its entries ([ADR 0022](adr/0022-gate-block-contract-revised.md)); stdlib only, and imports nothing from its package, so `doctor.py` loads it by path |
 
 `verify_gate.py` is the verify gate: it runs `check_plan.py`'s and `check_change.py`'s checks
@@ -92,7 +99,7 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py` |
+| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py`, `audit_root.py` |
 | Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
 
 A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators over DGF's
@@ -170,14 +177,14 @@ ownership table is the thing that makes multi-session, multi-agent work non-chao
 | `PLAN.md`, `plans/<stem>.md` | `/dgf-plan` | `/dgf-implement` updates only the checkboxes |
 | `ARCHITECTURE.md` | `/dgf-architecture` | structure notes only |
 | `plans/<stem>/` (ultra) | `/dgf-plan` | `/dgf-implement` updates only the ledger in `index.md` |
-| `patches/` | `/dgf-fix` — append-only | read by `/dgf-implement` and `/dgf-fix` as cautions; consumed by `/dgf-evolve` |
-| `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | checked by `check_override.py`, then read by its skill — never when the check refuses it |
+| `patches/` | `/dgf-fix` — append-only | the latest ten read by `/dgf-implement`, `/dgf-fix`, `/dgf-component`, `/dgf-process` and `/dgf-model` as cautions; consumed by `/dgf-evolve` |
+| `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | checked by `check_override.py`, then read by its skill — one of ten readers — never when the check refuses it |
 | `evolutions/` — logs and `patch-cursor.json` | `/dgf-evolve` | read-only |
 | `knowledge/` | deliberate human edit with a cited source | read-only to every slice |
 
 ## See Also
 
-- [Pipeline Spine](pipeline.md) — the spine's five slices and the learning loop's two, and how a change flows through them
+- [Pipeline Spine](pipeline.md) — the spine's five slices, the learning loop's two and the four DGF-specific ones, and how a change flows through them
 - [Skill Authoring](skill-authoring.md) — the contract a slice's `SKILL.md` must follow
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — the rules governing `knowledge/`
 - [DGF Schemas](dgf-schemas.md) — the two schema families and the rules for consuming them

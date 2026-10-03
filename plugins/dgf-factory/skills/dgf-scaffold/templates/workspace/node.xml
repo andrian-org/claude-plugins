@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mapNode type="GRID">
+  <set name="TableName" value="{{membership.module.entity_obj.name}}" />
+  <set name="ViewName" value="default" />
+{{#if membership.module.is_service}}
+  <set name="CreateForm" value="STATEPROCESS:{{membership.module.name}}" />
+  <set name="OpenForm" value="STATEPROCESS:" />
+{{else}}
+  <set name="CreateForm" value="FORM:default" />
+  <set name="OpenForm" value="FORM:default" />
+{{/if}}
+</mapNode>

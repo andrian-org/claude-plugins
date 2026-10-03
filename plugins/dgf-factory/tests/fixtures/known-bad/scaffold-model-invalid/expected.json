@@ -1,0 +1,11 @@
+{
+  "cli": "skills/dgf-scaffold/scripts/design.py",
+  "args": [
+    "--folder",
+    "app"
+  ],
+  "exit": 1,
+  "codes": [
+    "SCAFFOLD_MODEL_INVALID"
+  ]
+}

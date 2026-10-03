@@ -180,7 +180,7 @@ def check_json(detection, path, rep, override):
     try:
         occurrences = check_types(detection.document, selection, rep)
     except json_validate.UnknownDialect as exc:
-        rep.add("SCHEMA_UNSELECTABLE", f"schema dialect `{exc}` is not draft-04 or draft-07")
+        json_validate.add_unknown_dialect(rep, exc)
         return
     check_references(path, detection.document, selection, occurrences, rep)
 

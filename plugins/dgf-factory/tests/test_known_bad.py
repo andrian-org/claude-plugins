@@ -40,7 +40,8 @@ class Corpus(unittest.TestCase):
         for case in cases():
             expected = json.loads((case / "expected.json").read_text(encoding="utf-8"))
             self.assertEqual(set(expected), EXPECTED_KEYS, case.name)
-            self.assertTrue((helpers.SCRIPTS / expected["cli"]).is_file(), case.name)
+            root = helpers.PLUGIN_ROOT if expected["cli"].startswith("skills/") else helpers.SCRIPTS
+            self.assertTrue((root / expected["cli"]).is_file(), case.name)
             self.assertIn(expected["exit"], (1, 3), case.name)
 
     def test_no_fixture_names_a_dgf_path(self):

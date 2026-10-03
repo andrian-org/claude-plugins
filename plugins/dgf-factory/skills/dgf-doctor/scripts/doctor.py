@@ -122,7 +122,8 @@ SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
 
 # Slices the roadmap calls for, in roadmap order. Absent ones are progress, not faults.
 EXPECTED_SLICES = ("dgf-doctor", "dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit",
-                   "dgf-fix", "dgf-evolve", "dgf-component", "dgf-process", "dgf-audit")
+                   "dgf-fix", "dgf-evolve", "dgf-component", "dgf-process", "dgf-audit", "dgf-model",
+                   "dgf-scaffold")
 
 # `${CLAUDE_PLUGIN_ROOT}/<path>` in shipped Markdown. The token ends at whitespace, a
 # quote, a backtick, `)` or `]`; one with `<`, `*`, `{`, a second `$` or an ellipsis is

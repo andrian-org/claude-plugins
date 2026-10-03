@@ -1,11 +1,12 @@
 [← Getting Started](getting-started.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
 
-# The Pipeline Spine and the Learning Loop
+# The Pipeline Spine, the Learning Loop and the DGF-Specific Skills
 
 Five skills — the **spine** — take a change to a DGF estate from a request to a commit. Two more —
 the **learning loop** — fix what the gate finds and turn each fix into a rule that tightens the
-spine's next run. Every decision a script can make is made by a script; the skills decide only
-what needs judgement.
+spine's next run. Four **DGF-specific skills** work on one kind of configuration each — components,
+processes and workflows, entities — and audit the whole root, including a change's blast radius.
+Every decision a script can make is made by a script; the skills decide only what needs judgement.
 
 ```text
 /dgf  ──►  /dgf-plan  ──►  /dgf-implement  ──►  /dgf-verify  ──►  /dgf-commit
@@ -15,11 +16,15 @@ what needs judgement.
                                                   ▼     │
                                                 /dgf-fix ──► patches/ ──► /dgf-evolve ──► skill-context/
                                                 fix inside              distil into rules the
-                                                the plan                six skills check, then apply
+                                                the plan                ten skills check, then apply
+
+/dgf-component  /dgf-process  /dgf-model     inspect and validate anywhere; write one kind of
+                                             file each, only inside the plan's scope
+/dgf-audit                                   the root's health, and the processes a file reaches
 ```
 
 The unit of work is the **whole workspaces root**, not one workspace
-([ADR 0004](adr/0004-authoring-entry-point.md)). A change in `webasm` is live in every
+([ADR 0026](adr/0026-authoring-entry-point-revised.md)). A change in `webasm` is live in every
 application, and a change in one file can break a file it never touched, so the gate always
 looks at the whole root.
 
@@ -54,8 +59,8 @@ their branches, and the overlap check reads other branches' plans.
 | `DESCRIPTION.md` | `/dgf` | `/dgf-plan`, `/dgf-implement` |
 | `PLAN.md` | `/dgf-plan` (fast plans) | `/dgf-implement` (checkboxes only), `/dgf-verify`, `/dgf-commit` |
 | `plans/<stem>.md`, `plans/<stem>/` | `/dgf-plan` (full plans, ultra bundles) | the same |
-| `patches/<YYYY-MM-DD-HH.mm>-<slug>.md` | `/dgf-fix` — append-only | `/dgf-implement` and `/dgf-fix` (the latest ten, as cautions), `/dgf-evolve` (the new ones, through `check_patches.py --cursor`) |
-| `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | `check_override.py`, then the matching skill — only when the check accepts it — as an override that may only tighten |
+| `patches/<YYYY-MM-DD-HH.mm>-<slug>.md` | `/dgf-fix` — append-only | `/dgf-implement`, `/dgf-fix`, `/dgf-component`, `/dgf-process` and `/dgf-model` (the latest ten, as cautions), `/dgf-evolve` (the new ones, through `check_patches.py --cursor`) |
+| `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | `check_override.py`, then the matching skill — one of the ten readers, only when the check accepts it — as an override that may only tighten |
 | `evolutions/` | `/dgf-evolve` — a log per run, and `patch-cursor.json` | `/dgf-evolve`, through `check_patches.py --cursor` |
 
 `config.yaml` is written from `skills/dgf/references/config-template.yaml`:
@@ -185,7 +190,9 @@ introduced:
 
 Findings are compared by code, root-relative file and message — not by line, so an edit above
 a finding does not make it new — and as a multiset, so a second copy is new. Without git or a
-merge-base the baseline is `NOT RUN` and every finding counts as new: stricter, never looser.
+merge-base the baseline is `NOT RUN` and every finding counts as new: stricter, never looser. A
+writing skill without git brings its own, saved before its write (`--save-baseline`, `--baseline`;
+[ADR 0025](adr/0025-saved-baseline-without-git.md)); the gate never does.
 
 On a copy of DGF's samples, a branch that added one dead transition got exactly one new error
 among 2552 pre-existing findings, in about 5 seconds for both runs.
@@ -229,7 +236,7 @@ The contract is `skills/dgf-verify/references/GATE-RESULT-CONTRACT.md`.
 ## The learning loop
 
 The gate finds what the branch broke; the loop makes the next branch less likely to break it
-([ADR 0021](adr/0021-learning-loop.md)).
+([ADR 0024](adr/0024-learning-loop-revised.md)).
 
 | Skill | Does | Scripts it runs | Writes |
 |---|---|---|---|
@@ -256,8 +263,8 @@ skill stays new.
 **The limit.** An override may add rules and tighten checks. It never relaxes a STOP, an exit-code
 row, the status a gate script computes, a Critical Rule or Artifact Ownership, and never makes a
 skill install anything, skip a script, or write outside its own artifacts. Anyone who commits to the
-estate can write an override, so six skills — the five of the spine and `/dgf-fix` — run
-`check_override.py` before reading theirs, and `/dgf-evolve` runs it on every file it writes. The
+estate can write an override, so ten skills — the five of the spine, `/dgf-fix` and the four
+DGF-specific skills — run `check_override.py` before reading theirs, and `/dgf-evolve` runs it on every file it writes. The
 check refuses what a script can see: a gate block, a flag other than `--strict` or `--verbose`, a
 tool grant, an install or download, a history-rewriting git command, a path outside the root — read as
 ASCII first, with invisible, control and look-alike characters refused outright, and quoted text
@@ -282,8 +289,161 @@ outside the plan still goes to `/dgf-implement` first, and the reason adds "then
 finding(s) for /dgf-fix". The doctor never suggests `/dgf-fix`: a broken install is reinstalled, not
 fixed in the estate.
 
+## The DGF-specific skills
+
+Four skills work on the estate's configuration itself ([ADR 0027](adr/0027-dgf-specific-skills-revised.md)).
+Their read-only modes — inspect, validate, audit — run anywhere in a root. Their writing modes run
+only inside the active plan, as `/dgf-fix` does: `locate_plan.py` finds the plan, `check_plan.py`
+checks it, and `check_change.py --changed … --skip-validators` decides the scope **before** the write.
+None of them ticks a checkbox — `/dgf-implement` owns the ledger — deletes a file, converts a file's
+family, or emits a gate block. `/dgf-process` and `/dgf-model` confirm every write over the whole
+root. Without git there is no merge-base, so the script saves a baseline first ([ADR
+0025](adr/0025-saved-baseline-without-git.md)):
+
+- `check_change.py --save-baseline` before the write keeps the root's findings, unjudged;
+- `--baseline` after it settles against them exactly as the gate settles against a merge-base — an
+  old finding is `INFO PRE_EXISTING`, and a new one keeps its exit.
+
+The key is the gate's own (code, file, message), so a finding whose message the write changed reads
+as new here as it would at the gate. An example is a `webasm` reference whose list of applications
+now differs. The gate never takes a saved baseline.
+
+| Skill | Does | Scripts it runs | Writes |
+|---|---|---|---|
+| `/dgf-component` | Inspects, validates or scaffolds a component — JSON under `FM/_COMPONENTS/`, or a legacy form, view, grid form or options file — in both families, parity-aware | `locate_plan.py --root-only`, `check_override.py`, `validate_config.py`, `resolve_components.py`, `route_means.py`, `audit_root.py --reach`, `validate_model.py` (forms), and the plan and scope scripts | one new component file per scaffold |
+| `/dgf-process` | Inspects, validates, authors or modifies a process or workflow, XML always; runs the reach **before** a modify, and the whole-root change check after it | `locate_plan.py --root-only`, `check_override.py`, `validate_process.py`, `audit_root.py --reach`, `audit_root.py --skip-validators`, `route_means.py`, and the plan and scope scripts | `process.xml`, `_workflow.xml` |
+| `/dgf-model` | Inspects, validates, adds or modifies an entity; names the database work a change needs, and never writes SQL | `locate_plan.py --root-only`, `check_override.py`, `validate_config.py`, `validate_model.py`, `audit_root.py --reach`, `route_means.py`, and the plan and scope scripts | an entity's `settings.xml` |
+| `/dgf-audit` | The whole root's health, or a file's blast radius | `locate_plan.py --root-only`, `check_override.py`, `audit_root.py` | nothing |
+
+**One writer per artifact.** Each writing skill writes only what it owns, and STOPs on anything
+else, naming the owner:
+
+| Artifact | Owner |
+|---|---|
+| `process`, `workflow` (shared or process-local) | `/dgf-process` |
+| `settings` | `/dgf-model` |
+| every JSON component under `FM/_COMPONENTS/`, and `form`, `table-view`, `lookup-view`, `grid-form`, `options` | `/dgf-component` |
+
+`/dgf-implement` and `/dgf-fix` still write any of them for a plan task or a fix.
+
+**Two scripts.** Both need `lxml` and `jsonschema`, and take `--verbose`:
+
+| Script | Decides | Usage |
+|---|---|---|
+| `validate_model.py` | The references an entity's `settings.xml` and a `_form.xml` make — each resolved the way its loader resolves it — that `Table.InitFields` accepts an entity's key and fields, and that every bound cell of a form names a field. One of the runner's four validators, so the gate and the known-good run check the model | `[--workspaces-root R] (--all \| <settings.xml \| _form.xml>…)` |
+| `audit_root.py` | The whole-root audit — validator counts over the root's configuration, the reference graph of each application, unresolved references no validator checks, unreached shared workflows, the role inventory — or the reach of named or changed files | `--workspaces-root R [--reach PATH… \| --base REF \| --changed S:PATH…] [--app NAME] [--skip-validators]` |
+
+| Exit | `validate_model.py` | `audit_root.py` |
+|---|---|---|
+| `0` | every reference resolves, `Table.InitFields` accepts the entity's key and fields, and every bound cell names a field — as far as the checks ran: `NOT RUN: form-cells` when the form's entity `settings.xml` does not parse, `NOT RUN: entity-load` when the file holds a DTD or does not parse once decoded as the runtime decodes it | clean, or INFO only (`AUDIT_WORKFLOW_UNREACHED`, `AUDIT_REFERENCE_DYNAMIC`) |
+| `1` | `MODEL_REFERENCE_UNRESOLVED` — a table or dialog the loader throws on, an empty one where it throws, a grid folder that exists without its file while the table has a `default` grid, or a missing view or grid that cannot be generated — `MODEL_ENTITY_UNLOADABLE` — `Table.InitFields` throws on the entity's key or fields — `MODEL_CELL_UNBOUND`, `XML_MALFORMED` | a validator `ERROR` in the root |
+| `2` | `MODEL_REFERENCE_TEMPLATED` — the runtime generates the missing view or grid and writes it into the workspace — `MODEL_REFERENCE_APP_DEPENDENT`, `CASE_ONLY_MATCH` | `AUDIT_REFERENCE_UNRESOLVED`, `CASE_ONLY_MATCH`, `AUDIT_NARROWED` |
+| `3` | usage, `SCHEMA_UNSELECTABLE`, `DEPENDENCY_MISSING`, `KNOWLEDGE_TABLE` | usage, `AUDIT_REACH_NOT_ARTIFACT` — including a path that matches only in case — `DEPENDENCY_MISSING`, `KNOWLEDGE_TABLE`, `SCHEMA_UNSELECTABLE` for a vendored schema whose dialect the validators cannot read, `AUDIT_CHECK_FAILED` — a check raised, and the report so far says which — `--skip-validators` with a reach |
+
+A JSON file outside every `FM/` is a draft: a validator's own call checks it by its `type`, but no
+loader reads it, so the audit leaves it out of its validator run and says so in a `NOT RUN: drafts`
+line.
+
+**A model reference blocks only where its loader throws.** Which references there are, how each
+resolves and what the runtime does when its target is missing are the `reference-edges` table in
+`knowledge/reference-graph.md` §1, read from the engine's loaders. A table name is cleaned before
+`BASE:` is tested, a dialog has no base path, and a missing view, grid or form is generated rather
+than thrown on — except where the workspace makes that fail: a form or grid folder that exists
+while the table has a `default` to copy, a view whose table has no `Text` field besides its key, a
+form generated with no `default` whose table has a field without a `uimask`, or names and titles
+the generated file pastes in, unescaped, that leave it unparsable (`knowledge/data-model.md` §3–§4).
+`validate_model.py` blocks on those for views and grids. An entity whose own load throws is blocked
+on its `settings.xml`, once; a reference into it still resolves, since its file is there. A workflow's form references are no
+validator's yet: `audit_root.py` reports them, never as a gate. An empty name is a reference only where the row's `When empty` is
+`throws`: an `extract` with neither `table` nor `dialog`, and a `slavegrid` with no `table`.
+
+**Blast radius is `/dgf-audit`'s, and it is a report, not a gate.** The verify gate's
+`affected_processes` stays the change's own footprint (ADR 0022 §6). `audit_root.py` builds one
+reference graph per application — that application plus `webasm`, with a `webasm` file read as that
+application reads it — and walks it forward from every process: along process actions,
+`validationFlow`, MultiTask actions and `SubWorkflow` calls, to the forms those workflows invoke or
+record through, their entities, and the data sources they name. An entity's references to other
+entities are listed as referrers, not walked. Nothing is stored: the graph is rebuilt from the files
+on each run.
+
+**Its limits.** A static walk cannot see names assigned at run time (`_WORKFLOWNAME_`,
+`_FORMNAME_`, `_TABLENAME_`), processes chosen from the database, open handlers, or entry points
+outside processes — `_PROFILE` trees, sitemaps, `_form.xml` and view `WORKFLOW:` strings, JSON
+`workflow` components. Every reach report ends with a `LIMIT:` line that says so, a chain through a
+run-time name is flagged `AUDIT_REFERENCE_DYNAMIC`, and an unreached shared workflow is a
+candidate, never proof of dead code. Roles are listed, never checked: nothing in the root declares
+one (`knowledge/permissions.md` §1).
+
+## Starting an application
+
+`/dgf-scaffold` is the one command that runs before the pipeline has anything to run on. It creates a new
+DGF application in an **empty folder**, and hands the new workspaces root to `/dgf`; every change after that is
+brownfield work for `/dgf-plan` and `/dgf-implement` ([ADR 0026](adr/0026-authoring-entry-point-revised.md)
+§1–§2, [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §7). DGF ships no bootstrap template or generator,
+so the skill generates the application itself, from templates this plugin ships, DGF-generic:
+
+```text
+empty folder + "an inspections app for two directorates: a permit register and an approval service, DGPass sign-in"
+  0 empty?     design.py --empty-only                                 (script)
+  1 design     the model turns the request into docs/application.json
+  2 check      names, references, data model, SQL types; what is open; every default   (design.py)
+  3 survey     ask only what is open; back to 2
+  4 confirm    the defaults (DEFAULT: lines) and the tree (generate.py --dry-run)
+  5 generate   solution + database + workspaces + artefacts, from shipped templates   (generate.py)
+  6 check      secrets, structure, routes, and the validators over the generated files (generate.py --check)
+  7 report     how to run it, every value to fill in, next: /dgf <folder>/workspaces
+```
+
+It does nothing in a folder that is not empty (only a `.git` folder and `docs/application.json` are allowed),
+and it adds nothing to an existing application. It reads and writes no `.dgf-factory/`, checks no override
+and reads no patches, since there is no root and no plan.
+
+**What is generated.** One thin host project per API, on the `DGF.API` package, with an `appsettings.json` and one
+`appsettings.<Deployment>.json` per deployment; an SDK-style `Microsoft.Build.Sql` database project with the
+application's tables, an `aspnet_Applications` row per instance and the roles; the workspaces, each with the
+minimum a new application needs (a route table whose landing route is not `/`, a `/login` route and page, the
+application map, a profile tree per router) and a `register`, `service` or `page` pattern per module; a compose
+stack with traefik, SQL Server, Redis and Seq; and the documentation. The design file stays in `docs/`, and the
+generator run from it into a new empty folder reproduces the application.
+
+**Never literal.** A secret, a host, a feed, a registry and an image tag are each a `${VAR}`, declared in
+`docker/.env.example` and `docs/configuration.md`. The application does not run until they are filled, and until
+four things DGF pins no consumer artifact for are supplied: the base workspace, the image that publishes the
+framework's database baseline, the DGF UI image, and a NuGet feed serving `DGF.API`.
+
+**Two scripts and a check.** Both scripts are slice-local (`skills/dgf-scaffold/scripts/`), need neither
+`lxml` nor `jsonschema` (only `--check` runs the validators, which do), and take `--verbose`:
+
+| Script | Decides | Usage |
+|---|---|---|
+| `design.py` | The folder is empty; the design's names, references, options, data model and column types; what is open; every default | `--folder DIR [--empty-only] [--knowledge-dir DIR]` |
+| `generate.py` | Renders the design into the folder — everything in memory first, then staged and moved into place, and undone on any failure; `--dry-run` prints the targets; `--check` is the post-generation check | `--folder DIR [--dry-run \| --check]` |
+
+| Exit | `design.py` | `generate.py` |
+|---|---|---|
+| `0` | complete: nothing is open, nothing conflicts | written, planned, or sound |
+| `1` | a conflict: `SCAFFOLD_DIR_NOT_EMPTY`, `SCAFFOLD_NAME_INVALID`, `SCAFFOLD_OPTION_INVALID`, `SCAFFOLD_REFERENCE_INVALID`, `SCAFFOLD_MODEL_INVALID`, `SCAFFOLD_SQL_TYPE_UNKNOWN` | `SCAFFOLD_TARGET_EXISTS`; or, from `--check`, `SCAFFOLD_LITERAL_SECRET`, `SCAFFOLD_VAR_UNDECLARED`, `SCAFFOLD_STRUCTURE_INVALID`, `SCAFFOLD_ROUTE_UNRESOLVED`, `SCAFFOLD_VALIDATION_FAILED` |
+| `2` | values are open: one `SCAFFOLD_ASK` each, and a `DEFAULT:` line per default | — |
+| `3` | `SCAFFOLD_DESIGN_UNREADABLE`, or usage | `SCAFFOLD_DESIGN_INCOMPLETE`, `SCAFFOLD_TEMPLATE_MISSING`, `SCAFFOLD_WRITE_FAILED`, `DEPENDENCY_MISSING` from `--check` |
+
+**The post-generation check decides; the skill relays it.** In order: the secrets and variables (every value of a
+key that names a secret is one `${VAR}`, every variable used is declared in both places, every placeholder in an
+`appsettings` file is set by the compose service that runs it); the structure of the files no validator reads
+(the application maps, the profile trees and their node files, against the `workspace-minimum` table); the routes
+(every route names a page that exists, by exact case; the landing route is first and is not `/`; `/login` has a
+login page); and `validate_config.py`, `resolve_components.py` and `validate_model.py` — and `validate_process.py`
+when there is a process — over the generated workspaces, never over the copied base and never with `--all`. INFO
+is allowed, and so is `NO_SCHEMA` on a `sitemap.json`, which every site map gets. A failed check is a generator
+defect: the skill stops and quotes it, and never patches the output.
+
+**What it does not know.** The solution files — C#, SQL, compose, MSBuild — pass no validator; they are held only
+by the check and, where `dotnet` and Docker exist, by a real build. The instance model is the framework's own: an
+instance is a `WorkspaceName` with its own `aspnet_Applications` row, and isolation between instances is by the
+`ApplicationId` column alone. See [DESIGN-FORMAT.md](../skills/dgf-scaffold/references/DESIGN-FORMAT.md) for the
+design file, and `knowledge/application-layout.md` for the framework facts every template rests on.
+
 ## See Also
 
 - [Getting Started](getting-started.md#trying-the-spine) — running the spine's scripts on a copy of DGF's samples, and trying the loop
 - [Skill Authoring](skill-authoring.md#reading-a-validators-output) — the output lines each script prints
-- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0022, which shape the spine, and 0021, which decides the loop
+- [Decision Records](adr/README.md) — ADRs 0009, 0010, 0017, 0018, 0019 and 0022, which shape the spine, 0024, which decides the loop, and 0027, which decides the DGF-specific skills and designs `/dgf-scaffold`, with 0026 beside it for the scope
