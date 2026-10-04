@@ -1,3 +1,6 @@
+---
+archived: 2026-10-04
+---
 # Implementation Plan: Learning Loop
 
 Branch: feature/learning-loop

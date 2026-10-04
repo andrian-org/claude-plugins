@@ -1,3 +1,6 @@
+---
+archived: 2026-10-04
+---
 # Implementation Plan: `/dgf-scaffold` — a new DGF application, from an empty folder
 
 Branch: feature/dgf-scaffold (stacked on `feature/dgf-specific-skills` at `616b666`; that branch merges into `develop` first)

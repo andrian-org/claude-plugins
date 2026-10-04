@@ -1,3 +1,6 @@
+---
+archived: 2026-10-04
+---
 # Implementation Plan: DGF-Specific Skills
 
 Branch: feature/dgf-specific-skills
