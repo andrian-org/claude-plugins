@@ -32,7 +32,7 @@ looks at the whole root.
 
 | Skill | Does | Scripts it runs | Writes |
 |---|---|---|---|
-| `/dgf` | Finds the root, inventories it, asks for the estate's DGF version | `locate_plan.py --root-only`, `check_override.py`, `inventory_root.py` | `.dgf-factory/config.yaml`, `.dgf-factory/DESCRIPTION.md` |
+| `/dgf` | Finds the root, inventories it, asks for the estate's DGF version | `locate_plan.py --setup`, `check_override.py`, `inventory_root.py` | `.dgf-factory/config.yaml`, `.dgf-factory/DESCRIPTION.md` |
 | `/dgf-plan` | Plans a change — fast, full or ultra — on its own branch | `locate_plan.py --root-only`, `check_override.py`, `inventory_root.py`, `route_means.py`, `check_plan.py --overlap` | the plan |
 | `/dgf-implement` | Executes the plan one task at a time, validating each | `locate_plan.py`, `check_override.py`, `check_plan.py`, `validate_config.py`, `route_means.py`, `check_change.py --files` | the task's workspace files, and its checkbox |
 | `/dgf-verify` | The gate: tasks done, change inside the plan, no new finding across the root | `locate_plan.py`, `check_override.py`, `inventory_root.py`, `verify_gate.py` | nothing — it relays the `dgf-gate-result` block `verify_gate.py` computes |
@@ -154,7 +154,7 @@ The spine's five are stdlib-only Python, except that `check_change.py` and `veri
 
 | Script | Decides | Usage |
 |---|---|---|
-| `locate_plan.py` | The workspaces root (the nearest `.dgf-factory/config.yaml`), and the active plan: the branch's, else the one active plan, else the fast plan | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--root-only \| --list]` |
+| `locate_plan.py` | The workspaces root (the nearest `.dgf-factory/config.yaml`), and the active plan: the branch's, else the one active plan, else the fast plan | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--root-only \| --setup \| --list]` |
 | `inventory_root.py` | Each workspace and its counts, what is not a workspace, git position, the knowledge stamp, validator dependencies | `--workspaces-root R` |
 | `check_plan.py` | The header, tasks, the Commit Plan's groups (`plan-commits`), each file's class and workspace, the route of each new file, the ultra bundle's integrity, and (with `--overlap`) other active plans | `<plan> --workspaces-root R [--overlap]` |
 | `check_change.py` | The branch's changed files against the plan, and the validators' findings against the merge-base | `--workspaces-root R --plan P (--base REF \| --changed S:PATH …) [--files …] [--skip-validators]` |

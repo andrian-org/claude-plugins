@@ -66,6 +66,33 @@ class Root(Base):
         self.assertIn("ROOT_NOT_SET_UP", out)
 
 
+class Setup(Base):
+    def test_an_existing_root_is_a_rerun(self):
+        code, out, _ = self.locate("--setup", cwd=self.root / "zims")
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"ROOT: {self.root}", out)
+
+    def test_no_root_is_a_first_run_in_the_working_directory(self):
+        empty = self.tmp / "empty"
+        empty.mkdir()
+        code, out, _ = self.locate("--setup", cwd=empty)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"NEW ROOT: {empty}", out)
+        self.assertNotIn("ROOT_NOT_SET_UP", out)
+
+    def test_an_explicit_root_without_config_is_a_first_run(self):
+        bare = helpers.make_root(self.tmp / "bare", {"zims/FM/x.xml": "<x/>"})
+        code, out, _ = self.locate("--workspaces-root", bare, "--setup", cwd=self.tmp)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"NEW ROOT: {bare.resolve()}", out)
+
+    def test_two_roots_below_stay_ambiguous(self):
+        helpers.make_root(self.tmp / "other", {CONFIG: ""})
+        code, out, _ = self.locate("--setup", cwd=self.tmp)
+        self.assertEqual(code, 1)
+        self.assertIn("ROOT_AMBIGUOUS", out)
+
+
 class Discovery(Base):
     def test_the_branch_plan(self):
         self.add("feature-x.md", plan_text())

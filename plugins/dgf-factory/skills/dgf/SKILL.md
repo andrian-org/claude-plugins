@@ -26,21 +26,21 @@ rules file.
 With an argument, it is the workspaces root:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<argument>" --root-only
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<argument>" --setup
 ```
 
 Without one:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --setup
 ```
 
 Capture the exit code before any pipe.
 
 | Exit | Meaning | Action |
 |---|---|---|
-| `0` | `ROOT: <path>` — a `.dgf-factory/config.yaml` exists | **A re-run.** The root is that path. Read the existing config and DESCRIPTION.md; Step 5 edits them |
-| `1`, `ROOT_NOT_SET_UP` | no config yet | **A first run.** The root is the argument, else the working directory |
+| `0`, `ROOT: <path>` | a `.dgf-factory/config.yaml` exists | **A re-run.** The root is that path. Read the existing config and DESCRIPTION.md; Step 5 edits them |
+| `0`, `NEW ROOT: <path>` | no config yet | **A first run.** The root is that path — the argument, else the working directory. Continue; this is not an error |
 | `1`, `ROOT_AMBIGUOUS` | several roots below the working directory | **STOP.** List them and ask the user to re-run `/dgf <root>` |
 | `3` | usage error — the argument is not a directory | **STOP.** Show the message |
 
@@ -78,7 +78,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/inventory_root.py" --workspaces-root "<ro
 |---|---|
 | `0` | Continue. |
 | `2` | Continue, and relay every `WARN` line. `BASE_WORKSPACE_ABSENT`: the base workspace is mounted from elsewhere, so `BASE:` references cannot be checked here (`${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §1.2). `VALIDATOR_DEPS_MISSING`: relay its install command **verbatim** — never run `pip` yourself. |
-| `3` | **STOP.** `ROOT_NO_WORKSPACE`: this is not a DGF workspaces root. Say so, and ask for the right directory. |
+| `3` | **STOP.** `ROOT_NO_WORKSPACE`: this is not a DGF workspaces root. Say so, and ask for the right directory. An empty folder, or one with no DGF application yet, is `/dgf-scaffold`'s, not this skill's: suggest it. A scaffolded application keeps its workspaces in `workspaces/`: when the root has that folder, suggest `/dgf workspaces`. |
 
 Keep the output: Step 5 pastes its `WORKSPACE:` and `NOT A WORKSPACE:` lines into
 DESCRIPTION.md, and Step 3 shows its `KNOWLEDGE:` line. A failing script is re-run with
