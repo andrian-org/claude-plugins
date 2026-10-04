@@ -113,6 +113,7 @@ of file has one writing skill. See [The DGF-specific skills](docs/pipeline.md#th
 | [DGF Schemas](docs/dgf-schemas.md) | The two schema families — JSON and XSD — runtime parity, vendoring |
 | [Decision Records](docs/adr/README.md) | Why the plugin is shaped this way — delivery model, verification, validator runtime, versioning, scope |
 | [Architecture Blueprint](docs/blueprint.md) | The full design: AI Factory teardown + DGF mapping |
+| [Interview Demo](docs/demo/interview-guide.md) | A 75-minute live demo: a Split Bill app generated from an empty folder, run, changed and gated — with a prep checklist and a cheat sheet |
 
 Project context for AI agents lives in [AGENTS.md](AGENTS.md) and `.ai-factory/`.
 

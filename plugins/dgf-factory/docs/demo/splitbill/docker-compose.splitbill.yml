@@ -1,0 +1,72 @@
+# Serves the Split Bill application that /dgf-scaffold generated, on the showcase stack.
+#
+# DGF publishes no consumer API image, UI image, NuGet feed or database baseline yet, so the generated
+# application's own docker/docker-compose.yml cannot start on this machine. This override runs the
+# generated workspace on the images the showcase stack builds from source, against the same SQL Server
+# and Redis - the way DGF's consumer stacks (docker-compose.zims.yml and others) already run.
+#
+# Copy this file into src/samples/DGF.Compose/ beside docker-compose.yml, and set SPLITBILL_APP in that
+# folder's .env to the absolute path of the generated application folder. Then, from that folder:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.splitbill.yml up -d splitbill-api splitbill-ui
+#
+# The workspace is bind-mounted read-write and configuration caching is off, so a saved JSON or XML file
+# is live on the next page load, exactly as in the showcase.
+
+services:
+
+  splitbill-api:
+    extends:
+      file: docker-compose.base.yml
+      service: dgf-api-clean-base
+    container_name: splitbill-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:4000"
+      TZ: ${TIME_ZONE:-UTC}
+      DGF_WORKSPACES_ROOT_PATH: /workspaces
+      WorkspaceName: splitbill
+      DGF_CONFIGURATION_CACHING_DISABLED: "true"
+      ConnectionStrings__LocalSqlServer: "Data Source=sqlserver;Initial Catalog=${MSSQL_DB:-DGF};User ID=sa;Password=${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env};TrustServerCertificate=True;"
+      DbResourceConfiguration__ConnectionString: "Data Source=sqlserver;Initial Catalog=${MSSQL_DB:-DGF};User ID=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
+      ConnectionStrings__Redis: "redis:6379"
+      DistributedCachingOptions__RedisConnectionString: "redis:6379"
+      AdminSeedOptions__Enabled: "true"
+      AdminSeedOptions__Accounts__0__Username: ${DGF_ADMIN_USERNAME:-admin}
+      AdminSeedOptions__Accounts__0__Password: ${DGF_ADMIN_PASSWORD:?set DGF_ADMIN_PASSWORD in .env}
+      AdminSeedOptions__Accounts__0__Email: ${DGF_ADMIN_EMAIL:-admin@localtest.me}
+      AdminSeedOptions__Accounts__0__FirstName: Local
+      AdminSeedOptions__Accounts__0__LastName: Administrator
+      AdminSeedOptions__Accounts__0__RoleName: Administrators
+      Integrations__RegistrationAuthority__TokenGeneration__PrivateKey: ${DGF_RA_PRIVATE_KEY:-}
+    volumes:
+      - ${SPLITBILL_APP:?set SPLITBILL_APP in .env to the generated application folder}/workspaces/splitbill:/workspaces/splitbill
+      - ../workspaces/webasm:/workspaces/webasm
+      - ./configs/splitbill/appsettings.json:/app/appsettings.json:ro
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.splitbill_api.rule=Host(`splitbill-api.localtest.me`)"
+      - "traefik.http.routers.splitbill_api.entrypoints=websecure"
+      - "traefik.http.routers.splitbill_api.tls=true"
+      - "traefik.http.services.splitbill_api.loadbalancer.server.port=4000"
+
+  splitbill-ui:
+    extends:
+      file: docker-compose.base.yml
+      service: dgf-ui-clean-base
+    container_name: splitbill-ui
+    volumes:
+      - ./dgf-ui/appsettings.splitbill.json:/usr/share/nginx/html/assets/appsettings.json:ro
+    depends_on:
+      - splitbill-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.splitbill_ui.rule=Host(`splitbill.localtest.me`)"
+      - "traefik.http.routers.splitbill_ui.entrypoints=websecure"
+      - "traefik.http.routers.splitbill_ui.tls=true"
+      - "traefik.http.services.splitbill_ui.loadbalancer.server.port=80"

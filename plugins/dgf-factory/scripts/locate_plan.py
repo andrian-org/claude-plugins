@@ -7,7 +7,9 @@ One definition of discovery for every dgf-* skill that reads a plan.
    `.dgf-factory/config.yaml`: the working directory and its ancestors first,
    then its descendants to depth 4, skipping dot-directories and node_modules.
    Several descendants → ROOT_AMBIGUOUS; none → ROOT_NOT_SET_UP (run /dgf).
-   `--root-only` stops here.
+   `--root-only` stops here. `--setup` is /dgf's lookup: it stops here too,
+   and none is a first run, not a finding — `NEW ROOT:` the argument, else
+   the working directory.
 2. The plan. The branch is `--branch`, else the root's checked-out branch; its
    stem is the branch with `/` → `-`. `<plans>/<stem>/index.md` and
    `<plans>/<stem>.md` are the branch's plan; both → PLAN_AMBIGUOUS. Neither
@@ -21,10 +23,10 @@ The skills read `.dgf-factory/config.yaml` and pass its paths here; this
 script never reads the config. Stdlib only; git is optional.
 
 Usage:  locate_plan.py [--workspaces-root R] [--plans-dir D] [--fast-plan F]
-                       [--branch B] [--root-only | --list] [--verbose]
+                       [--branch B] [--root-only | --setup | --list] [--verbose]
 
 Exit codes (contract, see .ai-factory/rules/base.md):
-  0  found: the root, and the branch's plan (or the list)
+  0  found: the root, and the branch's plan (or the list); with --setup, a new root
   1  not found or ambiguous — STOP and say what to run
   2  a fallback plan was chosen — say which, and ask before using it
   3  usage error
@@ -52,6 +54,8 @@ def build_parser():
     parser.add_argument("--branch", help="the branch whose plan to find; default: the root's current branch")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--root-only", action="store_true", help="find the root and stop")
+    mode.add_argument("--setup", action="store_true",
+                      help="/dgf's lookup: find the root and stop; no root yet is a first run, not an error")
     mode.add_argument("--list", action="store_true", help="list every plan with its progress")
     return parser
 
@@ -193,11 +197,25 @@ def emit(lines, rep):
     return rep.exit_code()
 
 
+def setup_root(value, rep):
+    """/dgf's lines: the existing root, or the new one a first run sets up; ambiguity stays a finding."""
+    probe = report.Report(".")
+    root = explicit_root(value, probe) if value else find_root(Path.cwd(), probe)
+    if root is not None:
+        return [f"ROOT: {root}"]
+    if any(f.code == "ROOT_AMBIGUOUS" for f in probe.findings):
+        rep.findings.extend(probe.findings)
+        return []
+    return [f"NEW ROOT: {Path(value or Path.cwd()).resolve()}"]
+
+
 def main(argv):
     args = build_parser().parse_args(argv)
     if args.verbose:
         report.set_verbose()
     rep = report.Report(".")
+    if args.setup:
+        return emit(setup_root(args.workspaces_root, rep), rep)
     root = explicit_root(args.workspaces_root, rep) if args.workspaces_root else find_root(Path.cwd(), rep)
     if root is None:
         return emit([], rep)

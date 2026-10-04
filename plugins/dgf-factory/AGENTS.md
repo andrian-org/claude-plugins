@@ -110,7 +110,9 @@ plugins/dgf-factory/
 │   ├── dgf-knowledge.md        #   sourcing and version-stamping DGF facts
 │   ├── dgf-schemas.md          #   the two schema families: JSON + XSD, parity, vendoring
 │   ├── pipeline.md             #   the spine, .dgf-factory/, the plan format, the change gate, the loop, the DGF-specific skills
-│   └── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
+│   ├── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
+│   └── demo/                   #   the interview demo: guide, prep checklist, cheat sheet; splitbill/ design,
+│                               #     compose override, settings, SQL apply/seed/reset scripts
 ├── .mcp.json                   # MCP servers — dgf-mcp only; both dev config and shipped
 ├── .ai-factory.json            # AI Factory 2.18.1 install receipts (managed-skill ownership)
 ├── skills-lock.json            # skills.sh install lock for externally sourced skills
@@ -204,6 +206,7 @@ and the field-type tables, closed it.
 | DGF Schemas | `docs/dgf-schemas.md` | The two schema families (JSON + XSD), runtime parity, vendoring |
 | Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, validator runtime, version gating, scope, default rules |
 | Architecture Blueprint | `docs/blueprint.md` | AI Factory teardown and the DGF mapping |
+| Interview Demo | `docs/demo/interview-guide.md` | A live Split Bill demo from an empty folder; `prep-checklist.md` and `cheat-sheet.md` beside it |
 | Repository README | `../../README.md` | The `dotgov` marketplace and how to install its plugins |
 
 ## AI Context Files

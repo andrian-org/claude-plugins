@@ -1,0 +1,47 @@
+{
+  "design_format": 1,
+  "application": {"name": "SplitBill", "title": "Split Bill"},
+  "instances": [{"name": "splitbill", "title": "Split Bill"}],
+  "apis": [{"name": "Api", "deployments": [{"name": "Splitbill", "instance": "splitbill", "auth": ["basic"]}]}],
+  "roles": ["Organiser"],
+  "modules": [
+    {"name": "Groups",   "pattern": "register", "title": "Groups",   "entity": "BillGroup",  "route": "/groups"},
+    {"name": "Members",  "pattern": "register", "title": "Members",  "entity": "Member",     "route": "/members"},
+    {"name": "Expenses", "pattern": "register", "title": "Expenses", "entity": "Expense",    "route": "/expenses"},
+    {"name": "SettleUp", "pattern": "service",  "title": "Settle up", "entity": "Settlement", "route": "/settleup", "roles": ["Organiser"]},
+    {"name": "Balances", "pattern": "page",     "title": "Balances", "route": "/balances"}
+  ],
+  "data_model": {"entities": [
+    {"name": "BillGroup", "title": "Group", "key": "Id", "fields": [
+      {"name": "Id", "type": "Integer", "dbtype": "Int32", "required": true},
+      {"name": "Name", "type": "Text", "dbtype": "StringUnicode", "size": 100, "required": true},
+      {"name": "Currency", "type": "Text", "dbtype": "String", "size": 3, "required": true},
+      {"name": "CreatedOn", "type": "DateTime", "dbtype": "DateTime"}
+    ]},
+    {"name": "Member", "title": "Member", "key": "Id", "fields": [
+      {"name": "Id", "type": "Integer", "dbtype": "Int32", "required": true},
+      {"name": "GroupId", "title": "Group", "type": "Picklist", "dbtype": "Int32", "required": true, "extract": {"entity": "BillGroup"}},
+      {"name": "Name", "type": "Text", "dbtype": "StringUnicode", "size": 100, "required": true},
+      {"name": "Email", "type": "Text", "dbtype": "String", "size": 200}
+    ]},
+    {"name": "Expense", "title": "Expense", "key": "Id", "fields": [
+      {"name": "Id", "type": "Integer", "dbtype": "Int32", "required": true},
+      {"name": "GroupId", "title": "Group", "type": "Picklist", "dbtype": "Int32", "required": true, "extract": {"entity": "BillGroup"}},
+      {"name": "PaidById", "title": "Paid by", "type": "Picklist", "dbtype": "Int32", "required": true, "extract": {"entity": "Member"}},
+      {"name": "Title", "type": "Text", "dbtype": "StringUnicode", "size": 200, "required": true},
+      {"name": "Amount", "type": "Money", "dbtype": "Decimal", "required": true},
+      {"name": "SpentOn", "title": "Spent on", "type": "DateTime", "dbtype": "DateTime", "required": true},
+      {"name": "Notes", "type": "Text", "dbtype": "StringUnicode", "size": "MAX"}
+    ]},
+    {"name": "Settlement", "title": "Settlement", "key": "Id", "fields": [
+      {"name": "Id", "type": "Integer", "dbtype": "Int32", "required": true},
+      {"name": "GroupId", "title": "Group", "type": "Picklist", "dbtype": "Int32", "required": true, "extract": {"entity": "BillGroup"}},
+      {"name": "FromMemberId", "title": "From", "type": "Picklist", "dbtype": "Int32", "required": true, "extract": {"entity": "Member"}},
+      {"name": "ToMemberId", "title": "To", "type": "Picklist", "dbtype": "Int32", "required": true, "extract": {"entity": "Member"}},
+      {"name": "Amount", "type": "Money", "dbtype": "Decimal", "required": true},
+      {"name": "Note", "type": "Text", "dbtype": "StringUnicode", "size": 200},
+      {"name": "RequestedOn", "title": "Requested on", "type": "DateTime", "dbtype": "DateTime"}
+    ]}
+  ]},
+  "sources": {"application.name": "prompt", "instances": "prompt", "apis": "prompt", "roles": "prompt", "modules": "prompt", "data_model": "prompt"}
+}
