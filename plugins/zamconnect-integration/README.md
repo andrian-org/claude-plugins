@@ -61,6 +61,7 @@ commit it:
 | `/tenant-audit <Tenant>\|--all` | Drift audit, read-only on the repo. It checks: registration in solution/pipeline/compose; slug consistency across compose/Helm/gateway routes; `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client; literal credentials in `appsettings.json` plus the committed Development-credential baseline; `ENVIRONMENT-VARIABLES.json` matching the tokens; spec readiness; regression guards (.NET 10, no Newtonsoft/AutoMapper, Dockerfile closure, a local image build); and presence of docs, Postman collection and tests. For a single tenant it also runs the tenant through the local Docker gateway (see [Local gateway round-trip](#local-gateway-round-trip)). `--fix` repairs the fixable ones |
 | `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
 | `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
+| `/payment-callback <CODE>` | Adds a ZamPay payment callback destination to GOVZM: the `ITransactionCallback` client, the `case "<CODE>"` in `PayController`, the `Endpoints:<Client>` section in both appsettings files, and a forwarding test in `GOVZM.Tests`. Or maps an extra code onto an existing client. Not part of the tenant chain |
 
 ## Local only
 
@@ -202,6 +203,29 @@ It never touches a test, staging or production gateway. Those still take the man
 | `--version <X.Y>` | Document version. Default `1.0` for a new package, the current version for an existing one. Bump only when the contract changed |
 | `--author <name>` | Document History author. Default `dotGov Solutions LLC` |
 | `--provide-paths` | OpenAPI paths that are Provide; the rest are Consume. Without it, unresolved endpoints are asked |
+
+### `/payment-callback`
+
+`<DestinationCode> [--system <Name>] [--kind rest|zampoint|alias] [--alias-of <Client>] [--path </payment/callback>] [--auth Basic|JWT|Custom|None] [--auth-header <name>] [--test-url <url>] [--no-tests] [--auto] [--dry-run] [--help]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<DestinationCode>` | The `destinationCode` header ZamPay sends, upper case (required) |
+| `--system <Name>` | Client class name stem. Default: the code, e.g. `NPDD` → `NpddApi` |
+| `--kind` | `rest` (default): new `<System>Api : RestEndpoint`. `zampoint`: new `ZamPoint<System> : ZamPointEndpoint`. `alias`: add the code to an existing client's `case` |
+| `--alias-of <Client>` | The existing client for `--kind alias` |
+| `--path` | Callback path on the agency system. Default `/payment/callback` |
+| `--auth` / `--auth-header` | Callback auth. Default `Basic`; `None` only when chosen |
+| `--test-url` | Development `BaseUrl`. Default `https://<code>api.test.gsb.gov.zm` |
+| `--no-tests` | Skip the `TransactionCallbackEndpointTests` row |
+
+The tokens it writes need `GSB.GOVZM.{DEV,STG,PROD}` variables, or the GOVZM deploy fails on `replacetokens`. The report lists their names.
+
+```
+/payment-callback NPDD
+/payment-callback PAMS --system MihudPams --path /api/zampay/callback
+/payment-callback ZTA --alias-of ZamPointMota
+```
 
 ## Agents
 

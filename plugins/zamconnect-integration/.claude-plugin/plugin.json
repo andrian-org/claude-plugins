@@ -14,7 +14,8 @@
     "./skills/tenant-audit",
     "./skills/tenant-deliverables",
     "./skills/tenant-integration",
-    "./skills/tenant-tests"
+    "./skills/tenant-tests",
+    "./skills/payment-callback"
   ],
   "agents": [
     "./agents/tenant-deliverables-builder.md"
