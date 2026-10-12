@@ -1,6 +1,6 @@
 ---
 name: tenant-audit
-description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that `ENVIRONMENT-VARIABLES.json` lists exactly the tenant's tokens, that its API-spec metadata, docs, Postman collection and test project exist, that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in, and that the image builds and the tenant answers through the local Docker gateway once its `GATEWAY-CONFIG.md` and a local test user (`test<Tenant>` / `test`) are written to the local Docker Mongo (health plus one endpoint per module). Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
+description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that `ENVIRONMENT-VARIABLES.json` lists exactly the tenant's tokens, that its API-spec metadata, docs, Postman collection and test project exist, that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in, and that the image builds and the tenant answers through the local Docker gateway once its `GATEWAY-CONFIG.md` and a local test user (`test<Tenant>` / `test`) are written to the local Docker Mongo (health plus one endpoint per module). For a virtual tenant (`src/VirtualTenants/<CODE>/`, gateway routes onto another tenant's cluster), it checks the routes-only package against the host and calls each route through the local gateway instead. Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
 argument-hint: "<TenantName>|--all [--only registration|slugs|config|secrets|spec|tests|docs|guards|runtime] [--no-runtime] [--fix [registration]] [--report-only] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Bash(awk *) Bash(sort *) Bash(wc *) Bash(head *) Bash(tail *) Bash(dotnet *) Bash(docker *) Bash(curl *) Edit Write AskUserQuestion
 disable-model-invocation: false
@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 A tenant can build cleanly and still be broken: unregistered in the pipeline, deployed under a name the gateway route does not resolve, or running with an upstream client that was never registered. None of that fails a build. This skill finds it.
 
-Read-only on the repository by default. No repo file is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Checks 8 and 9 touch only the local Docker environment: they build local images, build and start the local stack (`mongo`, `admin-api`, `gateway`) and the tenant container, and apply the tenant's `GATEWAY-CONFIG.md` to the local gateway database. They run under `--report-only` too. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C10).
+Read-only on the repository by default. No repo file is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Checks 8 and 9 touch only the local Docker environment: they build local images, build and start the local stack (`mongo`, `admin-api`, `gateway`) and the tenant container, and apply the tenant's `GATEWAY-CONFIG.md` to the local gateway database. They run under `--report-only` too. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes, virtual tenants) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C11).
 
 All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`). Run every command in **Bash** (Git Bash on Windows), not the Grep tool: the patterns below are written to survive CRLF files, which ripgrep/WSL `$` anchors do not.
 
@@ -20,8 +20,8 @@ Never state a count or a "known finding" from memory or from this file. Re-deriv
 
 | Argument | Meaning |
 |---|---|
-| `<TenantName>` | Audit one tenant. Required unless `--all` is given. With neither, asked first from the contract's Missing arguments menu (R13), with `All tenants` as the fourth option; `--auto` stops with `missing <TenantName> or --all` |
-| `--all` | Audit every tenant under `src/Tenants/` |
+| `<TenantName>` | Audit one tenant. Required unless `--all` is given. With neither, asked first from the contract's Missing arguments menu (R13), with `All tenants` as the fourth option; `--auto` stops with `missing <TenantName> or --all`. A name with no project under `src/Tenants/<TenantName>/` (no folder, or no `*.csproj` in it) but a `src/VirtualTenants/<TenantName>/GATEWAY-CONFIG.md` is a virtual tenant: run Check V instead of Checks 1–9 |
+| `--all` | Audit every tenant under `src/Tenants/`, and the static part of Check V for every `src/VirtualTenants/*/` |
 | `--only <check>` | Run only these checks; repeatable |
 | `--fix [<check>...]` | Apply the fixable repairs without asking: all of them, or only the named checks |
 | `--report-only` | Report, and don't ask the fix question. `tenant-pipeline` always passes it (guided and `--auto`), so pipeline step 5 never writes |
@@ -403,6 +403,8 @@ $C exec -T mongo rm -f /tmp/gateway-package.json /tmp/apply-local-gateway.js
 
 The script refuses to run (exit 2, `refused: <host> is not the local compose mongo`) unless mongosh is connected to `localhost`, `127.0.0.1` or `::1`, which is what `docker exec mongo` gives it. Report a refusal as a `fail` and never work around it.
 
+**Cross-cluster routes (C11).** A route whose `clusterId` isn't in the package's `clusters` points at a host. The local `mongo` may not hold that cluster: no host package is imported locally. For each such `clusterId`, find the host's compose service `core-<host slug>` (the Check 2 awk, matched on the host folder). Then write the scratch package with a `hostClusters` entry beside `clusters`, in the cluster shape of tenant-init §6 with the local compose address `http://core-<host slug>`. The script inserts a host cluster only when the local `mongo` has no cluster with that id, never changes an existing one, and reports it as `(host)`. Without a host compose service, drop the route from the scratch package and report it `skipped — host <cluster> has no compose service`. A route whose cluster is still missing stops the script before any route is written (exit 3, `refused: route <id> targets missing cluster <cluster>`): report a `fail`.
+
 It prints the scope, cluster and route ids with `created` / `exists` / `updated`, plus the user and its scopes. A mongosh error is a `fail`: quote the error message and stop 9b. The script prints no cluster addresses or other config values, and the report shouldn't either.
 
 The gateway picks up the change on its next `YarpStatusWorker` poll, every 30 s. Wait 35 s before 9c.
@@ -430,6 +432,8 @@ Then start the tenant:
 ```bash
 $C up -d --build --no-deps core-<slug>
 ```
+
+When 9b added host clusters, also start each host service, `$C up -d --build --no-deps core-<host slug>`, and call one operation per cross-cluster route the way Check V2 does.
 
 Calls go to `http://localhost:10080/t/<slug>/<path>` with `-u "test<TenantName>:test"`, `-s -o <scratch>/body -w '%{http_code}'`. First the health endpoint:
 
@@ -460,6 +464,49 @@ For every non-`ok` row, read `$C logs --no-color --tail 80 core-<slug>` and `$C 
 Report one row per call: module, method, gateway path, status, verdict. Leave the containers, the applied config and the test user in place so the user can keep testing with `-u test<TenantName>:test`. The report names what was written to the local database, in order: the scope, cluster and route ids, and the test user with its scopes.
 
 Fixable through the fix question: none. Every failure here is a code, config or `GATEWAY-CONFIG.md` change. Applying the package and creating the test user are part of running the check, not repairs.
+
+## Check V — Virtual tenant
+
+Runs instead of Checks 1–9 when `src/Tenants/<T>/` holds no project (no folder, or no `*.csproj` in it) and `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` exists (C11). The flags map onto it: `--only runtime` runs V2 only; `--no-runtime`, `--dry-run` and a plain `--all` run V1 only; every other `--only` value runs V1. There is no project, so there is nothing to build, register or configure. What can be wrong is the package, the host and the route through the gateway. `<CODE>` is `<T>` in upper case, `<slug>` in lower case.
+
+### V1. Package and host
+
+Read the single ```` ```json ```` block of the file. For each route, find the host folder: `src/Tenants/<dir>` whose name equals the route's `clusterId` ignoring case (`GOVZM`), else the route's cluster row in the routes doc (C8).
+
+| Check | Verdict |
+|---|---|
+| `clusters` is `[]` | A cluster listed is a `fail`: the import would overwrite the live host cluster |
+| `clusterId` is a cluster in the routes doc (`awk -F' *[\|] *' '{ print $6 }' docs/zamconnect-test-routes.md \| sort -u`) | Missing is a `fail`: the import rejects the route with `references cluster '<id>' which does not exist` |
+| `authorizationPolicy` is `Basic`, `metadata.Scope` is set | Either missing is a `fail` (tenant-init §6 says why) |
+| The `PathPattern` prefix is a route group the host maps: `grep -rnE 'MapGroup\("<prefix>"\|SharedModule\("<prefix>"' src/Tenants/<Host>/Modules` | No match is a `fail`: every call reaches a path the host doesn't serve |
+| `match.methods` holds only verbs the host maps under the forwarded path (the `integrate-shared` §6 verb grep on the host, plus the `EServicesSharedModule` verbs when the host derives from it) | An extra verb is a `warn`: the host answers 405 |
+| `order` is `1` on a `/t/<slug>/{**url}` route and absent on a per-path route | Otherwise `warn` |
+| No other route uses the same `match.path`: `grep -n '/t/<slug>/' docs/zamconnect-test-routes.md`, plus every other `GATEWAY-CONFIG.md` under `src/Tenants/` and `src/VirtualTenants/` | A different route id on the same path is a `fail`: the gateway answers 500 |
+| No project artefacts: compose service `core-<slug>`, `.azure/tenant.azure-pipelines.<slug>.yaml`, `ZamConnect.sln` entry | Any one is a `warn`: a half-converted tenant. Its routes belong in the tenant's own `GATEWAY-CONFIG.md` (tenant-init §6) |
+| Each route id is in the routes doc | Present is `ok — live in test`. Missing is a `warn — not imported yet`, normal before the first import |
+
+Under `--all`, `--no-runtime` or `--dry-run`, V1 is all that runs for a virtual tenant.
+
+### V2. Through the local gateway
+
+Same rules as Check 9 (local only, no token asked, nothing printed from the database), with these differences:
+
+1. **Stack.** 9a as written.
+2. **Package.** 9b as written. Every route is cross-cluster, so the scratch package carries a `hostClusters` entry per host, and the test user is `test<CODE>` with the route scopes only. It never gets the host's own scope: the check proves the agency needs nothing more.
+3. **Host.** Start each host service, `$C up -d --build --no-deps core-<host slug>`. When the host has an `Endpoints:Gateway` section, apply the 9c override to the host service, so its own outbound calls go to the local gateway. Probe the host's health inside its container, as tenant-init §8 does. A catch-all route can't do it: `/t/<slug>/health/live` becomes `<prefix>/health/live`, which the host doesn't map.
+4. **Calls.** Call one operation per route through `http://localhost:10080/t/<slug>/<path>` with `-u "test<CODE>:test"`, with fake values as in 9c. For a catch-all, call one operation per resource the host serves under the prefix. Take them from the host's routes.
+
+Classify by who answered, with the Check 9c table, and these readings for the host:
+
+| Response | Verdict |
+|---|---|
+| `2xx`, or problem details from the host's handler (`404` not found, `400` validation) | `ok` — route, Basic auth, scope, transform and cluster all worked |
+| `404` with an empty body, and the gateway log shows the request proxied to the host | `fail` — the `PathPattern` points at a path the host doesn't map |
+| `5xx` from the host, with its logs showing an upstream connection, `401`, `403` or `404` on its own gateway call | `warn` — the host's upstream (`/t/ndw/…` for GOVZM) isn't reachable from the local stack. The virtual route itself worked |
+
+Read `$C logs --no-color --tail 40 gateway` to tell a gateway answer from a host answer: a proxied request names its destination cluster. Report one row per call: route id, method, gateway path, host path, status, verdict. Leave the containers, the applied routes and the test user in place, and name them in the report.
+
+Fixable through the fix question: none. Every failure is a change to the virtual tenant's `GATEWAY-CONFIG.md`, made with `/integrate-shared <CODE> --mode virtual` for a GOVZM host.
 
 ## Fixing
 
@@ -497,6 +544,8 @@ Severity, highest first:
 6. Everything else, including the Development-credential baseline (`warn`)
 
 When Check 9 was skipped, the report's first line says why: Docker not running, or no `GATEWAY-CONFIG.md`. A stopped stack is never a reason — 9a starts it.
+
+For a virtual tenant, the report's first line says so and names the host clusters. Then the V1 table and the V2 calls, with the same severity order: a host cluster listed in `clusters`, a missing host cluster and a path collision come first. Under `--all`, virtual tenants get their own rows, with a V1 column only.
 
 Close by naming what the audit never reads, because an administrator sets it up by hand (C10): the variables in each environment, the ADO pipeline definitions, the scope/cluster/route records in every non-local gateway, and ZamPass / RA clients. Check 9 covers only the local Docker gateway.
 

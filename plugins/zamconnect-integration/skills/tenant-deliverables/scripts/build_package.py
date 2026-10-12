@@ -9,7 +9,8 @@ human - which endpoints are Consume - is an input here, never a guess.
     python build_package.py ZDD --route zdd --version 1.0 --roles tenant,consumer
 
 The package lands in src/Tenants/<Tenant>/Deliverables/ itself, with the five role folders
-directly inside it.
+directly inside it - or in src/VirtualTenants/<Tenant>/Deliverables/ for a virtual tenant, which
+has no project to build, so its assembled document comes in through --from-swagger.
 
 For a tenant that both consumes and provides, pass --provide-paths so the Tenant document gets
 both sections and the (c)/(p) documents become projections of it:
@@ -25,6 +26,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -66,6 +68,9 @@ def main() -> int:
     ap.add_argument("--out", default=None, help="override the Deliverables directory")
     ap.add_argument("--skip-build", action="store_true",
                     help="reuse the swagger.json already in the tenant's bin folder")
+    ap.add_argument("--from-swagger", default=None,
+                    help="use this OpenAPI document instead of building the tenant - how a virtual "
+                         "tenant's document, assembled from its host, comes in")
     ap.add_argument("--no-working-collection", action="store_true",
                     help="do not refresh the repo's own postman collections/<Tenant>.json")
     args = ap.parse_args()
@@ -89,12 +94,24 @@ def main() -> int:
         sys.exit("!! the Tenant document is the complete one and is always rendered")
 
     tdir = root / "src" / "Tenants" / tenant
+    vdir = root / "src" / "VirtualTenants" / tenant
+    # No project to build: a virtual tenant (conventions C11), whose package lives in src/VirtualTenants.
+    virtual = not any(tdir.glob("*.csproj"))
     bin_dir = tdir / "bin" / "Debug" / "net10.0"
     swagger = bin_dir / "swagger.json"
     log: list[str] = []
 
     # --- 1. build and export -----------------------------------------------------------------
-    if not args.skip_build:
+    if args.from_swagger:
+        # Work on a copy: the gateway prefix is applied in place.
+        bin_dir = Path(tempfile.mkdtemp(prefix=f"{tenant}-spec-"))
+        swagger = bin_dir / "swagger.json"
+        shutil.copyfile(args.from_swagger, swagger)
+        log.append(f"took the OpenAPI document from {args.from_swagger}")
+    elif virtual:
+        sys.exit(f"!! {tenant} is a virtual tenant with no project to build - assemble its document "
+                 f"from the host (skill step 4) and pass --from-swagger")
+    elif not args.skip_build:
         run(["dotnet", "build", str(tdir / f"{tenant}.csproj"), "-c", "Debug", "-v", "q", "--nologo"],
             label="dotnet build")
         # Both of these matter and both fail confusingly: the content root comes from the working
@@ -131,7 +148,7 @@ def main() -> int:
     sections_file.write_text(json.dumps(sections, indent=1), encoding="utf-8")
 
     # --- 3. layout, archiving superseded artifacts --------------------------------------------
-    pkg = Path(args.out).resolve() if args.out else tdir / "Deliverables"
+    pkg = Path(args.out).resolve() if args.out else (vdir if virtual else tdir) / "Deliverables"
     for d in LAYOUT:
         (pkg / d).mkdir(parents=True, exist_ok=True)
 

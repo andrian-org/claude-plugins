@@ -1,7 +1,7 @@
 ---
 name: integrate-shared
-description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "which shared endpoints are available", or types /integrate-shared.
-argument-hint: "<TenantName> [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list] [--auto] [--dry-run] [--help]"
+description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. For an agency with no system of its own, it instead sets up a virtual tenant: gateway routes onto the GOVZM `/eservices` surface, with no project and no code (`--mode virtual`). Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "<agency> only needs NIR/PACRA", "create a virtual tenant", "route <agency> to GOVZM eservices", "which shared endpoints are available", or types /integrate-shared.
+argument-hint: "<TenantName|AgencyCode> [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes|virtual] [--shape catch-all|paths] [--scope <scope>] [--dto shared|tenant] [--all] [--new] [--list] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -12,28 +12,32 @@ disable-model-invocation: false
 
 This skill selects that subset interactively and generates the wiring.
 
+An agency that needs only shared e-Services may need no tenant at all. GOVZM already republishes part of the catalogue under `/eservices`, and a **virtual tenant** is a gateway route under the agency's slug that points at the GOVZM cluster (`t_ccpc_eservices`: `/t/ccpc/{**url}` → `GOVZM` `/eservices/{**url}`). Virtual mode (§4a) writes only that gateway package. The same rule exists for hosts other than GOVZM; see conventions C11.
+
 All paths below are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`). Resolve it once and never write an absolute path into generated code, config, or the report.
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Every option is a complete answer (R12). The catalogue holds more than 4 sources, so the menus group first and drill down after (R9).
 
-Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
+Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), virtual tenants and cross-cluster routes (C11) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
 
 ## Arguments
 
 | Argument | Meaning |
 |---|---|
-| `<TenantName>` | Target tenant folder `src/Tenants/<TenantName>/`. Required. When omitted, asked first from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>` |
+| `<TenantName>` | Target tenant folder `src/Tenants/<TenantName>/`, or, with `--mode virtual`, the agency code of a virtual tenant (`CCPC`) that has no folder there. Required. When omitted, asked first from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>` |
 | `--source <SYS>` | Pre-select one or more upstream systems; repeatable. Skips the source menu |
 | `--endpoint <key>` | Pre-select individual operations by catalogue key; repeatable. Skips the endpoint menu |
 | `--base-path <path>` | Route group prefix. **Default: none** — routes sit at the tenant root. Pass one only when the tenant already groups its own surface under a prefix, or its gateway route transforms onto one (step 6) |
 | `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
-| `--mode <mode>` | `inherit` \| `common` \| `routes`. Default chosen per step 4. `inherit` is refused unless the selection is exactly the `EServicesSharedModule` route set |
+| `--mode <mode>` | `inherit` \| `common` \| `routes` \| `virtual`. Default chosen per step 4. `inherit` is refused unless the selection is exactly the `EServicesSharedModule` route set. `virtual` writes gateway routes onto GOVZM and no code (§4a); it is refused for an operation GOVZM doesn't serve |
+| `--shape catch-all\|paths` | Virtual mode only: one `/t/<slug>/{**url}` route, or one route per path (§4a). Default per §4a |
+| `--scope <scope>` | Virtual mode only: the gateway scope of the routes. Default `<slug>`, or the tenant's own scope for an existing tenant (§4a) |
 | `--dto shared\|tenant` | Return the shared response models, or tenant DTOs plus a mapper. Default `shared` |
-| `--all` | Every operation from the step 1 rescan, in `routes` mode. Not `inherit` — `EServicesSharedModule` maps only a subset |
-| `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
+| `--all` | Every operation from the step 1 rescan, in `routes` mode. Not `inherit` — `EServicesSharedModule` maps only a subset. With `--mode virtual`: every operation GOVZM serves (§4a) |
+| `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first. The opposite of `--mode virtual` for a missing tenant |
 | `--list` | Print the catalogue (step 1) and stop. No files written |
 | `--gate <n>/<N>`, `--recommend proceed\|skip` | Gate mode, set by `tenant-pipeline` |
-| `--auto` | No questions. Uses `--source` / `--endpoint` / `--all` as given; with none of them, stops with `missing --source <SYS> or --all` |
+| `--auto` | No questions. Uses `--source` / `--endpoint` / `--all` as given; with none of them, stops with `missing --source <SYS> or --all`. A tenant missing from `src/Tenants/` without `--mode virtual` or `--new` stops with `missing --mode virtual or --new` |
 | `--dry-run` | Stop at the confirmation in step 3 and write nothing |
 | `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
 
@@ -51,6 +55,8 @@ Only with `--gate <n>/<N>`. Run the step 3 prerequisites first; if one stops the
 `(Recommended)` goes on `Proceed` with `--recommend proceed`, and on `Skip` with `--recommend skip`. The option order doesn't change. `Skip` → `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`.
 
 With `Proceed`, skip 3c and 3d: every operation of the picked groups is exposed in `routes` mode (whole groups never equal the `inherit` route set), and step 3's confirmation shows them. With `Customize…`, ask 3c and 3d as well.
+
+With `--mode virtual` (how `tenant-pipeline` runs a virtual tenant), the gate question reads: "`/integrate-shared <T> --mode virtual` — gateway routes for <T> onto the GOVZM `/eservices` surface; no project, no code. Run it?" `Proceed` — every operation of the groups picked below, shape and scope per §4a. `Customize…` — also choose operations (3c), shape and scope. The `e-Services` question uses the virtual groups of 3b.
 
 ## 1. Rescan the catalogue
 
@@ -158,9 +164,18 @@ ls src/Tenants
 grep -rln "EServicesShared" src/Tenants --include=Program.cs
 ```
 
-Offer the tenants that already inject `EServicesShared` first (extending an existing integration), then the rest. A tenant not in `src/Tenants` means `--new` — run `tenant-init` before continuing.
+Offer the tenants that already inject `EServicesShared` first (extending an existing integration), then the rest. Also list the virtual tenants (`ls src/VirtualTenants`).
 
-**Prerequisites.** Once the tenant is known — before 3b, before the gate question, and under `--auto` too:
+**Tenant not in `src/Tenants`.** Whether `<TenantName>` came as an argument or from 3a: unless `--new` or `--mode virtual` was passed, and when `src/VirtualTenants/<T>/` doesn't exist either, ask once, header `No tenant`:
+
+| Option | Meaning |
+|---|---|
+| `Virtual tenant on GOVZM (Recommended)` | The agency has no system of its own and needs only shared e-Services that GOVZM serves. Gateway routes only (§4a). Sets `--mode virtual` |
+| `Scaffold <T> as a real tenant` | The agency has its own system to integrate, needs operations GOVZM doesn't serve (ZDI, NLR, ZDA, NAIR, MOH, DOC, SRS, `zra.taxpayer`), or needs its own contract. Sets `--new` — run `tenant-init <T> --no-virtual` before continuing |
+
+The question text names the GOVZM operations from the step 1 `EServicesSharedModule` grep, so the choice is made against the real list. An existing `src/VirtualTenants/<T>/` means `--mode virtual` without asking: the run extends that virtual tenant.
+
+**Prerequisites.** Skipped in virtual mode: no tenant code changes. Otherwise, once the tenant is known — before 3b, before the gate question, and under `--auto` too:
 
 ```bash
 grep -nE 'AddCarter|MapCarter|Configure<JsonSerializerOptions>|PropertyNameCaseInsensitive|RegisterGatewayEndpoint|AddTransient<EServicesShared>' src/Tenants/<TenantName>/Program.cs
@@ -189,14 +204,23 @@ ls src/Tenants/<TenantName>/Controllers src/Tenants/<TenantName>/Modules src/Ten
 
 A system the rescan finds that isn't in this table joins the last group, with its name added to the label. The question text says "Pick every group you need; each one is expanded to its operations next". There is no `All sources` option: picking all four groups means the same thing, and sets `--all`.
 
+In virtual mode, offer only what GOVZM serves (the `inherit` route set, §4a), counts from the rescan:
+
+| Option | Covers |
+|---|---|
+| `Identity — NIR (6 operations)` | NIR |
+| `Business registry — NBR/PACRA entity (1)` | `nbr.entity` |
+| `Tax — ZRA tax clearance (1)` | `zra.tcc` |
+| `Everything GOVZM serves (8) — one catch-all route` | All of the above. Picks the catch-all shape (§4a) when the slug allows it |
+
 **3c — Operations.** Asked under `Customize…`, or without a gate when no `--endpoint` was passed. `multiSelect: true` over the operations of the chosen groups, each option labelled `METHOD /route — purpose` (`GET /nir/persons/nrc/{nrc} — person by NRC`). One question per group, at most 4 questions per call (R9). A group with more than 4 operations shows 3 plus `All <n> <group> operations`, which selects the rest. The question text says that only the ticked operations are exposed.
 
-**3d — Placement.** `Customize…` only, one call:
+**3d — Placement.** `Customize…` only, one call. Not asked in virtual mode, where §4a asks `Shape` and `Scope` and holds the review:
 
 | Header | Options |
 |---|---|
 | `Tag` | `EServices (Recommended)` · the tag the tenant's existing modules already use, if there is one |
-| `Mode` | The step 4 default `(Recommended)` · the other modes that step 4 allows for this selection, each with its one-line "use when" |
+| `Mode` | The step 4 default `(Recommended)` · the other modes that step 4 allows for this selection, each with its one-line "use when". `virtual` is offered on an existing tenant only when every selected operation is on GOVZM |
 | `Models` | `Shared response models (Recommended)` · `Tenant DTOs + mapper` |
 | `Base path` | Only when the tenant's existing modules already group under a prefix: `None (Recommended)` · that prefix |
 
@@ -209,12 +233,150 @@ Then one R6 confirmation. The question text is the table — key, method, route,
 | `inherit` | `public class EServicesModule(EServicesShared services) : EServicesSharedModule("EServices", services);` | The selection is **exactly** the routes `EServicesSharedModule.AddRoutes` maps (step 1 grep — currently the six NIR operations, `nbr.entity` and `zra.tcc`). Canonical one-liner: `src/Tenants/ZPS/Modules/EServicesModule.cs`. The two-argument constructor has no base path; `src/Tenants/GOVZM/Modules/EServicesModule.cs` passes `"/eservices"` to the three-argument one, which is the exception |
 | `common` | Abstract `CommonModule` in the tenant holding the selected routes plus a `protected virtual void AddAdditionalRoutes(RouteGroupBuilder group)` hook, with one thin concrete module per consumer | The tenant publishes the same subset under several base paths or tags. The hook pattern is `src/Tenants/MCTI/Modules/CommonModule.cs` (concrete `ZabsModule`, `ZmaModule`). `src/Tenants/DOC/Modules/CommonModule.cs` has no hook and one concrete module — cite it for route shapes only |
 | `routes` | One plain `ICarterModule` with only the selected routes | Any other selection, including `--all`. The default |
+| `virtual` | Gateway routes onto GOVZM `/eservices` in a `GATEWAY-CONFIG.md`; no code in any tenant (§4a) | The agency has no system of its own (no `src/Tenants/<T>/`), or an existing tenant needs the GOVZM operations unchanged. Every selected operation must be in the `inherit` route set, which is what GOVZM serves |
 
-Default to `inherit` only when the selection equals the `inherit` route set, `common` when the tenant already has a `CommonModule`, otherwise `routes`.
+Default to `virtual` when the tenant has no folder in `src/Tenants/` and the 3a answer (or a `src/VirtualTenants/<T>/` folder) chose it, `inherit` only when the selection equals the `inherit` route set, `common` when the tenant already has a `CommonModule`, otherwise `routes`. On an existing tenant `virtual` is never the default: the tenant's own module gives it a documented and tested contract.
 
 `EServicesSharedModule` is all-or-nothing — it maps its full route set and nothing else. Never subclass it to expose a subset, and never pick `inherit` for a selection containing an operation it doesn't map; generate the routes instead.
 
 In `inherit` mode the module body stays empty. `EServicesSharedModule.AddRoutes` already does `app.MapGroup(basePath).WithTags(tags)` and maps its routes onto it, so the tenant module must not declare `var group = app.MapGroup("").WithTags("EServices");` or map anything itself — the base path and tag are the constructor arguments. Only `routes` and `common` mode create the group.
+
+## 4a. Virtual mode — GOVZM routes, no code
+
+Route shapes, fields, file locations and the import rules are in conventions C11. This step applies them to the GOVZM host. In virtual mode, skip steps 5–7 and go from here to the Report.
+
+**Host check.** Re-derive what GOVZM serves before writing:
+
+```bash
+grep -n 'EServicesSharedModule(' src/Tenants/GOVZM/Modules/*.cs
+grep -nE '\| GOVZM \|' docs/zamconnect-test-routes.md | grep -v '/t/govzm/'
+```
+
+The first argument of the three-argument base constructor is the prefix: `"/eservices"` today. The two-argument form has none. With no hit or another prefix, stop with `GOVZM no longer serves EServicesSharedModule under /eservices`. The second grep lists the live virtual routes on GOVZM: the precedents, and the slugs already taken.
+
+**What GOVZM serves.** Exactly the `inherit` route set from the step 1 grep: today the six NIR operations, `nbr.entity` and `zra.tcc`. `--all` means that set here. When `--source` or `--endpoint` selected anything else, ask header `Not on GOVZM`: `Drop them — virtual tenant with <n> operations (Recommended)` · `Scaffold <T> as a real tenant instead`. The second sets `--new`, runs `tenant-init <T> --integrates shared --no-virtual --no-pipeline` and continues in `routes` mode. `--auto` stops with `not on GOVZM: <keys>`. Never add routes to GOVZM to make a virtual tenant possible. A change to the shared host is a separate change for the GOVZM owners.
+
+**Paths.** Rebuild this table from the step 1 grep. A consumer calls `/t/<slug>` + route, and GOVZM serves `/eservices` + route.
+
+| Key | Verb | GOVZM route | Deeper path, when its resource route is split |
+|---|---|---|---|
+| `nir.person.document` | `GET` | `/nir/persons/identity-document` | `nir/persons/identity-document` |
+| `nir.person.nrc` | `GET` | `/nir/persons/nrc/{nrc}` | `nir/persons/nrc` |
+| `nir.person.zampass` | `GET` | `/nir/persons/zampass/{zamPassId}` | `nir/persons/zampass` |
+| `nir.person.create` | `POST` | `/nir/persons` | `nir/persons` |
+| `nir.person.update` | `PATCH` | `/nir/persons/{id}` | `nir/persons` |
+| `nir.person.update-zampass` | `PATCH` | `/nir/persons/zampass/{zamPassId}` | `nir/persons/zampass` |
+| `nbr.entity` | `GET` | `/nbr/entities/{entityNumber}` | `nbr/entities` |
+| `zra.tcc` | `GET` | `/zra/taxpayers/tcc` | `zra/taxpayers/tcc` |
+
+**Shape.** From `--shape`, else the default below. Under `Customize…`, ask header `Shape` with the default `(Recommended)` and the other shape when it is allowed.
+
+| Shape | Default when | Routes |
+|---|---|---|
+| `catch-all` | The selection is every operation GOVZM serves, and no route in the routes doc or in any `GATEWAY-CONFIG.md` uses `/t/<slug>/{**url}` yet. Allowed only then | One route: `t_<slug>_eservices`, `/t/<slug>/{**url}` → `/eservices/{**url}`, `order: 1`, every verb of the set (`GET`, `POST`, `PATCH` today) |
+| `paths` | Any subset, and always on an existing tenant: its own `t_<slug>` owns `/t/<slug>/{**url}` | One route per resource, the first two segments of the route (`nir/persons`, `nbr/entities`, `zra/taxpayers`): `t_<slug>_eservices_nir_persons` and so on, the `t_pqps_eservices_*` shape. Each lists the verbs of the selected operations under it. When a resource route would reach an unselected operation with one of its verbs, use the deeper paths of the selected operations from the table instead (`nir/persons/nrc`, `nir/persons/zampass`), the `zigsapi_*` shape |
+
+Example: `nir.person.nrc` and `nir.person.zampass` alone. `nir/persons` with `GET` would also reach `nir.person.document`, so the routes are `t_<slug>_eservices_nir_persons_nrc` and `t_<slug>_eservices_nir_persons_zampass`, `GET` only.
+
+**Scope.** From `--scope`, else `<slug>` for a virtual tenant, or the tenant's own `metadata.Scope` for an existing tenant (from its `GATEWAY-CONFIG.md`, else the routes doc). Under `Customize…`, ask header `Scope` with that default `(Recommended)`. The question text says that an agency already holding a scope on another slug (`zilas` for `deeds`, `lands`, `survey`) types it in Other.
+
+**Collisions.** Before the review:
+
+```bash
+grep -n '/t/<slug>/' docs/zamconnect-test-routes.md
+grep -ln '"/t/<slug>/' src/Tenants/*/GATEWAY-CONFIG.md src/VirtualTenants/*/GATEWAY-CONFIG.md 2>/dev/null
+```
+
+| Finding | Action |
+|---|---|
+| A route on another cluster with the same `match.path` as a route to write | Stop with `<path> is already routed to <cluster> by <route>`. Two routes on one path make the gateway answer 500 |
+| A live route with the same id, on `GOVZM`, with the same path | This run updates it. The review says so |
+| Existing tenant: its own module or controller already maps a route under a per-path route's path (`grep -rnE '"/(nir/persons\|nbr/entities\|zra/taxpayers)' src/Tenants/<T>/Modules src/Tenants/<T>/Controllers`), or a module derives from `EServicesSharedModule` | The per-path route would shadow it. Stop: the tenant already serves these operations itself |
+
+**Review.** One R6 call, options `Apply (Recommended)` · `Adjust` · `Cancel`. The question text is the plan:
+
+```
+Virtual tenant CCPC → GOVZM /eservices (no project, no code):
+  src/VirtualTenants/CCPC/GATEWAY-CONFIG.md   scope ccpc · 1 route · clusters []
+Routes:
+  t_ccpc_eservices   GET, POST, PATCH   /t/ccpc/{**url} → /eservices/{**url}   order 1
+Reaches:
+  GET   /t/ccpc/nir/persons/nrc/{nrc}     nir.person.nrc
+  POST  /t/ccpc/nir/persons               nir.person.create
+  …
+Command: /integrate-shared CCPC --mode virtual --all --shape catch-all
+```
+
+Under `Reaches`, list every GOVZM operation each route reaches. An unselected operation that a route can't keep out is marked `(not selected — same path and verb)`. `Adjust` re-asks 3b, 3c, `Shape` or `Scope`. With `--dry-run`, print it and stop.
+
+**Write.**
+
+- Virtual tenant: create `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` from the template below, or replace its routes when it exists. `<CODE>` is `<T>` in upper case, `<slug>` in lower case.
+- Existing tenant: add the routes to `routes[]` of `src/Tenants/<T>/GATEWAY-CONFIG.md`. Keep `clusters` and the tenant's own route as they are, and add the operations table of the template below the import paragraph. A tenant with no `GATEWAY-CONFIG.md` gets the route objects in the report instead.
+- Nothing else: no `Program.cs`, `appsettings`, `ENVIRONMENT-VARIABLES.json`, module or test change.
+
+~~~~markdown
+# <CODE> Gateway Config — virtual tenant
+
+<CODE> has no project of its own. Its routes point at the `GOVZM` cluster, which serves the shared
+e-Services under `/eservices`. A consumer calls `/t/<slug>/<path>`; the gateway forwards it to GOVZM
+`/eservices/<path>`.
+
+| Method | Consumer path | GOVZM path | Operation |
+|---|---|---|---|
+| GET | `/t/<slug>/nir/persons/nrc/{nrc}` | `/eservices/nir/persons/nrc/{nrc}` | Person by NRC |
+
+Import with `POST /Import/routes` on the AdminAPI (Admin policy). The body is the JSON below as-is
+(`RouteConfigurationPackageDto`). `clusters` is empty on purpose: importing `GOVZM` from here would
+overwrite the live cluster. The import creates the `<scope>` scope from `metadata.Scope`, then the
+routes; an existing route with the same id is overwritten. A gateway without a `GOVZM` cluster rejects
+the routes.
+
+Locally, don't import by hand: `/tenant-audit <CODE> --only runtime` applies this package to the
+local Docker `mongo` only, together with a `test<CODE>` gateway user.
+
+```json
+{
+    "clusters": [],
+    "routes": [
+        {
+            "name": "t_<slug>_eservices",
+            "configJson": {
+                "routeId": "t_<slug>_eservices",
+                "match": {
+                    "methods": [
+                        "GET",
+                        "POST",
+                        "PATCH"
+                    ],
+                    "path": "/t/<slug>/{**url}"
+                },
+                "order": 1,
+                "clusterId": "GOVZM",
+                "authorizationPolicy": "Basic",
+                "metadata": {
+                    "Scope": "<scope>"
+                },
+                "transforms": [
+                    {
+                        "PathPattern": "/eservices/{**url}"
+                    }
+                ]
+            }
+        }
+    ]
+}
+```
+
+Every consumer's gateway user needs the `<scope>` scope, or the gateway answers 403. It doesn't need `govzm`.
+
+Registering by hand through `POST /Routes` instead: create the scope first with `POST /Scopes {"name": "<scope>"}` —
+the route validator rejects a scope that doesn't exist.
+~~~~
+
+A per-path route has the same object without `"order"`, with `"path": "/t/<slug>/<path>/{**url}"` and `"PathPattern": "/eservices/<path>/{**url}"`, and one operations-table row per operation it reaches.
+
+**Verify.** Read the file back and check each route: `clusterId` is `GOVZM`, `authorizationPolicy` is `Basic`, `metadata.Scope` is the chosen scope, the `PathPattern` starts with the GOVZM prefix, `methods` holds only verbs GOVZM maps under that path, `order` is `1` on a catch-all and absent on a per-path route. For a virtual tenant `clusters` is `[]`. For an existing tenant, `clusters` and the tenant's own route are unchanged. No other file changed. Don't run the audit from here: `/tenant-audit <CODE>` is the next step, and its Check V calls every route through the local gateway.
 
 ## 5. Wire the tenant
 
@@ -409,6 +571,14 @@ Close with what an administrator does by hand (C10):
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
 
 End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a prerequisite stops the skill or the build in step 7 fails.
+
+**Virtual mode.** One line for the `GATEWAY-CONFIG.md` written or changed, then the route table: route id, methods, consumer path, GOVZM path, operations reached. Then what an administrator does by hand (C10, C11):
+
+- Import the `GATEWAY-CONFIG.md` package into each gateway. The import rejects the routes in a gateway without a `GOVZM` cluster
+- Create the agency's gateway user in each gateway, with the `<scope>` scope only
+- Nothing to deploy: no pipeline, no variables, no image. GOVZM serves the routes with its own gateway user, which must keep the scopes of the operations reached (`ndw`, `ndw-nbr`, `zra`, `zra-portal`)
+
+Name `/tenant-audit <CODE>` as the next step, then `/tenant-deliverables <CODE>`: it documents the GOVZM operations the routes reach, at the consumer's paths, into `src/VirtualTenants/<CODE>/Deliverables/`. End with the equivalent command, e.g. `/integrate-shared CCPC --mode virtual --all --shape catch-all`, and the state answers `mode: virtual`, `shape`, `scope`, `endpoints`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the host check or a collision stops the skill.
 
 ## Sensitive data
 

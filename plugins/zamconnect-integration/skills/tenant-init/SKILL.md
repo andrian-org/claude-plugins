@@ -1,7 +1,7 @@
 ---
 name: tenant-init
-description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
-argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
+description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. For an agency that needs only shared e-Services, it offers a virtual tenant (gateway routes onto GOVZM, no project) instead. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
+argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Edit Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) Bash(sort *) Bash(uniq *) Bash(docker *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -12,7 +12,9 @@ Scaffold a new tenant under `src/Tenants/<TenantName>/`. Produce the boilerplate
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Read it first.
 
-Repo facts shared with the other skills — usings, config casing, token naming, file hygiene, committed secrets, the live route reference — are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` and cited below by section id (C1–C10). Never trust a count in either file; re-derive it.
+Repo facts shared with the other skills — usings, config casing, token naming, file hygiene, committed secrets, the live route reference, virtual tenants — are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md` and cited below by section id (C1–C11). Never trust a count in either file; re-derive it.
+
+Not every agency needs a project. An agency with no system of its own, whose needs a host tenant already serves, is a **virtual tenant** (C11): a gateway route under its slug onto the host's cluster, and nothing else. Step 1b decides it before anything is scaffolded.
 
 ## Inputs
 
@@ -22,6 +24,7 @@ Repo facts shared with the other skills — usings, config casing, token naming,
 | Style | `--controllers` | `carter` (minimal API modules) |
 | Full descriptive name | `--full-name "<name>"` | Asked in step 1a. Goes into `OpenApiInfo.Title` as `"<full name> (<TenantName>)"` |
 | What it integrates with | `--integrates rest,soap,shared,unknown` | Asked in step 1a. Decides the defaults of the later pipeline steps |
+| Virtual tenant | `--virtual` / `--no-virtual` | Asked in step 1b, only when `--integrates` is `shared` alone. `--virtual` scaffolds nothing and hands over to the virtual chain; `--no-virtual` scaffolds the project |
 | Dev ports | `--port <https>` | Next free pair from the scan in step 2 |
 | Pipeline | `--no-pipeline` / `--auto` | Guided. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates |
 | Dry run | `--dry-run` | Off. Stops at the review in step 2a and writes nothing |
@@ -49,6 +52,8 @@ grep -n -i "t_<slug>\|/t/<slug>/\| <TENANT> |" docs/zamconnect-test-routes.md
 
 `<slug>` is the tenant name lowercased with no separators (step 5), `<TENANT>` the tenant name uppercased (step 6). Stop and ask if any hits. A hit in the routes doc (C8) means the gateway already has that route, cluster or scope — importing step 6 would overwrite it.
 
+Also `ls src/VirtualTenants/<TENANT>` and read the cluster of every `/t/<slug>/` hit in the routes doc. A cluster other than `<TENANT>` is a cross-cluster route (C11): the agency is a virtual tenant today. A `t_<slug>_<surface>` catch-all on `/t/<slug>/{**url}` with `order: 1` loses every request to the new `t_<slug>` (default order), so its consumers lose that surface. Say so in the stop question, and offer `Keep the host routes as per-path routes in GATEWAY-CONFIG.md (Recommended)` — step 6 adds them to `routes[]` in the C11 per-path shape, and the report lists them — · `Choose another slug` · `Stop`.
+
 ### 1a. Intake
 
 One `AskUserQuestion` call. Leave out any question whose flag was passed. With `--auto`, take every `(Recommended)` option and ask nothing.
@@ -63,6 +68,19 @@ One `AskUserQuestion` call. Leave out any question whose flag was passed. With `
 Leave out the `Pipeline` question when run with `--no-pipeline`, which is how `tenant-pipeline` calls this skill.
 
 Record the answers as flags for the equivalent command, for example `/tenant-init PQPS --integrates soap --full-name "Plant Quarantine and Phytosanitary Service"`. `Take it from the integration source` records `fullName: "pending"` in state; step 2 picks it up from there.
+
+### 1b. Virtual tenant?
+
+Only when `Integrates` is `Shared e-Services` alone, and neither `--virtual` nor `--no-virtual` was passed. First re-derive what GOVZM serves: the routes in `src/Core/Shared/Modules/EServicesSharedModule.cs` (`grep -nE 'group\.Map(Get|Post|Patch|Put|Delete)'`), under the prefix from `grep -n 'EServicesSharedModule(' src/Tenants/GOVZM/Modules/*.cs`. Then one `AskUserQuestion`, header `Virtual`. The question text lists those operations:
+
+| Option | Meaning |
+|---|---|
+| `Virtual tenant — gateway routes to GOVZM, no project (Recommended)` | The agency needs only operations from that list, with GOVZM's contract. Nothing is scaffolded. `integrate-shared` §4a writes `src/VirtualTenants/<TENANT>/GATEWAY-CONFIG.md` |
+| `Scaffold the project` | The agency needs shared operations GOVZM doesn't serve, its own contract (DTOs, validation, combined calls), its own documents or tests, or will add its own system later |
+
+`--auto` takes `Virtual tenant`. A virtual tenant skips steps 2–8: write the State (below) with `virtual: true` in the intake answers and the equivalent command `/tenant-init <TenantName> --integrates shared --virtual`, then go to the hand-off. With `--dry-run`, print that plan and stop.
+
+The same reasoning applies to a host other than GOVZM (C11), but this skill offers only the GOVZM case. When the developer says the agency needs only what another tenant already serves (NDR documents, another agency's routes), point to C11 and stop, rather than scaffolding.
 
 ### 2. Pick free dev ports
 
@@ -516,6 +534,8 @@ the route validator rejects a scope that doesn't exist.
 
 `methods` lists only the verbs the tenant actually exposes. With no modules yet, default to `GET`. `tenant-integration` §6 and `integrate-shared` §6 widen it to every verb the tenant's routes map.
 
+When step 1 found host routes on the slug and the developer kept them, add them to `routes[]` after `t_<slug>` in the C11 per-path shape, with their host `clusterId`, `PathPattern` and scope. `clusters` still holds only `<TENANT>`. When `src/VirtualTenants/<TENANT>/GATEWAY-CONFIG.md` exists, its routes move here the same way, and the report says that folder can be deleted once the new package is imported.
+
 ### 6a. Write the environment variable list
 
 Create `src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json` in the C9 format with the four deployment variables only: `helmReleaseName` = `<slug>` (the compose slug of step 5, never hyphenated), `helmNamespace` = `""`, `OTEL_SERVICE_NAME` = `core-<slug>`, `OTEL_EXPORTER_OTLP_ENDPOINT` = `""`. `appsettings.json` has no tokens yet (`"Endpoints": {}`); the later steps add one entry per token they write.
@@ -603,7 +623,7 @@ grep -n "OpenApiInfo\|AddSecurityDefinition\|IncludeXmlComments\|partial class P
 
 ## State
 
-Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contract describes, creating `.claude/zamconnect/.gitignore` (`*`) with it. Record step 1 as `ran`, its equivalent command, and the intake answers (`style`, `integrates`, `fullName`). Later steps read them from there. Do this even with `--no-pipeline`, so a later `/tenant-pipeline <TenantName>` picks up where this left off. Skip it with `--dry-run`.
+Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contract describes, creating `.claude/zamconnect/.gitignore` (`*`) with it. Record step 1 as `ran`, its equivalent command, and the intake answers (`style`, `integrates`, `fullName`, and `virtual` when step 1b chose it). Later steps read them from there. Do this even with `--no-pipeline`, so a later `/tenant-pipeline <TenantName>` picks up where this left off. Skip it with `--dry-run`.
 
 ## Report
 
@@ -615,6 +635,8 @@ One line per file created, then the solution entry, the build result, the image 
 
 With `--no-pipeline` (how `tenant-pipeline` runs step 1), the report's last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build, the image build or the start check fails.
 
+For a virtual tenant (step 1b), the report says that nothing was scaffolded and why, and the line before `GATE-RESULT: ran` is `virtual: true`, so `tenant-pipeline` switches to its virtual chain.
+
 ## Hand-off to the pipeline
 
 The scaffold is step 1 of six. The rest of the chain belongs to `tenant-pipeline`; this skill does not gate it.
@@ -624,6 +646,8 @@ The scaffold is step 1 of six. The rest of the chain belongs to `tenant-pipeline
 | `Guided` (default) | Invoke `tenant-pipeline` with the `Skill` tool: `<TenantName> --from integration` |
 | `Auto` / `--auto` | Invoke `tenant-pipeline`: `<TenantName> --from integration --auto` |
 | `Scaffold only` / `--no-pipeline` | Stop after the report, and print `/tenant-pipeline <TenantName>` as the command to continue |
+
+A virtual tenant takes the same hand-off. `tenant-pipeline` reads `virtual: true` from state and runs its virtual chain (`integrate-shared <TenantName> --mode virtual`, then the audit).
 
 Do not end the turn between the report and the hand-off.
 

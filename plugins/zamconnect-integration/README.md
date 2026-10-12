@@ -54,10 +54,10 @@ commit it:
 
 | Skill | What it does |
 |---|---|
-| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments). Adds the Azure pipeline file, the `core-<slug>` docker-compose service, the `GATEWAY-CONFIG.md` import package (scope, cluster, route), the `ENVIRONMENT-VARIABLES.json` variable list and the `ZamConnect.sln` entry. Verifies that `dotnet build` passes, that the Docker image builds, and that the container answers `/health/live`. Boilerplate only — no modules, models or mappers. Then hands over to `/tenant-pipeline` |
+| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments). Adds the Azure pipeline file, the `core-<slug>` docker-compose service, the `GATEWAY-CONFIG.md` import package (scope, cluster, route), the `ENVIRONMENT-VARIABLES.json` variable list and the `ZamConnect.sln` entry. Verifies that `dotnet build` passes, that the Docker image builds, and that the container answers `/health/live`. Boilerplate only — no modules, models or mappers. For an agency that needs only shared e-Services, it offers a [virtual tenant](#virtual-tenants) instead and scaffolds nothing. Then hands over to `/tenant-pipeline` |
 | `/tenant-pipeline <Tenant>` | Runs the whole chain below as one guided flow — a gate per step, a saved state, resume, and stale-marking when an earlier step is re-run |
 | `/tenant-integration <Tenant>` | Builds the integration surface of an existing tenant: the upstream `RestEndpoint`/`SoapEndpoint` client, models, mappers, and the routes the tenant exposes. Takes a Postman collection, OpenAPI spec, REST base URL, WSDL or prose API docs as the source — offered from the files it finds in the repo, with protocol and auth detected from them |
-| `/integrate-shared <Tenant>` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu |
+| `/integrate-shared <Tenant>` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu. With `--mode virtual`, writes gateway routes onto GOVZM `/eservices` instead, with no code — a [virtual tenant](#virtual-tenants) |
 | `/tenant-audit <Tenant>\|--all` | Drift audit, read-only on the repo. It checks: registration in solution/pipeline/compose; slug consistency across compose/Helm/gateway routes; `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client; literal credentials in `appsettings.json` plus the committed Development-credential baseline; `ENVIRONMENT-VARIABLES.json` matching the tokens; spec readiness; regression guards (.NET 10, no Newtonsoft/AutoMapper, Dockerfile closure, a local image build); and presence of docs, Postman collection and tests. For a single tenant it also runs the tenant through the local Docker gateway (see [Local gateway round-trip](#local-gateway-round-trip)). `--fix` repairs the fixable ones |
 | `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
 | `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
@@ -72,6 +72,7 @@ Every skill works on the local repository and the local Docker stack. Nothing is
 | `.azure/tenant.azure-pipelines.<slug>.yaml` | Registers the Azure DevOps pipeline that points at it |
 | `src/Tenants/<Tenant>/ENVIRONMENT-VARIABLES.json` | Adds every listed variable to each environment. Names only; secret values are always empty |
 | `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | Imports the scope, cluster and route into each gateway, and grants the scope to each consumer's gateway user |
+| `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` | A virtual tenant's routes, with no cluster. Imports them into each gateway and creates the agency's gateway user with the route scope |
 
 ZamPass / RA clients are registered by hand by an administrator. The skills write only the `__Token__` placeholders for them, and never record a container registry, Helm, cluster, MongoDB, RA or ZamPass address.
 
@@ -83,7 +84,7 @@ Every skill takes `--help` (or `-h`): it prints its arguments, their defaults an
 
 ### `/tenant-init`
 
-`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,shared,unknown] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
+`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -91,6 +92,7 @@ Every skill takes `--help` (or `-h`): it prints its arguments, their defaults an
 | `--controllers` | Scaffold MVC controllers instead of Carter modules (the default) |
 | `--full-name "<name>"` | Full descriptive name, written into `OpenApiInfo.Title` as `"<name> (<Tenant>)"` |
 | `--integrates` | What the tenant will integrate with. Decides the later defaults — `shared` makes the shared e-Services step recommended |
+| `--virtual` / `--no-virtual` | With `--integrates shared` alone: make it a virtual tenant (nothing scaffolded), or scaffold the project anyway. Asked when neither is passed |
 | `--port <https>` | HTTPS port for the tenant |
 | `--no-pipeline` | Stop after the scaffold; do not drive the rest of the chain |
 | `--auto` | Run the whole chain without gates |
@@ -125,22 +127,44 @@ Every skill takes `--help` (or `-h`): it prints its arguments, their defaults an
 
 ### `/integrate-shared`
 
-`<TenantName> [--source <SYS> ...] [--endpoint <key> ...] [--base-path <path>] [--tag <Tag>] [--mode inherit|common|routes] [--dto shared|tenant] [--all] [--new] [--list] [--help]`
+`<TenantName> [--source <SYS> ...] [--endpoint <key> ...] [--base-path <path>] [--tag <Tag>] [--mode inherit|common|routes|virtual] [--shape catch-all|paths] [--scope <scope>] [--dto shared|tenant] [--all] [--new] [--list] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
-| `<TenantName>` | Target tenant (required; asked for if omitted) |
+| `<TenantName>` | Target tenant, or a virtual tenant's agency code (required; asked for if omitted) |
 | `--source <SYS>` | `NIR\|NBR\|DOC\|SRS\|ZDI\|NLR\|ZDA\|NAIR\|ZRA\|MOH`; repeatable. Skips the group menu |
 | `--endpoint <key>` | Individual operations by catalogue key; repeatable. Skips the operation menu |
 | `--base-path <path>` | Route group prefix. Default: none (tenant root) |
 | `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
-| `--mode inherit\|common\|routes` | Wiring mode. Default chosen by the skill |
+| `--mode inherit\|common\|routes\|virtual` | Wiring mode. Default chosen by the skill. `virtual` writes gateway routes onto GOVZM and no code |
+| `--shape catch-all\|paths` | Virtual mode: one `/t/<slug>/{**url}` route, or one route per path. Default chosen by the skill |
+| `--scope <scope>` | Virtual mode: the routes' gateway scope. Default `<slug>` |
 | `--dto shared\|tenant` | Shared response models (default) or tenant DTOs plus a mapper |
 | `--all` | Every operation in the catalogue, in `routes` mode. `inherit` maps only the subset `EServicesSharedModule` exposes |
 | `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
 | `--list` | Print the catalogue and stop. No files written |
 
 `--source` and `--endpoint` combine: sources expand to all their operations, then `--endpoint` adds individual ones.
+
+#### Virtual tenants
+
+A virtual tenant is an agency with no project and no cluster of its own. Its gateway routes point at another tenant's cluster, the host, and a path transform maps them onto a surface the host already serves. The live `GOVZM` routes show both shapes:
+
+| Shape | Example route | Path | Transform |
+|---|---|---|---|
+| Catch-all — everything the host serves | `t_ccpc_eservices` | `/t/ccpc/{**url}` → `GOVZM` | `/eservices/{**url}`, `order: 1` |
+| Per path — a subset | `zigsapi_eservices_person_by_nrc` | `/t/zigs/nir/persons/nrc/{**url}` → `GOVZM` | `/eservices/nir/persons/nrc/{**url}` |
+
+Use one when the agency has no system of its own and needs only operations GOVZM serves (today the six NIR operations, the NBR entity lookup and the ZRA tax clearance). It needs its own tenant when it needs anything else, or its own contract.
+
+```
+/integrate-shared CCPC --mode virtual --all --shape catch-all
+/integrate-shared ZIGS --mode virtual --endpoint nir.person.nrc --endpoint nir.person.zampass
+/tenant-audit CCPC
+/tenant-deliverables CCPC
+```
+
+The skill writes only `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md`, with `"clusters": []` so the import never overwrites the host cluster. It writes no project, pipeline, variables or tests. `/tenant-audit` runs Check V on it: it validates the package against the host, then calls each route through the local gateway as `test<CODE>` / `test`. A real tenant can carry the same cross-cluster routes under its own slug (`t_pqps_eservices_nir_persons`). The rule is generic, not limited to GOVZM: `references/zamconnect-conventions.md` C11 has it.
 
 ### `/tenant-tests`
 

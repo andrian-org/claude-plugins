@@ -1,6 +1,6 @@
 ---
 name: tenant-pipeline
-description: Guided end-to-end onboarding of a ZamConnect tenant — scaffold, integration, shared e-Services, tests, audit and delivery documents — as one gated chain with a saved state, so a stopped run can be resumed and a re-run step marks what it invalidated. Use when the user says "onboard <Tenant>", "run the whole tenant pipeline", "continue/resume <Tenant>", "what's left for <Tenant>", "re-run tests and docs for <Tenant>", or types /tenant-pipeline.
+description: Guided end-to-end onboarding of a ZamConnect tenant — scaffold, integration, shared e-Services, tests, audit and delivery documents — as one gated chain with a saved state, so a stopped run can be resumed and a re-run step marks what it invalidated. A virtual tenant (gateway routes onto another cluster, no project) gets a shorter chain: shared e-Services routes, then the audit. Use when the user says "onboard <Tenant>", "run the whole tenant pipeline", "continue/resume <Tenant>", "what's left for <Tenant>", "re-run tests and docs for <Tenant>", or types /tenant-pipeline.
 argument-hint: "<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--status] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Glob Grep Bash(ls *) Bash(grep *) Bash(find *) Bash(mkdir *) Bash(git config *) AskUserQuestion Skill
 disable-model-invocation: false
@@ -40,6 +40,23 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | 5 | `audit` | `tenant-audit` | always. It edits no repo file, so it has **no gate**. It still builds local images and writes the tenant's gateway config and test user to the local Docker `mongo` (Checks 8–9) | `<T> --report-only` (also under `--auto`) |
 | 6 | `deliverables` | `tenant-deliverables` | the tenant exposes at least one route | `<T> --gate 6/6 --route <route>` |
 
+### Virtual chain
+
+A virtual tenant (conventions C11) has no project, so there is nothing to scaffold, integrate or test. The pipeline runs the virtual chain when state holds `answers.virtual: true` (written by `tenant-init` step 1b, or reported by step 1 as `virtual: true`), or when `src/VirtualTenants/<T>/` exists and `src/Tenants/<T>/` holds no project:
+
+| # | Step key | Skill | Arguments passed |
+|---|---|---|---|
+| 1 | `init` | `tenant-init` | Only when neither folder nor state exists: `<T> --no-pipeline`. It decides `virtual` in its step 1b |
+| 3 | `shared` | `integrate-shared` | `<T> --mode virtual --gate 3/6 --recommend proceed`, plus `--shape`, `--scope`, `--endpoint` from state |
+| 5 | `audit` | `tenant-audit` | `<T> --report-only`. It runs its virtual checks (Check V) |
+| 6 | `deliverables` | `tenant-deliverables` | `<T> --gate 6/6 --route <slug>`. Offered when `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` exists |
+
+Record steps 2 and 4 as `skipped` with the reason "virtual tenant". Keep the step numbers of the full chain, so the state table reads the same for every tenant. When step 3 records `ran`, mark steps 5 and 6 `stale` if they were `ran`. `<slug>` is the first segment after `/t/` in the package's routes.
+
+A virtual tenant that later needs a project is a real tenant from then on: `/tenant-init <T> --no-virtual` moves its routes into the new `GATEWAY-CONFIG.md` (tenant-init step 6), and the full chain applies.
+
+### Route check
+
 "Exposes at least one route" is checked on disk, not taken from state, so it also holds for an existing tenant run with `--from`:
 
 ```bash
@@ -70,7 +87,9 @@ step 2, `--version` / `--author` for step 6, and so on. The step then asks only 
    the table (see Closing) and stop.
 2. **Pick the start step.** From `--from`, from `--resume`, or from step 1 when there's no state and
    no tenant folder. If there's no state but the tenant exists, start at step 2 and create the state
-   file with step 1 recorded as `ran`, command unknown.
+   file with step 1 recorded as `ran`, command unknown. If there's no state but
+   `src/VirtualTenants/<T>/` exists, use the virtual chain from step 3 and record step 1 the same way.
+   When step 1 reports `virtual: true`, continue with the virtual chain.
 3. **For each step from the start:**
    - If its condition fails, record `skipped` with the reason and move on.
    - Invoke the skill through the `Skill` tool with the arguments above. Don't reimplement a step
@@ -115,6 +134,8 @@ Or run:  /tenant-audit PQPS
 ```
 
 Steps marked `stale` are listed with the reason, e.g. "stale — integration re-ran on 2026-09-23".
+
+A virtual tenant's summary shows steps 2 and 4 as `skipped — virtual tenant`, and its administrator list is shorter: import `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` into each gateway and create the agency's gateway user with the route scope. There is no pipeline, variable or image.
 
 ## Sensitive data
 

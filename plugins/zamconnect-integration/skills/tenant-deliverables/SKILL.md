@@ -45,7 +45,7 @@ The rest of this document is why each of those steps is what it is, and what the
 
 ## What gets produced
 
-The package is written to `src/Tenants/<Tenant>/Deliverables/` — that folder *is* the package, and the five role folders sit directly inside it. There is no level between `Deliverables/` and `Consumer/`. A virtual tenant has no project folder — create `src/Tenants/<Tenant>/Deliverables/` anyway; the deliverables live with the tenant they describe.
+The package is written to `src/Tenants/<Tenant>/Deliverables/` — that folder *is* the package, and the five role folders sit directly inside it. There is no level between `Deliverables/` and `Consumer/`. A virtual tenant has no project folder: its package goes in `src/VirtualTenants/<Tenant>/Deliverables/`, next to its `GATEWAY-CONFIG.md` (conventions C11), so the deliverables live with the tenant they describe. Never create `src/Tenants/<Tenant>/` for one.
 
 ```
 src/Tenants/<Tenant>/Deliverables/
@@ -85,9 +85,9 @@ Whatever the role, the role word lives in three places, and the last is a separa
 | Argument | Meaning |
 |---|---|
 | `<Tenant>` | Tenant code, e.g. `PQPS`, `APIS`, `DAM`. Required. When omitted, asked first from the contract's Missing arguments menu (R13); `--auto` stops with `missing <Tenant>` |
-| `--route <r>` | Gateway route, without `/t/`. Defaults to the route in `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` (what `inspect_tenant.py` reports), then the tenant code lowercased. Pass it when the real route differs (`mcti/zabs`, `govzm/ZamPass`) |
+| `--route <r>` | Gateway route, without `/t/`. Defaults to the route in `src/Tenants/<Tenant>/GATEWAY-CONFIG.md`, or `src/VirtualTenants/<Tenant>/GATEWAY-CONFIG.md` for a virtual tenant (what `inspect_tenant.py` reports), then the tenant code lowercased. Pass it when the real route differs (`mcti/zabs`, `govzm/ZamPass`) |
 | `--roles` | Which documents to render. Default: whichever the tenant actually has — `tenant` always, `consumer` when it consumes, `provider` when it provides |
-| `--out <dir>` | Where the package is written — this directory holds the five role folders directly. Default: `src/Tenants/<Tenant>/Deliverables/`. Override only when the user asks for a location outside the repository |
+| `--out <dir>` | Where the package is written — this directory holds the five role folders directly. Default: `src/Tenants/<Tenant>/Deliverables/`, or `src/VirtualTenants/<Tenant>/Deliverables/` for a virtual tenant. Override only when the user asks for a location outside the repository |
 | `--version <X.Y>` | Document version. Bump only when the contract changed; keep it for a docs-only re-render |
 | `--author <name>` | Author on the Document History row. Default `dotGov Solutions LLC` |
 | `--provide-paths <path> ...` | OpenAPI paths that are Provide; every other path is Consume. Passed straight to `build_package.py`. When absent, settled in the classification question below |
@@ -147,15 +147,16 @@ Three shapes exist, and the route inventory is gathered differently for each. De
 |---|---|---|
 | **Carter / minimal API** | `src/Tenants/<Tenant>/Modules/*.cs` with `ICarterModule` and `MapGet`/`MapPost` | The module files themselves |
 | **MVC controllers** | `src/Tenants/<Tenant>/Controllers/*Controller.cs` with `[ApiController]` | The `[Route]` on the class plus `[HttpGet("…")]` on each action |
-| **Virtual tenant** | **No `src/Tenants/<Tenant>` folder at all**, and no `core-<slug>` service in `src/.dockercompose/docker-compose.yml` | A gateway route that fronts the shared modules — `src/Core/Shared/Modules/*SharedModule.cs` |
+| **Virtual tenant** | **No project under `src/Tenants/<Tenant>`** (no folder, or no `*.csproj` in it), and no `core-<slug>` service in `src/.dockercompose/docker-compose.yml` | Gateway routes onto a host's cluster (conventions C11) — for GOVZM, `EServicesSharedModule` under `/eservices`. `src/VirtualTenants/<Tenant>/GATEWAY-CONFIG.md` names the routes |
 
-The virtual shape is real and easy to miss. `DAM` has no project, no container and no pipeline; its surface is `EServicesSharedModule` reached through a `/t/dam` route that lives in the gateway's Mongo configuration, not in the repository. Confirm with:
+The virtual shape is real and easy to miss. `DAM` has no project, no container and no pipeline; its surface is `EServicesSharedModule` reached through `t_dam_eservices` (`/t/dam/{**url}` → `GOVZM` `/eservices/{**url}`). Confirm with:
 
 ```bash
-ls src/Tenants/<Tenant> 2>/dev/null; grep -n "core-<slug>" src/.dockercompose/docker-compose.yml
+ls src/Tenants/<Tenant>/*.csproj 2>/dev/null; grep -n "core-<slug>" src/.dockercompose/docker-compose.yml
+ls src/VirtualTenants/<Tenant>/GATEWAY-CONFIG.md 2>/dev/null
 ```
 
-Both empty means virtual. Then find which shared module supplies the surface:
+The first two empty means virtual. With the third, `inspect_tenant.py` lists every host operation the routes reach, at the consumer's path, under `cross-cluster routes`: a per-path virtual tenant reaches only part of the host's surface, and the document must show only that part. Without it, the routes live only in the gateway's database: read them from the routes doc (C8), and name `/integrate-shared <Tenant> --mode virtual` so the next run has the file. Then find which shared module supplies the surface:
 
 ```bash
 grep -rn "EServicesSharedModule\|SharedModule" src/Core/Shared/Modules/
@@ -227,6 +228,8 @@ python scripts/apply_gateway_route.py \
 `<doc>` is the `SwaggerDoc("<name>", …)` name in `Program.cs` — `v1` usually, `hub` in PQPS; `build_package.py` reads it from there. The working directory and the environment variable both matter and both fail confusingly — the content root comes from the working directory, and the base `appsettings.json` ships unsubstituted `__Token__` URLs that only the Development layer replaces with something `Uri` can parse. `apply_gateway_route.py` is idempotent, fills `servers` from `scripts/environments.py`, and with `--version` sets `info.version` to the document version: the code's `OpenApiInfo.Version` is the API version (`v1` in the `tenant-init` scaffold), not the document's.
 
 For a virtual tenant, or a tenant without Swashbuckle, assemble the document by hand from the route inventory of step 1 and the DTO types each route produces. Same result, same shape: `openapi: 3.0.x`, `info`, `servers`, `paths`, `components.schemas`.
+
+For a virtual tenant, start from the host's own export instead of a blank page: build and export the host with the commands above, into a scratch folder. Keep only the operations `inspect_tenant.py` lists under `cross-cluster routes`, at the consumer's path without `/t/<route>` (`/eservices/nir/persons/nrc/{nrc}` becomes `/nir/persons/nrc/{nrc}`), and the schemas they reference. Set `info.title` to `"<full name> (<CODE>)"` and write `info.description` for the agency, not the host. Then `build_package.py <CODE> --from-swagger <file>` applies the gateway prefix, runs steps 5–9 as for any tenant, and writes to `src/VirtualTenants/<CODE>/Deliverables/`. A cross-cluster sub-route of a real tenant is missing from that tenant's export in the same way: add its operations from the host's export before `build_package.py --from-swagger`.
 
 Whichever way it was produced, the document must satisfy all of:
 

@@ -1,6 +1,7 @@
 // Applies a tenant's GATEWAY-CONFIG.md package to the LOCAL compose mongo only, in the order
 // scope -> cluster -> route -> test user, then bumps the tokens YarpStatusWorker polls.
 // Mirrors the AdminAPI entity shapes (Core/Database/Entities) and HashHelper's PBKDF2 settings.
+// hostClusters (added by the audit for cross-cluster routes) are inserted only when missing.
 const crypto = require('crypto');
 const fs = require('fs');
 
@@ -33,11 +34,25 @@ for (const name of scopes) {
   out.scopes.push(`${name}: ${r.upsertedCount ? 'created' : 'exists'}`);
 }
 
-for (const c of pkg.clusters) {
+for (const c of pkg.clusters || []) {
   const cfg = pascal(c.configJson);
   const r = db.clusters.updateOne({ 'ConfigJson.ClusterId': cfg.ClusterId },
     { $set: { Name: c.name, ConfigJson: cfg, Updated: now }, $setOnInsert: { Created: now } }, { upsert: true });
   out.clusters.push(`${cfg.ClusterId}: ${r.upsertedCount ? 'created' : 'updated'}`);
+}
+
+for (const c of pkg.hostClusters || []) {
+  const cfg = pascal(c.configJson);
+  const r = db.clusters.updateOne({ 'ConfigJson.ClusterId': cfg.ClusterId },
+    { $setOnInsert: { Name: c.name, ConfigJson: cfg, Created: now, Updated: now } }, { upsert: true });
+  out.clusters.push(`${cfg.ClusterId}: ${r.upsertedCount ? 'created' : 'exists'} (host)`);
+}
+
+for (const { cfg } of routes) {
+  if (!db.clusters.findOne({ 'ConfigJson.ClusterId': cfg.ClusterId })) {
+    print(`refused: route ${cfg.RouteId} targets missing cluster ${cfg.ClusterId}`);
+    quit(3);
+  }
 }
 
 for (const { name, cfg } of routes) {

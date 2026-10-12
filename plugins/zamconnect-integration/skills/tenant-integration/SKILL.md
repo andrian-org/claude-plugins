@@ -16,7 +16,7 @@ The tenant always exposes REST. What it consumes is whatever the upstream speaks
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`, R12 above all: **every option is a complete answer**. This skill never offers a source *type* as an option, never asks for anything the source already says (protocol, SOAP version, operations, auth block), and never writes "pick Other and…" in an option.
 
-Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
+Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), cross-cluster routes (C11) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
 
 ## Arguments
 
@@ -236,6 +236,8 @@ Everything downstream follows from this one choice:
 | Client section | Step 4 | Step 4b |
 
 **Upstream reached through the ZamConnect gateway.** When the source's base URL is a ZamConnect gateway (`api.*.gsb.gov.zm`, the compose `http://gateway/`, `localhost:10080`, or a local mock of one) or its paths start with `/t/<route>/`, the upstream is another tenant behind the gateway. Don't create a `<System>` client with its own section. Put the operations on the tenant's `Endpoints/Gateway.cs` (`public class Gateway(HttpClient client, IOptions<JsonSerializerOptions> jsonOptions) : RestEndpoint(client)`, the `src/Tenants/IOM/Endpoints/Gateway.cs` shape), creating it if missing, and call relative paths `t/<route>/…`. `RegisterEndpoints` binds it to `Endpoints:Gateway`, the same section `Shared.Endpoints.Gateway` and `EServicesShared` read (`integrate-shared` §5), so every gateway call of the tenant uses one base URL and one set of gateway credentials. Write that section with the `integrate-shared` §5 shape when it's missing, and keep it when it's there. The data role is `consume`. The review names the client `Gateway`.
+
+**Or no code at all.** When the tenant would republish the other tenant's routes unchanged — the same paths below a prefix, the same bodies and errors, no mapping (`--dto passthrough`) — a cross-cluster route forwards them without a client (C11). Find the other tenant's cluster for `/t/<route>/` in the routes doc (C8), then ask header `Pass-through`: `Build the Gateway client and routes (Recommended)` — the tenant owns the contract, its tests and its documents · `Cross-cluster routes, no code` — per-path routes onto `<cluster>` added to `routes[]` of this tenant's `GATEWAY-CONFIG.md`, in the C11 shape. The second writes no client, model, module or config, and ends the pass with that file. The review lists every route with its host path. The tenant's own export doesn't contain these operations: the report names `tenant-deliverables` step 4, which adds them from the host's export. For shared e-Services on GOVZM, `integrate-shared --mode virtual` does this.
 
 A tenant may do both — `RegisterEndpoints` and `RegisterSoapEndpoints` are independent and can be called side by side, each scanning the same assembly for its own marker type. IFMIS is the reference for a tenant that consumes SOAP while exposing REST.
 

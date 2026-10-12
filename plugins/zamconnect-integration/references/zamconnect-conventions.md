@@ -93,7 +93,8 @@ grep -liE '"[^"]*(user_?name|password|api_?key|secret|token|thumbprint|private_?
 
 `docs/zamconnect-test-routes.md` lists every live gateway route, cluster and scope. Conventions it shows:
 route `t_<slug>`, `clusterId` = uppercase tenant, `authorizationPolicy: "Basic"`, `metadata.Scope` = slug.
-Routes often differ from the tenant name — look them up rather than guessing.
+Routes often differ from the tenant name — look them up rather than guessing. A route whose cluster is not
+the slug's own tenant is a cross-cluster route (C11). The doc shows no transforms.
 
 ## C9 — `ENVIRONMENT-VARIABLES.json`
 
@@ -134,7 +135,8 @@ Every skill works on the local repository and the local Docker compose stack onl
   DevOps pipeline definition, never queues a run, never touches an ADO environment or service connection.
 - **Variables.** A skill writes `ENVIRONMENT-VARIABLES.json` (C9). It never creates or edits a variable group,
   never calls `az pipelines variable-group`, never writes to a `projects-variables` repository.
-- **Gateway.** A skill writes `GATEWAY-CONFIG.md` in the tenant folder. It is applied only to the local Docker
+- **Gateway.** A skill writes `GATEWAY-CONFIG.md` in the tenant folder, or in `src/VirtualTenants/<CODE>/` for a
+  virtual tenant (C11). It is applied only to the local Docker
   `mongo` (`tenant-audit` Check 9). A skill never calls the AdminAPI, and never writes to a database, of a DEV,
   test, staging or production gateway. The administrator imports the file there by hand.
 - **ZamPass / RA clients.** Registered by hand by an administrator. A skill writes only the `__Token__`
@@ -143,3 +145,93 @@ Every skill works on the local repository and the local Docker compose stack onl
   registry (Harbor), a Helm repository, a Kubernetes cluster, a MongoDB instance, the Registration Authority,
   ZamPass or Hydra. The only addresses skills write are the local compose ones (`http://gateway/`,
   `http://core-<slug>`, `localhost`) and the public gateway base URLs the deliverables document.
+
+## C11 — Virtual tenants and cross-cluster routes
+
+A **cross-cluster route** is a gateway route under one slug (`/t/<slug>/…`) whose `clusterId` is the cluster
+of another tenant, the **host**. A `PathPattern` transform maps the request onto a path prefix the host
+already serves. A **virtual tenant** is an agency made only of such routes. It has a scope and routes, and no
+project and no cluster of its own. The host serves every request.
+
+Live precedents (re-derive with `grep -nE '\| GOVZM \|' docs/zamconnect-test-routes.md | grep -v '/t/govzm/'`):
+
+| Route | Path | Cluster | Transform | Scope | Case |
+|---|---|---|---|---|---|
+| `t_ccpc_eservices` (also `t_dam_…`, `t_miwd_…`, `t_zema_…`) | `/t/ccpc/{**url}` | `GOVZM` | `/eservices/{**url}` | `ccpc` | Virtual tenant, catch-all |
+| `zigsapi_eservices_person_by_nrc` | `/t/zigs/nir/persons/nrc/{**url}` | `GOVZM` | `/eservices/nir/persons/nrc/{**url}` | `zigsapi` | Virtual tenant, per path |
+| `t_pqps_eservices_nir_persons` (also `t_rtsa_…`, `t_pacra_…`) | `/t/pqps/nir/persons/{**url}` | `GOVZM` | — | `pqps` | Sub-route of a real tenant: `t_pqps` → `PQPS` owns `/t/pqps/{**url}` |
+| `t_ccpc_ndr` | `/t/ccpc/document/{**url}` | `NDR` | — | `ndr` | Same pattern, another host |
+
+The routes doc shows no transforms. The `t_ccpc_eservices` and `zigsapi_*` transforms come from the exported
+route config.
+
+### When to use it
+
+| Situation | Answer |
+|---|---|
+| The agency has no system of its own to integrate, and a host already serves everything it needs | Virtual tenant. For shared e-Services the host is `GOVZM` (`integrate-shared` §4a) |
+| A real tenant also needs a host's surface, unchanged | Cross-cluster sub-routes in the tenant's own `GATEWAY-CONFIG.md` |
+| The agency needs its own contract: own DTOs, validation, combined calls, other paths, or operations the host doesn't serve | A real tenant (`tenant-init`, then `tenant-integration` / `integrate-shared` in code) |
+
+A cross-cluster route forwards the host's contract as it is: the same paths below the prefix, the same
+bodies, the same errors. Nothing in the repo is generated for it except the gateway package.
+
+### Route shapes
+
+| Shape | Route `name` / `routeId` | `match.path` | `PathPattern` | `order` | Use when |
+|---|---|---|---|---|---|
+| Catch-all | `t_<slug>_<surface>` | `/t/<slug>/{**url}` | `<prefix>/{**url}` | `1` | The agency takes every route the host serves under `<prefix>`, and no other tenant owns `/t/<slug>/{**url}` |
+| Per path | `t_<slug>_<surface>_<path segments joined by _>` | `/t/<slug>/<path>/{**url}` | `<prefix>/<path>/{**url}` | none | A subset, or a real tenant already owns `/t/<slug>/{**url}` |
+
+- `<surface>` names the host's surface: `eservices` for `GOVZM` `/eservices`. For another host, use the last
+  segment of its prefix, or else the host cluster id lowercased (`ndr`).
+- `order: 1` on the catch-all: YARP prefers the lower `order`, so a sibling route of the same slug with the
+  default order (`t_ccpc_ndr` on `/t/ccpc/document/{**url}`) still wins. Per-path routes need no `order`: a
+  longer literal path wins over `/t/<slug>/{**url}` by route precedence.
+- Two routes with the same `match.path`, a shared verb and the same `order` make the gateway answer 500
+  (ambiguous match).
+  Before writing, list every route of the slug: `grep -n '/t/<slug>/' docs/zamconnect-test-routes.md`, plus
+  `src/Tenants/*/GATEWAY-CONFIG.md` and `src/VirtualTenants/*/GATEWAY-CONFIG.md`.
+- A per-path route also shadows a route the slug's own tenant serves under the same path. Check the tenant's
+  modules for that path before you add the route.
+
+### Fields
+
+| Field | Value |
+|---|---|
+| `clusterId` | The host's cluster id, exactly as the routes doc shows it (`GOVZM`). Never `<SLUG>` |
+| `authorizationPolicy` | `Basic` |
+| `metadata.Scope` | `<slug>` by default. An agency that already uses a scope on another slug keeps it, and gets no second scope (live: `deeds`, `lands`, `survey` → `zilas`; `vcs`, `vrs` → `miwd`). A sub-route of a real tenant uses that tenant's scope |
+| `match.methods` | Only the verbs the host maps under the forwarded path. For a per-path route, only the verbs of the operations picked under that path |
+| `transforms` | `[{ "PathPattern": "<prefix>/<path>/{**url}" }]`. `<prefix>` must be a route group the host maps: check the host's modules for `MapGroup("<prefix>")` or the base-path argument of its shared module |
+
+The consumer's gateway user gets the virtual tenant's scope only. It does not need the host's own scope
+(`govzm`). The host reaches its own upstreams with its own `Endpoints:Gateway` user and scopes.
+
+**Exposure.** A route forwards every host route below its path for the verbs it lists, not only the operations
+that were picked. List in the review every host operation each route reaches. When a broader route would reach
+an unpicked operation with the same verb, split it into deeper paths (the `zigsapi_*` routes). When no literal
+segment separates two operations (`PATCH /nir/persons/{id}` and `PATCH /nir/persons/zampass/{zamPassId}`), say
+in the review that both are reachable.
+
+### Handoff file
+
+| Case | File | `clusters` |
+|---|---|---|
+| Virtual tenant | `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md`. `<CODE>` is the agency code in upper case (`CCPC`), `<slug>` the same in lower case | `[]` |
+| Sub-route of a real tenant | Add the routes to `routes[]` of `src/Tenants/<T>/GATEWAY-CONFIG.md` | The tenant's own cluster only |
+
+- Never list the host cluster in a package. `POST /Import/routes` overwrites a cluster with the same id, so
+  the import would replace the live host cluster. Without it, the import checks that the host cluster exists
+  and rejects the route otherwise: `Route '<id>' references cluster '<host>' which does not exist.`
+- Never write a virtual tenant's file under `src/Tenants/`. The skills read a folder there as a tenant
+  (`tenant-init` refuses the name). Under the host's folder, the file also triggers the host's pipeline
+  (`.azure/tenant.azure-pipelines.<host>.yaml` includes `/src/Tenants/<Host>/*`), which rebuilds and
+  redeploys the host.
+- A virtual tenant gets no project, solution entry, compose service, Azure pipeline file,
+  `ENVIRONMENT-VARIABLES.json` or test project. Nothing is deployed for it.
+- Its folder holds `GATEWAY-CONFIG.md` and, once `tenant-deliverables` has run, `Deliverables/`. The document
+  is the host's contract for the operations the routes reach, at the consumer's paths (`tenant-deliverables`
+  step 4).
+- Locally, `tenant-audit <CODE>` applies the package to the local Docker `mongo` and calls each route through
+  the local gateway (its Check V).

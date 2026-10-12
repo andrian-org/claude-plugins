@@ -28,6 +28,13 @@ only inside `src/Tenants/<Tenant>/Deliverables/` (or `--out`) and your scratchpa
 because it produces build output, which is how the swagger document is exported. Never commit.
 Every code defect is a finding you report, never a change you make.
 
+A virtual tenant (`inspect_tenant.py` reports `shape: virtual`) has no project. Its package goes in
+`src/VirtualTenants/<Tenant>/Deliverables/`, and `src/VirtualTenants/<Tenant>/GATEWAY-CONFIG.md` is
+read-only input like the source. Build its document from the host's export in your scratchpad, as
+skill step 4 says, and pass it with `build_package.py --from-swagger`. Its `info.title` and
+`info.description` describe the agency; when your prompt gives no full name for it, use the bare
+code and report it.
+
 ## The three scripts
 
 `${CLAUDE_PLUGIN_ROOT}/skills/tenant-deliverables/scripts/` holds them, along with the renderers
@@ -62,8 +69,8 @@ its own, for a re-check after an edit. `build_package.py` already ends with this
 
 The scripts do the mechanical work. These are the parts they deliberately do not:
 
-- **Nothing about a contract code.** The package is `src/Tenants/<Tenant>/Deliverables/` with
-  the five role folders directly inside it. Never add a `C2.1.x` folder level, never ask for one,
+- **Nothing about a contract code.** The package is `src/Tenants/<Tenant>/Deliverables/` (a virtual
+  tenant's: `src/VirtualTenants/<Tenant>/Deliverables/`) with the five role folders directly inside it. Never add a `C2.1.x` folder level, never ask for one,
   and lift the five folders up if you touch an older package that still has it.
 - **An `UNKNOWN` or `Provide?` split**, as above.
 - **Prose that has to come from source**: `OpenApiInfo.Description` (the executive summary and

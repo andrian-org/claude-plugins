@@ -69,6 +69,8 @@ PATH_RE = re.compile(r'^/t/([^/{]+(?:/[^/{]+)*)')
 FENCE_RE = re.compile(r"```(?:json)?[ \t]*\r?\n(.*?)```", re.S)
 MAP_RE = re.compile(r'\.Map(Get|Post|Put|Patch|Delete)\(\s*"([^"]*)"')
 GROUP_RE = re.compile(r'MapGroup\(\s*"([^"]*)"')
+SHARED_BASE_RE = re.compile(r'(\w+SharedModule)\(\s*((?:"[^"]*"\s*,\s*)+)')
+CATCH_ALL_RE = re.compile(r'\{\*\*\w+\}$')
 HTTP_ATTR_RE = re.compile(r'\[Http(Get|Post|Put|Patch|Delete)\(?"?([^")\]]*)"?\)?\]')
 CTRL_ROUTE_RE = re.compile(r'\[Route\(\s*"([^"]+)"\s*\)\]')
 
@@ -117,6 +119,76 @@ def gateway_route(text: str) -> tuple[str | None, list[str]]:
     return None, []
 
 
+def cross_cluster_routes(text: str) -> list[dict]:
+    """routeId, clusterId, path, PathPattern and methods of every package route whose cluster the
+    package doesn't define - the routes another tenant's cluster serves."""
+    for chunk in [text] + FENCE_RE.findall(text):
+        try:
+            doc = json.loads(chunk)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        routes = ci(doc, "routes")
+        if not isinstance(routes, list):
+            continue
+        own = {str(ci(ci(c, "configJson") or {}, "clusterId") or "").upper() for c in ci(doc, "clusters") or []}
+        result = []
+        for r in routes:
+            cfg = ci(r, "configJson") or {}
+            match = ci(cfg, "match") or {}
+            pattern = next((ci(t, "PathPattern") for t in ci(cfg, "transforms") or [] if ci(t, "PathPattern")), None)
+            cluster = str(ci(cfg, "clusterId") or "")
+            if not cluster or cluster.upper() in own:
+                continue
+            result.append({
+                "id": ci(cfg, "routeId"),
+                "cluster": cluster,
+                "path": str(ci(match, "path") or ""),
+                "pattern": pattern,
+                "methods": [str(m).upper() for m in ci(match, "methods") or []],
+            })
+        return result
+    return []
+
+
+def host_routes(root: Path, cluster: str) -> list[tuple[str, str]] | None:
+    """(method, path) for every route the host tenant serves, shared-module bases included.
+
+    The host is the tenant folder named like the cluster id. A shared module contributes its
+    routes under the base path its three-argument constructor passes; the two-argument form has none.
+    """
+    tenants = root / "src" / "Tenants"
+    host = next((d for d in tenants.iterdir() if d.is_dir() and d.name.lower() == cluster.lower()), None)
+    if host is None or not (host / "Modules").is_dir():
+        return None
+    routes: list[tuple[str, str]] = []
+    for f in sorted((host / "Modules").glob("*.cs")):
+        text = read(f)
+        group = GROUP_RE.search(text)
+        prefix = group.group(1) if group else ""
+        routes += [(m.upper(), prefix + p) for m, p in MAP_RE.findall(text)]
+        for base, args in SHARED_BASE_RE.findall(text):
+            strings = re.findall(r'"([^"]*)"', args)
+            base_path = strings[0] if len(strings) > 1 else ""
+            shared = read(root / "src" / "Core" / "Shared" / "Modules" / f"{base}.cs")
+            routes += [(m.upper(), base_path + p) for m, p in MAP_RE.findall(shared)]
+    return routes
+
+
+def reached(route: dict, host: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
+    """(method, consumer path, host path) for every host route a cross-cluster route forwards."""
+    if not route["pattern"]:
+        return []
+    host_prefix = CATCH_ALL_RE.sub("", route["pattern"]).rstrip("/")
+    consumer_prefix = CATCH_ALL_RE.sub("", route["path"]).rstrip("/")
+    hits = []
+    for method, path in host:
+        if method not in route["methods"]:
+            continue
+        if path == host_prefix or path.startswith(host_prefix + "/"):
+            hits.append((method, consumer_prefix + path[len(host_prefix):], path))
+    return hits
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("tenant")
@@ -126,10 +198,13 @@ def main() -> int:
     root = Path(args.repo_root).resolve() if args.repo_root else find_repo_root(Path.cwd())
     tenant = args.tenant
     tdir = root / "src" / "Tenants" / tenant
+    vdir = root / "src" / "VirtualTenants" / tenant
     out: list[str] = [f"TENANT {tenant}   repo {root}"]
 
     compose = read(root / "src" / ".dockercompose" / "docker-compose.yml")
     has_container = f"core-{tenant.lower()}" in compose
+    # A Deliverables-only folder under src/Tenants is not a project.
+    has_project = tdir.is_dir() and any(tdir.glob("*.csproj"))
 
     # --- shape -------------------------------------------------------------------------------
     modules = sorted((tdir / "Modules").glob("*.cs")) if (tdir / "Modules").is_dir() else []
@@ -138,14 +213,18 @@ def main() -> int:
         shape = "carter"
     elif controllers:
         shape = "mvc"
-    elif not tdir.is_dir() and not has_container:
+    elif not has_project and not has_container:
         shape = "virtual"
     else:
         shape = "UNKNOWN"
-    out.append(f"shape: {shape}   project: {tdir.is_dir()}   container: {has_container}")
+    out.append(f"shape: {shape}   project: {has_project}   container: {has_container}")
 
     # --- route -------------------------------------------------------------------------------
-    found, route_warnings = gateway_route(read(tdir / "GATEWAY-CONFIG.md"))
+    gateway_config = read(tdir / "GATEWAY-CONFIG.md") or read(vdir / "GATEWAY-CONFIG.md")
+    found, route_warnings = gateway_route(gateway_config)
+    if shape == "virtual" and found:
+        # Per-path routes (/t/<slug>/nir/persons/{**url}) share one slug; the slug is the route.
+        found = found.split("/")[0]
     route = found or tenant.lower()
     out.append(f"route: /t/{route}" + ("" if found else "   (GUESSED from tenant code - confirm against "
                                         "docs/zamconnect-test-routes.md)"))
@@ -213,9 +292,34 @@ def main() -> int:
             suffix = ("/" + path) if path else ""
             endpoints.append((section, client, method.upper(), prefix + suffix))
 
-    if shape == "virtual":
+    # Cross-cluster routes (conventions C11): the host serves them, so their endpoints are the host
+    # routes each one forwards, at the consumer's path. A real tenant can carry them too.
+    cross = cross_cluster_routes(gateway_config)
+    base = f"/t/{route}"
+    if cross:
+        out.append(f"cross-cluster routes ({len(cross)}):")
+    seen: set[tuple[str, str]] = set()
+    for r in cross:
+        out.append(f"  {r['id']}: {','.join(r['methods'])} {r['path']} -> {r['cluster']} {r['pattern']}")
+        host = host_routes(root, r["cluster"])
+        if host is None:
+            out.append(f"  !! host {r['cluster']} has no src/Tenants/<host>/Modules - its routes are not listed")
+            continue
+        hits = reached(r, host)
+        if not hits:
+            out.append(f"  !! {r['id']} reaches no route {r['cluster']} maps - check its PathPattern and methods")
+        for method, consumer, host_path in hits:
+            if (method, consumer) in seen:
+                continue
+            seen.add((method, consumer))
+            if not consumer.startswith(base):
+                out.append(f"  !! {r['id']} serves {consumer}, outside {base} - not listed")
+                continue
+            endpoints.append(("Consume", f"{r['cluster']} {host_path}", method, consumer[len(base):]))
+
+    if shape == "virtual" and not cross:
         out.append("virtual tenant: surface comes from src/Core/Shared/Modules/*SharedModule.cs "
-                   "- inspect those, this script does not attribute shared routes to a tenant")
+                   "- no src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md, so its routes can't be attributed")
 
     out.append(f"endpoints ({len(endpoints)}):")
     for section, client, method, path in endpoints:
@@ -258,7 +362,7 @@ def main() -> int:
         out.append(f"!! no .WithSummary in: {', '.join(unsummarised)}   (endpoint tables come out thin)")
 
     # --- existing deliverables -------------------------------------------------------------------
-    deliverables = tdir / "Deliverables"
+    deliverables = (vdir if shape == "virtual" else tdir) / "Deliverables"
     existing = sorted(p.name for p in deliverables.iterdir()) if deliverables.is_dir() else []
     out.append(f"Deliverables/: {', '.join(existing) or '(not created yet)'}")
 
