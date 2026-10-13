@@ -1,370 +1,450 @@
 # zamconnect-integration
 
-Tenant tooling for the [ZamConnect](https://dev.azure.com/zambiazigs/zambiazigs/_git/ZamConnect)
-gateway: scaffolding, integration, drift auditing, tests, and the contractual delivery documents.
+Claude Code skills that build and check integrations on the
+[ZamConnect](https://dev.azure.com/zambiazigs/zambiazigs/_git/ZamConnect) gateway. The skills cover the
+whole job: create the tenant project, connect it to the agency's system, add shared e-Services, write tests,
+audit the result, and produce the API documents delivered to the client.
 
-Run every skill from the ZamConnect repository root — the directory holding `src/ZamConnect.sln`.
+This page explains the ideas behind a ZamConnect integration and the steps to create one. For every flag,
+check and output of each skill, see [REFERENCE.md](REFERENCE.md).
 
-## Install
+## Contents
 
-Run these in a **normal interactive terminal**, not inside a Claude Code session — Git Credential
-Manager may need to prompt for Azure DevOps sign-in:
+- [How a ZamConnect integration works](#how-a-zamconnect-integration-works)
+- [Before you start](#before-you-start)
+- [Install the plugin](#install-the-plugin)
+- [The skills](#the-skills)
+- [Create an integration, step by step](#create-an-integration-step-by-step)
+- [When the agency needs only shared e-Services](#when-the-agency-needs-only-shared-e-services)
+- [Other tasks](#other-tasks)
+- [Troubleshooting](#troubleshooting)
+- [Learn more](#learn-more)
+- [Contributing](#contributing)
 
-```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins
-claude plugin install zamconnect-integration@dotgov
+## How a ZamConnect integration works
+
+```
+consumer ──► Gateway (YARP) ──/t/<slug>/…──► Tenant service ──► Agency system (REST or SOAP)
+   │              │                               │
+gateway user   route, cluster, scope        calls back into the gateway
+(Basic auth)   (stored in MongoDB)          for shared e-Services (NIR, PACRA, ZRA…)
 ```
 
-Restart Claude Code, then confirm with `claude plugin list`.
+ZamConnect is a set of .NET services behind one API gateway. Each government agency gets its own service,
+called a **tenant**. Consumers never call a tenant directly. They call the gateway, which checks who they
+are and forwards the request to the right tenant.
 
-If the `add` fails with `unable to get password from user`, you are running non-interactively. Do
-`git clone <url>` once by hand so GCM caches the credential, then retry. Access is controlled by
-the `dotgov` project's repo permissions — no extra PAT is needed if you already clone ZamConnect.
+### Tenant
 
-### Provision it for the whole team
+A tenant is an ASP.NET Core service in `src/Tenants/<Tenant>/`, one per agency system. It has its own
+`Program.cs`, `Dockerfile`, settings and Azure DevOps pipeline, and it is deployed on its own as the
+Kubernetes service `core-<slug>`. A tenant does three things:
 
-Declare the marketplace in the ZamConnect repo itself so teammates get the plugin with no setup:
+- It exposes a clean, documented API to consumers.
+- It calls the agency's own system (the **upstream**) and translates between the two.
+- Where needed, it calls other agencies' data back through the gateway.
+
+Inside a tenant you will find:
+
+| Folder | What it holds |
+|---|---|
+| `Endpoints/` | The **client** for each upstream system. A REST client derives from `RestEndpoint`, a SOAP client from `SoapEndpoint`. Both come from the shared Core libraries |
+| `Models/<System>/` | The request and response shapes of the upstream system |
+| `Mapper/` | Code that converts upstream shapes into the public shapes the tenant returns |
+| `Modules/` | **Carter modules**: the routes the tenant exposes, such as `GET /employers/{id}`. Some older tenants use MVC controllers instead |
+
+### Names
+
+One agency has several names, and the skills use each in a fixed place:
+
+| Name | Example | Used for |
+|---|---|---|
+| Tenant name | `PQPS` | Folder, project, namespace. PascalCase as the folder is spelled |
+| Slug | `pqps` | The tenant name in lower case with no separators. The gateway path `/t/pqps/…`, the service `core-pqps` and the scope `pqps` |
+| Cluster id | `PQPS` | The tenant name in upper case. Names the tenant's service in the gateway |
+| Agency code | `CCPC` | A virtual tenant's name (see below), which has no folder under `src/Tenants/` |
+
+The gateway route often differs from the tenant name (for example `mcti/zabs`). The live list of routes is in
+`docs/zamconnect-test-routes.md` in the ZamConnect repository. Check it before you pick a name.
+
+### Gateway: route, cluster, scope, gateway user
+
+The gateway is built on YARP, a .NET reverse proxy. It is configured with four kinds of records, all stored
+in the gateway's MongoDB:
+
+| Record | What it is | Example |
+|---|---|---|
+| **Route** | A public path pattern and the cluster it goes to | `t_pqps`: `/t/pqps/{**url}` → `PQPS` |
+| **Cluster** | The address of a tenant service | `PQPS` → `http://core-pqps` |
+| **Scope** | A permission attached to a route | `pqps` |
+| **Gateway user** | A consumer's login (Basic authentication). It holds the scopes it may call | A consumer system that holds `pqps` |
+
+A consumer calls `https://api.test.gsb.gov.zm/t/pqps/hub/pesticides`. The gateway checks that the user holds
+the route's scope, then forwards the request to `core-pqps`. The tenant only sees `/hub/pesticides`.
+
+The skills never touch a real gateway. They write the route, cluster and scope into a file,
+`GATEWAY-CONFIG.md`, and an administrator imports it into each environment.
+
+### Provide and consume
+
+Each endpoint a tenant exposes is one of two kinds:
+
+- **Provide.** The data comes from the agency's own system. The tenant is the agency's front door.
+- **Consume.** The data comes from another system reached back through the gateway, such as a national
+  registry. The tenant signs in to the gateway with its own gateway user to fetch it.
+
+The difference matters for the delivery documents, which describe the two kinds separately.
+
+### Shared e-Services
+
+Some national systems are used by many agencies: NIR (persons by NRC), NBR/PACRA (companies), ZRA (tax
+clearance), ZDI, DOC and others. Core already has a ready client for them, `EServicesShared`, which calls
+them through the gateway. A tenant that needs them doesn't write a new client; `/integrate-shared` wires the
+existing one in. `/integrate-shared <Tenant> --list` prints every available operation.
+
+### Virtual tenant
+
+Some agencies have no system of their own and only need shared e-Services that the GOVZM tenant already
+serves. Such an agency gets a **virtual tenant**: gateway routes under its own slug that point at GOVZM.
+There is no project, no code, no pipeline and no deployment, only a `GATEWAY-CONFIG.md` in
+`src/VirtualTenants/<CODE>/`. If the agency later needs its own system or contract, it becomes a real tenant.
+
+### Configuration and secrets
+
+Each tenant has two settings files, and both are committed to git:
+
+- `appsettings.json` is used in DEV, STG and PROD. It holds **placeholders** instead of real values, such as
+  `"BaseUrl": "__Endpoints.PqpsApi.BaseUrl__"`. At deploy time the pipeline replaces each placeholder with
+  a variable from the environment. A placeholder without a variable fails the deploy.
+- `appsettings.Development.json` is used for local runs and tests. Credentials stay placeholders there too.
+
+Each upstream client reads its own section: `Endpoints:<ClientClass>` for REST and
+`SoapEndpoints:<ClientClass>` for SOAP. The section name must match the class name. A missing section
+doesn't break the build; the tenant crashes when it starts.
+
+Real credentials never go into git or into a skill. The only place for them is `appsettings.local.json`,
+which git ignores. You need it only for tests that call the real upstream.
+
+### Handoff files and the administrator
+
+You work only on your machine. Everything that has to happen in DEV, STG and PROD is done by an
+administrator, from files the skills write for them:
+
+| File | In git | What the administrator does with it |
+|---|---|---|
+| `.azure/tenant.azure-pipelines.<slug>.yaml` | Yes | Registers the Azure DevOps pipeline |
+| `src/Tenants/<Tenant>/ENVIRONMENT-VARIABLES.json` | No | Creates every listed variable in each environment and fills in its value |
+| `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | No | Imports the route, cluster and scope into each gateway and grants the scope to consumers |
+
+The two files that are not in git are listed in `.gitignore`. Send them to the administrator directly.
+ZamPass and RA (Registration Authority) clients are also registered by the administrator, by hand.
+
+### Delivery documents
+
+Each integration is delivered with a document package in `src/Tenants/<Tenant>/Deliverables/`:
+
+| File | For whom |
+|---|---|
+| `(t)` Tenant API Specification (Word), OpenAPI JSON, Postman collection | The whole API: every endpoint |
+| `(p)` Provider API Specification (Word) | The endpoints the tenant provides |
+| `(c)` Consumer API Specification (Word) | The endpoints the tenant consumes |
+
+The documents are generated from the tenant's code: route summaries, `///` comments and response types. Good
+comments in the code mean good documents.
+
+## Before you start
+
+**Access**
+
+- The ZamConnect repository, cloned on your machine.
+- This plugins repository (see [Install](#install-the-plugin)).
+- Claude Code (CLI or the VS Code extension).
+
+**Tools**
+
+| Tool | Needed for |
+|---|---|
+| .NET 10 SDK | Every skill. Run `dotnet tool restore` once in the ZamConnect repository |
+| Docker Desktop, running | Image builds and the local gateway test. Without it those checks report `skipped` |
+| Git for Windows (Git Bash) | Every skill runs shell commands |
+| Python 3.12 or later, on `PATH` as `python` | The document generator. Then `python -m pip install python-docx` |
+| Node.js | The Postman collection (downloads `openapi-to-postmanv2` from npm on first use) |
+| Microsoft Word for Windows | Exact page numbers in the Word documents. Without it they are estimated and not shippable |
+| PowerShell allowed to run local scripts | The document generator. Once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+
+The document generator works only on Windows.
+
+**For the integration itself**
+
+- The agency's code and full name (for example `PQPS`, "Plant Quarantine and Phytosanitary Service").
+- A description of the agency's system: a Postman collection, an OpenAPI/Swagger file, a SOAP WSDL, a base
+  URL, or a Word or PDF document. A Word or PDF source also needs the `convert-documents-to-markdown` skill.
+- Which operations the tenant should expose, and whether it needs shared e-Services.
+
+## Install the plugin
+
+The plugin is installed from a local copy of this repository.
+
+1. Clone the repository once, into a folder that will stay where it is:
+
+   ```bash
+   git clone https://github.com/andrian-org/claude-plugins.git C:/Workspaces/claude-plugins
+   ```
+
+2. Add the folder as a marketplace and install the plugin. Pass the repository root, not the plugin
+   folder:
+
+   ```bash
+   claude plugin marketplace add C:/Workspaces/claude-plugins
+   claude plugin install zamconnect-integration@dotgov
+   ```
+
+3. Restart Claude Code (in VS Code, reload the window), then check with `claude plugin list`.
+
+Claude Code reads the plugin straight from that folder. If you move or rename it, add it again.
+
+To get a newer version, run `git pull` in the folder. The change takes effect in the next session, or at
+once after `/reload-plugins`.
+
+<details>
+<summary>Load the plugin only inside the ZamConnect repository</summary>
+
+From the ZamConnect root, add the marketplace at `local` scope:
 
 ```bash
-claude plugin marketplace add https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins --scope project
+claude plugin marketplace add C:/Workspaces/claude-plugins --scope local
 ```
 
-Then add `zamconnect-integration@dotgov` to `enabledPlugins` in the generated `.claude/settings.json` and
-commit it:
+This writes `.claude/settings.local.json`, which is not committed. Enable the plugin in the same file:
 
 ```json
 {
   "extraKnownMarketplaces": {
     "dotgov": {
-      "source": {
-        "source": "git",
-        "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
-      }
+      "source": { "source": "directory", "path": "C:\\Workspaces\\claude-plugins" }
     }
   },
-  "enabledPlugins": ["zamconnect-integration@dotgov"]
+  "enabledPlugins": { "zamconnect-integration@dotgov": true }
 }
 ```
 
-### Updating
+</details>
 
-`claude plugin update zamconnect-integration` (restart required). Inside a session: `/plugin marketplace update dotgov`, then `/reload-plugins`.
+<details>
+<summary>Replace an install that was added from a URL</summary>
 
-## Skills
+If `claude plugin marketplace list` shows `dotgov` with a Git source, remove it, then add the folder:
+
+```bash
+claude plugin marketplace remove dotgov
+claude plugin marketplace add C:/Workspaces/claude-plugins
+claude plugin install zamconnect-integration@dotgov
+```
+
+</details>
+
+## The skills
+
+Run every skill from the ZamConnect repository root, the folder that holds `src/ZamConnect.sln`. Type `/`
+in Claude Code to see them. They may also be listed with the plugin prefix, for example
+`/zamconnect-integration:tenant-init`.
 
 | Skill | What it does |
 |---|---|
-| `/tenant-init <Tenant>` | Scaffolds `src/Tenants/<Tenant>/` from the standard boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks), spec-ready from the start (`OpenApiInfo`, Basic security scheme, XML comments). Adds the Azure pipeline file, the `core-<slug>` docker-compose service, the `GATEWAY-CONFIG.md` import package (scope, cluster, route), the `ENVIRONMENT-VARIABLES.json` variable list and the `ZamConnect.sln` entry. Verifies that `dotnet build` passes, that the Docker image builds, and that the container answers `/health/live`. Boilerplate only — no modules, models or mappers. For an agency that needs only shared e-Services, it offers a [virtual tenant](#virtual-tenants) instead and scaffolds nothing. Then hands over to `/tenant-pipeline` |
-| `/tenant-pipeline <Tenant>` | Runs the whole chain below as one guided flow — a gate per step, a saved state, resume, and stale-marking when an earlier step is re-run |
-| `/tenant-integration <Tenant>` | Builds the integration surface of an existing tenant: the upstream `RestEndpoint`/`SoapEndpoint` client, models, mappers, and the routes the tenant exposes. Takes a Postman collection, OpenAPI spec, REST base URL, WSDL or prose API docs as the source — offered from the files it finds in the repo, with protocol and auth detected from them |
-| `/integrate-shared <Tenant>` | Exposes shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the gateway, driven by an interactive endpoint menu. With `--mode virtual`, writes gateway routes onto GOVZM `/eservices` instead, with no code — a [virtual tenant](#virtual-tenants) |
-| `/tenant-audit <Tenant>\|--all` | Drift audit, read-only on the repo. It checks: registration in solution/pipeline/compose; slug consistency across compose/Helm/gateway routes; `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` config for every client; literal credentials in `appsettings.json` plus the committed Development-credential baseline; `ENVIRONMENT-VARIABLES.json` matching the tokens; spec readiness; regression guards (.NET 10, no Newtonsoft/AutoMapper, Dockerfile closure, a local image build); and presence of docs, Postman collection and tests. For a single tenant it also runs the tenant through the local Docker gateway (see [Local gateway round-trip](#local-gateway-round-trip)). `--fix` repairs the fixable ones |
-| `/tenant-tests <Tenant>` | Scaffolds `src/Tests/<Tenant>.Tests/` with a `WebApplicationFactory`, a recording mock upstream handler, and endpoint tests over HTTP. `--live` adds an `[Explicit]` staging fixture |
-| `/tenant-deliverables <Tenant>` | Generates the delivery package — OpenAPI JSON, the (c)/(p)/(t) Word API Specifications and the Postman collection — into `src/Tenants/<Tenant>/Deliverables/`. Documents only; never modifies tenant code |
-| `/payment-callback <CODE>` | Adds a ZamPay payment callback destination to GOVZM: the `ITransactionCallback` client, the `case "<CODE>"` in `PayController`, the `Endpoints:<Client>` section in both appsettings files, and a forwarding test in `GOVZM.Tests`. Or maps an extra code onto an existing client. Not part of the tenant chain |
+| `/tenant-init <Tenant>` | Creates the tenant project and registers it everywhere: solution, Docker Compose, Azure pipeline, gateway package. Then starts the guided flow |
+| `/tenant-pipeline <Tenant>` | Runs the whole flow below as one guided chain. You can stop at any step and resume later |
+| `/tenant-integration <Tenant>` | Connects the tenant to the agency's system: client, models, mapper, routes and settings |
+| `/integrate-shared <Tenant>` | Adds shared e-Services (NIR, PACRA, ZRA…) to a tenant, or creates a virtual tenant |
+| `/tenant-tests <Tenant>` | Creates the test project and endpoint tests, then runs them |
+| `/tenant-audit <Tenant>` | Checks the tenant for anything missing or wrong, and calls it through a local gateway |
+| `/tenant-deliverables <Tenant>` | Generates the Word API specifications, the OpenAPI JSON and the Postman collection |
+| `/payment-callback <CODE>` | Forwards ZamPay payment callbacks for an agency through GOVZM. Separate from the tenant flow |
 
-## Local only
+The `tenant-deliverables-builder` agent runs `/tenant-deliverables` in its own context, so its long logs stay
+out of your conversation.
 
-Every skill works on the local repository and the local Docker stack. Nothing is created in DEV, STG or PROD. The skills leave three handoff files; an administrator applies them by hand:
+Every skill works the same way:
 
-| File | What the administrator does with it |
-|---|---|
-| `.azure/tenant.azure-pipelines.<slug>.yaml` | Registers the Azure DevOps pipeline that points at it |
-| `src/Tenants/<Tenant>/ENVIRONMENT-VARIABLES.json` | Adds every listed variable to each environment. Names only; secret values are always empty |
-| `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | Imports the scope, cluster and route into each gateway, and grants the scope to each consumer's gateway user |
-| `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` | A virtual tenant's routes, with no cluster. Imports them into each gateway and creates the agency's gateway user with the route scope |
+- It asks its questions as a menu. Each question also has a flag, so you can answer up front.
+- Before it writes anything, it shows a review: the files it will write, the routes, and the full command
+  that repeats the run. You choose `Apply`, `Adjust` or `Cancel`.
+- `--help` prints the skill's arguments and examples. `--dry-run` shows the plan and writes nothing.
+- It works only on your machine and the local Docker stack. It never commits, pushes or touches a shared
+  environment.
 
-`ENVIRONMENT-VARIABLES.json` and both `GATEWAY-CONFIG.md` files are local only and never committed: send them to the administrator directly. The skill that writes one adds these lines to the repository root `.gitignore` when they are missing:
+## Create an integration, step by step
 
-```gitignore
-src/Tenants/*/ENVIRONMENT-VARIABLES.json
-src/Tenants/*/GATEWAY-CONFIG.md
-src/VirtualTenants/*/GATEWAY-CONFIG.md
-```
-
-A file that git already tracks stays tracked until someone runs `git rm --cached <path>`; `/tenant-audit` reports it. The pipeline file stays in git, because the Azure DevOps pipeline reads it from the repository. `references/zamconnect-conventions.md` C10 lists which other configuration files are committed, and why.
-
-ZamPass / RA clients are registered by hand by an administrator. The skills write only the `__Token__` placeholders for them, and never record a container registry, Helm, cluster, MongoDB, RA or ZamPass address.
-
-## Arguments and flags
-
-Every question a skill asks has a flag, and passing the flag skips the question. Every skill that writes files takes `--auto` (defaults, no questions) and `--dry-run` (plan only, nothing written), and prints the fully-flagged command that reproduces what it did.
-
-Every skill takes `--help` (or `-h`): it prints its arguments, their defaults and a few example commands, then stops without asking or writing anything. Typing `/<skill> ` in the prompt box also shows the argument hint inline. A required argument left out, such as the tenant name, is asked for before anything else.
-
-### `/tenant-init`
-
-`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Tenant project name (required) |
-| `--controllers` | Scaffold MVC controllers instead of Carter modules (the default) |
-| `--full-name "<name>"` | Full descriptive name, written into `OpenApiInfo.Title` as `"<name> (<Tenant>)"` |
-| `--integrates` | What the tenant will integrate with. Decides the later defaults — `shared` makes the shared e-Services step recommended |
-| `--virtual` / `--no-virtual` | With `--integrates shared` alone: make it a virtual tenant (nothing scaffolded), or scaffold the project anyway. Asked when neither is passed |
-| `--port <https>` | HTTPS port for the tenant |
-| `--no-pipeline` | Stop after the scaffold; do not drive the rest of the chain |
-| `--auto` | Run the whole chain without gates |
-
-### `/tenant-pipeline`
-
-`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--status] [--auto] [--dry-run] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Tenant to onboard or continue |
-| `--from <step>` | Start at this step |
-| `--resume` | Continue from the first stale, pending or failed step. The default when a state file exists |
-| `--status` | Print what ran, what's left and the commands to resume; ask and write nothing |
-| `--auto` | No gates — every step with its recommended defaults |
-
-### `/tenant-integration`
-
-`<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap|rest,soap] [--auth <scheme>] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--no-spec-ready] [--spec-only] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Existing tenant (required) |
-| `--source <url\|path>` | Integration source: Postman collection, OpenAPI spec, REST base URL, WSDL or prose docs; repeatable. Without it, the skill offers the sources it finds in the repo |
-| `--expose <METHOD /route>` | Endpoints the tenant should expose; repeatable. Default: every upstream operation |
-| `--protocol rest\|soap\|rest,soap` | Integrate one upstream at a time for each protocol listed, REST first, asking for another of the same protocol until you mark it done. Also settles a REST/SOAP classification the source leaves open |
-| `--auth` / `--auth-header` | Upstream auth — REST: `Basic`, `JWT`, `Custom`, `RA`, `None`; SOAP: `Basic`, `ClientCertificate`, `None` — and, for `Custom`, the header name. Default: detected from the source |
-| `--system <Name>` | Upstream system name — client class, models folder, config token. Default: derived from the source title |
-| `--role provide\|consume` | Where the routes' data comes from; feeds the Consume/Provide split of the deliverables. Default `provide` |
-| `--dto`, `--modules`, `--timeout` | DTO strategy, module grouping, REST timeout |
-| `--no-spec-ready` / `--spec-only` | Skip the spec-readiness step / run only it |
-
-### `/integrate-shared`
-
-`<TenantName> [--source <SYS> ...] [--endpoint <key> ...] [--base-path <path>] [--tag <Tag>] [--mode inherit|common|routes|virtual] [--shape catch-all|paths] [--scope <scope>] [--dto shared|tenant] [--all] [--new] [--list] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Target tenant, or a virtual tenant's agency code (required; asked for if omitted) |
-| `--source <SYS>` | `NIR\|NBR\|DOC\|SRS\|ZDI\|NLR\|ZDA\|NAIR\|ZRA\|MOH`; repeatable. Skips the group menu |
-| `--endpoint <key>` | Individual operations by catalogue key; repeatable. Skips the operation menu |
-| `--base-path <path>` | Route group prefix. Default: none (tenant root) |
-| `--tag <Tag>` | Swagger tag for the group. Default `EServices` |
-| `--mode inherit\|common\|routes\|virtual` | Wiring mode. Default chosen by the skill. `virtual` writes gateway routes onto GOVZM and no code |
-| `--shape catch-all\|paths` | Virtual mode: one `/t/<slug>/{**url}` route, or one route per path. Default chosen by the skill |
-| `--scope <scope>` | Virtual mode: the routes' gateway scope. Default `<slug>` |
-| `--dto shared\|tenant` | Shared response models (default) or tenant DTOs plus a mapper |
-| `--all` | Every operation in the catalogue, in `routes` mode. `inherit` maps only the subset `EServicesSharedModule` exposes |
-| `--new` | Tenant does not exist yet; scaffold it with `tenant-init` first |
-| `--list` | Print the catalogue and stop. No files written |
-
-`--source` and `--endpoint` combine: sources expand to all their operations, then `--endpoint` adds individual ones.
-
-#### Virtual tenants
-
-A virtual tenant is an agency with no project and no cluster of its own. Its gateway routes point at another tenant's cluster, the host, and a path transform maps them onto a surface the host already serves. The live `GOVZM` routes show both shapes:
-
-| Shape | Example route | Path | Transform |
-|---|---|---|---|
-| Catch-all — everything the host serves | `t_ccpc_eservices` | `/t/ccpc/{**url}` → `GOVZM` | `/eservices/{**url}`, `order: 1` |
-| Per path — a subset | `zigsapi_eservices_person_by_nrc` | `/t/zigs/nir/persons/nrc/{**url}` → `GOVZM` | `/eservices/nir/persons/nrc/{**url}` |
-
-Use one when the agency has no system of its own and needs only operations GOVZM serves (today the six NIR operations, the NBR entity lookup and the ZRA tax clearance). It needs its own tenant when it needs anything else, or its own contract.
-
-```
-/integrate-shared CCPC --mode virtual --all --shape catch-all
-/integrate-shared ZIGS --mode virtual --endpoint nir.person.nrc --endpoint nir.person.zampass
-/tenant-audit CCPC
-/tenant-deliverables CCPC
-```
-
-The skill writes only `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md`, with `"clusters": []` so the import never overwrites the host cluster. It writes no project, pipeline, variables or tests. `/tenant-audit` runs Check V on it: it validates the package against the host, then calls each route through the local gateway as `test<CODE>` / `test`. A real tenant can carry the same cross-cluster routes under its own slug (`t_pqps_eservices_nir_persons`). The rule is generic, not limited to GOVZM: `references/zamconnect-conventions.md` C11 has it.
-
-### `/tenant-tests`
-
-`<TenantName> [--module <Name> ...] [--coverage full|errors|smoke] [--live] [--no-scaffold] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Tenant to test (required) |
-| `--module <Name>` | Cover only these modules/controllers; repeatable. Default: all |
-| `--coverage` | `full` (default): happy path, upstream 404 and 500, forwarded body, route contract, plus one swagger smoke test. `errors`: the first three. `smoke`: happy path only |
-| `--live` | Also generate the `[Explicit]`, `[Category("Staging")]` fixture that calls the real upstream |
-| `--no-scaffold` | Test project already exists — add fixtures only. Detected automatically |
-
-### `/tenant-audit`
-
-`<TenantName>|--all [--only <check>] [--no-runtime] [--fix [registration]] [--report-only] [--auto] [--dry-run] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Tenant to audit |
-| `--all` | Audit every tenant under `src/Tenants/`. With neither a tenant nor `--all`, the tenant is asked for. Skips the image build and the runtime check, which take minutes per tenant |
-| `--only <check>` | `registration\|slugs\|config\|secrets\|spec\|tests\|docs\|guards\|runtime`; repeatable. `--only runtime` re-runs just the local gateway round-trip |
-| `--no-runtime` | Skip the local gateway round-trip (Check 9) |
-| `--fix` | Apply the fixable repairs without asking. Without it, the audit offers the fixable ones as a pick-list after the report |
-| `--report-only` | Report without offering fixes. The Docker checks still run |
-| `--auto` | Same as `--fix`: every fixable repair, no questions |
-| `--dry-run` | File checks only: no image build, no Check 9, nothing written to Docker. `/tenant-pipeline --dry-run` passes it |
-
-#### Local gateway round-trip
-
-For a single tenant (or `--only runtime`), Check 9 proves the tenant answers through YARP on your machine. It needs Docker running, but no token and no password:
-
-1. Builds and starts `mongo`, `admin-api` and `gateway` from the working tree, and seeds `mongo` from the local dump when it's empty.
-2. Writes the tenant's `GATEWAY-CONFIG.md` into the local `mongo` in order: scope, cluster, route. It then creates the test gateway user and bumps the tokens the gateway polls, so the change loads within 30 s.
-3. Starts `core-<slug>` and calls `/t/<slug>/health/live` and at least one endpoint per module through `http://localhost:10080`. A tenant that calls back into the gateway reaches the local compose `http://gateway/` (its Development `BaseUrl`), signed in as the same test user.
-
-| Test user | Value |
-|---|---|
-| Username | `test<Tenant>`, e.g. `testTT` |
-| Password | `test` |
-
-These are local-only throwaway values. The password is shorter than the AdminAPI's password rule, which is why the user is written to Mongo directly and not through `POST /Users`. The containers, config and user stay in place afterwards, so you can keep testing:
-
-```bash
-curl -u testTT:test http://localhost:10080/t/tt/health/live
-```
-
-It never touches a test, staging or production gateway. Those still take the manual `POST /Import/routes` described in `GATEWAY-CONFIG.md`.
-
-### `/tenant-deliverables`
-
-`<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<TenantName>` | Tenant to document (required) |
-| `--route <r>` | Gateway route, without `/t/`. Default: from `GATEWAY-CONFIG.md` (`/tenant-pipeline` also falls back to `docs/zamconnect-test-routes.md`), else the tenant code lowercased (e.g. `mcti/zabs`, `govzm/ZamPass` when it differs) |
-| `--roles` | Documents to render. Default: `tenant` always, `consumer`/`provider` when the tenant consumes/provides |
-| `--out <dir>` | Output directory holding the five role folders. Default: `src/Tenants/<Tenant>/Deliverables/` |
-| `--version <X.Y>` | Document version. Default `1.0` for a new package, the current version for an existing one. Bump only when the contract changed |
-| `--author <name>` | Document History author. Default `dotGov Solutions LLC` |
-| `--provide-paths` | OpenAPI paths that are Provide; the rest are Consume. Without it, unresolved endpoints are asked |
-
-### `/payment-callback`
-
-`<DestinationCode> [--system <Name>] [--kind rest|zampoint|alias] [--alias-of <Client>] [--path </payment/callback>] [--auth Basic|JWT|Custom|None] [--auth-header <name>] [--test-url <url>] [--no-tests] [--auto] [--dry-run] [--help]`
-
-| Argument / flag | Meaning |
-|---|---|
-| `<DestinationCode>` | The `destinationCode` header ZamPay sends, upper case (required) |
-| `--system <Name>` | Client class name stem. Default: the code, e.g. `NPDD` → `NpddApi` |
-| `--kind` | `rest` (default): new `<System>Api : RestEndpoint`. `zampoint`: new `ZamPoint<System> : ZamPointEndpoint`. `alias`: add the code to an existing client's `case` |
-| `--alias-of <Client>` | The existing client for `--kind alias` |
-| `--path` | Callback path on the agency system. Default `/payment/callback` |
-| `--auth` / `--auth-header` | Callback auth. Default `Basic`; `None` only when chosen |
-| `--test-url` | Development `BaseUrl`. Default `https://<code>api.test.gsb.gov.zm` |
-| `--no-tests` | Skip the `TransactionCallbackEndpointTests` row |
-
-The tokens it writes need `GSB.GOVZM.{DEV,STG,PROD}` variables, or the GOVZM deploy fails on `replacetokens`. The report lists their names.
-
-```
-/payment-callback NPDD
-/payment-callback PAMS --system MihudPams --path /api/zampay/callback
-/payment-callback ZTA --alias-of ZamPointMota
-```
-
-## Agents
-
-| Agent | Use |
-|---|---|
-| `tenant-deliverables-builder` | Runs the full `tenant-deliverables` package build for a named tenant in its own context, with every gate passing. Write-restricted to `Deliverables/` |
-
-## Prerequisites
-
-- **.NET 10 SDK** — all skills (`dotnet build`, `dotnet tool run swagger`)
-- **Docker Desktop** (engine running) — the image build and start check in `/tenant-init`, and Checks 8–9 of `/tenant-audit`. Without it those checks report `skipped`, never `ok`
-- **Git Bash** on Windows — the audit's commands are POSIX shell
-- **Python 3.9+** with `python-docx` — the document renderers under `skills/tenant-deliverables/scripts/`
-- **Node.js** — `npx openapi-to-postmanv2`, invoked by `openapi_to_postman.ps1`
-- **Windows PowerShell** — the Postman conversion step
-
-```
-pip install python-docx
-```
-
-## Order of execution for a new tenant
-
-`/tenant-init <Tenant>` runs the whole chain for you through `/tenant-pipeline`. Run the skills by hand in this order only when you want a single step:
-
-| # | Skill | Why it sits here |
-|---|---|---|
-| 1 | `/tenant-init <Tenant>` | Nothing else can run until `src/Tenants/<Tenant>/` exists and builds |
-| 2 | `/tenant-integration <Tenant>` | Needs the scaffold; produces the upstream client and the exposed routes. Repeat per upstream system |
-| 3 | `/integrate-shared <Tenant>` | **Optional** — only when the tenant also republishes shared e-Services (NIR, PACRA, ZRA, …) |
-| 4 | `/tenant-tests <Tenant>` | Fixtures are generated from the routes that exist after steps 2–3 |
-| 5 | `/tenant-audit <Tenant>` | Catches what a green build hides: pipeline/compose registration, slug mismatches, missing `Endpoints:<Name>` config, leaked credentials, and a tenant that doesn't answer through the local gateway |
-| 6 | `/tenant-deliverables <Tenant>` | **Last.** The deliverables are generated from the final API surface; running it earlier ships a stale specification |
-
-```
-/tenant-init PQPS --integrates soap
-/tenant-integration PQPS --source "src/Tenants/PQPS/Deliverables/Integration Requests/pqps.wsdl"
-/integrate-shared PQPS            # only if shared e-Services are needed
-/tenant-tests PQPS
-/tenant-audit PQPS
-/tenant-deliverables PQPS --route pqps --version 1.0
-```
-
-### Guided mode
-
-After the scaffold, `/tenant-pipeline` asks one gate per step. Every gate has the same four options:
+The recommended way is the **guided flow**: start with `/tenant-init`, choose `Guided`, and the plugin takes
+you through steps 1 to 6 below. Before each step it asks whether to run it:
 
 | Option | What it does |
 |---|---|
-| `Proceed` | Runs the step with the defaults listed in the option itself |
-| `Customize…` | Asks that step's optional questions first, then runs |
-| `Skip` | Leaves the step undone and moves on |
-| `Stop` | Ends the chain. The state is kept for `--resume` |
+| `Proceed` | Runs the step with the defaults shown in the option |
+| `Customize…` | Asks the step's extra questions first |
+| `Skip` | Moves on without running the step |
+| `Stop` | Ends the flow. Continue later with `/tenant-pipeline <Tenant> --resume` |
 
-What `Proceed` does, and what `Customize…` adds, per step:
+`/tenant-pipeline <Tenant> --status` shows what has run and what is left.
 
-| Step | `Proceed` | `Customize…` also asks |
-|---|---|---|
-| 2 `tenant-integration` | Uses the source you pick in the same gate. Protocol, SOAP version and auth are detected from it, every operation is exposed, public DTOs + mapper, spec-ready | System name, auth, data role, endpoints, DTO strategy, module grouping, timeout |
-| 3 `integrate-shared` | Every operation of the e-Service groups you pick in the same gate, `routes` mode, tag `EServices`, shared models | Operations, tag, module mode, response models, base path |
-| 4 `tenant-tests` | Full coverage matrix, every module, no live fixture | Coverage level, modules, live staging fixture |
-| 6 `tenant-deliverables` | Route from `GATEWAY-CONFIG.md`, version `1.0` (or the current one), derived roles, author `dotGov Solutions LLC` | Version, roles, author, output folder |
+### 0. Prepare
 
-Step 5, the audit, has no gate: the pipeline runs it with `--report-only`, even under `--auto`, and lists the fixable findings as a `/tenant-audit <Tenant> --fix` command in the closing summary. Every option in every question is a complete answer: sources are offered as the files found in the repo, never as source types. Type a URL or path in **Other** when the one you need isn't listed.
+1. Start Docker Desktop.
+2. In the ZamConnect repository, create a branch, for example `feature/pqps-integration`.
+3. Look up the agency in `docs/zamconnect-test-routes.md`. If it already has a route, ask your lead before
+   you go on.
+4. Put the agency's API description where the skills find it: the repository root or `postman collections/`.
+   After step 1, its permanent place is `src/Tenants/<Tenant>/Deliverables/Integration Requests/`. You can
+   also give a URL or path when asked.
+5. Open Claude Code in the ZamConnect root.
 
-Each step shows a review — the files it will write, the routes, and the equivalent command — before it writes anything.
+### 1. Create the tenant
 
-### State and resume
+```
+/tenant-init PQPS
+```
 
-The run is saved to `.claude/zamconnect/<Tenant>.pipeline.json` in the ZamConnect repo. The directory carries its own `.gitignore`, so nothing is committed. It holds answers and commands only, never credentials.
+Answer the questions: project style (keep Carter), what the tenant integrates with (REST, SOAP, shared
+e-Services), its full name, and `Guided`. Check the review, then choose `Apply`.
 
-- `/tenant-pipeline PQPS --status` — what ran, what's left, and the commands to resume
-- `/tenant-pipeline PQPS --resume` — pick up where it stopped, with no question asked twice
-- Re-running step 2 or 3 marks tests, audit and deliverables `stale`; `--resume` offers them first
+You get `src/Tenants/PQPS/` with an empty, runnable service, plus its registrations: the solution entry, the
+Docker Compose service `core-pqps`, the Azure pipeline file and the two handoff files. The skill confirms that
+the project builds, that the Docker image builds, and that the service answers `/health/live`.
+
+### 2. Connect the agency system
+
+The guided flow offers the API descriptions it found. Pick one. The skill works out whether it is REST or
+SOAP and how it authenticates, then shows the endpoints it will expose.
+
+You get the upstream client, the models, the mapper, the Carter module with the public routes, the settings
+section in both settings files, the new placeholders in `ENVIRONMENT-VARIABLES.json`, and the HTTP methods in
+`GATEWAY-CONFIG.md`. The skill also adds the summaries and comments the documents need, then builds.
+
+If the agency has more than one system, the skill offers to add the next one.
+
+### 3. Add shared e-Services (optional)
+
+Choose `Skip` unless the tenant must also return data from national registries. Otherwise pick the groups
+(NIR, PACRA, ZRA…). The skill adds a module that calls `EServicesShared`, and a `Gateway` settings section
+with the tenant's own gateway user. The report lists the scopes that user needs; give the list to the
+administrator.
+
+### 4. Write tests
+
+The skill creates `src/Tests/PQPS.Tests/`. The tests start the tenant in memory and replace the agency system
+with a fake, so they run anywhere. They cover the normal answer, upstream errors, and what the tenant sends
+upstream. The skill runs them. If one fails, it asks whether to fix the tenant, fix the test, or stop.
+
+### 5. Audit
+
+The audit runs without a question. It checks that nothing is missing: registrations, matching names,
+settings sections, no real credentials in committed files, tests and documents. It then loads the tenant's
+gateway package into a local gateway in Docker and calls the tenant through it, as the local test user
+`testPQPS` with password `test`.
+
+Read the report. A `warn` that the agency system can't be reached is normal: a local container usually can't
+reach it. To repair what the audit can fix by itself, run `/tenant-audit PQPS --fix`.
+
+### 6. Generate the documents
+
+The skill builds the OpenAPI JSON, the `(t)`, `(p)` and `(c)` Word specifications and the Postman collection
+in `src/Tenants/PQPS/Deliverables/`, then runs its quality checks. If a route has no description or comment,
+the report lists it and offers `Fix them now, then re-render`.
+
+Don't open a delivered Word document and save it: Word rewrites its dates. Generate it again instead.
+
+### 7. Finish
+
+The flow ends with a summary of every step and the administrator's task list.
+
+1. Review `git status`, commit the code, and open a pull request. The handoff files are not in git.
+2. Send `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md`, plus the scope list from step 3, to the
+   administrator. The administrator registers the pipeline, creates the variables, imports the gateway
+   package, grants the scopes and registers any ZamPass or RA client.
+3. After the deploy, test through the test gateway with the generated Postman collection.
+
+### Running the steps by hand
+
+To run one step on its own, use the skills directly. `--no-pipeline` stops `/tenant-init` from starting the
+guided flow:
+
+```
+/tenant-init PQPS --integrates soap --no-pipeline
+/tenant-integration PQPS --source "src/Tenants/PQPS/Deliverables/Integration Requests/pqps.wsdl"
+/integrate-shared PQPS            # only when shared e-Services are needed
+/tenant-tests PQPS
+/tenant-audit PQPS
+/tenant-deliverables PQPS
+```
+
+Keep this order. Tests are written from the routes that exist, and the documents from the final code, so
+running them earlier gives stale results.
+
+## When the agency needs only shared e-Services
+
+Run `/tenant-init <CODE>` and choose only `Shared e-Services`. The skill offers a virtual tenant. Accept it,
+and the guided flow runs three steps:
+
+1. `/integrate-shared` writes the routes from `/t/<slug>/…` to GOVZM into
+   `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md`. Pick all operations or only some.
+2. `/tenant-audit` checks the routes against GOVZM and calls each one through the local gateway.
+3. `/tenant-deliverables` documents the operations the routes reach.
+
+Send `GATEWAY-CONFIG.md` to the administrator, who imports it and creates the agency's gateway user.
+
+## Other tasks
+
+| Task | What to run |
+|---|---|
+| Add an endpoint or a system to an existing tenant | `/tenant-integration <Tenant>`, then `/tenant-pipeline <Tenant> --resume` to re-run the tests, audit and documents it made stale |
+| Check an existing tenant | `/tenant-audit <Tenant>`, or `/tenant-audit --all` for every tenant |
+| Regenerate the documents after a contract change | `/tenant-deliverables <Tenant> --version 1.1`. The previous version moves to `Deliverables/Archive/` |
+| See the shared e-Services catalogue | `/integrate-shared <Tenant> --list` |
+| Forward ZamPay callbacks to an agency | `/payment-callback <CODE>` |
+
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| The skills don't appear after `/` | Check `claude plugin list`, then restart Claude Code or run `/reload-plugins`. Delete any copy of the same skill in `~/.claude/skills/`: two skills with one name collide |
+| Many permission prompts | Expected: the skills run shell, `dotnet` and `docker` commands. Approve them, or allow them in your settings |
+| `missing --source` | `--auto` can't guess the API description. Run the guided flow, or pass `--source <path or URL>` |
+| Docker checks report `skipped` | Start Docker Desktop and run `/tenant-audit <Tenant>` again |
+| Port 8081 or 10080 in use | The local gateway test needs both. Stop whatever uses them |
+| Audit `warn`: upstream unreachable | Normal locally. The tenant answered; only the agency system was out of reach |
+| `401` or `403` through the gateway | The gateway user lacks the route's scope. Locally the audit creates the test user; in an environment, ask the administrator |
+| `SyntaxError` from a `.py` script | Python is older than 3.12 |
+| `running scripts is disabled on this system` | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once |
+| Page numbers in the documents are estimated | Word is missing or blocked by a dialog. Open Word once, close any dialog, then generate again |
+| The tenant crashes at start with a missing settings section | An `Endpoints:<Name>` or `SoapEndpoints:<Name>` section is missing. `/tenant-audit <Tenant> --only config` shows which one |
+
+## Learn more
+
+- [REFERENCE.md](REFERENCE.md): every flag, every audit check, the local gateway test, the document package
+  in detail, pipeline state, and known limitations.
+- `/<skill> --help`: one skill's arguments and examples.
+- [references/zamconnect-conventions.md](references/zamconnect-conventions.md): ZamConnect rules the skills
+  follow: placeholder naming, error-to-HTTP mapping, virtual tenant routes.
+- In the ZamConnect repository: `docs/getting-started.md`, `docs/architecture.md`,
+  `docs/configuration.md` and `docs/zamconnect-test-routes.md`.
 
 ## Contributing
 
-The plugin lives in the [`dotgov-claude-plugins`](https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins)
-marketplace repository, under `plugins/zamconnect-integration/`.
+The plugin lives in this repository under `plugins/zamconnect-integration/`.
 
-Bump `version` in `.claude-plugin/plugin.json` with every change (SemVer), then validate **both**
-manifests before opening a PR:
+- Bump `version` in `.claude-plugin/plugin.json` with every change (SemVer), so you can tell which version
+  produced a document or a tenant.
+- Validate both manifests from the repository root before you open a pull request:
 
-```bash
-claude plugin validate .
-claude plugin validate plugins/zamconnect-integration
-```
+  ```bash
+  claude plugin validate .
+  claude plugin validate plugins/zamconnect-integration
+  ```
 
-Test locally as a directory marketplace before pushing:
-
-```bash
-claude plugin marketplace add /path/to/dotgov-claude-plugins
-claude plugin install zamconnect-integration@dotgov
-claude plugin details zamconnect-integration@dotgov      # check always-on token cost
-```
-
-Tag the release with `claude plugin tag plugins/zamconnect-integration`.
-
-Two rules that matter more than the rest:
-
-- **The `description` in `SKILL.md` frontmatter is the only thing Claude sees when deciding whether
-  to load a skill.** Write it as trigger phrases people actually type. Review descriptions in PRs
-  more carefully than implementations — a good skill with a vague description never fires.
-- **Never commit tokens, `.pfx`/`.jks`/`.pem` files, tenant credentials or client document
-  content.** Skills acquire credentials at runtime and cache them outside the repo.
-
-Keep `SKILL.md` lean and push detail into `references/` files that load only when needed — every
-session pays the always-on cost. If you also keep a copy of a skill in `~/.claude/skills/`, delete
-it; two registrations of the same name collide.
+- Try a change without installing: `claude --plugin-dir plugins/zamconnect-integration`, then
+  `/reload-plugins` after each edit. `claude plugin details zamconnect-integration@dotgov` shows the
+  plugin's always-on token cost.
+- Tag a release with `claude plugin tag plugins/zamconnect-integration`.
+- The `description` in a skill's `SKILL.md` front matter is all Claude sees when it decides to load the
+  skill. Write it as the phrases people actually type.
+- Keep `SKILL.md` short and put detail in `references/`. Every session pays for what is always loaded.
+- Never commit tokens, certificates (`.pfx`, `.jks`, `.pem`), tenant credentials or client documents.
