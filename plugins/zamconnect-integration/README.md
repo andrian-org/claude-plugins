@@ -74,6 +74,16 @@ Every skill works on the local repository and the local Docker stack. Nothing is
 | `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | Imports the scope, cluster and route into each gateway, and grants the scope to each consumer's gateway user |
 | `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` | A virtual tenant's routes, with no cluster. Imports them into each gateway and creates the agency's gateway user with the route scope |
 
+`ENVIRONMENT-VARIABLES.json` and both `GATEWAY-CONFIG.md` files are local only and never committed: send them to the administrator directly. The skill that writes one adds these lines to the repository root `.gitignore` when they are missing:
+
+```gitignore
+src/Tenants/*/ENVIRONMENT-VARIABLES.json
+src/Tenants/*/GATEWAY-CONFIG.md
+src/VirtualTenants/*/GATEWAY-CONFIG.md
+```
+
+A file that git already tracks stays tracked until someone runs `git rm --cached <path>`; `/tenant-audit` reports it. The pipeline file stays in git, because the Azure DevOps pipeline reads it from the repository. `references/zamconnect-conventions.md` C10 lists which other configuration files are committed, and why.
+
 ZamPass / RA clients are registered by hand by an administrator. The skills write only the `__Token__` placeholders for them, and never record a container registry, Helm, cluster, MongoDB, RA or ZamPass address.
 
 ## Arguments and flags

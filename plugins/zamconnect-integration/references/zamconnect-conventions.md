@@ -98,9 +98,10 @@ the slug's own tenant is a cross-cluster route (C11). The doc shows no transform
 
 ## C9 — `ENVIRONMENT-VARIABLES.json`
 
-One file per tenant, `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json`, committed. It lists the **names** of
-every variable a deployment of the tenant reads. An administrator adds them by hand to each environment. It
-never holds a secret value or a host address.
+One file per tenant, `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json`. It is **local only**: git ignores it,
+and it is never committed (C10, "Not committed"). It lists the **names** of every variable a deployment of the
+tenant reads. The engineer sends the file to an administrator, who adds the variables by hand to each
+environment. It never holds a secret value or a host address.
 
 ```json
 {
@@ -126,6 +127,8 @@ never holds a secret value or a host address.
 - `tenant-init` creates it. `tenant-integration` and `integrate-shared` add an entry for every token they write
   and remove the entry of a token they delete. `tenant-audit` Check 4 checks that the file and the tokens in
   `appsettings.json` match exactly.
+- A fresh clone has no copy, because git does not carry it. `tenant-audit` Check 4 regenerates it from the
+  tokens in `appsettings.json`.
 
 ## C10 — Local-only scope
 
@@ -145,6 +148,42 @@ Every skill works on the local repository and the local Docker compose stack onl
   registry (Harbor), a Helm repository, a Kubernetes cluster, a MongoDB instance, the Registration Authority,
   ZamPass or Hydra. The only addresses skills write are the local compose ones (`http://gateway/`,
   `http://core-<slug>`, `localhost`) and the public gateway base URLs the deliverables document.
+
+### Not committed
+
+The handoff files describe environment setup that an administrator applies by hand. They stay on the
+engineer's machine and go to the administrator directly, never through git:
+
+| File | Written by |
+|---|---|
+| `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json` (C9) | `tenant-init`; entries added by `tenant-integration`, `integrate-shared`, `payment-callback` |
+| `src/Tenants/<Folder>/GATEWAY-CONFIG.md` | `tenant-init`; routes and methods added by `integrate-shared` |
+| `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` (C11) | `integrate-shared --mode virtual` |
+
+A skill that creates one of these files makes sure the repository root `.gitignore` holds this block. It
+appends only the missing lines and never rewrites or reorders the rest of the file:
+
+```gitignore
+# zamconnect-integration handoff files: local only
+src/Tenants/*/ENVIRONMENT-VARIABLES.json
+src/Tenants/*/GATEWAY-CONFIG.md
+src/VirtualTenants/*/GATEWAY-CONFIG.md
+```
+
+A `.gitignore` line does not untrack a file that git already tracks. A skill never runs `git add`, `git rm` or
+`git commit`. `tenant-audit` Check 4 reports a tracked handoff file with the `git rm --cached <path>` command
+for the engineer to run.
+
+Other configuration, checked against the same rule:
+
+| File | In git | Why |
+|---|---|---|
+| `appsettings.json` | Yes | The build reads it, and the deploy publishes it as the settings artifact. Tokens only, no values (C4) |
+| `appsettings.Development.json` | Yes | Local runs and the test factories load it. Credentials stay `__Token__` placeholders (C7) |
+| `.azure/tenant.azure-pipelines.<slug>.yaml` | Yes | The Azure DevOps pipeline definition reads it from the repository |
+| `Properties/launchSettings.json`, compose service, `ZamConnect.sln` entry | Yes | Build and local run inputs, with no environment values |
+| `appsettings.local.json` | No | Real credentials for `tenant-tests --live`. Already ignored |
+| `.claude/zamconnect/` | No | Pipeline state. The directory carries its own `.gitignore` (`*`) |
 
 ## C11 — Virtual tenants and cross-cluster routes
 
@@ -225,13 +264,11 @@ in the review that both are reachable.
   the import would replace the live host cluster. Without it, the import checks that the host cluster exists
   and rejects the route otherwise: `Route '<id>' references cluster '<host>' which does not exist.`
 - Never write a virtual tenant's file under `src/Tenants/`. The skills read a folder there as a tenant
-  (`tenant-init` refuses the name). Under the host's folder, the file also triggers the host's pipeline
-  (`.azure/tenant.azure-pipelines.<host>.yaml` includes `/src/Tenants/<Host>/*`), which rebuilds and
-  redeploys the host.
+  (`tenant-init` refuses the name), and the host's folder already holds the host's own `GATEWAY-CONFIG.md`.
 - A virtual tenant gets no project, solution entry, compose service, Azure pipeline file,
   `ENVIRONMENT-VARIABLES.json` or test project. Nothing is deployed for it.
-- Its folder holds `GATEWAY-CONFIG.md` and, once `tenant-deliverables` has run, `Deliverables/`. The document
-  is the host's contract for the operations the routes reach, at the consumer's paths (`tenant-deliverables`
-  step 4).
+- Its folder holds `GATEWAY-CONFIG.md`, which is local only (C10, "Not committed"), and, once
+  `tenant-deliverables` has run, `Deliverables/`. The document is the host's contract for the operations the
+  routes reach, at the consumer's paths (`tenant-deliverables` step 4).
 - Locally, `tenant-audit <CODE>` applies the package to the local Docker `mongo` and calls each route through
   the local gateway (its Check V).

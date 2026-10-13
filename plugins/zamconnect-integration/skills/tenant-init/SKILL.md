@@ -100,6 +100,7 @@ Scaffold PQPS (Carter, spec-ready):
   .azure/tenant.azure-pipelines.pqps.yaml
   src/.dockercompose/docker-compose.yml   + core-pqps
   src/ZamConnect.sln                      + Tenants/PQPS
+  .gitignore                              + handoff files, local only (C10)
 Dev ports 53398 / 53399 · gateway route t_pqps → /t/pqps (cluster PQPS, scope pqps) · title "Plant Quarantine and Phytosanitary Service (PQPS)"
 Command: /tenant-init PQPS --full-name "Plant Quarantine and Phytosanitary Service" --integrates soap --port 53398
 ```
@@ -123,6 +124,8 @@ Swagger/OpenApiDocumentation.cs
 GATEWAY-CONFIG.md
 ENVIRONMENT-VARIABLES.json
 ```
+
+`GATEWAY-CONFIG.md` and `ENVIRONMENT-VARIABLES.json` are local only and never committed (C10, "Not committed"). Step 6b keeps them out of git.
 
 File hygiene per C6: `.editorconfig` asks for CRLF + UTF-8 BOM on `.cs`; `core.autocrlf` fixes line endings on commit and BOM is optional (APIS has none).
 
@@ -542,6 +545,16 @@ Create `src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json` in the C9 format wi
 
 This file is the whole variable handoff. Nothing is created in any environment (C10).
 
+### 6b. Keep the handoff files out of git
+
+Make sure the repository root `.gitignore` holds the C10 handoff block. List the lines already there:
+
+```bash
+grep -xF -e 'src/Tenants/*/ENVIRONMENT-VARIABLES.json' -e 'src/Tenants/*/GATEWAY-CONFIG.md' -e 'src/VirtualTenants/*/GATEWAY-CONFIG.md' .gitignore
+```
+
+Append the lines it does not print at the end of the file, under the block's comment line, with the line endings the file already uses. Never rewrite or reorder the rest of `.gitignore`. Nothing missing means nothing to write.
+
 ### 7. Add to the solution
 
 ```bash
@@ -614,6 +627,14 @@ grep -n '"value": "<slug>"\|"value": "core-<slug>"' src/Tenants/<TenantName>/ENV
 
 `4`, then two hits.
 
+And that git ignores both handoff files:
+
+```bash
+grep -cxF -e 'src/Tenants/*/ENVIRONMENT-VARIABLES.json' -e 'src/Tenants/*/GATEWAY-CONFIG.md' .gitignore
+```
+
+`2`.
+
 And that the spec-ready baseline is there:
 
 ```bash
@@ -629,7 +650,7 @@ Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contrac
 
 One line per file created, then the solution entry, the build result, the image build result and the container start result (`ok` / `fail` / `skipped`), then the equivalent command (R7). Close by naming what was deliberately left out so the user can ask for it:
 
-- Administrator, by hand (C10): register the ADO pipeline for `.azure/tenant.azure-pipelines.<slug>.yaml`; add every entry of `ENVIRONMENT-VARIABLES.json` to each environment; import `GATEWAY-CONFIG.md` into each gateway and give every consumer's gateway user the `<slug>` scope; register any ZamPass / RA client the tenant needs
+- Administrator, by hand (C10): register the ADO pipeline for `.azure/tenant.azure-pipelines.<slug>.yaml`; add every entry of `ENVIRONMENT-VARIABLES.json` to each environment; import `GATEWAY-CONFIG.md` into each gateway and give every consumer's gateway user the `<slug>` scope; register any ZamPass / RA client the tenant needs. `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git: send them to the administrator directly
 - Business surface: `Modules/`, `Endpoints/`, `Models/`, `Mapper/`
 - Test project `src/Tests/<TenantName>.Tests` — required by `AGENTS.md` and `.ai-factory/rules/base.md`; `/tenant-tests <TenantName>` creates it
 

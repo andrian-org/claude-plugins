@@ -212,13 +212,29 @@ grep -nE '"secret": true[^}]*"value": "[^"]' src/Tenants/<TenantName>/ENVIRONMEN
 
 | Finding | Severity |
 |---|---|
-| File missing | `fail` — the administrator has no list, and the deploy fails on the first unlisted token |
+| File missing | `warn` — the file is local only (C9), so a fresh clone has none. Regenerate it before the administrator handoff, or the deploy fails on the first unlisted token |
 | Token missing from the file | `fail` |
 | Entry with no token | `warn` — a leftover variable |
 | A `secret: true` entry with a non-empty `value` (print the line number only) | `fail` — same as a literal credential |
 | A credential key (C7 suffixes) listed with `secret: false` | `warn` |
 
 Fixable: the file missing, missing entries, and leftover entries. Regenerate in the C9 format, keeping every existing `description` and non-secret `value`.
+
+**Handoff files stay out of git (C10, "Not committed").** `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are local only:
+
+```bash
+git ls-files src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+git check-ignore --no-index src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+The first command prints the tracked ones, the second the ones `.gitignore` covers.
+
+| Finding | Severity |
+|---|---|
+| A handoff file is tracked | `fail`. Report `git rm --cached <path>` for the engineer to run, and say the file stays in history until then. Never run it |
+| A handoff file is not covered by `.gitignore` | `warn` |
+
+Fixable: the missing `.gitignore` lines. Append the missing lines of the C10 block to the repository root `.gitignore`, and never rewrite the rest of the file. A tracked file is never an option: removing it from the index is the engineer's change to commit.
 
 For an `appsettings.json` hit, check whether it is already in history — `git log --oneline -- <file>` — and say so: removing it from the working tree does not remove it from the repository.
 
@@ -252,7 +268,7 @@ Test for the csproj, not the folder — `src/Tests/` holds snapshot folders and 
 | Artefact | Rule | Missing = |
 |---|---|---|
 | Postman collection | A file in `postman collections/` matching `<TenantName>.postman_collection.json` case-insensitively, or whose `info.name` is the tenant | `warn` — many collections are named after the agency or system, not the code |
-| Gateway route | The tenant's cluster in `docs/zamconnect-test-routes.md` (Check 2). `src/Tenants/<T>/GATEWAY-CONFIG.md` is optional — only new scaffolds have one | `warn` |
+| Gateway route | The tenant's cluster in `docs/zamconnect-test-routes.md` (Check 2). `src/Tenants/<T>/GATEWAY-CONFIG.md` is optional — only new scaffolds have one, and it is local only (C10), so a fresh clone has none | `warn` |
 | Agency register row | A table row for the tenant in `docs/zamconnect-agency-tenants.md` | `warn` |
 
 ```bash
@@ -363,7 +379,7 @@ done
 | Docker not installed or the engine not running | Stop Check 9, report it `skipped — Docker not available`, and tell the user in the report's first line |
 | `up --build` fails for `admin-api` or `gateway` | `fail` — report the service, the failing Dockerfile step and the first error line. A broken platform image is its own finding, not the tenant's |
 | A health endpoint is not `200` after 120 s | `fail` — quote the exception type and message from `$C logs --no-color --tail 60 <service>`, never config values |
-| No `GATEWAY-CONFIG.md` | `skipped — no GATEWAY-CONFIG.md`. It is optional for tenants older than the `tenant-init` scaffold (Check 7). Report the file to create, in the `tenant-init` §6 shape, with the tenant's route from the routes doc |
+| No `GATEWAY-CONFIG.md` | `skipped — no GATEWAY-CONFIG.md`. It is optional for tenants older than the `tenant-init` scaffold (Check 7), and local only (C10), so a fresh clone has none. Report the file to create, in the `tenant-init` §6 shape, with the tenant's route from the routes doc |
 | No compose service (Check 1) | `skipped` — Check 1 already reports it |
 
 Leave the stack running after the check; the report names the containers it started.
@@ -484,6 +500,7 @@ Read the single ```` ```json ```` block of the file. For each route, find the ho
 | No other route uses the same `match.path`: `grep -n '/t/<slug>/' docs/zamconnect-test-routes.md`, plus every other `GATEWAY-CONFIG.md` under `src/Tenants/` and `src/VirtualTenants/` | A different route id on the same path is a `fail`: the gateway answers 500 |
 | No project artefacts: compose service `core-<slug>`, `.azure/tenant.azure-pipelines.<slug>.yaml`, `ZamConnect.sln` entry | Any one is a `warn`: a half-converted tenant. Its routes belong in the tenant's own `GATEWAY-CONFIG.md` (tenant-init §6) |
 | Each route id is in the routes doc | Present is `ok — live in test`. Missing is a `warn — not imported yet`, normal before the first import |
+| The file is not in git (C10): `git ls-files src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` prints nothing, and `git check-ignore --no-index` prints the path | Tracked is a `fail`: report `git rm --cached <path>` for the engineer to run, never run it. Not covered by `.gitignore` is a `warn` |
 
 Under `--all`, `--no-runtime` or `--dry-run`, V1 is all that runs for a virtual tenant.
 
@@ -506,7 +523,7 @@ Classify by who answered, with the Check 9c table, and these readings for the ho
 
 Read `$C logs --no-color --tail 40 gateway` to tell a gateway answer from a host answer: a proxied request names its destination cluster. Report one row per call: route id, method, gateway path, host path, status, verdict. Leave the containers, the applied routes and the test user in place, and name them in the report.
 
-Fixable through the fix question: none. Every failure is a change to the virtual tenant's `GATEWAY-CONFIG.md`, made with `/integrate-shared <CODE> --mode virtual` for a GOVZM host.
+Fixable through the fix question: the missing `.gitignore` lines only, as in Check 4. Every other failure is a change to the virtual tenant's `GATEWAY-CONFIG.md`, made with `/integrate-shared <CODE> --mode virtual` for a GOVZM host.
 
 ## Fixing
 
@@ -522,7 +539,7 @@ Apply fixes for PQPS? Only the ticked repairs are written. The rest of the repor
 
 With more than 3 fixable findings, show the 3 most severe plus `Fix all <n> fixable findings`. Under `--all`, one option per root cause across tenants, naming the tenants the run actually found: `Add pipeline files for <T1>, <T2>`.
 
-Check 4's variable-list repairs are options too (`Regenerate ENVIRONMENT-VARIABLES.json   check 4 — 2 tokens unlisted`). Findings that aren't fixable — a missing endpoint section, a committed credential, a casing or slug mismatch, a regression guard — are **never** options. They stay in the report with the exact block to add.
+Check 4's variable-list and `.gitignore` repairs are options too (`Regenerate ENVIRONMENT-VARIABLES.json   check 4 — 2 tokens unlisted`, `Ignore the handoff files in .gitignore   check 4 — 2 lines missing`). Findings that aren't fixable — a missing endpoint section, a committed credential, a tracked handoff file, a casing or slug mismatch, a regression guard — are **never** options. They stay in the report with the exact block to add.
 
 Apply the picked repairs exactly as tenant-init §4 (pipeline), §5 (compose) and §7 (`dotnet sln add … --solution-folder Tenants`) specify, re-run the checks they belong to, and report the new status.
 

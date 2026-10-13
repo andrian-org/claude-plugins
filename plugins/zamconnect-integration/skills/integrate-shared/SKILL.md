@@ -313,6 +313,7 @@ Under `Reaches`, list every GOVZM operation each route reaches. An unselected op
 
 - Virtual tenant: create `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` from the template below, or replace its routes when it exists. `<CODE>` is `<T>` in upper case, `<slug>` in lower case.
 - Existing tenant: add the routes to `routes[]` of `src/Tenants/<T>/GATEWAY-CONFIG.md`. Keep `clusters` and the tenant's own route as they are, and add the operations table of the template below the import paragraph. A tenant with no `GATEWAY-CONFIG.md` gets the route objects in the report instead.
+- Git: the file is local only (C10, "Not committed"). Append to the repository root `.gitignore` any line of the C10 handoff block that `grep -xF -e 'src/Tenants/*/ENVIRONMENT-VARIABLES.json' -e 'src/Tenants/*/GATEWAY-CONFIG.md' -e 'src/VirtualTenants/*/GATEWAY-CONFIG.md' .gitignore` does not print. Never rewrite the rest of the file.
 - Nothing else: no `Program.cs`, `appsettings`, `ENVIRONMENT-VARIABLES.json`, module or test change.
 
 ~~~~markdown
@@ -569,12 +570,13 @@ Close with what an administrator does by hand (C10):
 - Add the `ENVIRONMENT-VARIABLES.json` entries this run added to each environment — `Endpoints.APIGATEWAY.BaseUrl`, `Credentials.<TenantName>Tenant.Username`, `Credentials.<TenantName>Tenant.Password` (C4, C9)
 - Grant the scopes above to the tenant's gateway user in each gateway
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
+- `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly
 
 End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a prerequisite stops the skill or the build in step 7 fails.
 
 **Virtual mode.** One line for the `GATEWAY-CONFIG.md` written or changed, then the route table: route id, methods, consumer path, GOVZM path, operations reached. Then what an administrator does by hand (C10, C11):
 
-- Import the `GATEWAY-CONFIG.md` package into each gateway. The import rejects the routes in a gateway without a `GOVZM` cluster
+- Import the `GATEWAY-CONFIG.md` package into each gateway. The import rejects the routes in a gateway without a `GOVZM` cluster. The file is not in git (C10): the engineer sends it to the administrator directly
 - Create the agency's gateway user in each gateway, with the `<scope>` scope only
 - Nothing to deploy: no pipeline, no variables, no image. GOVZM serves the routes with its own gateway user, which must keep the scopes of the operations reached (`ndw`, `ndw-nbr`, `zra`, `zra-portal`)
 
