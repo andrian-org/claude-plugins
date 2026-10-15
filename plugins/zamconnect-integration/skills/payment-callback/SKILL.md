@@ -57,7 +57,7 @@ Re-derive everything; the switch grows with every destination.
 
 ```bash
 # Codes already mapped, and the client each one resolves
-awk '/public async Task TransactionCallback\(/{f=1} f && /case "|GetRequiredService</{print NR": "$0} f && /default:/{exit}' src/Tenants/GOVZM/Controllers/PayController.cs
+awk '/public async Task TransactionCallback\(/{f=1} f && /case "|GetRequiredService</{print NR": "$(0)} f && /default:/{exit}' src/Tenants/GOVZM/Controllers/PayController.cs
 # Existing callback clients, direct or through ZamPointEndpoint
 grep -lE 'ITransactionCallback|:[[:space:]]*ZamPointEndpoint' src/Tenants/GOVZM/Endpoints/*.cs
 # Callback paths in use, most common first
@@ -70,7 +70,7 @@ Stop with the reason when:
 
 - The code already has a `case` (`case "<CODE>"` or `or "<CODE>"`). Name the client it maps to. Changing it is a hand edit, not this skill.
 - `--kind rest|zampoint` and the derived client class already exists: `ls src/Tenants/GOVZM/Endpoints/<Client>.cs`, or `grep -rlE "class <Client>\b" src/Tenants/GOVZM`. Suggest `--system <OtherName>`, or `--alias-of <Client>` when it's the same agency.
-- `--kind alias` and `--alias-of` names a class with no `case` in the switch, or one that doesn't implement `ITransactionCallback`.
+- `--kind alias` and `--alias-of` names a class that doesn't implement `ITransactionCallback`, directly or through `ZamPointEndpoint`.
 - `Endpoints:<Client>` already exists in either appsettings file for a new client.
 
 ## 2. Collect inputs
@@ -79,7 +79,7 @@ Skip every question whose flag was passed (R1). One `AskUserQuestion` call, at m
 
 | Header | Question | Options | → flag |
 |---|---|---|---|
-| `Client` | How should GOVZM reach `<CODE>`? | `New REST client <System>Api (Recommended)` — `RestEndpoint` with its own path · `ZamPoint client ZamPoint<System>` — agency on the ZamPoint platform, `/payment/callback` · `Existing client` — map `<CODE>` onto a client that already has a case | `--kind` |
+| `Client` | How should GOVZM reach `<CODE>`? | `New REST client <System>Api (Recommended)` — `RestEndpoint` with its own path · `ZamPoint client ZamPoint<System>` — agency on the ZamPoint platform, `/payment/callback` · `Existing client` — map `<CODE>` onto an existing callback client | `--kind` |
 | `Auth` | How does the agency authenticate the callback? | `Basic (Recommended)` · `Custom header` · `JWT bearer` · `None — open endpoint` | `--auth` |
 | `Path` | Callback path on the agency system — or paste a path in Other. | The distinct paths from the step 1 grep, most used first, `(Recommended)` on the first. Ignored for `zampoint` and `alias` | `--path` |
 | `Test URL` | Development base URL — or paste a URL in Other. | `https://<code>api.test.gsb.gov.zm (Recommended)` · `https://zampoint<code>.test.gsb.gov.zm`. Ignored for `alias` | `--test-url` |
@@ -152,7 +152,7 @@ New client: insert the case **before** `default:` in the `TransactionCallback` s
                     break;
 ```
 
-`alias`: extend the existing case line of `<Client>` with `or "<CODE>"`, following PR 46108 (`case "MOTA" or "DNPW" or "DOT" or "ZTA":`). When that client still uses stacked labels (`case "MAL":` / `case "DAM":`), add one more stacked label above its body instead.
+`alias`: extend the existing case line of `<Client>` with `or "<CODE>"`, following PR 46108 (`case "MOTA" or "DNPW" or "DOT" or "ZTA":`). When that client still uses stacked labels (`case "MAL":` / `case "DAM":`), add one more stacked label above its body instead. When the client has no case yet (a `ZamPoint*` client mapped only for data exchange), insert a new case as above.
 
 ## 6. Configure both appsettings files
 
@@ -191,7 +191,7 @@ Skip for `alias`. The tokens written in step 6 need variables in `GSB.GOVZM.{DEV
 
 Skip with `--no-tests`. `GOVZM.Tests` already exists and is in `ZamConnect.sln`. Its other fixtures call live systems, so run only this fixture.
 
-`src/Tests/GOVZM.Tests/TestHelpers/MockHttpMessageHandler.cs` — create it when missing, as the **recording** variant from `src/Tests/APIS.Tests/TestHelpers/MockHttpMessageHandler.cs`, namespace `GOVZM.Tests.TestHelpers`.
+`src/Tests/GOVZM.Tests/TestHelpers/MockHttpMessageHandler.cs` — create it when missing, as the **recording** variant from `src/Tests/APIS.Tests/TestHelpers/MockHttpMessageHandler.cs`, namespace `GOVZM.Tests.TestHelpers`. `GOVZM.Tests` has no `ImplicitUsings`, so give it the full `using` block (C1); `/data-exchange` step 8 holds the complete file.
 
 `src/Tests/GOVZM.Tests/Endpoints/TransactionCallbackEndpointTests.cs` — create it on the first run. On later runs, add only one row to `Destinations`; for `alias`, add a row only when the client has none yet:
 
@@ -285,7 +285,7 @@ One line per file added or changed, then the destination: code → client → `P
 - Add the variables to `GSB.GOVZM.DEV`, `GSB.GOVZM.STG` and `GSB.GOVZM.PROD`, names only: `Endpoints.<Client>.BaseUrl`, plus `.Username` / `.Password` (Basic) or `.AuthHeaderValue` (JWT, Custom). Without them the GOVZM deploy fails on `replacetokens`
 - Confirm with the ZamPay service configuration that receipts for this agency are sent with `destinationCode: <CODE>`
 - Confirm with the agency that its endpoint accepts the legacy receipt payload at `POST <path>`
-- For `zampoint`: data exchange through `DataExchangeController` is a separate change; this skill maps only the payment callback
+- For `zampoint`: data exchange through `DataExchangeController` is a separate mapping; suggest `/data-exchange <CODE> --alias-of <Client>`
 
 End with the equivalent command (R7), e.g. `/payment-callback NPDD --system Npdd --kind rest --auth Basic --path /payment/callback --test-url https://npddapi.test.gsb.gov.zm`, and these answers for the pipeline state: `code`, `kind`, `client`, `auth`, `path`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a step 1 check stops the skill, or the step 9 build or test fails.
 

@@ -75,8 +75,8 @@ One string has to be spelled identically in four places, or the gateway routes t
 `<slug>` is the tenant name lowercased with no separators. List every compose service whose key isn't `core-<lowercase folder>`:
 
 ```bash
-awk '/^  [a-z0-9.-]+:[[:space:]]*$/ { k = $1; sub(/:$/, "", k) }
-     /dockerfile:[[:space:]]*Tenants\// { t = $2; sub(/^Tenants\//, "", t); sub(/\/Dockerfile.*/, "", t)
+awk '/^  [a-z0-9.-]+:[[:space:]]*$/ { k = $(1); sub(/:$/, "", k) }
+     /dockerfile:[[:space:]]*Tenants\// { t = $(2); sub(/^Tenants\//, "", t); sub(/\/Dockerfile.*/, "", t)
        if (k != "core-" tolower(t)) print k, t }' src/.dockercompose/docker-compose.yml
 ```
 
@@ -85,7 +85,7 @@ Each line is a finding (a typo, or a service without the `core-` prefix). Re-der
 Gateway side: find the tenant's cluster in the routes doc. Cluster IDs are roughly the uppercase tenant name; route names and paths often differ from it:
 
 ```bash
-awk -F' *[|] *' -v t=<TenantName> 'toupper($6) == toupper(t) { print $3, $5, $8 }' docs/zamconnect-test-routes.md
+awk -F' *[|] *' -v t=<TenantName> 'toupper($(6)) == toupper(t) { print $(3), $(5), $(8) }' docs/zamconnect-test-routes.md
 ```
 
 Prints route name, test URL and scope for every route on that cluster. No row = no test-environment route (`warn`; a new tenant won't have one until its gateway package is imported).
@@ -109,7 +109,7 @@ A one-line `class X : RestEndpoint` grep is wrong: it misses subclasses of a ten
 find src/Tenants/<TenantName> -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*' -exec cat {} + | awk '
   { sub(/\r$/, ""); sub(/\/\/.*/, "") }
   !open && /(^|[^A-Za-z0-9_])class([ \t]+[A-Za-z_]|[ \t]*$)/ { open = 1; d = "" }
-  open { d = d " " $0; if (d ~ /[{;]/) { decl(d); open = 0 } }
+  open { d = d " " $(0); if (d ~ /[{;]/) { decl(d); open = 0 } }
   function decl(s,   name, n, p, i, b) {
     sub(/[{;].*/, "", s)
     if (s !~ /(^|[^A-Za-z0-9_])public[ \t]/) return
@@ -142,7 +142,7 @@ Actual sections, keys only (never values), for each of `appsettings.json` and `a
 
 ```bash
 awk '
-  { buf = buf $0 "\n" }
+  { buf = buf $(0) "\n" }
   END {
     n = length(buf)
     for (i = 1; i <= n; i++) {
@@ -505,7 +505,7 @@ Read the single ```` ```json ```` block of the file. For each route, find the ho
 | Check | Verdict |
 |---|---|
 | `clusters` is `[]` | A cluster listed is a `fail`: the import would overwrite the live host cluster |
-| `clusterId` is a cluster in the routes doc (`awk -F' *[\|] *' '{ print $6 }' docs/zamconnect-test-routes.md \| sort -u`) | Missing is a `fail`: the import rejects the route with `references cluster '<id>' which does not exist` |
+| `clusterId` is a cluster in the routes doc (`awk -F' *[\|] *' '{ print $(6) }' docs/zamconnect-test-routes.md \| sort -u`) | Missing is a `fail`: the import rejects the route with `references cluster '<id>' which does not exist` |
 | `authorizationPolicy` is `Basic`, `metadata.Scope` is set | Either missing is a `fail` (tenant-init §6 says why) |
 | The `PathPattern` prefix is a route group the host maps: `grep -rnE 'MapGroup\("<prefix>"\|SharedModule\("<prefix>"' src/Tenants/<Host>/Modules` | No match is a `fail`: every call reaches a path the host doesn't serve |
 | `match.methods` holds only verbs the host maps under the forwarded path (the `integrate-shared` §6 verb grep on the host, plus the `EServicesSharedModule` verbs when the host derives from it) | An extra verb is a `warn`: the host answers 405 |

@@ -259,6 +259,7 @@ in Claude Code to see them. They may also be listed with the plugin prefix, for 
 | `/tenant-audit <Tenant>` | Checks the tenant for anything missing or wrong, and calls it through a local gateway |
 | `/tenant-deliverables <Tenant>` | Generates the Word API specifications, the OpenAPI JSON and the Postman collection |
 | `/payment-callback <CODE>` | Forwards ZamPay payment callbacks for an agency through GOVZM. Separate from the tenant flow |
+| `/data-exchange <CODE>` | Forwards ZamPoint data exchange (`DataExchange/SendData`) for an agency through GOVZM. Separate from the tenant flow |
 
 The `tenant-deliverables-builder` agent runs `/tenant-deliverables` in its own context, so its long logs stay
 out of your conversation.
@@ -414,6 +415,7 @@ Send `GATEWAY-CONFIG.md` to the administrator, who imports it and creates the ag
 | Regenerate the documents after a contract change | `/tenant-deliverables <Tenant> --version 1.1`. The previous version moves to `Deliverables/Archive/` |
 | See the shared e-Services catalogue | `/integrate-shared <Tenant> --list` |
 | Forward ZamPay callbacks to an agency | `/payment-callback <CODE>` |
+| Forward ZamPoint data exchange to an agency | `/data-exchange <CODE>` |
 
 ## Troubleshooting
 

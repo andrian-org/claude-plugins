@@ -265,7 +265,7 @@ The scripts can be run on their own from the ZamConnect root. They are under `<p
 |---|---|
 | `<DestinationCode>` | The `destinationCode` header ZamPay sends, upper case, `^[A-Z][A-Z0-9]{1,15}$` (required) |
 | `--system <Name>` | PascalCase system name for the client class. Default: the code with only its first letter upper case, e.g. `NPDD` → `Npdd` → client `NpddApi` |
-| `--kind` | `rest` (default): new `<System>Api : RestEndpoint`. `zampoint`: new `ZamPoint<System> : ZamPointEndpoint`, for an agency on the ZamPoint platform. `alias`: add the code to an existing client's `case`; nothing else is written |
+| `--kind` | `rest` (default): new `<System>Api : RestEndpoint`. `zampoint`: new `ZamPoint<System> : ZamPointEndpoint`, for an agency on the ZamPoint platform. `alias`: map the code onto an existing callback client — its `case`, or a new `case` when it has none; nothing else is written |
 | `--alias-of <Client>` | The existing client for `--kind alias`. Implies `--kind alias` |
 | `--path` | Callback path on the agency system. Default `/payment/callback`. `rest` only — `ZamPointEndpoint` fixes the path |
 | `--auth` / `--auth-header` | Callback auth. Default `Basic`; `None` only when chosen. `--auth-header` goes with `Custom` |
@@ -280,6 +280,31 @@ The tokens it writes need `GSB.GOVZM.{DEV,STG,PROD}` variables, or the GOVZM dep
 /payment-callback NPDD
 /payment-callback PAMS --system MihudPams --path /api/zampay/callback
 /payment-callback ZTA --alias-of ZamPointMota
+```
+
+### `/data-exchange`
+
+`<TargetCode> [--system <Name>] [--kind zampoint|rest|alias] [--alias-of <Client>] [--path </DataExchange/SetData>] [--auth Basic|JWT|Custom|None] [--auth-header <name>] [--test-url <url>] [--no-tests] [--auto] [--dry-run] [--help]`
+
+| Argument / flag | Meaning |
+|---|---|
+| `<TargetCode>` | The `Target` value in the `SendData` body, upper case, `^[A-Z][A-Z0-9]{1,15}$` (required) |
+| `--system <Name>` | PascalCase system name for the client class. Default: the code with only its first letter upper case, e.g. `ZICTA` → `Zicta` → client `ZamPointZicta` |
+| `--kind` | `zampoint` (default): new `ZamPoint<System> : ZamPointEndpoint`, posting to `/DataExchange/SetData`. `rest`: new `<System>Api : RestEndpoint, IDataExchangeEndpoint` with its own path. `alias`: reuse an existing client — add a `case` for it, a label on its existing `case`, or `IDataExchangeEndpoint` on a REST client that lacks it |
+| `--alias-of <Client>` | The existing client for `--kind alias`. Implies `--kind alias` |
+| `--path` | Data-exchange path on the agency system. Default `/DataExchange/SetData`. Not used by `zampoint` — `ZamPointEndpoint` fixes the path |
+| `--auth` / `--auth-header` | Auth for a new client. Default `Basic`; `None` only when chosen. `--auth-header` goes with `Custom` |
+| `--test-url` | Development `BaseUrl` for a new client. Default `https://zampoint<code>.test.gsb.gov.zm` (`zampoint`) or `https://<code>api.test.gsb.gov.zm` (`rest`) |
+| `--no-tests` | Skip the `DataExchangeControllerTests` row |
+
+When `<CODE>` already has a `PayController` case whose client implements `IDataExchangeEndpoint`, that client is the recommended answer, and only the `SendData` case is written. Under `--auto` it takes that client, else a new `zampoint` client, and stops only on a missing `<TargetCode>`.
+
+The test drives `DataExchangeController.SendData` itself with a mocked client, so a row proves the `case`, the client and the path together. Token handling is the same as `/payment-callback`. The gateway route `data_exchange` already exists, so nothing changes there.
+
+```
+/data-exchange ERS --alias-of ZamPointErs
+/data-exchange ZICTA
+/data-exchange NPDD --alias-of NpddApi --path /api/DataExchange/SetData
 ```
 
 ## Guided mode

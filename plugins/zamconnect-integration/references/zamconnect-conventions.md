@@ -162,7 +162,7 @@ engineer's machine and go to the administrator directly, never through git:
 
 | File | Written by |
 |---|---|
-| `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json` (C9) | `tenant-init`; entries added by `tenant-integration`, `integrate-shared`, `payment-callback` |
+| `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json` (C9) | `tenant-init`; entries added by `tenant-integration`, `integrate-shared`, `payment-callback`, `data-exchange` |
 | `src/Tenants/<Folder>/GATEWAY-CONFIG.md` | `tenant-init`; routes and methods added by `integrate-shared` |
 | `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` (C11) | `integrate-shared --mode virtual` |
 
