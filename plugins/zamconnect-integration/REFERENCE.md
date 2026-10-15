@@ -16,14 +16,14 @@ Under `--auto`, a skill never guesses a required input that has no default. It s
 
 ### `/tenant-init`
 
-`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
+`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,graphql,db,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Tenant project name (required). PascalCase, with no existing `src/Tenants/<TenantName>/` folder; asked in plain text when omitted |
 | `--controllers` | Scaffold MVC controllers instead of Carter modules (the default) |
 | `--full-name "<name>"` | Full descriptive name, written into `OpenApiInfo.Title` as `"<name> (<Tenant>)"`. When asked, `Take it from the integration source` leaves it pending, and `/tenant-integration` proposes it from the spec or WSDL title |
-| `--integrates` | What the tenant will integrate with. Decides the later defaults — `rest` / `soap` set the protocol of `/tenant-integration`, `shared` makes the shared e-Services step recommended |
+| `--integrates` | What the tenant will integrate with. Decides the later defaults — `rest`, `soap`, `graphql` and `db` set the protocol queue of `/tenant-integration`, `shared` makes the shared e-Services step recommended. Asked as `Agency system` / `Shared e-Services` / `Not known yet`, and `Agency system` then asks what the agency system speaks |
 | `--virtual` / `--no-virtual` | With `--integrates shared` alone: make it a virtual tenant (nothing scaffolded), or scaffold the project anyway. Asked when neither is passed |
 | `--port <https>` | HTTPS dev port. Default: the next free pair after the ports in every tenant's `launchSettings.json` |
 | `--no-pipeline` | Stop after the scaffold; do not drive the rest of the chain. Use it when you run the other skills by hand |
@@ -51,15 +51,21 @@ See [Guided mode](#guided-mode) and [State and resume](#state-and-resume).
 
 ### `/tenant-integration`
 
-`<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap|rest,soap] [--auth <scheme>] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]`
+`<TenantName> [--source <url|path> | db[=<path>] | graphql[=<url|path>]...] [--expose <METHOD /route>...] [--protocol rest|soap|graphql|db (comma list)] [--auth <scheme>] [--auth-header <name>] [--login-path <path>] [--credentials shared|per-caller] [--callers <user>,...] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--proxy] [--aggregate "<GET /path>=<Client.Method>+<Client.Method>"...] [--aggregate-shape fields|list] [--cache <s>] [--db-access dapper|efcore] [--db-writes] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Existing tenant (required). A missing folder points you to `/tenant-init` |
-| `--source <url\|path>` | Integration source: Postman collection, OpenAPI spec, REST base URL, WSDL or prose docs; repeatable. Without it, the skill offers the sources it finds in `Deliverables/Integration Requests/`, `postman collections/` and the repo root, tenant-named files first |
+| `--source <url\|path>` | Integration source: Postman collection, OpenAPI spec, REST base URL, WSDL, GraphQL schema or endpoint, `.sql` file or prose docs; repeatable. `db[=<path>]` and `graphql[=<url\|path>]` name the kind explicitly. Without it, the skill offers the sources it finds in `Deliverables/Integration Requests/`, `postman collections/` and the repo root, tenant-named files first |
 | `--expose <METHOD /route>` | Endpoints the tenant should expose; repeatable. Default: every upstream operation, confirmed in the review |
-| `--protocol rest\|soap\|rest,soap` | Integrate one upstream at a time for each protocol listed, REST first, asking for another of the same protocol until you mark it done or skip it. Also settles a REST/SOAP classification the source leaves open. Without it, the protocol is detected per source |
-| `--auth` / `--auth-header` | Upstream auth — REST: `Basic`, `JWT`, `Custom`, `RA`, `None`; SOAP: `Basic`, `ClientCertificate`, `None` — and, for `Custom`, the header name. Default: detected from the source |
+| `--protocol <list>` | Comma list of `rest`, `soap`, `graphql`, `db`. Integrate one upstream at a time for each protocol listed, in the order REST, GraphQL, SOAP, database, asking for another of the same protocol until you mark it done or skip it. Also settles a classification the source leaves open. Without it, the protocol is detected per source |
+| `--auth` / `--auth-header` | Upstream auth — REST and GraphQL: `Basic`, `JWT`, `Custom`, `RA`, `Login`, `None`; SOAP: `Basic`, `ClientCertificate`, `None` — and, for `Custom`, the header name. `Login` is a token-login upstream: the client logs in, caches and refreshes the token, and retries once on 401. Default: detected from the source |
+| `--login-path <path>` | `Login` only: the login path, relative to the base URL. Default: detected from the source |
+| `--credentials shared\|per-caller` / `--callers <user>,…` | `Login` only: one login for the tenant (default), or credentials per gateway caller. `per-caller` makes the tenant authenticate callers itself against the gateway user store; `--callers` lists the gateway usernames that get an entry |
+| `--proxy` | Forward every route the tenant doesn't map to this upstream unchanged (method, path, query, JSON body). Proxied operations aren't in Swagger or the documents |
+| `--aggregate "<GET /path>=<Client.Method>+…"` | A combined read route that calls several existing operations in parallel and returns one response; repeatable. Some sources failing gives a partial response that names them; all failing gives the first error |
+| `--aggregate-shape fields\|list` / `--cache <s>` | One field per source (default) or one merged list; cache lifetime of the combined response, default 1800, `0` for none. Partial responses are never cached |
+| `--db-access dapper\|efcore` / `--db-writes` | Database upstreams (SQL Server only): one parameterized SQL statement per operation (default) or an EF Core context; read-only unless `--db-writes` |
 | `--system <Name>` | Upstream system name — client class, `Models/<Name>/`, config section and tokens. Default: derived from the source title |
 | `--role provide\|consume` | Whether the routes serve this tenant's own institution (`provide`) or data reached back through the gateway (`consume`). Feeds the Consume/Provide split of the deliverables. Default `provide` |
 | `--dto public\|passthrough` | Public DTOs plus a mapper (default), or return the upstream shape as-is |
@@ -283,11 +289,11 @@ The tokens it writes need `GSB.GOVZM.{DEV,STG,PROD}` variables, or the GOVZM dep
 | # | Step | Offered when |
 |---|---|---|
 | 1 | `tenant-init` | `src/Tenants/<Tenant>/` doesn't exist |
-| 2 | `tenant-integration` | Always. Gets `--protocol rest`, `soap` or `rest,soap` from the intake answer |
+| 2 | `tenant-integration` | Always. Gets `--protocol` with the `rest`, `graphql`, `soap` and `db` members of the intake answer |
 | 3 | `integrate-shared` | Always. Recommended when the intake picked shared e-Services, otherwise `Skip` is recommended |
-| 4 | `tenant-tests` | The tenant exposes at least one route, checked on disk |
+| 4 | `tenant-tests` | The tenant exposes at least one route, or a catch-all proxy, checked on disk |
 | 5 | `tenant-audit` | Always, with `--report-only` and no gate |
-| 6 | `tenant-deliverables` | The tenant exposes at least one route. The route comes from `GATEWAY-CONFIG.md`, then the routes doc |
+| 6 | `tenant-deliverables` | The tenant exposes at least one route; a catch-all proxy alone doesn't count. The route comes from `GATEWAY-CONFIG.md`, then the routes doc |
 
 A step whose condition fails is recorded `skipped` with the reason. A virtual tenant runs steps 3, 5 and 6 only: steps 2 and 4 are recorded `skipped — virtual tenant`, step 3 runs `integrate-shared --mode virtual`, and step 6 is offered once `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` exists.
 
@@ -365,5 +371,6 @@ ZamPass / RA clients are registered by hand by an administrator. The skills writ
 | File | What it holds |
 |---|---|
 | `references/interaction-contract.md` | How every skill asks: rules R1–R14 (a flag for every question, structured questions only, review before write, `--auto`, missing arguments, `--help`), the gate and gate mode, and the pipeline state file format |
+| `skills/tenant-integration/references/upstream-patterns.md` | Templates and rules for token-login upstreams, per-caller credentials, the catch-all proxy, aggregate routes, database and GraphQL upstreams. Loaded only by a pass that uses one; `tenant-tests` reads it for the matching mocks |
 | `references/zamconnect-conventions.md` | ZamConnect facts the skills share: C1 usings and nullability, C2 `Error` → HTTP status, C3 `Username` casing, C4 token naming, C5 Carter DI lifetime, C6 file hygiene, C7 committed-secrets baseline, C8 live routes doc, C9 `ENVIRONMENT-VARIABLES.json`, C10 local-only scope and what's committed, C11 virtual tenants and cross-cluster routes |
 | `skills/tenant-deliverables/UPSTREAM-FIXES.md` | Defects in the ZamConnect repo's own `/api-spec-sync` that this plugin's renderers fix but the repo still ships, including personal names in document metadata |

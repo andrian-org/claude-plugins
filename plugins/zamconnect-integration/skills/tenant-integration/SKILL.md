@@ -1,7 +1,7 @@
 ---
 name: tenant-integration
-description: Build the integration surface of an existing ZamConnect tenant — upstream REST or SOAP client(s) under Endpoints/, request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides whether the client derives from RestEndpoint or SoapEndpoint. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "expose these endpoints on <Tenant>", or types /tenant-integration.
-argument-hint: "<TenantName> [--source <url|path>...] [--expose <METHOD /route>...] [--protocol rest|soap|rest,soap] [--auth Basic|JWT|Custom|RA|None (REST) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]"
+description: Build the integration surface of an existing ZamConnect tenant — upstream REST, SOAP, GraphQL or SQL Server database client(s), request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, GraphQL schema or endpoint, SQL file, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides the client kind. Also covers token-login upstreams (log in, cache and refresh the token) with shared or per-caller credentials, a catch-all proxy for unmapped routes, and combined routes that fan out to several upstream operations with a cache. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "read <Tenant>'s database", "call this GraphQL API", "the upstream needs a login token", "proxy the rest of <System>", "combine these calls into one route", "expose these endpoints on <Tenant>", or types /tenant-integration.
+argument-hint: "<TenantName> [--source <url|path> | db[=<path>] | graphql[=<url|path>]...] [--expose <METHOD /route>...] [--protocol rest|soap|graphql|db (comma list)] [--auth Basic|JWT|Custom|RA|Login|None (REST, GraphQL) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--login-path <path>] [--credentials shared|per-caller] [--callers <user>,...] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--proxy] [--aggregate \"<GET /path>=<Client.Method>+<Client.Method>\"...] [--aggregate-shape fields|list] [--cache <seconds>] [--db-access dapper|efcore] [--db-writes] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]"
 disable-model-invocation: false
 ---
 
@@ -14,6 +14,8 @@ Implement the business surface of a tenant that already exists (scaffold it firs
 
 The tenant always exposes REST. What it consumes is whatever the upstream speaks, and that is decided by the integration sources, not by preference — see step 1a.
 
+Six patterns go beyond a plain REST or SOAP client: token login (`--auth Login`), per-caller credentials (`--credentials per-caller`), the catch-all proxy (`--proxy`), aggregate routes (`--aggregate`), database upstreams (`--source db`) and GraphQL upstreams (`--source graphql`). Their templates and rules are in `${CLAUDE_PLUGIN_ROOT}/skills/tenant-integration/references/upstream-patterns.md` (§1–§6). Read only the section a pass uses, when it uses it.
+
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`, R12 above all: **every option is a complete answer**. This skill never offers a source *type* as an option, never asks for anything the source already says (protocol, SOAP version, operations, auth block), and never writes "pick Other and…" in an option.
 
 Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), cross-cluster routes (C11) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
@@ -23,10 +25,19 @@ Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username`
 | Flag | Meaning | When absent |
 |---|---|---|
 | `<TenantName>` | Existing tenant under `src/Tenants/` | Required. Asked first, from the contract's Missing arguments menu (R13); `--auto` stops with `missing <TenantName>`. If the folder is missing, run `tenant-init` first |
-| `--source <url\|path>` | Integration source; repeatable | Asked (step 1, source question) |
+| `--source <url\|path>` | Integration source; repeatable. `db[=<path>]` and `graphql[=<url\|path>]` name the kind explicitly: a database upstream (patterns §5) with an optional `.sql` file or document, or a GraphQL upstream (§6) with an optional endpoint URL or schema file | Asked (step 1, source question) |
 | `--expose <METHOD /route>` | A route the tenant should expose; repeatable | Every upstream operation, confirmed in the review |
-| `--protocol rest\|soap\|rest,soap` | Runs one typed pass per upstream, per protocol listed, REST first (step 1, Protocol passes). The pass's protocol settles a classification step 1a leaves open | Untyped passes, protocol detected from the source |
-| `--auth <scheme>` / `--auth-header <name>` | Upstream auth. REST: `Basic`, `JWT`, `Custom`, `RA`, `None`. SOAP: `Basic`, `ClientCertificate`, `None`. `--auth-header` goes with `Custom` | Detected from the source. Asked only when it can't be |
+| `--protocol <list>` | Comma list of `rest`, `soap`, `graphql`, `db`. Runs one typed pass per upstream, per protocol listed, in the order REST, GraphQL, SOAP, database (step 1, Protocol passes). The pass's protocol settles a classification step 1a leaves open | Untyped passes, protocol detected from the source |
+| `--auth <scheme>` / `--auth-header <name>` | Upstream auth. REST and GraphQL: `Basic`, `JWT`, `Custom`, `RA`, `Login`, `None`. SOAP: `Basic`, `ClientCertificate`, `None`. `--auth-header` goes with `Custom`. `Login` is a token-login upstream (patterns §1) | Detected from the source. Asked only when it can't be |
+| `--login-path <path>` | Login path of a `Login` upstream, relative to `BaseUrl` | Detected from the source; asked when there are several candidates or none |
+| `--credentials shared\|per-caller` | `Login` only. One login for the tenant, or credentials per gateway caller (patterns §2) | `shared` |
+| `--callers <user>,…` | `per-caller` only. Gateway usernames that get an upstream credential entry | Asked; `Add them later` writes an empty map |
+| `--proxy` | Forward every route the tenant doesn't map to this pass's upstream unchanged (patterns §3) | No proxy. Asked under `Customize…` |
+| `--aggregate "<GET /path>=<Client.Method>+<Client.Method>"` | A combined route over existing read operations (patterns §4); repeatable | None. Offered in step 9 |
+| `--aggregate-shape fields\|list` | One field per source, or one merged list | `fields` |
+| `--cache <seconds>` | Cache lifetime of the aggregate route's response. `0` = no cache | `1800` |
+| `--db-access dapper\|efcore` | Database passes: one SQL statement per operation, or an EF Core `DbContext` | `dapper` |
+| `--db-writes` | Database passes: the tenant also writes | Read-only |
 | `--system <Name>` | Upstream system name: the client class, `Models/<Name>/`, the config section and tokens | Derived from the source title. Asked only under `Customize…` or when there's nothing to derive it from |
 | `--role provide\|consume` | Whether the exposed routes serve this tenant's own institution (`provide`) or data reached back through the gateway (`consume`). `tenant-deliverables` uses it to split the Consume/Provide documents | `provide` |
 | `--dto public\|passthrough` | Public DTOs plus a mapper, or return the upstream shape as-is | `public` |
@@ -45,7 +56,7 @@ Only with `--gate <n>/<N>`. **One** `AskUserQuestion` call holds the gate and, u
 
 | Header | Question | Options |
 |---|---|---|
-| `Step <n>/<N>` | `/tenant-integration <T>` — build the upstream client, models, mappers and exposed routes. Run it? | `Proceed (Recommended)` — protocol and auth detected from the source, every operation exposed, public DTOs + mapper, spec-ready · `Customize…` — also choose system name, auth, data role, DTO strategy, module grouping, timeout · `Skip` · `Stop` |
+| `Step <n>/<N>` | `/tenant-integration <T>` — build the upstream client, models, mappers and exposed routes. Run it? | `Proceed (Recommended)` — protocol and auth detected from the source, every operation exposed, public DTOs + mapper, spec-ready · `Customize…` — also choose system name, auth, data role, DTO strategy, module grouping, timeout, catch-all proxy · `Skip` · `Stop` |
 | `Source` | The source question from step 1 below | discovered sources |
 
 With `--protocol rest,soap` the question says the order — "build the REST API clients first, then the SOAP service clients, one upstream at a time" — and `Source` is the first REST pass's source question.
@@ -63,8 +74,8 @@ The skill works one upstream at a time: a **pass** is steps 1 to 7 for one upstr
 | `--protocol` | Passes |
 |---|---|
 | absent | Untyped. The source question lists every candidate; step 1a detects the protocol per pass; step 9 offers `Add another integration source` |
-| `rest` or `soap` | Typed, that protocol only. It settles a classification step 1a leaves open |
-| `rest,soap` | Typed, as a queue: every REST pass first, then every SOAP pass. `tenant-pipeline` passes this when the intake picked both `Agency REST API` and `Agency SOAP service` |
+| one protocol (`rest`, `soap`, `graphql` or `db`) | Typed, that protocol only. It settles a classification step 1a leaves open |
+| several, e.g. `rest,soap` or `rest,db` | Typed, as a queue in the fixed order REST, GraphQL, SOAP, database — whatever order they were listed in. `tenant-pipeline` passes the members of the intake answer `integrates` |
 
 In a typed pass:
 
@@ -73,14 +84,14 @@ In a typed pass:
 - `--source` values are classified up front (step 1a), and each goes to a pass of its own protocol. A pass with no `--source` asks.
 - A `Customize…` gate answer holds for every pass. The proposal questions, endpoint selection and review (R6) are asked per pass, for that upstream.
 
-Under `--auto`, each listed protocol needs a `--source` of its own; one without stops with `missing --source <url|path> for <protocol>` (R10).
+Under `--auto`, each listed protocol needs a `--source` of its own; one without stops with `missing --source <url|path> for <protocol>` (R10). A database pass needs a path too: bare `--source db` stops with `missing --source db=<path>`. `--auth Login` with no detectable login path stops with `missing --login-path <path>`.
 
 ### Discover sources
 
 Before asking anything, look for sources on disk. Files whose name contains the tenant code come first:
 
 ```bash
-find "src/Tenants/<T>/Deliverables/Integration Requests" "postman collections" . -maxdepth 2 -type f \( -iname "*.wsdl" -o -iname "*.postman_collection.json" -o -iname "*swagger*.json" -o -iname "*swagger*.yaml" -o -iname "*openapi*.json" -o -iname "*openapi*.yaml" -o -iname "*.docx" -o -iname "*.pdf" \) 2>/dev/null
+find "src/Tenants/<T>/Deliverables/Integration Requests" "postman collections" . -maxdepth 2 -type f \( -iname "*.wsdl" -o -iname "*.postman_collection.json" -o -iname "*swagger*.json" -o -iname "*swagger*.yaml" -o -iname "*openapi*.json" -o -iname "*openapi*.yaml" -o -iname "*.graphql" -o -iname "*.gql" -o -iname "*.sql" -o -iname "*.docx" -o -iname "*.pdf" \) 2>/dev/null
 ```
 
 Skip anything under `bin/`, `obj/` or `node_modules/`, and skip other tenants' `Deliverables/`. For each candidate, peek at it (the first request of a collection, `openapi`/`swagger` and `info.title` of a spec, the `wsdl:service` name) so the option can say what it is.
@@ -100,7 +111,7 @@ Integration source for TT — select one or more, or paste a URL or path in Othe
 
 With more than 3 candidates, show the best 3 plus `Show all <N> found`. That option re-asks with the rest, spread over up to 4 questions (R9).
 
-**In a typed pass**, list only candidates of the pass's protocol, from the peek: REST — OpenAPI / Swagger, Postman with JSON bodies; SOAP — `.wsdl`, Postman whose requests carry a `<soap:Envelope>`. A `.docx` / `.pdf` whose protocol the peek can't tell is listed in both. Leave out candidates an earlier pass already integrated. The question text names the protocol and where the queue stands:
+**In a typed pass**, list only candidates of the pass's protocol, from the peek: REST — OpenAPI / Swagger, Postman with JSON bodies; SOAP — `.wsdl`, Postman whose requests carry a `<soap:Envelope>`; GraphQL — `.graphql` / `.gql`, introspection JSON, Postman with `graphql` bodies; database — `.sql`. A `.docx` / `.pdf` whose protocol the peek can't tell is listed in every pass. A database pass with no candidate asks the `Tables` question of patterns §5 instead. Leave out candidates an earlier pass already integrated. The question text names the protocol and where the queue stands:
 
 ```
 REST API source for TT — upstream 2 of REST, SOAP follows. Select one or more, or paste a URL or path in Other.
@@ -132,6 +143,8 @@ Other may hold several sources, one per line. A local file from outside the repo
 - URL → fetch it; for a Swagger UI URL fetch the underlying `/swagger/v1/swagger.json`, for a SOAP service URL try `?wsdl` / `?singleWsdl`
 - Postman collection → parse `item[]` recursively; each leaf `request` gives method, URL, headers, and an example body. A collection can describe a SOAP service too — see step 1a
 - WSDL → read `wsdl:portType`/`wsdl:operation` for the operation list, `wsdl:binding` for the SOAP version and `soapAction` values, `wsdl:service`/`soap:address` for the endpoint URL, and the inline or imported `xsd:schema` for the message types (including `minOccurs` and `nillable` — step 4b needs them)
+- GraphQL schema, introspection JSON or endpoint → patterns §6, Detection
+- `.sql` → the tables, views and procedures it creates, with their columns and parameters (patterns §5)
 
 Record, for every upstream operation you intend to call: its name, the request and response message shapes, and the failure signals that carry meaning — non-200 codes for REST, `Fault` codes and reasons for SOAP.
 
@@ -148,13 +161,13 @@ Take these from the source, not from the developer:
 | Input | Where it's detected |
 |---|---|
 | Protocol, SOAP version | Step 1a; `wsdl:binding` |
-| Auth | OpenAPI `components.securitySchemes`; Postman `auth` at collection, folder or request level; `Authorization` / `X-Api-Key`-style headers on requests; WS-Security policy in the WSDL |
+| Auth | OpenAPI `components.securitySchemes`; Postman `auth` at collection, folder or request level; `Authorization` / `X-Api-Key`-style headers on requests; WS-Security policy in the WSDL. A login call whose token later requests send as `Bearer` is `Login` (patterns §1, Detection), with its `LoginPath`, `RefreshTokenPath`, body encoding and token response shape |
 | System name | OpenAPI `info.title`, the Postman `info.name`, `wsdl:service/@name`, the document title. Reduced to a PascalCase class name (`PqpsService` → `Pqps`) |
 | Operations and groups | OpenAPI tags; Postman folders; `wsdl:portType` operations |
 | Per-operation URLs (SOAP) | More than one `soap:address`, or operations documented at different paths |
 | Full descriptive name | Only when the state file has `fullName: "pending"`: the same titles as for the system name |
 
-A token-login upstream (log in, receive a token, send it on later calls — ZRA, NAPSA, WCF, NHIMA, ZESCO) has no scheme value: it needs a hand-written service around the client. Say so in the review.
+A token-login upstream (log in, receive a token, send it on later calls — ZRA, NAPSA, WCF, NHIMA, ZESCO) is `Login`: the client logs in itself, caches and refreshes the token, and retries once on 401 (patterns §1). When the source shows credentials issued per consuming institution, or the developer says so, ask header `Credentials`: `One login for <T> (Recommended)` · `Per gateway caller` → `--credentials per-caller` (patterns §2).
 
 ### Proposal questions
 
@@ -166,12 +179,14 @@ Proposal call:
 
 | Header | Question | Options (each a complete answer) |
 |---|---|---|
-| `Auth` | How does `<T>` authenticate to `<System>`? | The detected scheme first, naming where it came from: `Basic (collection auth)`, `Custom header X-Api-Key (securitySchemes)`. Then the other supported schemes, to 4 in total. REST: `Basic`, `JWT bearer`, `Custom header`, `None`; the question text says "`RA` (DotGov internal services only): type it in Other". SOAP: `Basic`, `Client certificate`, `None` |
+| `Auth` | How does `<T>` authenticate to `<System>`? | The detected scheme first, naming where it came from: `Basic (collection auth)`, `Custom header X-Api-Key (securitySchemes)`, `Token login at auth/login (Postman "Login" request)`. Then the other supported schemes, to 4 in total. REST and GraphQL: `Basic`, `JWT bearer`, `Custom header`, `Token login`, `None`; the question text says "`RA` (DotGov internal services only): type it in Other". SOAP: `Basic`, `Client certificate`, `None`. `Token login` with no detected path asks the `Login` question of patterns §1 |
 | `System` | Upstream system name for the client class and config | The derived name `(Recommended)`, e.g. `Pqps — from wsdl:service PqpsService`; the tenant code; the source's short title, if different |
 | `Role` | Where does the data behind these routes come from? | `Provide — <T>'s own institution (Recommended)` · `Consume — another system reached through the gateway` |
 | `Name` | Only when `fullName` is `pending`: full descriptive name of `<T>` for the spec title | Titles found in the sources, the most specific first · `Use <T> for now` |
 
 When `Custom header` is picked and no header name was detected, follow up with `Header name?`, offering the header names found on the source's requests.
+
+A database pass has no `Auth` question and no `Role` question (its data role is `provide`): it asks `Access` and `Writes` from patterns §5 in their place.
 
 Customize call (`Customize…` only):
 
@@ -184,7 +199,9 @@ Customize call (`Customize…` only):
 
 ### Endpoint selection
 
-Asked with `Customize…`, or when `--expose` is absent and there are more than 3 operation groups. `multiSelect`. Options are the groups found (`Pesticides — 3 operations`), or single operations (`GET /pesticides/{id} — pesticide by id`) when there are 3 or fewer, plus `All operations (Recommended)`. More than 3 groups go over up to 4 questions (R9). With `Proceed` and 3 or fewer groups, everything is exposed and the review shows it.
+Asked with `Customize…`, or when `--expose` is absent and there are more than 3 operation groups. `multiSelect`. Options are the groups found (`Pesticides — 3 operations`), or single operations (`GET /pesticides/{id} — pesticide by id`) when there are 3 or fewer, plus `All operations (Recommended)`. More than 3 groups go over up to 3 questions (R9). With `Proceed` and 3 or fewer groups, everything is exposed and the review shows it.
+
+Under `Customize…`, and for REST and GraphQL passes only, the same call also asks the `Proxy` question of patterns §3 when `--proxy` wasn't passed and the tenant has no catch-all yet (`grep -n '{\*\*catch-all}' src/Tenants/<T>/Program.cs`). One catch-all per tenant: a second pass never offers it.
 
 ### Review before writing
 
@@ -205,6 +222,8 @@ Routes:
 Command: /tenant-integration TT --source "src/Tenants/TT/Deliverables/Integration Requests/tt-service.wsdl" --auth Basic --system Pqps --role provide
 ```
 
+The review also names, when they apply: the login path and token cache (`Login`), the gateway users given credentials (`per-caller`), the operations reachable only through the catch-all proxy, the aggregate route with its sources and cache lifetime, the connection-string token and packages (database), and the queries (GraphQL).
+
 `Adjust` asks one `multiSelect` — `Source`, `Endpoints`, `Auth`, `System`, `Role`, `DTOs / modules / timeout` — and re-asks only what was picked. `Cancel` ends; in gate mode, `GATE-RESULT: stopped`. With `--dry-run`, print the plan and end here. With `--auto`, apply without asking.
 
 ## 1a. Decide the client base class
@@ -219,6 +238,10 @@ Read the sources first, then classify. The artefact tells you what the upstream 
 | **WSDL** (`.wsdl`, `?wsdl`, `?singleWsdl`) | SOAP | `SoapEndpoint` |
 | Postman collection where every request is `POST` to one URL with an XML `<soap:Envelope>` body and a `SOAPAction` header | SOAP | `SoapEndpoint` |
 | Prose docs quoting XML envelopes, `xmlns:soap`, `wsdl:operation` or `SOAPAction` | SOAP | `SoapEndpoint` |
+| `.graphql` / `.gql`, introspection JSON, Postman `graphql` bodies, a `/graphql` URL, `--source graphql` | GraphQL | `RestEndpoint` posting `{query, variables}` (patterns §6) |
+| `.sql`, a document listing tables or procedures, `--source db` | Database | Repository over Dapper or EF Core, no endpoint class (patterns §5) |
+
+GraphQL is REST underneath: everything in the REST column below applies, plus patterns §6. A database pass has no client class, no `Endpoints` section and no registrar: patterns §5 replaces steps 3 and 4, and steps 5–9 apply as written.
 
 A Postman collection is the ambiguous case, and the body decides it, not the file type — a collection of `POST`s carrying `<soap:Envelope>` is a SOAP integration dressed as a REST artefact. Check an actual request body before choosing.
 
@@ -241,7 +264,7 @@ Everything downstream follows from this one choice:
 
 A tenant may do both — `RegisterEndpoints` and `RegisterSoapEndpoints` are independent and can be called side by side, each scanning the same assembly for its own marker type. IFMIS is the reference for a tenant that consumes SOAP while exposing REST.
 
-If the sources are genuinely silent on protocol, ask with header `Protocol`: `REST — JSON over HTTP` / `SOAP — XML envelopes`, with the reason detection failed in the question text. Do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol rest|soap` overrides the classification when the user already knows.
+If the sources are genuinely silent on protocol, ask with header `Protocol`: `REST — JSON over HTTP` / `SOAP — XML envelopes` / `GraphQL — one endpoint, {query, variables}` / `Database — direct SQL Server access`, with the reason detection failed in the question text. Do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol` and the `db` / `graphql` forms of `--source` override the classification when the user already knows.
 
 In a typed pass, the pass's protocol settles a classification the source leaves open. A source that clearly reads as the other protocol — a WSDL or `<soap:Envelope>` bodies in a REST pass, an OpenAPI spec in a SOAP pass — isn't integrated in that pass. Echo it (R11) — `Read as: WSDL · SOAP 1.1 — this is a REST pass` — and ask with header `Protocol`. In a `rest,soap` queue: `Queue it for the SOAP passes (Recommended)` — then ask the REST source question again · `Choose another REST source`. With a single `--protocol`: `Integrate it as SOAP` · `Choose another REST source`.
 
@@ -301,6 +324,7 @@ Scheme values are matched **exactly** — `"basic"` configures no auth:
 | `Custom` | `AuthHeaderName` — the detected / `--auth-header` name, as a literal; `AuthHeaderValue` = `__Endpoints.<ClientClassName>.ApiKey__` |
 | `RA` | DotGov Registration Authority service-to-service token — **internal DotGov services only** (GOVZM, NDR); never for an external system. Per endpoint `ApplicationScopes { Services[], Scopes[] }`; plus `builder.Services.RegisterRa();` (`using Internal.Extensions;`) and a top-level `RegistrationAuthority { BaseUrl, TokenGeneration { CallingServiceFqn, CertificateThumbprint, PrivateKey } }` section, every value a `__Token__`. Copy the shape from GOVZM/NDR `appsettings.json`, never a value. The RA client is registered by hand by an administrator; write only the tokens, never an RA address (C10) |
 | `None` | Nothing else. Write it explicitly |
+| `Login` (not a Core scheme) | Write `"AuthenticationScheme": "None"` plus `LoginPath`, `RefreshTokenPath`, `Username`, `Password`, and a top-level `JwtOptions` section — patterns §1. Per-caller credentials add a `Users` map and `MongoDb` — patterns §2 |
 
 `AuthHeaderValue` is always a token, never a value found in the source. Optional fields:
 
@@ -338,7 +362,7 @@ A different top-level section — `SoapEndpoints`, not `Endpoints`:
 
 ## 4. Write the REST client — `Endpoints/<ClientClassName>.cs`
 
-Skip to step 4b for a SOAP upstream.
+Skip to step 4b for a SOAP upstream, and to patterns §5 for a database. A `Login` client starts from the patterns §1 template and a GraphQL client from §6; the rules of this step still apply to both.
 
 Every template in steps 4–6 is a complete file: full `using` block, sorted with `System*` first, and a file-scoped namespace (C1). They compile with `ImplicitUsings` off. Use `string?` / `T?` only where the csproj enables `<Nullable>`. Line endings and BOM: C6.
 
@@ -624,7 +648,13 @@ public class <Name>Module(<ClientClassName> client) : ICarterModule
 
 A SOAP module with per-operation URLs adds `IOptions<<ClientClassName>SoapEndpointOptions> options` to the constructor (`using Microsoft.Extensions.Options;`) and passes `options.Value.<Op>Url` to each client call.
 
-Client injection (C5): the module is built once at `MapCarter()`, so a constructor-injected client lives for the process (build warning `CARTER1` — expected). Constructor injection is the convention for stateless clients, which every template above is. A client whose per-call state is mutated (`SetHeader`, `SetOptions`, `DefaultRequestHeaders`) is injected as a handler parameter instead: `async (string id, <ClientClassName> client, CancellationToken cancellationToken) => …`.
+Client injection (C5): the module is built once at `MapCarter()`, so a constructor-injected client lives for the process (build warning `CARTER1` — expected). Constructor injection is the convention for stateless clients, which every template above is. A client whose per-call state is mutated (`SetHeader`, `SetOptions`, `DefaultRequestHeaders`) is injected as a handler parameter instead: `async (string id, <ClientClassName> client, CancellationToken cancellationToken) => …`. So is a database repository (patterns §5).
+
+Per pattern, on top of the module above:
+
+- `per-caller` credentials — every group calls `.RequireAuthorization()` (patterns §2)
+- `--proxy` — the catch-all goes in `Program.cs`, not in a module (patterns §3)
+- `--aggregate` — the combined route goes in the module of its business domain (patterns §4)
 
 Rules:
 
@@ -667,6 +697,15 @@ Must report `0 Error(s)` (`CARTER1` and `NU1903` warnings come from Core and exi
 - `match.methods` in `GATEWAY-CONFIG.md` lists every verb the tenant maps
 - An upstream reached through the gateway goes through `Endpoints/Gateway.cs` and `Endpoints:Gateway`, never a second client and section with its own gateway credentials
 - No upstream DTO — JSON or XML — is returned directly where a public DTO was defined
+
+When the pass used a pattern from `references/upstream-patterns.md`:
+
+- `Login` — every operation goes through `SendAuthorizedAsync`, none through `GetAsync`/`PostAsync`; the token is set per request, never on `DefaultRequestHeaders`; `JwtOptions` holds literal integers in both files; no log line carries a credential or a token
+- `per-caller` — credentials keyed on `User.Identity.Name`, never on the `IdentityName` header; `UseAuthentication`/`UseAuthorization` present and every group requires authorization
+- `--proxy` — `UseRestExceptionHandler()` is registered before the catch-all `Map`; no path rewriting
+- `--aggregate` — every source returns `Result` without throwing; `CacheOptions:<Name>:ExpirationInSeconds` is a positive literal in both files
+- Database — `ConnectionStrings:<System>` is top-level in both files with a `__ConnectionStrings.<System>__` placeholder; every query is parameterized; the repository is a handler parameter
+- GraphQL — every query is a `const` with variables; `errors` is checked before `data`
 
 `/tenant-audit <TenantName>` runs the configuration and secrets checks for you.
 
@@ -713,6 +752,7 @@ Untyped passes:
 
 - `Done — continue (Recommended)`
 - `Add another integration source` — back to step 1 for the next upstream. Keep what's been built, and skip anything already answered for this tenant, such as the full name
+- `Add a combined route over existing operations` — only when the tenant now has at least two read operations across its clients and repositories. Asks the patterns §4 call, then its own R6 review, and comes back to this question
 
 Typed passes stay on the current protocol until the developer ends it. The question text lists what that protocol has so far and what comes next:
 
@@ -722,7 +762,7 @@ TT — REST so far: Zims. SOAP is next.
   ( ) Done with REST — go to SOAP    starts the first SOAP pass (Recommended)
 ```
 
-On the last protocol in the queue (or the only one), the second option is `Done with SOAP — continue (Recommended)`, which ends the skill. `Add another …` keeps what's been built and skips anything already answered for this tenant, such as the full name. Under `--auto`, every `--source` of a protocol gets its own pass and nothing is asked.
+On the last protocol in the queue (or the only one), the second option is `Done with SOAP — continue (Recommended)`, which ends the skill. The combined-route option is offered there too, once, after the last protocol. `Add another …` keeps what's been built and skips anything already answered for this tenant, such as the full name. Under `--auto`, every `--source` of a protocol gets its own pass and nothing is asked.
 
 Each pass gets its own client, config section, models and module, and the report covers all passes, grouped by protocol.
 
@@ -730,7 +770,9 @@ Each pass gets its own client, config section, models and module, and the report
 
 State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list the entries added to or removed from `ENVIRONMENT-VARIABLES.json` (names only, never a value), and what an administrator does by hand (C10): add those variables to each environment, import `GATEWAY-CONFIG.md` into each gateway (locally that is `/tenant-audit <TenantName> --only runtime`), and register any RA / ZamPass client. `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly.
 
-Close with the equivalent command for each pass (R7) — with `--protocol` set to that pass's protocol — and these answers for the pipeline state, one entry per pass: `protocol`, `sources`, `system`, `auth`, `role`, plus `fullName` if it was settled here. A protocol skipped with `Skip <protocol> for now` is reported as skipped. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
+The administrator list grows with the patterns used: the gateway users of a `per-caller` map and the `MongoDB.*` variables (§2), and for a database the connection-string variable per environment and a network path from the cluster to the database server (§5). Name the operations reachable only through the catch-all proxy: they are not in Swagger, so the delivery documents leave them out (§3).
+
+Close with the equivalent command for each pass (R7) — with `--protocol` set to that pass's protocol — and these answers for the pipeline state, one entry per pass: `protocol` (`rest`, `soap`, `graphql` or `db`), `sources`, `system`, `auth`, `role`, plus `fullName` if it was settled here, and whichever apply: `loginPath`, `credentials`, `callers`, `proxy`, `dbAccess`, `dbWrites`. Each combined route is one more entry: `{ "aggregate": "<GET /path>=<Client.Method>+…", "shape", "cache" }`. A protocol skipped with `Skip <protocol> for now` is reported as skipped. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 
 ## Sensitive data
 

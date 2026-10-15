@@ -1,7 +1,7 @@
 ---
 name: tenant-init
 description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. For an agency that needs only shared e-Services, it offers a virtual tenant (gateway routes onto GOVZM, no project) instead. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
-argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
+argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,graphql,db,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Edit Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) Bash(sort *) Bash(uniq *) Bash(docker *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -23,7 +23,7 @@ Not every agency needs a project. An agency with no system of its own, whose nee
 | `<TenantName>` | positional, required | — PascalCase; matches folder, csproj, assembly, namespace root |
 | Style | `--controllers` | `carter` (minimal API modules) |
 | Full descriptive name | `--full-name "<name>"` | Asked in step 1a. Goes into `OpenApiInfo.Title` as `"<full name> (<TenantName>)"` |
-| What it integrates with | `--integrates rest,soap,shared,unknown` | Asked in step 1a. Decides the defaults of the later pipeline steps |
+| What it integrates with | `--integrates rest,soap,graphql,db,shared,unknown` | Asked in step 1a. Decides the defaults of the later pipeline steps |
 | Virtual tenant | `--virtual` / `--no-virtual` | Asked in step 1b, only when `--integrates` is `shared` alone. `--virtual` scaffolds nothing and hands over to the virtual chain; `--no-virtual` scaffolds the project |
 | Dev ports | `--port <https>` | Next free pair from the scan in step 2 |
 | Pipeline | `--no-pipeline` / `--auto` | Guided. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates |
@@ -61,11 +61,13 @@ One `AskUserQuestion` call. Leave out any question whose flag was passed. With `
 | Header | Question | Options | → flag |
 |---|---|---|---|
 | `Style` | Project style for `<TenantName>`? | `Carter modules (Recommended)` — minimal API, like CEEC and MOH · `MVC controllers` — like MOA | `--controllers` |
-| `Integrates` | What will `<TenantName>` integrate with? (`multiSelect`) | `Agency REST API` · `Agency SOAP service` · `Shared e-Services` — NIR, PACRA, ZRA, ZDI and the rest via `EServicesShared` · `Not known yet` | `--integrates` |
+| `Integrates` | What will `<TenantName>` integrate with? (`multiSelect`) | `Agency system` — its own API or database; the next question asks what it speaks · `Shared e-Services` — NIR, PACRA, ZRA, ZDI and the rest via `EServicesShared` · `Not known yet` | `--integrates` |
 | `Name` | Full descriptive name of `<TenantName>`, for the API specification title. Type it in Other, or: | `Take it from the integration source (Recommended)` — step 2 proposes it from the spec or WSDL title · `Use <TenantName> for now` — the title stays the bare code and the deliverables report it | `--full-name` |
 | `Pipeline` | After the scaffold? | `Guided — gate each step (Recommended)` · `Auto — run every step with defaults` · `Scaffold only` | `--auto` / `--no-pipeline` |
 
 Leave out the `Pipeline` question when run with `--no-pipeline`, which is how `tenant-pipeline` calls this skill.
+
+When `Agency system` was picked, a second call drills down (R9), header `Upstream`, `multiSelect`: "What does the agency system of `<TenantName>` speak?" — `REST API` · `SOAP service` · `GraphQL API` · `Database (SQL Server)`. Each answer becomes its member of `--integrates` (`rest`, `soap`, `graphql`, `db`), and `tenant-pipeline` turns them into one typed pass queue for step 2. Leave the call out when `--integrates` was passed.
 
 Record the answers as flags for the equivalent command, for example `/tenant-init PQPS --integrates soap --full-name "Plant Quarantine and Phytosanitary Service"`. `Take it from the integration source` records `fullName: "pending"` in state; step 2 picks it up from there.
 

@@ -303,8 +303,10 @@ you through steps 1 to 6 below. Before each step it asks whether to run it:
 /tenant-init PQPS
 ```
 
-Answer the questions: project style (keep Carter), what the tenant integrates with (REST, SOAP, shared
-e-Services), its full name, and `Guided`. Check the review, then choose `Apply`.
+Answer the questions: project style (keep Carter), what the tenant integrates with (the agency's own system,
+shared e-Services, or not known yet — for the agency's system, a second question asks whether it is a REST
+API, a SOAP service, a GraphQL API or a database), its full name, and `Guided`. Check the review, then choose
+`Apply`.
 
 You get `src/Tenants/PQPS/` with an empty, runnable service, plus its registrations: the solution entry, the
 Docker Compose service `core-pqps`, the Azure pipeline file and the two handoff files. The skill confirms that
@@ -312,12 +314,24 @@ the project builds, that the Docker image builds, and that the service answers `
 
 ### 2. Connect the agency system
 
-The guided flow offers the API descriptions it found. Pick one. The skill works out whether it is REST or
-SOAP and how it authenticates, then shows the endpoints it will expose.
+The guided flow offers the API descriptions it found. Pick one. The skill works out whether it is REST, SOAP,
+GraphQL or a database, and how it authenticates, then shows the endpoints it will expose.
 
 You get the upstream client, the models, the mapper, the Carter module with the public routes, the settings
 section in both settings files, the new placeholders in `ENVIRONMENT-VARIABLES.json`, and the HTTP methods in
 `GATEWAY-CONFIG.md`. The skill also adds the summaries and comments the documents need, then builds.
+
+Some agency systems need more than a plain client. The skill detects most of these from the source; the
+flags force them:
+
+| Situation | Flag |
+|---|---|
+| The API wants a login first and a token on every later call | `--auth Login` |
+| Each consuming institution has its own credentials on the agency system | `--credentials per-caller` |
+| The tenant republishes most of the API unchanged and maps only a few routes itself | `--proxy` |
+| One tenant route should combine several upstream calls, with a cache | `--aggregate` (offered at the end of the step) |
+| The agency gives database access instead of an API (SQL Server) | `--source db=<file.sql>` |
+| The agency's API is GraphQL | `--source graphql=<url or schema file>` |
 
 If the agency has more than one system, the skill offers to add the next one.
 

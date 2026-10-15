@@ -34,7 +34,7 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | # | Step key | Skill | Offered when | Arguments passed |
 |---|---|---|---|---|
 | 1 | `init` | `tenant-init` | `src/Tenants/<T>/` does not exist | `<T> --no-pipeline` + intake answers from state |
-| 2 | `integration` | `tenant-integration` | always | `<T> --gate 2/6`, plus `--protocol` with the `rest` / `soap` members of the intake answer `integrates`, REST first: `--protocol rest`, `--protocol soap` or `--protocol rest,soap`. With neither (only `shared` / `unknown`), no `--protocol` |
+| 2 | `integration` | `tenant-integration` | always | `<T> --gate 2/6`, plus `--protocol` with the `rest` / `graphql` / `soap` / `db` members of the intake answer `integrates`, in that order: `--protocol rest`, `--protocol rest,soap`, `--protocol graphql,db`, … With none of them (only `shared` / `unknown`), no `--protocol` |
 | 3 | `shared` | `integrate-shared` | always. `--recommend proceed` when `integrates` contains `shared`, otherwise `--recommend skip` | `<T> --gate 3/6` |
 | 4 | `tests` | `tenant-tests` | the tenant exposes at least one route (see below) | `<T> --gate 4/6` |
 | 5 | `audit` | `tenant-audit` | always. It edits no repo file, so it has **no gate**. It still builds local images and writes the tenant's gateway config and test user to the local Docker `mongo` (Checks 8–9) | `<T> --report-only` (also under `--auto`) |
@@ -61,11 +61,17 @@ A virtual tenant that later needs a project is a real tenant from then on: `/ten
 
 ```bash
 grep -rlE "Map(Get|Post|Put|Patch|Delete)\(|\[Http(Get|Post|Put|Patch|Delete)|:[[:space:]]*[A-Za-z]*SharedModule\(" src/Tenants/<T>/Modules src/Tenants/<T>/Controllers 2>/dev/null
+grep -lF '{**catch-all}' src/Tenants/<T>/Program.cs 2>/dev/null
 ```
 
 The `SharedModule(` alternative catches an `integrate-shared` `inherit` module, whose routes come from its base class and contain no `Map*` call.
 
-When the check finds nothing, record the step as `skipped` with the reason "no routes" and don't
+The second grep finds a catch-all proxy (`tenant-integration --proxy`). It counts for step 4: the proxy is
+tested. It doesn't count for step 6, because proxied operations aren't in the tenant's Swagger: a tenant
+whose only route is the catch-all records step 6 as `skipped` with the reason "proxy only — no documented
+operations".
+
+When neither check finds anything, record the step as `skipped` with the reason "no routes" and don't
 gate it. There is nothing to test or document.
 
 `<route>` for step 6 is the gateway path without `/t/`, resolved in this order:
@@ -80,6 +86,17 @@ Never make the developer retype it. With neither source, leave `--route` off and
 
 Pass every answer already in state as a flag (R1): `--source`, `--auth`, `--system`, `--role` for
 step 2, `--version` / `--author` for step 6, and so on. The step then asks only what's still open.
+
+Step 2 answers map to flags one-to-one, per entry of `answers.integrations`:
+
+| State key | Flag |
+|---|---|
+| `protocol`, `sources` | `--protocol`, `--source` (a database entry keeps its `db=<path>` form, a GraphQL one `graphql=<…>`) |
+| `auth`, `loginPath` | `--auth`, `--login-path` |
+| `credentials`, `callers` | `--credentials`, `--callers` |
+| `proxy: true` | `--proxy` |
+| `dbAccess`, `dbWrites: true` | `--db-access`, `--db-writes` |
+| `aggregate`, `shape`, `cache` (an aggregate entry) | `--aggregate`, `--aggregate-shape`, `--cache` |
 
 ## Running
 
@@ -111,7 +128,8 @@ With `--auto`, invoke each step with `--auto` instead of `--gate`, except step 5
 gets `--report-only`, because its `--auto` writes repo repairs (a missing pipeline file, compose
 service or solution entry). Its fixable findings go in the closing summary as
 `/tenant-audit <T> --fix`. `--no-pipeline` on step 1 only stops `tenant-init` from starting this
-chain; the Azure pipeline file is still created. Step 3 runs
+chain; the Azure pipeline file is still created. Step 2 under `--auto` needs a `--source` in state for
+every protocol in the queue — a `db` pass a `db=<path>` source — or it stops with the missing flag. Step 3 runs
 only when the intake included `shared`, and needs `--source` or `--all` in state: without them it
 stops with `missing --source <SYS> or --all` (R10). Everything else follows the same conditions.
 
@@ -139,7 +157,7 @@ A virtual tenant's summary shows steps 2 and 4 as `skipped — virtual tenant`, 
 
 ## Sensitive data
 
-Every step is local only (conventions C10): the chain writes files in the repo and the local Docker stack, and never creates a pipeline, variable, gateway record or ZamPass / RA client in any environment. The closing summary ends with the administrator's manual list: register the pipeline, add the `ENVIRONMENT-VARIABLES.json` entries to each environment, import `GATEWAY-CONFIG.md` into each gateway and grant the consumer scopes, register any ZamPass / RA client. It says that `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10, "Not committed"), so the engineer sends them to the administrator directly.
+Every step is local only (conventions C10): the chain writes files in the repo and the local Docker stack, and never creates a pipeline, variable, gateway record or ZamPass / RA client in any environment. The closing summary ends with the administrator's manual list: register the pipeline, add the `ENVIRONMENT-VARIABLES.json` entries to each environment, import `GATEWAY-CONFIG.md` into each gateway and grant the consumer scopes, register any ZamPass / RA client. Step 2 may add to it: create every gateway user named in a `per-caller` credential map with the tenant's scope, and open a network path from the cluster to a database upstream. It says that `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10, "Not committed"), so the engineer sends them to the administrator directly.
 
 No credential ever goes into this skill, the state file, or the summary. That means passwords,
 connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and

@@ -91,6 +91,17 @@ Decide per route; one module can mix paths.
 
 **In-process auth.** `grep -lE "AddAuthentication" src/Tenants/*/Program.cs` — those tenants authenticate the caller themselves; step 5 adds a test scheme.
 
+**Other upstream kinds.** Each needs its own mock in step 5 (Other upstream kinds):
+
+```bash
+grep -rlE "LoginPath|SendAuthorizedAsync|JwtOptions" src/Tenants/<TenantName> --include=*.cs    # token login
+grep -rn "Endpoints:[A-Za-z0-9]*:Users" src/Tenants/<TenantName> --include=*.cs                  # per-caller credentials
+grep -nF '{**catch-all}' src/Tenants/<TenantName>/Program.cs                                     # catch-all proxy
+grep -rn "AddCache<" src/Tenants/<TenantName>/Program.cs                                         # aggregate cache
+grep -rlE "SqlConnection|DbContext|GetConnectionString" src/Tenants/<TenantName> --include=*.cs  # database
+grep -rlE "GraphQLResponse<|query[[:space:]]*=" src/Tenants/<TenantName>/Endpoints --include=*.cs # GraphQL
+```
+
 Reference projects, in order of usefulness:
 
 - `src/Tests/APIS.Tests` — factory, the recording `TestHelpers/MockHttpMessageHandler.cs`, `Modules/PaxlstModuleTests.cs` driving real routes
@@ -303,6 +314,47 @@ services.AddAuthentication(TestAuthHandler.SchemeName)
 ```
 
 Add the claims the tenant's policies read (e.g. GOVZM `PaymentProcessor`). A policy that pins a scheme with `AddAuthenticationSchemes(...)` ignores the default — note such routes and cover them only with the real scheme or leave them untested with the reason.
+
+### Other upstream kinds
+
+The shapes come from `tenant-integration`'s `${CLAUDE_PLUGIN_ROOT}/skills/tenant-integration/references/upstream-patterns.md`. Read the section of each kind step 1 found.
+
+**Token login (§1).** Re-register the client with `ActivatorUtilities`, so `IMemoryCache`, `IOptions<JwtOptions>` and `IConfiguration` still resolve:
+
+```csharp
+services.AddTransient<<ClientClassName>>(sp => ActivatorUtilities.CreateInstance<<ClientClassName>>(sp,
+    new HttpClient(UpstreamHandler) { BaseAddress = new Uri("http://<system>-test/") }));
+```
+
+Override `Endpoints:<ClientClassName>:LoginPath` / `RefreshTokenPath` with the tenant's own values and `JwtOptions:AccessTokenExpirationMinutes` / `RefreshTokenExpirationMinutes` with `"0"`. The handler answers the login path with a token whose `expiresIn` is `3600`, and everything else with the case's stub. Cases, on top of the route matrix:
+
+- Two calls log in once: one request to the login path in `UpstreamHandler.Requests`
+- Every non-login request carries `Authorization: Bearer <stub token>`
+- An upstream 401 logs in again and retries once; a second 401 surfaces as the route's error
+- A failed login answers 500 `problem+json` with code `<system>_login_failed`, and the response holds no credential
+
+The client caches the token in the shared `IMemoryCache`. A fixture that needs a fresh login creates a new factory in `SetUp`, as the template does.
+
+**Per-caller credentials (§2).** The tenant authenticates callers itself, so register `TestAuthHandler` (In-process auth tenants). Override `Endpoints:<ClientClassName>:Users:test-caller:Username` / `Password`, and send `X-Test-User: test-caller`. Cases: a configured caller logs in with its own credentials (assert the login body); an unconfigured caller gets 500 with code `<system>_caller_not_configured` and no login request is sent; no `X-Test-User` gets 401. Remove the `MongoDb`-backed registrations the tenant makes — `AddMongoDb` and `AddUserRepository` — or override `MongoDb:*` with values that are never used, so no test reaches a database.
+
+**Catch-all proxy (§3).** Fixture `ProxyTests.cs`: an unmapped path (`/upstream/things?x=1`) reaches the upstream with the same method, path, query and body; the upstream's status, body and content type come back unchanged; a mapped route still runs its own handler (the upstream sees the mapped call, not the raw path); `/health/live` never reaches the upstream.
+
+**Aggregate route (§4).** One handler per source system (`NirHandler`, `NbrHandler`), or one handler that branches on `RequestUri`. Override `CacheOptions:<Name>:ExpirationInSeconds` with `"60"` — `0` throws. Cases: all sources succeed → every field filled and `unavailable` empty; one fails → 200, its field `null`, its name in `unavailable`; all fail → the first failure's status as `problem+json`; a second identical call is served from the cache (no new upstream request) only after a complete response, never after a partial one.
+
+**Database (§5).** No mock handler. Dapper: remove the repository registration and add a hand-written fake implementing `I<System>Repository` (`src/Tests/ZamData.Tests/Mocks/MockRepository.cs` shape) that returns canned `Result`s, including a failure. EF Core: add `Microsoft.EntityFrameworkCore.InMemory` `10.0.0` to the test csproj and swap the provider. Since EF Core 9, `AddDbContext` options accumulate, so a second `AddDbContext` alone leaves SQL Server configured too — remove both registrations first (`using Microsoft.EntityFrameworkCore.Infrastructure;`, `using Microsoft.Extensions.DependencyInjection.Extensions;`):
+
+```csharp
+services.RemoveAll<DbContextOptions<<System>Context>>();
+services.RemoveAll<IDbContextOptionsConfiguration<<System>Context>>();
+var databaseName = $"<tenant>-tests-{Guid.NewGuid()}";
+services.AddDbContext<<System>Context>(o => o.UseInMemoryDatabase(databaseName));
+```
+
+The name is fixed once per factory: every context of one factory shares the data, and two factories never do.
+
+Seed the rows each case needs from the fixture through a scope of `_factory.Services`. `src/Tests/NDW.Tests/NdwWebApplicationFactory.cs` adds the in-memory context without the removal; don't copy that part. Override `ConnectionStrings:<System>` with a dummy so nothing reads the placeholder. Cases: found, not found (404), repository failure (500 `problem+json`, no SQL or connection text in the body), and for writes the stored row.
+
+**GraphQL (§6).** The REST mock handler. Stub `{"data":{…}}` for the happy path, `{"data":{"thing":null}}` for 404, and `{"errors":[{"message":"boom"}],"data":null}` with HTTP **200** for the error path — a 500 `problem+json` whose body doesn't contain `boom`. Assert on `RequestBodies` that the query names the expected operation and the variables carry the route values.
 
 ## 6. Endpoint fixtures
 

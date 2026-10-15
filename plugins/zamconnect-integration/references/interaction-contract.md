@@ -127,6 +127,11 @@ because the tenant `Dockerfile` copies that folder into the image.
 }
 ```
 
+An `integrations` entry carries only the keys its pass used. Besides the ones above: `loginPath`,
+`credentials`, `callers`, `proxy`, `dbAccess`, `dbWrites`, and for a combined route
+`{ "aggregate": "GET /persons/{nrc}/summary=Nir.GetPerson+Nbr.GetEntitiesByOwner", "shape": "fields", "cache": 1800 }`.
+`protocol` is `rest`, `soap`, `graphql` or `db`.
+
 `status` is one of `ran`, `skipped`, `failed`, `stale`, `pending`. State holds answers and
 commands only: never a credential, and never a host name, IP or identifier copied from a source
 file or collection. The `Sensitive data` rules of every skill apply to it.

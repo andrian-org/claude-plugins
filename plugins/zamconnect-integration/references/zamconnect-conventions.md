@@ -52,6 +52,12 @@ one in `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json` (C9) and an administrat
 | The ZamConnect gateway (tenant calling back in) | `Endpoints:Gateway` (or the tenant's gateway client) | `__Endpoints.APIGATEWAY.BaseUrl__`, `__Credentials.<Folder>Tenant.Username__`, `__Credentials.<Folder>Tenant.Password__` |
 | External REST | `Endpoints:<ClientClassName>` | `__Endpoints.<ClientClassName>.BaseUrl__`, `.Username__`, `.Password__`, `.ApiKey__` |
 | SOAP | `SoapEndpoints:<ClientClassName>` | `__SoapEndpoints.<ClientClassName>.BaseUrl__`, `.Username__`, `.Password__`, one `.<Op>Url__` per operation URL |
+| Token-login REST, per-caller credentials | `Endpoints:<ClientClassName>:Users:<gatewayUser>` | `__Endpoints.<ClientClassName>.Users.<gatewayUser>.Username__`, `.Password__` |
+| The gateway user store (tenant authenticates callers itself) | `MongoDb` | `__MongoDB.ConnectionString__`, `__MongoDB.DatabaseName__` |
+| SQL Server database | `ConnectionStrings:<System>` | `__ConnectionStrings.<System>__` |
+
+`LoginPath`, `RefreshTokenPath`, `JwtOptions` and `CacheOptions` values are literals, the same in every
+environment — never tokens.
 
 `<Folder>` is the exact tenant folder name. Reference: `src/Tenants/APIS/appsettings.json`
 (`ZimsApi`, `MihudPamsApi`, `NpddApi`, `PoApi`).

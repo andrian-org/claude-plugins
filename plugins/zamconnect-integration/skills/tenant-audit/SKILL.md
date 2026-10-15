@@ -175,6 +175,19 @@ grep -rnoE 'Endpoints:(\{nameof\()?[A-Za-z0-9_]+' src/Tenants/<TenantName> --inc
 
 Not fixable automatically: a section needs a `BaseUrl` and credentials only the user knows. Report the exact block to add, with `__Token__` placeholders named per C4 and `Username` casing per C3.
 
+**Sections outside the endpoint scan.** The patterns `tenant-integration` generates from `references/upstream-patterns.md` read configuration the scan above can't see. Check each one the code uses, in both files:
+
+| Code (grep in `src/Tenants/<TenantName>`) | Required config | Finding |
+|---|---|---|
+| `GetConnectionString("<Name>")` | Top-level `ConnectionStrings:<Name>`, a `__…__` placeholder in both files | Missing → `fail`. A literal value in either file → C7 baseline count (`warn`), never printed |
+| `IOptions<JwtOptions>` or `Configure<JwtOptions>` | Top-level `JwtOptions` with integer values | Missing → `fail`. A `__…__` placeholder in `appsettings.Development.json` → `fail` (local runs and tests fail at the first login); in `appsettings.json` → `warn` (replaced at deploy, but needs a variable per environment) |
+| `LoginPath` read from an `Endpoints:<Name>` client | `Endpoints:<Name>:LoginPath` | Missing → `fail` |
+| `AddCache<…>("<Suffix>")` | `CacheOptions:<Suffix>:ExpirationInSeconds`, a positive literal | Missing or `0` (`AddOrUpdate` throws) → `fail`. A placeholder: as for `JwtOptions` |
+| `AddMongoDb(` | Top-level `MongoDb` with `ConnectionString` and `DatabaseName` placeholders | Missing → `fail` |
+| `Endpoints:<Name>:Users:` | One entry per caller under `Users` | Empty map → `warn`: no caller can reach the upstream yet |
+| `{**catch-all}` in `Program.cs` | `app.UseRestExceptionHandler()` earlier in the file | Missing or later → `warn`: upstream failures reach the developer exception page |
+| `Headers["IdentityName"]` or `FromHeader(Name = "IdentityName")` used to pick upstream credentials | Credentials keyed on `User.Identity.Name` | `fail`: the gateway keeps an `IdentityName` header the caller sent, so any caller can claim another's credentials |
+
 ## Check 4 — Secrets
 
 Deployment substitutes tokens with `actionOnMissing: fail` (C4), so a placeholder that never got a variable breaks the release, and a literal credential that got committed is a disclosure. **Never print a value** — every command below prints file names, line numbers, key names or counts.
