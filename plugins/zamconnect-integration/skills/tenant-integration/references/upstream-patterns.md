@@ -326,6 +326,9 @@ Config, both files. One entry per gateway username; keys under `Users` are those
     "ConnectionString": "__MongoDB.ConnectionString__",
     "DatabaseName": "__MongoDB.DatabaseName__"
 },
+"CacheOptions": {
+    "Users": { "ExpirationInSeconds": 3600 }
+},
 "Endpoints": {
     "<ClientClassName>": {
         "AuthenticationScheme": "None",
@@ -340,6 +343,12 @@ Config, both files. One entry per gateway username; keys under `Users` are those
     }
 }
 ```
+
+`CacheOptions:Users` is required. `AddUsersCache()` registers `AddCache<User>("Users")`, and
+`UserService.GetUser` caches every authenticated caller through it. Without the section the lifetime binds
+as `0`, `cache.Set` throws, and every request that needs authentication answers 500. Write it in both files
+as a positive literal, never a token (C4). `3600` follows NHIMA and ZRA. When §4 also writes `CacheOptions`,
+both entries live in the one top-level object.
 
 The gateway users come from `--callers <user>,<user>`, or a question with header `Callers`: "Which gateway
 users call `<T>`? Type their usernames in Other, comma separated", options `Add them later (Recommended)` —
@@ -515,7 +524,8 @@ builder.AddCache<PersonSummaryResponse>("PersonSummary");
 ```
 
 with `using Internal.Extensions;`. A literal, never a token — and never `0`: `AddOrUpdate` throws on a zero
-lifetime. `appsettings.Development.json` may set a shorter value.
+lifetime. `appsettings.Development.json` may set a shorter value. When the tenant already has a
+`CacheOptions` object (§2 writes `Users`), add the entry to it rather than a second object.
 
 Rules:
 

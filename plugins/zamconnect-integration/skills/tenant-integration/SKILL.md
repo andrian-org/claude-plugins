@@ -324,7 +324,7 @@ Scheme values are matched **exactly** — `"basic"` configures no auth:
 | `Custom` | `AuthHeaderName` — the detected / `--auth-header` name, as a literal; `AuthHeaderValue` = `__Endpoints.<ClientClassName>.ApiKey__` |
 | `RA` | DotGov Registration Authority service-to-service token — **internal DotGov services only** (GOVZM, NDR); never for an external system. Per endpoint `ApplicationScopes { Services[], Scopes[] }`; plus `builder.Services.RegisterRa();` (`using Internal.Extensions;`) and a top-level `RegistrationAuthority { BaseUrl, TokenGeneration { CallingServiceFqn, CertificateThumbprint, PrivateKey } }` section, every value a `__Token__`. Copy the shape from GOVZM/NDR `appsettings.json`, never a value. The RA client is registered by hand by an administrator; write only the tokens, never an RA address (C10) |
 | `None` | Nothing else. Write it explicitly |
-| `Login` (not a Core scheme) | Write `"AuthenticationScheme": "None"` plus `LoginPath`, `RefreshTokenPath`, `Username`, `Password`, and a top-level `JwtOptions` section — patterns §1. Per-caller credentials add a `Users` map and `MongoDb` — patterns §2 |
+| `Login` (not a Core scheme) | Write `"AuthenticationScheme": "None"` plus `LoginPath`, `RefreshTokenPath`, `Username`, `Password`, and a top-level `JwtOptions` section — patterns §1. Per-caller credentials add a `Users` map, `MongoDb` and `CacheOptions:Users` — patterns §2 |
 
 `AuthHeaderValue` is always a token, never a value found in the source. Optional fields:
 
@@ -701,7 +701,7 @@ Must report `0 Error(s)` (`CARTER1` and `NU1903` warnings come from Core and exi
 When the pass used a pattern from `references/upstream-patterns.md`:
 
 - `Login` — every operation goes through `SendAuthorizedAsync`, none through `GetAsync`/`PostAsync`; the token is set per request, never on `DefaultRequestHeaders`; `JwtOptions` holds literal integers in both files; no log line carries a credential or a token
-- `per-caller` — credentials keyed on `User.Identity.Name`, never on the `IdentityName` header; `UseAuthentication`/`UseAuthorization` present and every group requires authorization
+- `per-caller` — credentials keyed on `User.Identity.Name`, never on the `IdentityName` header; `UseAuthentication`/`UseAuthorization` present and every group requires authorization; `CacheOptions:Users:ExpirationInSeconds` is a positive literal in both files
 - `--proxy` — `UseRestExceptionHandler()` is registered before the catch-all `Map`; no path rewriting
 - `--aggregate` — every source returns `Result` without throwing; `CacheOptions:<Name>:ExpirationInSeconds` is a positive literal in both files
 - Database — `ConnectionStrings:<System>` is top-level in both files with a `__ConnectionStrings.<System>__` placeholder; every query is parameterized; the repository is a handler parameter

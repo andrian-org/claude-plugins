@@ -182,7 +182,7 @@ Not fixable automatically: a section needs a `BaseUrl` and credentials only the 
 | `GetConnectionString("<Name>")` | Top-level `ConnectionStrings:<Name>`, a `__…__` placeholder in both files | Missing → `fail`. A literal value in either file → C7 baseline count (`warn`), never printed |
 | `IOptions<JwtOptions>` or `Configure<JwtOptions>` | Top-level `JwtOptions` with integer values | Missing → `fail`. A `__…__` placeholder in `appsettings.Development.json` → `fail` (local runs and tests fail at the first login); in `appsettings.json` → `warn` (replaced at deploy, but needs a variable per environment) |
 | `LoginPath` read from an `Endpoints:<Name>` client | `Endpoints:<Name>:LoginPath` | Missing → `fail` |
-| `AddCache<…>("<Suffix>")` | `CacheOptions:<Suffix>:ExpirationInSeconds`, a positive literal | Missing or `0` (`AddOrUpdate` throws) → `fail`. A placeholder: as for `JwtOptions` |
+| `AddCache<…>("<Suffix>")`, or `AddUsersCache(` (suffix `Users`) | `CacheOptions:<Suffix>:ExpirationInSeconds`, a positive literal | Missing or `0` (`AddOrUpdate` throws) → `fail`. For `Users` that is every authenticated request. A placeholder: as for `JwtOptions` |
 | `AddMongoDb(` | Top-level `MongoDb` with `ConnectionString` and `DatabaseName` placeholders | Missing → `fail` |
 | `Endpoints:<Name>:Users:` | One entry per caller under `Users` | Empty map → `warn`: no caller can reach the upstream yet |
 | `{**catch-all}` in `Program.cs` | `app.UseRestExceptionHandler()` earlier in the file | Missing or later → `warn`: upstream failures reach the developer exception page |
