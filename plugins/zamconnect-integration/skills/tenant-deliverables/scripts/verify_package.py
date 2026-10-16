@@ -187,9 +187,66 @@ def check_docx(path: Path, version: str | None) -> list[str]:
     return fails
 
 
-def body_paragraphs(path: Path) -> list[str]:
+ENDPOINT_HEADING = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) /")
+
+
+def body_paragraphs(path: Path) -> list[tuple[str | None, str]]:
     root = ET.fromstring(zipfile.ZipFile(path).read("word/document.xml").decode("utf8"))
-    return ["".join(t.text or "" for t in p.iter(W + "t")) for p in root.iter(W + "p")]
+    return [(style_of(p), "".join(t.text or "" for t in p.iter(W + "t"))) for p in root.iter(W + "p")]
+
+
+def endpoints(paras) -> list[str]:
+    return [t.strip() for s, t in paras if s == "Heading3" and ENDPOINT_HEADING.match(t.strip())]
+
+
+def front_matter(paras) -> list[str]:
+    """Cover, disclaimer, history and Executive Summary. The TOC is left out: it lists the
+    endpoints, which differ between the documents of a tenant that consumes and provides."""
+    out = []
+    for s, t in paras:
+        if s == "Heading2" and t.strip() in ("Glossary", "Endpoints"):
+            break
+        if not (s or "").startswith("TOC"):
+            out.append(t)
+    return out
+
+
+def signature(paras) -> list[str]:
+    start = next((i for i, (s, t) in enumerate(paras)
+                  if s == "Heading2" and t.strip() == "Contacts and Signature"), len(paras))
+    return [t for _, t in paras[start:]]
+
+
+def role_diff(a: list[str], b: list[str], what: str) -> list[str]:
+    """Two paragraph lists that may differ only where each side is a role word."""
+    roles = set(ROLE_OF.values())
+    fails = [] if len(a) == len(b) else [f"{what}: paragraph counts differ: {len(a)} vs {len(b)}"]
+    return fails + [f"{what}: {x!r} vs {y!r}" for x, y in zip(a, b)
+                    if x != y and not (x.strip("()") in roles and y.strip("()") in roles)]
+
+
+def check_split(t: Path, c: Path | None, p: Path | None) -> tuple[str, list[str]]:
+    """A single-role tenant's role document is the (t) document with another role word. A tenant
+    that consumes and provides gets (c) and (p) as projections of (t): every endpoint in exactly
+    one of them, (t) listing the Consume ones first, and the same front matter and signature block."""
+    tp = body_paragraphs(t)
+    if not (c and p):
+        one = c or p
+        marker = "(c)" if c else "(p)"
+        return f"PAIR     {marker} vs (t)", role_diff(
+            [x for _, x in tp], [x for _, x in body_paragraphs(one)], "body")
+
+    cp, pp = body_paragraphs(c), body_paragraphs(p)
+    te, ce, pe = endpoints(tp), endpoints(cp), endpoints(pp)
+    fails = [f"in both (c) and (p): {e}" for e in sorted(set(ce) & set(pe))]
+    fails += [f"in (t) but in neither (c) nor (p): {e}" for e in te if e not in ce and e not in pe]
+    fails += [f"in {m} but not in (t): {e}" for m, es in (("(c)", ce), ("(p)", pe)) for e in es if e not in te]
+    if not fails and te != ce + pe:
+        fails.append("(t) does not list the (c) endpoints first, then the (p) endpoints, in the same order")
+    for m, other in (("(c)", cp), ("(p)", pp)):
+        fails += role_diff(front_matter(tp), front_matter(other), f"front matter {m}")
+        fails += role_diff(signature(tp), signature(other), f"Contacts and Signature {m}")
+    return "SPLIT    (c) + (p) = (t)", fails
 
 
 def check_postman(path: Path, spec_path: Path) -> list[str]:
@@ -263,14 +320,9 @@ def main() -> int:
         report(f"DOCX     {f.relative_to(pkg)}  ({pages.group(1) if pages else '?'} pages, "
                f"{round(os.path.getsize(f) / 1024)} KB)", check_docx(f, args.version))
 
-    # Pair equality: (c) and (t) may differ only in the role word.
-    by_marker = {m: [f for f in docs if m in f.name] for m in ("(c)", "(p)", "(t)")}
-    if by_marker["(c)"] and by_marker["(t)"]:
-        a, b = body_paragraphs(by_marker["(t)"][0]), body_paragraphs(by_marker["(c)"][0])
-        diff = [(x, y) for x, y in zip(a, b) if x != y]
-        extra = [] if len(a) == len(b) else [f"paragraph counts differ: {len(a)} vs {len(b)}"]
-        bad = extra + [f"{x!r} vs {y!r}" for x, y in diff if x.strip("()") not in ROLE_OF.values()]
-        report("PAIR     (c) vs (t)", bad)
+    by_marker = {m: next((f for f in docs if m in f.name), None) for m in ("(c)", "(p)", "(t)")}
+    if by_marker["(t)"] and (by_marker["(c)"] or by_marker["(p)"]):
+        report(*check_split(by_marker["(t)"], by_marker["(c)"], by_marker["(p)"]))
 
     specs = current("*Swagger.json")
     for f in current("*.postman_collection.json"):

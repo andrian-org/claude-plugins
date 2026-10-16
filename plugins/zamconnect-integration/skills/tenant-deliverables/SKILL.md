@@ -437,7 +437,7 @@ python scripts/verify_package.py src/Tenants/<Tenant>/Deliverables --route <r> -
 
 It checks the OpenAPI document, opens each DOCX as a package rather than extracting its text
 (headers, footers, styles and metadata are separate parts, and are exactly where staleness
-hides), diffs the `(c)` and `(t)` bodies against each other, cross-checks every Postman URL
+hides), checks that the role documents are projections of `(t)` (step 6), cross-checks every Postman URL
 against `paths`, and confirms the five folders exist. `Archive/` is skipped — it holds
 superseded versions by design. Exit code is non-zero if anything failed, so it can gate a commit.
 
@@ -468,7 +468,7 @@ superseded versions by design. Exit code is non-zero if anything failed, so it c
 | Table style | A table carries no style instead of `Table Grid` |
 | Metadata | `dc:creator` is a person rather than `dotGov Solutions LLC`, `cp:lastModifiedBy` is populated, or any email address appears in `docProps/core.xml` |
 | Package | A `[trash]/*` part survives, or the logo `word/media/image1.png` is missing |
-| Pair equality | The `(c)` and `(t)` documents differ anywhere beyond the role word on the cover and in the header |
+| Role projections | A single-role tenant: its role document and `(t)` differ anywhere beyond the role word. A tenant with both `(c)` and `(p)`: an endpoint sits in both or in neither, `(t)` doesn't list the `(c)` endpoints first and then the `(p)` ones, or the front matter (cover, disclaimer, history, Executive Summary) or Contacts and Signature differ beyond the role word |
 | Postman auth | Not collection-level Basic with `{{username}}`/`{{password}}` — `{{test}}` or a bearer token |
 | Postman routes | A request URL is absent from the OpenAPI `paths`, or drops the `/t/<route>` segment |
 | Postman data | A request carries a real-looking NRC, TPIN, registration or account number as an example value |
