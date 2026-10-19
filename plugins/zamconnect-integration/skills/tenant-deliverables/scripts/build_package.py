@@ -209,7 +209,7 @@ def main() -> int:
     print("\n".join(f"- {line}" for line in log))
     print("\nfiles written:")
     for p in written:
-        print(f"  {p.relative_to(root)}  ({round(p.stat().st_size / 1024)} KB)")
+        print(f"  {p.relative_to(pkg)}  ({round(p.stat().st_size / 1024)} KB)")
     for w in warnings:
         print(f"\n!! {w}")
     print("\ngates:")
