@@ -45,7 +45,7 @@ Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casi
 
 ## Gate
 
-Only with `--gate <n>/<N>`. Run the step 3 prerequisites first; if one stops the skill, print the reason and emit `GATE-RESULT: failed <reason>` without asking. Otherwise **one** `AskUserQuestion` call holds the gate and, unless `--source`, `--endpoint` or `--all` was passed, the group question from 3b (R4). Which e-Services to expose has no default.
+Only with `--gate <n>/<N>`. Run the step 3 prerequisites first, but only to shape the gate: no prerequisite ends the step before the developer has seen it. **One** `AskUserQuestion` call holds the gate and, unless `--source`, `--endpoint` or `--all` was passed, the group question from 3b (R4). Which e-Services to expose has no default.
 
 | Header | Question | Options |
 |---|---|---|
@@ -53,6 +53,8 @@ Only with `--gate <n>/<N>`. Run the step 3 prerequisites first; if one stops the
 | `e-Services` | The 3b group question | the four groups |
 
 `(Recommended)` goes on `Proceed` with `--recommend proceed`, and on `Skip` with `--recommend skip`. The option order doesn't change. `Skip` → `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`.
+
+**No Carter** (a controllers tenant, from `tenant-init --controllers`). The gate question adds: "<T> serves controllers and has no Carter. `Proceed` and `Customize…` also add Carter alongside the controllers (step 5), so the e-Services module is mapped. Skip unless this tenant needs shared e-Services." `(Recommended)` goes on `Skip`, whatever `--recommend` says. Picking `Proceed` or `Customize…` is the consent to add Carter: the prerequisites question isn't asked again. A note on `Proceed` that refuses Carter ends the step with `GATE-RESULT: failed no Carter in <T>`, because a module that is never mapped exposes nothing.
 
 With `Proceed`, skip 3c and 3d: every operation of the picked groups is exposed in `routes` mode (whole groups never equal the `inherit` route set), and step 3's confirmation shows them. With `Customize…`, ask 3c and 3d as well.
 
@@ -187,7 +189,7 @@ ls src/Tenants/<TenantName>/Controllers src/Tenants/<TenantName>/Modules src/Ten
 
 | Finding | Action |
 |---|---|
-| No `AddCarter()` / `MapCarter()` — a controllers tenant | The generated module never gets mapped. Ask `Add Carter alongside the controllers (Recommended)` · `Stop`. Adding means step 5's Carter lines; `Carter` arrives transitively through `Shared.csproj`. `--auto` and gate mode stop with `no Carter in <TenantName>` |
+| No `AddCarter()` / `MapCarter()` — a controllers tenant | The generated module never gets mapped. Ask `Add Carter alongside the controllers (Recommended)` · `Stop`. Adding means step 5's Carter lines; `Carter` arrives transitively through `Shared.csproj`. `--auto` stops with `no Carter in <TenantName>`. Gate mode doesn't ask: the gate holds the choice (see Gate) |
 | No `Configure<JsonSerializerOptions>` with `PropertyNameCaseInsensitive = true` | `EServicesShared` deserializes with that `IOptions<JsonSerializerOptions>` instance; without it the upstream camelCase JSON binds to nulls. Add it in step 5 |
 | No `Shared.csproj` reference | Add it in step 5 |
 | Tenant declares its own `Gateway` class | It reads the same `Endpoints:Gateway` section as `Shared.Endpoints.Gateway` (registration keys on the class name). Confirm both target the ZamConnect gateway with the tenant's credentials, and fully qualify `Shared.Endpoints.Gateway` in any code that names it |
@@ -572,7 +574,7 @@ Close with what an administrator does by hand (C10):
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
 - `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly
 
-End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when a prerequisite stops the skill or the build in step 7 fails.
+End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the developer refuses Carter (see Gate) or the build in step 7 fails.
 
 **Virtual mode.** One line for the `GATEWAY-CONFIG.md` written or changed, then the route table: route id, methods, consumer path, GOVZM path, operations reached. Then what an administrator does by hand (C10, C11):
 

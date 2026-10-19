@@ -35,7 +35,7 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 |---|---|---|---|---|
 | 1 | `init` | `tenant-init` | `src/Tenants/<T>/` does not exist | `<T> --no-pipeline` + intake answers from state |
 | 2 | `integration` | `tenant-integration` | always | `<T> --gate 2/6`, plus `--protocol` with the `rest` / `graphql` / `soap` / `db` members of the intake answer `integrates`, in that order: `--protocol rest`, `--protocol rest,soap`, `--protocol graphql,db`, … With none of them (only `shared` / `unknown`), no `--protocol` |
-| 3 | `shared` | `integrate-shared` | always. `--recommend proceed` when `integrates` contains `shared`, otherwise `--recommend skip` | `<T> --gate 3/6` |
+| 3 | `shared` | `integrate-shared` | always. `--recommend proceed` when `integrates` contains `shared`, otherwise `--recommend skip`. On a controllers tenant without Carter the skill recommends `Skip` itself, and `Proceed` adds Carter | `<T> --gate 3/6` |
 | 4 | `tests` | `tenant-tests` | the tenant exposes at least one route (see below) | `<T> --gate 4/6` |
 | 5 | `audit` | `tenant-audit` | always. It edits no repo file, so it has **no gate**. It still builds local images and writes the tenant's gateway config and test user to the local Docker `mongo` (Checks 8–9) | `<T> --report-only` (also under `--auto`) |
 | 6 | `deliverables` | `tenant-deliverables` | the tenant exposes at least one route | `<T> --gate 6/6 --route <route>` |
