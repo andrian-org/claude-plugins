@@ -107,7 +107,9 @@ existing one in. `/integrate-shared <Tenant> --list` prints every available oper
 Some agencies have no system of their own and only need shared e-Services that the GOVZM tenant already
 serves. Such an agency gets a **virtual tenant**: gateway routes under its own slug that point at GOVZM.
 There is no project, no code, no pipeline and no deployment, only a `GATEWAY-CONFIG.md` in
-`src/VirtualTenants/<CODE>/`. If the agency later needs its own system or contract, it becomes a real tenant.
+`src/VirtualTenants/<CODE>/`. If the agency later needs its own system or contract, it becomes a real tenant:
+`/tenant-pipeline <CODE> --promote` scaffolds the project, re-implements every operation the routes forwarded
+with the same contract, then builds the new integration. Consumers keep their paths, scope and responses.
 
 ### Configuration and secrets
 

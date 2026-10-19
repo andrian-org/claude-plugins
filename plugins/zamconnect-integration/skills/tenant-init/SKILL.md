@@ -539,7 +539,7 @@ the route validator rejects a scope that doesn't exist.
 
 `methods` lists only the verbs the tenant actually exposes. With no modules yet, default to `GET`. `tenant-integration` §6 and `integrate-shared` §6 widen it to every verb the tenant's routes map.
 
-When step 1 found host routes on the slug and the developer kept them, add them to `routes[]` after `t_<slug>` in the C11 per-path shape, with their host `clusterId`, `PathPattern` and scope. `clusters` still holds only `<TENANT>`. When `src/VirtualTenants/<TENANT>/GATEWAY-CONFIG.md` exists, its routes move here the same way, and the report says that folder can be deleted once the new package is imported.
+When step 1 found host routes on the slug and the developer kept them, add them to `routes[]` after `t_<slug>` in the C11 per-path shape, with their host `clusterId`, `PathPattern` and scope. `clusters` still holds only `<TENANT>`. When `src/VirtualTenants/<TENANT>/GATEWAY-CONFIG.md` exists, its routes move here the same way, as the fallback until `tenant-integration` step 1b re-implements them in code and replaces them with a cutover section. Keep that folder: importing the new package doesn't delete the old routes from a gateway, and re-importing the folder's package is the rollback. The report names `/tenant-pipeline <TenantName> --promote` (or `/tenant-integration <TenantName> --promote`) as the next step.
 
 ### 6a. Write the environment variable list
 

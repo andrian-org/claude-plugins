@@ -36,13 +36,14 @@ After writing, it confirms the solution, pipeline and compose registrations, the
 
 ### `/tenant-pipeline`
 
-`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--status] [--auto] [--dry-run] [--help]`
+`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--promote] [--status] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Tenant to onboard or continue. When omitted, tenants with a state file are offered first, plus `New tenant` |
 | `--from <step>` | Start at this step. Earlier steps stay as they are in the state |
 | `--resume` | Continue from the first stale step, then the first pending or failed one. The default when a state file exists |
+| `--promote` | Turn a virtual tenant into a real one because it needs an integration its gateway routes can't carry: scaffold, re-implement every forwarded operation with the same contract, then integrate, test, audit and document. Stops if the re-implemented operations differ from the virtual tenant's contract |
 | `--status` | Print what ran, what's left and the commands to resume; ask and write nothing |
 | `--auto` | No gates — every step with its recommended defaults. The audit still runs `--report-only`. A step stops on a required input that has no default and isn't in the state yet, such as the integration source of a new tenant |
 | `--dry-run` | Passed to every step: plans are printed and nothing is written, the state file included |
@@ -51,7 +52,7 @@ See [Guided mode](#guided-mode) and [State and resume](#state-and-resume).
 
 ### `/tenant-integration`
 
-`<TenantName> [--source <url|path> | db[=<path>] | graphql[=<url|path>]...] [--expose <METHOD /route>...] [--protocol rest|soap|graphql|db (comma list)] [--auth <scheme>] [--auth-header <name>] [--login-path <path>] [--credentials shared|per-caller] [--callers <user>,...] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--proxy] [--aggregate "<GET /path>=<Client.Method>+<Client.Method>"...] [--aggregate-shape fields|list] [--cache <s>] [--db-access dapper|efcore] [--db-writes] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]`
+`<TenantName> [--source <url|path> | db[=<path>] | graphql[=<url|path>]...] [--expose <METHOD /route>...] [--protocol rest|soap|graphql|db (comma list)] [--auth <scheme>] [--auth-header <name>] [--login-path <path>] [--credentials shared|per-caller] [--callers <user>,...] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <s>] [--proxy] [--aggregate "<GET /path>=<Client.Method>+<Client.Method>"...] [--aggregate-shape fields|list] [--cache <s>] [--db-access dapper|efcore] [--db-writes] [--no-spec-ready] [--spec-only] [--promote] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -73,6 +74,7 @@ See [Guided mode](#guided-mode) and [State and resume](#state-and-resume).
 | `--timeout <s>` | REST upstream timeout. Default 60 s (the key is omitted) |
 | `--no-spec-ready` | Skip the spec-readiness step; the report lists what is still unmet |
 | `--spec-only` | Run only the spec-readiness step on the existing surface, then build. Needs no source and asks nothing. `/tenant-deliverables` uses it to fix the code findings it reports |
+| `--promote` | The tenant was a virtual tenant. Before the new integration, re-implement every operation its gateway routes forwarded, with the same paths, request and response models, status codes, JSON format and consumer scope; remove the old cross-cluster routes from `GATEWAY-CONFIG.md` and add a cutover section. A contract difference fails the run. Default: detected when `src/VirtualTenants/<CODE>/` still exists |
 
 Under `--auto`, every listed protocol needs a `--source` of its own, or the skill stops with `missing --source <url|path> for <protocol>`. Each pass gets its own client, config section, models and module; the report covers all passes and prints one command per pass.
 

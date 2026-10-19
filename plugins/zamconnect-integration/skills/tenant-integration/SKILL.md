@@ -1,7 +1,7 @@
 ---
 name: tenant-integration
-description: Build the integration surface of an existing ZamConnect tenant — upstream REST, SOAP, GraphQL or SQL Server database client(s), request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, GraphQL schema or endpoint, SQL file, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides the client kind. Also covers token-login upstreams (log in, cache and refresh the token) with shared or per-caller credentials, a catch-all proxy for unmapped routes, and combined routes that fan out to several upstream operations with a cache. Use when the user says "integrate <Tenant> with <System>", "add <API> to <Tenant>", "consume this WSDL", "read <Tenant>'s database", "call this GraphQL API", "the upstream needs a login token", "proxy the rest of <System>", "combine these calls into one route", "expose these endpoints on <Tenant>", or types /tenant-integration.
-argument-hint: "<TenantName> [--source <url|path> | db[=<path>] | graphql[=<url|path>]...] [--expose <METHOD /route>...] [--protocol rest|soap|graphql|db (comma list)] [--auth Basic|JWT|Custom|RA|Login|None (REST, GraphQL) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--login-path <path>] [--credentials shared|per-caller] [--callers <user>,...] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--proxy] [--aggregate \"<GET /path>=<Client.Method>+<Client.Method>\"...] [--aggregate-shape fields|list] [--cache <seconds>] [--db-access dapper|efcore] [--db-writes] [--no-spec-ready] [--spec-only] [--auto] [--dry-run] [--help]"
+description: Build the integration surface of an existing ZamConnect tenant — upstream REST, SOAP, GraphQL or SQL Server database client(s), request/response models, mappers, and the Carter modules or controllers the tenant exposes. Takes a tenant name plus integration sources (Postman collection, Swagger/OpenAPI spec, REST base URL, SOAP WSDL, GraphQL schema or endpoint, SQL file, or prose API documentation) and an optional list of endpoints to expose; the source artefact decides the client kind. Also covers token-login upstreams (log in, cache and refresh the token) with shared or per-caller credentials, a catch-all proxy for unmapped routes, and combined routes that fan out to several upstream operations with a cache. Also promotes a virtual tenant that needs an integration its gateway routes and scope can't carry: it re-implements every operation the virtual routes forwarded, with the same paths, request and response models, status codes and auth, before building the new integration. Use when the user says "integrate <Tenant> with <System>", "extend virtual tenant <CODE> with <System>", "promote <CODE> to a real tenant", "add <API> to <Tenant>", "consume this WSDL", "read <Tenant>'s database", "call this GraphQL API", "the upstream needs a login token", "proxy the rest of <System>", "combine these calls into one route", "expose these endpoints on <Tenant>", or types /tenant-integration.
+argument-hint: "<TenantName> [--source <url|path> | db[=<path>] | graphql[=<url|path>]...] [--expose <METHOD /route>...] [--protocol rest|soap|graphql|db (comma list)] [--auth Basic|JWT|Custom|RA|Login|None (REST, GraphQL) · Basic|ClientCertificate|None (SOAP)] [--auth-header <name>] [--login-path <path>] [--credentials shared|per-caller] [--callers <user>,...] [--system <Name>] [--role provide|consume] [--dto public|passthrough] [--modules system|domain] [--timeout <seconds>] [--proxy] [--aggregate \"<GET /path>=<Client.Method>+<Client.Method>\"...] [--aggregate-shape fields|list] [--cache <seconds>] [--db-access dapper|efcore] [--db-writes] [--no-spec-ready] [--spec-only] [--promote] [--auto] [--dry-run] [--help]"
 disable-model-invocation: false
 ---
 
@@ -13,6 +13,8 @@ Implement the business surface of a tenant that already exists (scaffold it firs
 - **Expose** — the routes the tenant publishes to its own consumers
 
 The tenant always exposes REST. What it consumes is whatever the upstream speaks, and that is decided by the integration sources, not by preference — see step 1a.
+
+A tenant that was a virtual tenant (C11) first takes over the contract its gateway routes forwarded to the host, unchanged, and only then gets the new integration — see step 1b.
 
 Six patterns go beyond a plain REST or SOAP client: token login (`--auth Login`), per-caller credentials (`--credentials per-caller`), the catch-all proxy (`--proxy`), aggregate routes (`--aggregate`), database upstreams (`--source db`) and GraphQL upstreams (`--source graphql`). Their templates and rules are in `${CLAUDE_PLUGIN_ROOT}/skills/tenant-integration/references/upstream-patterns.md` (§1–§6). Read only the section a pass uses, when it uses it.
 
@@ -45,6 +47,7 @@ Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username`
 | `--timeout <seconds>` | Upstream `Timeout` (REST only), written to config as `hh:mm:ss` | 60 s, the `RestEndpointOptions` default (key omitted) |
 | `--no-spec-ready` | Skip step 8 | Step 8 runs |
 | `--spec-only` | Run only step 8 on the tenant's existing surface, then the step 7 build. No source is needed and no questions are asked. `tenant-deliverables` uses it to fix the code findings it reports | Full integration |
+| `--promote` | The tenant was a virtual tenant: run the promotion pass of step 1b before the first protocol pass | Detected (step 1b, When it runs) |
 | `--gate <n>/<N>`, `--recommend` | Gate mode, set by `tenant-pipeline` | No gate |
 | `--auto` | Every `(Recommended)` default, no questions. Stops with `missing --source <url\|path>` if there's none | Interactive |
 | `--dry-run` | Stop at the review (step 1, review) and write nothing | Writes |
@@ -60,6 +63,8 @@ Only with `--gate <n>/<N>`. **One** `AskUserQuestion` call holds the gate and, u
 | `Source` | The source question from step 1 below | discovered sources |
 
 With `--protocol rest,soap` the question says the order — "build the REST API clients first, then the SOAP service clients, one upstream at a time" — and `Source` is the first REST pass's source question.
+
+With `--promote` the question starts with the promotion: "first re-implement the <n> operations the virtual routes forwarded to <host>, with their contract unchanged (step 1b), then build the new integration". `Skip` skips both, and the cross-cluster routes `tenant-init` moved into `GATEWAY-CONFIG.md` keep serving the forwarded operations.
 
 `Skip` → end with `GATE-RESULT: skipped`. `Stop` → `GATE-RESULT: stopped`. Either way, ignore the source answer.
 
@@ -267,6 +272,94 @@ A tenant may do both — `RegisterEndpoints` and `RegisterSoapEndpoints` are ind
 If the sources are genuinely silent on protocol, ask with header `Protocol`: `REST — JSON over HTTP` / `SOAP — XML envelopes` / `GraphQL — one endpoint, {query, variables}` / `Database — direct SQL Server access`, with the reason detection failed in the question text. Do not assume REST. Reaching a SOAP service with a `RestEndpoint` fails at the first call with an unparseable response, not at build time. `--protocol` and the `db` / `graphql` forms of `--source` override the classification when the user already knows.
 
 In a typed pass, the pass's protocol settles a classification the source leaves open. A source that clearly reads as the other protocol — a WSDL or `<soap:Envelope>` bodies in a REST pass, an OpenAPI spec in a SOAP pass — isn't integrated in that pass. Echo it (R11) — `Read as: WSDL · SOAP 1.1 — this is a REST pass` — and ask with header `Protocol`. In a `rest,soap` queue: `Queue it for the SOAP passes (Recommended)` — then ask the REST source question again · `Choose another REST source`. With a single `--protocol`: `Integrate it as SOAP` · `Choose another REST source`.
+
+## 1b. Promote a virtual tenant
+
+A virtual tenant (C11) is gateway routes only. A route and a scope can forward a request to a path prefix a host already serves, and nothing more. Everything else needs a project: the agency's own upstream (REST, SOAP, GraphQL, database), an operation no host serves, token login or per-caller credentials, a combined route, validation, or a contract that differs from the host's. The agency is then **promoted**: `tenant-init <T> --no-virtual` scaffolds the project, and this skill re-implements in the tenant's code every operation the virtual routes forwarded, with the host's contract unchanged. Only then does it build the new integration.
+
+Why code, and not the routes `tenant-init` step 6 moved into the tenant's `GATEWAY-CONFIG.md` as cross-cluster per-path routes: a per-path route wins over the tenant's own `t_<slug>` on its path, so the tenant can never add, test or document anything under it. A virtual catch-all left in a live gateway (`order: 1`) shadows the whole tenant, the new integration included. After promotion the tenant owns one contract: its modules, tests and documents cover every route a consumer calls.
+
+**When it runs.** With `--promote`, or when detected: `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` exists while `src/Tenants/<T>/` holds a project, or the tenant's `GATEWAY-CONFIG.md` holds a route whose `clusterId` isn't `<TENANT>`. Detected without `--promote`, ask header `Promote`: `Re-implement the <n> forwarded operations in <T> (Recommended)` · `Keep them as cross-cluster routes` — then the new integration must stay off their paths, and the review says so. `--auto` takes the first. With no project under `src/Tenants/<T>/`, stop with `run /tenant-init <T> --no-virtual first`. The promotion is a pass of its own: it runs before the first protocol pass and isn't part of the `--protocol` queue.
+
+**Inventory.** List every route a consumer of the slug calls today:
+
+```bash
+cat src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md 2>/dev/null
+grep -n '"routeId"\|"path"\|"clusterId"\|"PathPattern"\|"Scope"\|"order"' src/Tenants/<T>/GATEWAY-CONFIG.md
+grep -n '/t/<slug>/' docs/zamconnect-test-routes.md
+```
+
+For each route: the host cluster, the `PathPattern` prefix, the verbs, the scope, and every host operation it reaches — the `Reaches` list of `integrate-shared` §4a. A live route found only in the routes doc (C8) counts too. Then find each operation's handler in the host: for `GOVZM` `/eservices` it's `src/Core/Shared/Modules/EServicesSharedModule.cs`; for another host, grep its `Modules/` and `Controllers/` for the path below the prefix, and walk the base class of every module (`tenant-deliverables` step 1).
+
+**Baseline.** The contract consumers have today: `src/VirtualTenants/<CODE>/Deliverables/Tenant/<CODE> (t) API Swagger.json` when it exists, else the host's own export filtered to the reached operations (`tenant-deliverables` step 4, virtual tenant). Copy it to the scratchpad; step 7 compares against it. Echo it (R11):
+
+```
+Baseline: TTV (t) API Swagger.json · 7 operations · host GOVZM /eservices · scope ttv
+```
+
+**Contract freeze.** A consumer of the virtual tenant must see no difference on any of these. Copy each from the host; never regenerate it from this skill's templates or `integrate-shared` §6.
+
+| Aspect | Rule |
+|---|---|
+| Path and verb | Same consumer path. The tenant's own route `t_<slug>` forwards `/{**url}` unchanged, so map the host route **without** the host prefix: `/eservices/nir/persons/nrc/{nrc}` becomes `/nir/persons/nrc/{nrc}`, in a `MapGroup("")`. Same route constraints (`{zamPassId:Guid}`, `{id:guid}`) |
+| Request | Same parameter names and casing, same source (path, query, body), same types, same required-ness, same body type. GOVZM's `POST /nir/persons` binds `NirPersonAddRequest`, not the `PersonAddRequest` of the `integrate-shared` §6 template. Same decoding: GOVZM's `WebUtility.UrlDecode(nrc)` stays |
+| Response | Same success status (`200`, `201` with `PersonCreatedResponse`, `202` with no body) and the same type: the host's model from `Shared.Models.*`, or copied property for property into `Models/<Host>/`. No new public DTO and no mapper — `--dto` doesn't apply to promoted operations |
+| Serialization | The host's HTTP JSON options, copied exactly onto `AddCarter().ConfigureHttpJsonOptions` (a controller host: `AddControllers().AddJsonOptions`). GOVZM's Carter options add `JsonStringEnumConverter` to `WhenWritingNull` and `IgnoreCycles`; the `tenant-init` scaffold has no enum converter, so without it every enum on the wire turns from a string into a number |
+| Errors | The same failure statuses, from the same `Error`s through `CustomResults.Problem`, with `UseRestExceptionHandler()` for the rest (C2). No status the host doesn't produce — no new 400 validation where the host answers 500 |
+| Consumer auth | Gateway `Basic` with the scope the virtual routes used. That scope may belong to another slug (`zilas`): `t_<slug>` takes it, so no consumer's gateway user needs a new grant. The host's routes carry no in-app authorization, so the promoted routes call no `RequireAuthorization()`. `--credentials per-caller` applies to the new integration's groups only |
+| Upstream | The same upstream, through the same client and path: `EServicesShared` for GOVZM, otherwise the `Gateway` client (step 1a) on the host's own `t/<route>/…` path. Copy the host's non-secret `Endpoints:Gateway` keys (`AuthenticationScheme`, `Timeout`, `RetryCount`), never a value. The tenant's gateway user (`Credentials.<T>Tenant`) needs every scope the host's user used for these operations — `ndw`, `ndw-nbr`, `zra`, `zra-portal` for GOVZM, per the `integrate-shared` §2 catalogue |
+| Docs metadata | The host's tag (`EServices`), summaries and descriptions. Step 8 adds metadata only; it never changes the wire |
+
+**Build, per host.**
+
+- **GOVZM, every operation of `EServicesSharedModule` reached** (a catch-all virtual tenant, or per-path routes covering the whole set): run `integrate-shared <T> --mode inherit --endpoint <key>… --tag EServices --auto` with the `Skill` tool. It writes `public class EServicesModule(EServicesShared services) : EServicesSharedModule("EServices", services);` — GOVZM's own class with no base path, so every handler is identical by construction — and the wiring of its §5 (`Shared.csproj`, `RegisterGatewayEndpoint`, `AddTransient<EServicesShared>`, `Endpoints:Gateway`, its three `ENVIRONMENT-VARIABLES.json` entries). Then add the enum converter (Serialization row) yourself: `integrate-shared` doesn't
+- **GOVZM, a subset**: write `Modules/EServicesModule.cs` yourself, `MapGroup("").WithTags("EServices")`, holding only the reached routes. Copy each handler from `EServicesSharedModule.AddRoutes` — binding, body, result calls — then add the step 8 metadata. Wire per `integrate-shared` §5. Never `inherit` here: it would also expose the operations the per-path routes kept out
+- **Another host** (`NDR`, another tenant's cluster): put the operations on `Endpoints/Gateway.cs` (step 1a, Upstream reached through the ZamConnect gateway), calling the host's own gateway route for the path, from the routes doc (C8). With no such route, stop with `no gateway route onto <host> for <path>`: the host is reachable only by cross-cluster routes, and an administrator must first add one, with a scope the tenant's gateway user gets. Copy the response models from the host's types property for property, with `[JsonPropertyName]` wherever the host's serializer renamed one, and map each status the host operation declares to the same status (404 → `NotFound`, 409 → `Conflict`, 400 → `BadRequest`, 500 → `Internal()`)
+
+No module of the tenant, and no route of the new integration, may map a promoted path again. Check with the `integrate-shared` §7 collision grep before the review.
+
+**Gateway package.** Edit `src/Tenants/<T>/GATEWAY-CONFIG.md`:
+
+- Remove every cross-cluster route of the slug (`clusterId` not `<TENANT>`). Each one would shadow the code that now serves its path.
+- Set `metadata.Scope` of `t_<slug>` to the scope the virtual routes used, and its `methods` to every verb the tenant maps (step 6, Gateway methods).
+- Add the cutover section below, listing every old route id — from the virtual package, the routes doc and the routes just removed.
+
+Keep `src/VirtualTenants/<CODE>/` as it is. It is the rollback until every gateway has been cut over.
+
+~~~~markdown
+## Cutover from the virtual tenant
+
+<CODE> was a virtual tenant on <host>. Importing this package does not delete the old routes, and while
+they exist they keep winning over `t_<slug>`: the catch-all has `order: 1`, and a per-path route is the
+longer path. In each gateway, in this order:
+
+1. Deploy `core-<slug>` and check that it answers `/health/live`.
+2. Grant the tenant's gateway user the upstream scopes: <scopes>.
+3. Import this package with `POST /Import/routes`. Traffic still goes to <host>.
+4. Delete each old route: <route ids>. `DELETE /Routes/{id}` takes the route's store id, not its
+   `routeId`: look it up in the AdminAPI route list first. From here on, `t_<slug>` serves every path.
+5. Call one operation per old route through the gateway with a consumer's credentials.
+
+Consumers change nothing: same paths, same scope, same responses.
+
+Rollback: re-import `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md`. Its routes win over `t_<slug>` again.
+~~~~
+
+**Review.** The promotion is its own R6 review, before the first protocol pass's source question:
+
+```
+Promote TTV from virtual tenant (GOVZM /eservices) — contract frozen:
+  Modules/EServicesModule.cs            7 routes copied from EServicesSharedModule, no base path (zra.tcc not reached)
+  Program.cs                            + RegisterGatewayEndpoint, EServicesShared, JsonStringEnumConverter
+  appsettings.json + .Development.json  Endpoints:Gateway
+  GATEWAY-CONFIG.md                     − 2 cross-cluster routes · t_ttv scope ttv · GET, POST, PATCH · cutover
+Baseline: TTV (t) API Swagger.json · 7 operations · no change allowed
+Gateway user Credentials.TTVTenant needs: ndw, ndw-nbr
+Old routes to delete at cutover: t_ttv_eservices_nir_persons, t_ttv_eservices_nbr_entities
+Command: /tenant-integration TTV --promote
+```
+
+`Adjust` asks which operations to drop: dropping one is a breaking change for its consumers, and the review says so in the question text. With `--dry-run`, print the plan and end here.
 
 ## 2. Read the tenant and its neighbours
 
@@ -698,6 +791,13 @@ Must report `0 Error(s)` (`CARTER1` and `NU1903` warnings come from Core and exi
 - An upstream reached through the gateway goes through `Endpoints/Gateway.cs` and `Endpoints:Gateway`, never a second client and section with its own gateway credentials
 - No upstream DTO — JSON or XML — is returned directly where a public DTO was defined
 
+After a promotion (step 1b) — the **parity gate**. Export the tenant's Swagger the way `tenant-deliverables` step 4 does, strip `/t/<slug>` from the baseline's paths, and compare every baseline operation: path, verb, each parameter (`name`, `in`, `required`, schema), request body schema, success status and schema, enum representation, failure statuses. Every baseline operation must be there, unchanged. Two differences are allowed: the new integration's operations, and failure statuses that step 8 now documents where the host returned them without declaring them (report each one). Anything else is a failure: fix the code, never the baseline. In gate mode the last line is then `GATE-RESULT: failed parity <METHOD> <path>`. Also check:
+
+- No promoted route calls `RequireAuthorization()`, and none is under a base path
+- The HTTP JSON options equal the host's, enum converter included
+- `GATEWAY-CONFIG.md` holds no route with a `clusterId` other than `<TENANT>`, `t_<slug>` has the virtual scope, and the cutover section names every old route id
+- `src/VirtualTenants/<CODE>/` is still there
+
 When the pass used a pattern from `references/upstream-patterns.md`:
 
 - `Login` — every operation goes through `SendAuthorizedAsync`, none through `GetAsync`/`PostAsync`; the token is set per request, never on `DefaultRequestHeaders`; `JwtOptions` holds literal integers in both files; no log line carries a credential or a token
@@ -770,9 +870,11 @@ Each pass gets its own client, config section, models and module, and the report
 
 State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list the entries added to or removed from `ENVIRONMENT-VARIABLES.json` (names only, never a value), and what an administrator does by hand (C10): add those variables to each environment, import `GATEWAY-CONFIG.md` into each gateway (locally that is `/tenant-audit <TenantName> --only runtime`), and register any RA / ZamPass client. `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly.
 
+After a promotion, the report opens with it: the host, the baseline, the parity result per operation, and the cutover from `GATEWAY-CONFIG.md` — the upstream scopes to grant the tenant's gateway user and the old route ids to delete in each gateway, in that order, after the deploy and the import. Consumers change nothing. Locally, the Docker `mongo` may still hold the old routes from an earlier `tenant-audit` Check V: they shadow `t_<slug>` there too, so name them for deletion before `/tenant-audit <T> --only runtime`. Name `/tenant-tests <T>` next: its tests for the promoted routes assert the baseline's statuses and JSON property names.
+
 The administrator list grows with the patterns used: the gateway users of a `per-caller` map and the `MongoDB.*` variables (§2), and for a database the connection-string variable per environment and a network path from the cluster to the database server (§5). Name the operations reachable only through the catch-all proxy: they are not in Swagger, so the delivery documents leave them out (§3).
 
-Close with the equivalent command for each pass (R7) — with `--protocol` set to that pass's protocol — and these answers for the pipeline state, one entry per pass: `protocol` (`rest`, `soap`, `graphql` or `db`), `sources`, `system`, `auth`, `role`, plus `fullName` if it was settled here, and whichever apply: `loginPath`, `credentials`, `callers`, `proxy`, `dbAccess`, `dbWrites`. Each combined route is one more entry: `{ "aggregate": "<GET /path>=<Client.Method>+…", "shape", "cache" }`. A protocol skipped with `Skip <protocol> for now` is reported as skipped. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
+Close with the equivalent command for each pass (R7) — with `--protocol` set to that pass's protocol — and these answers for the pipeline state, one entry per pass: `protocol` (`rest`, `soap`, `graphql` or `db`), `sources`, `system`, `auth`, `role`, plus `fullName` if it was settled here, and whichever apply: `loginPath`, `credentials`, `callers`, `proxy`, `dbAccess`, `dbWrites`. Each combined route is one more entry: `{ "aggregate": "<GET /path>=<Client.Method>+…", "shape", "cache" }`. A promotion is one more entry too: `{ "promotion": "<host> <prefix>", "baseline": "<path>", "operations": [<METHOD /path>…], "scope", "oldRoutes": [<route id>…], "parity": "passed" }`. A protocol skipped with `Skip <protocol> for now` is reported as skipped. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the build in step 7 fails.
 
 ## Sensitive data
 

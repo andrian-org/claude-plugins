@@ -1,7 +1,7 @@
 ---
 name: tenant-pipeline
-description: Guided end-to-end onboarding of a ZamConnect tenant — scaffold, integration, shared e-Services, tests, audit and delivery documents — as one gated chain with a saved state, so a stopped run can be resumed and a re-run step marks what it invalidated. A virtual tenant (gateway routes onto another cluster, no project) gets a shorter chain: shared e-Services routes, then the audit. Use when the user says "onboard <Tenant>", "run the whole tenant pipeline", "continue/resume <Tenant>", "what's left for <Tenant>", "re-run tests and docs for <Tenant>", or types /tenant-pipeline.
-argument-hint: "<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--status] [--auto] [--dry-run] [--help]"
+description: Guided end-to-end onboarding of a ZamConnect tenant — scaffold, integration, shared e-Services, tests, audit and delivery documents — as one gated chain with a saved state, so a stopped run can be resumed and a re-run step marks what it invalidated. A virtual tenant (gateway routes onto another cluster, no project) gets a shorter chain: shared e-Services routes, then the audit. A virtual tenant that needs an integration its routes and scope can't carry is promoted: scaffolded as a real tenant, its forwarded operations re-implemented with the same contract, then integrated, tested, audited and documented as usual. Use when the user says "onboard <Tenant>", "extend virtual tenant <CODE> with <System>", "promote <CODE>", "run the whole tenant pipeline", "continue/resume <Tenant>", "what's left for <Tenant>", "re-run tests and docs for <Tenant>", or types /tenant-pipeline.
+argument-hint: "<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--promote] [--status] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Glob Grep Bash(ls *) Bash(grep *) Bash(find *) Bash(mkdir *) Bash(git config *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -24,6 +24,7 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | `<TenantName>` | Tenant folder name. Required. When omitted, asked first from the contract's Missing arguments menu (R13), with tenants that have a state file first and a `New tenant` option that asks for the name in plain text and starts at step 1. `--auto` stops with `missing <TenantName>`. The pipeline always passes it on, so no step asks it again |
 | `--from <step>` | Start at this step. Everything before it is left as it is in state |
 | `--resume` | Start at the first `stale` step, then the first `pending` / `failed` one. This is the default when a state file exists and neither `--from` nor `--status` is given |
+| `--promote` | The tenant is a virtual tenant and now needs an integration its routes can't carry: run the promotion chain (below) |
 | `--status` | Print the state table and the resume commands, then stop. Asks nothing, writes nothing |
 | `--auto` | No gates. Every step runs with its `(Recommended)` defaults and is given `--auto`. Stops on the first required input that has no default (R10) |
 | `--dry-run` | Passed to every step. Plans are printed and nothing is written |
@@ -53,7 +54,33 @@ A virtual tenant (conventions C11) has no project, so there is nothing to scaffo
 
 Record steps 2 and 4 as `skipped` with the reason "virtual tenant". Keep the step numbers of the full chain, so the state table reads the same for every tenant. When step 3 records `ran`, mark steps 5 and 6 `stale` if they were `ran`. `<slug>` is the first segment after `/t/` in the package's routes.
 
-A virtual tenant that later needs a project is a real tenant from then on: `/tenant-init <T> --no-virtual` moves its routes into the new `GATEWAY-CONFIG.md` (tenant-init step 6), and the full chain applies.
+A virtual tenant that later needs a project is a real tenant from then on, through the promotion chain below.
+
+### Promotion chain
+
+A virtual tenant's routes can only forward to a path prefix a host already serves, under one scope. When the agency needs more — its own upstream system, an operation no host serves, token login or per-caller credentials, a combined route, its own contract — no route or scope change can carry it. The agency becomes a real tenant, and every operation its routes forwarded moves into the tenant's code with its contract frozen: same paths, request and response models, status codes, serialization and consumer scope (`tenant-integration` step 1b).
+
+It starts with `--promote`, or from a virtual tenant's run (state `answers.virtual: true`, or `src/VirtualTenants/<T>/` with no project) when the developer asks for an agency integration. Ask header `Promote` first. The question lists the operations the routes forward today and says why the new integration needs a project:
+
+| Option | Meaning |
+|---|---|
+| `Promote — project, forwarded operations re-implemented, then the integration (Recommended)` | The chain below |
+| `Stay virtual` | Ends the run. The integration isn't built |
+
+`--auto` takes `Promote`. A tenant with a project under `src/Tenants/<T>/` while `src/VirtualTenants/<T>/` still exists is a promotion in progress: resume the chain below without asking.
+
+| # | Step key | Skill | Arguments passed |
+|---|---|---|---|
+| 1 | `init` | `tenant-init` | `<T> --no-virtual --no-pipeline --integrates <members>`: the agency upstreams asked for, plus `shared` when the host is GOVZM. It moves the virtual routes into the tenant's `GATEWAY-CONFIG.md` as cross-cluster routes, the fallback until step 2 |
+| 2 | `integration` | `tenant-integration` | `<T> --gate 2/6 --promote` plus `--protocol` as in the full chain. The promotion pass runs first, then the new upstream passes |
+| 3 | `shared` | `integrate-shared` | `<T> --gate 3/6 --recommend skip`: step 2 already exposes the forwarded shared operations. `Proceed` adds other shared operations only |
+| 4 | `tests` | `tenant-tests` | `<T> --gate 4/6`. The promoted routes are on disk, so they are covered |
+| 5 | `audit` | `tenant-audit` | `<T> --report-only`. The tenant has a project, so Checks 1–9 run, not Check V |
+| 6 | `deliverables` | `tenant-deliverables` | `<T> --gate 6/6 --route <slug> --version <next>`. The route stays the virtual slug. `<next>` is one minor above `info.version` of `src/VirtualTenants/<T>/Deliverables/Tenant/<T> (t) API Swagger.json`, so consumers get a successor of the document they hold, not a new API. With no virtual package, no `--version` |
+
+State. On entry, replace the virtual chain's records: step 1 is `pending` again, and steps 2 and 4 drop `skipped — virtual tenant`. Set `answers.virtual: false` and `answers.promotedFrom: "virtual"`, and keep the virtual answers (`shape`, `scope`, `endpoints`) under `answers.promotion` — step 2 reads the scope from there. Step 2 records its promotion entry (`tenant-integration` Report) beside the integration entries.
+
+Parity is a hard stop. When step 2 ends with `GATE-RESULT: failed parity <METHOD> <path>`, record `failed` and stop the chain. Tests and documents built over a changed contract would ship that change to every consumer of the virtual tenant. A re-run of step 2 re-checks parity, and marks steps 4–6 `stale` as usual.
 
 ### Route check
 
@@ -105,8 +132,10 @@ Step 2 answers map to flags one-to-one, per entry of `answers.integrations`:
 2. **Pick the start step.** From `--from`, from `--resume`, or from step 1 when there's no state and
    no tenant folder. If there's no state but the tenant exists, start at step 2 and create the state
    file with step 1 recorded as `ran`, command unknown. If there's no state but
-   `src/VirtualTenants/<T>/` exists, use the virtual chain from step 3 and record step 1 the same way.
-   When step 1 reports `virtual: true`, continue with the virtual chain.
+   `src/VirtualTenants/<T>/` exists, use the virtual chain from step 3 and record step 1 the same way —
+   unless `src/Tenants/<T>/` holds a project too: that is a promotion in progress, so use the promotion
+   chain from step 2. When step 1 reports `virtual: true`, continue with the virtual chain. With
+   `--promote`, or a `Promote` answer, use the promotion chain from step 1.
 3. **For each step from the start:**
    - If its condition fails, record `skipped` with the reason and move on.
    - Invoke the skill through the `Skill` tool with the arguments above. Don't reimplement a step
@@ -154,6 +183,8 @@ Or run:  /tenant-audit PQPS
 Steps marked `stale` are listed with the reason, e.g. "stale — integration re-ran on 2026-09-23".
 
 A virtual tenant's summary shows steps 2 and 4 as `skipped — virtual tenant`, and its administrator list is shorter: import `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` into each gateway and create the agency's gateway user with the route scope. There is no pipeline, variable or image.
+
+A promoted tenant's summary heads the chain with `promoted from virtual tenant on <host>` and the parity result. Its administrator list is the full tenant's, plus the cutover from the tenant's `GATEWAY-CONFIG.md`, in its order: deploy, grant the tenant's gateway user the upstream scopes, import the package, then delete the old virtual routes (named by id) in each gateway. Consumers' users and scopes don't change. Rollback is re-importing `src/VirtualTenants/<T>/GATEWAY-CONFIG.md`, so the summary says to keep that folder until every gateway has been cut over, and to delete it only then.
 
 ## Sensitive data
 

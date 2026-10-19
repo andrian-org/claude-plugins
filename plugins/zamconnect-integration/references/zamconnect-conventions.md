@@ -217,6 +217,7 @@ route config.
 | The agency has no system of its own to integrate, and a host already serves everything it needs | Virtual tenant. For shared e-Services the host is `GOVZM` (`integrate-shared` §4a) |
 | A real tenant also needs a host's surface, unchanged | Cross-cluster sub-routes in the tenant's own `GATEWAY-CONFIG.md` |
 | The agency needs its own contract: own DTOs, validation, combined calls, other paths, or operations the host doesn't serve | A real tenant (`tenant-init`, then `tenant-integration` / `integrate-shared` in code) |
+| A virtual tenant now needs any of the above | Promotion (`tenant-pipeline --promote`): a real tenant that first re-implements every forwarded operation with the host's contract unchanged (`tenant-integration` step 1b), then the old routes are deleted at cutover |
 
 A cross-cluster route forwards the host's contract as it is: the same paths below the prefix, the same
 bodies, the same errors. Nothing in the repo is generated for it except the gateway package.
