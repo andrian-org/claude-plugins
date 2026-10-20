@@ -2,7 +2,7 @@
 name: integrate-shared
 description: Expose ZamConnect shared e-Services (NIR, NBR/PACRA, DOC, SRS, ZDI, NLR, ZDA, NAIR, ZRA, MOH) on a tenant by wiring `EServicesShared` through the API gateway. Scans `src/Core/Shared/Services/EServicesShared.cs` for the available operations and drives an interactive menu to pick sources and endpoints, then generates the Carter module, registration, and gateway `appsettings` section. For an agency with no system of its own, it instead sets up a virtual tenant: gateway routes onto the GOVZM `/eservices` surface, with no project and no code (`--mode virtual`). Use when the user says "add NIR lookup to <Tenant>", "expose shared e-services on <Tenant>", "give <Tenant> access to PACRA/ZRA/ZDI", "<agency> only needs NIR/PACRA", "create a virtual tenant", "route <agency> to GOVZM eservices", "which shared endpoints are available", or types /integrate-shared.
 argument-hint: "<TenantName|AgencyCode> [--source NIR|NBR|DOC|SRS|ZDI|NLR|ZDA|NAIR|ZRA|MOH ...] [--endpoint <key> ...] [--base-path <path>] [--tag EServices] [--mode inherit|common|routes|virtual] [--shape catch-all|paths] [--scope <scope>] [--dto shared|tenant] [--all] [--new] [--list] [--auto] [--dry-run] [--help]"
-allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) AskUserQuestion Skill
+allowed-tools: Read Write Edit Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(dotnet *) Bash(docker *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
 
@@ -182,6 +182,7 @@ The question text names the GOVZM operations from the step 1 `EServicesSharedMod
 ```bash
 grep -nE 'AddCarter|MapCarter|Configure<JsonSerializerOptions>|PropertyNameCaseInsensitive|RegisterGatewayEndpoint|AddTransient<EServicesShared>' src/Tenants/<TenantName>/Program.cs
 grep -n 'Shared.csproj' src/Tenants/<TenantName>/<TenantName>.csproj
+grep -n 'COPY \["Core/' src/Tenants/<TenantName>/Dockerfile
 grep -nE '<ImplicitUsings>|<Nullable>' src/Tenants/<TenantName>/<TenantName>.csproj
 grep -rlnE 'class Gateway\b' src/Tenants/<TenantName> --include=*.cs
 ls src/Tenants/<TenantName>/Controllers src/Tenants/<TenantName>/Modules src/Tenants/<TenantName>/Mapper
@@ -192,6 +193,7 @@ ls src/Tenants/<TenantName>/Controllers src/Tenants/<TenantName>/Modules src/Ten
 | No `AddCarter()` / `MapCarter()` — a controllers tenant | The generated module never gets mapped. Ask `Add Carter alongside the controllers (Recommended)` · `Stop`. Adding means step 5's Carter lines; `Carter` arrives transitively through `Shared.csproj`. `--auto` stops with `no Carter in <TenantName>`. Gate mode doesn't ask: the gate holds the choice (see Gate) |
 | No `Configure<JsonSerializerOptions>` with `PropertyNameCaseInsensitive = true` | `EServicesShared` deserializes with that `IOptions<JsonSerializerOptions>` instance; without it the upstream camelCase JSON binds to nulls. Add it in step 5 |
 | No `Shared.csproj` reference | Add it in step 5 |
+| Dockerfile has no `Core/Shared` pair (`Core/Shared/Shared.csproj` and `Core/Shared/`), or is missing `Core/Internal` or `Core/Database` | Add the missing lines in step 5. `dotnet build` passes without them; only the Linux image build fails, at restore (`Shared.csproj` not found). The tenants without a `Shared` reference today (PQPS, IFMIS, NHIMA, ZRA, MOA…) have only the Internal and Database pairs |
 | Tenant declares its own `Gateway` class | It reads the same `Endpoints:Gateway` section as `Shared.Endpoints.Gateway` (registration keys on the class name). Confirm both target the ZamConnect gateway with the tenant's credentials, and fully qualify `Shared.Endpoints.Gateway` in any code that names it |
 | `ImplicitUsings` / `Nullable` | Drives the generated `using` block and `string?` usage (C1) |
 
@@ -389,6 +391,31 @@ A per-path route has the same object without `"order"`, with `"path": "/t/<slug>
 <ProjectReference Include="..\..\Core\Shared\Shared.csproj" />
 ```
 
+**`src/Tenants/<TenantName>/Dockerfile`** — must copy `Shared` and what it references. `Shared.csproj` references `Internal`, which references `Database`, so the restore needs all three projects in the image. The build context is `src/`. Use the tenant-init §3 form, and add only the lines the prerequisites grep didn't find:
+
+| Line | Place it after |
+|---|---|
+| `COPY ["Core/Shared/Shared.csproj", "Core/Shared/"]` | The last `COPY ["Core/<Dir>/<Dir>.csproj", "Core/<Dir>/"]` line, before `RUN dotnet restore` |
+| `COPY ["Core/Shared/", "Core/Shared/"]` | The last `COPY ["Core/<Dir>/", "Core/<Dir>/"]` line, before `WORKDIR "/src/Tenants/<TenantName>"` |
+
+A missing `Internal` or `Database` pair is added the same way, keeping the order `Internal`, `Database`, `Shared` in both groups. With no `Core/` line at all in a group, the line goes after the tenant's own `COPY` in that group (`Tenants/<TenantName>/<TenantName>.csproj`, then `Tenants/<TenantName>`). Change nothing else in the file. For PQPS the result is:
+
+```dockerfile
+COPY ["Tenants/PQPS/PQPS.csproj", "Tenants/PQPS/"]
+COPY ["Core/Internal/Internal.csproj", "Core/Internal/"]
+COPY ["Core/Database/Database.csproj", "Core/Database/"]
+COPY ["Core/Shared/Shared.csproj", "Core/Shared/"]
+RUN dotnet restore "Tenants/PQPS/PQPS.csproj"
+
+COPY ["Tenants/PQPS", "Tenants/PQPS/"]
+COPY ["Core/Internal/", "Core/Internal/"]
+COPY ["Core/Database/", "Core/Database/"]
+COPY ["Core/Shared/", "Core/Shared/"]
+WORKDIR "/src/Tenants/PQPS"
+```
+
+Every tenant that already references `Shared` (ZPS, GOVZM, MCTI…) has this layout. Re-run the prerequisites grep afterwards: it must print the three pairs, each once.
+
 **`src/Tenants/<TenantName>/Program.cs`** — add what the prerequisites found missing:
 
 ```csharp
@@ -546,8 +573,23 @@ Generic calls need both type arguments named explicitly (`<BusinessEntityRespons
 dotnet build src/Tenants/<TenantName>/<TenantName>.csproj -v q --nologo
 ```
 
-Must report `0 Error(s)`. Then, without running the app:
+Must report `0 Error(s)`. `dotnet build` says nothing about the Dockerfile, so then build the image through the tenant's compose service. Resolve the service key from the compose file first, never from the tenant name:
 
+```bash
+grep -nE '^  [A-Za-z0-9_.-]+:[[:space:]]*$|dockerfile: Tenants/<TenantName>/Dockerfile' src/.dockercompose/docker-compose.yml | grep -B1 'dockerfile:'
+```
+
+The first line printed is the key of the service that builds `Tenants/<TenantName>/Dockerfile`. It is normally `core-<slug>`, the tenant name lowercased with no separators (tenant-init step 5). When it differs — ECOUNCIL's `core-ecounncil`, TestTenant's `test-tenant` — build with the key the file holds and report the mismatch; don't rename the service here. With no service at all, report `no compose service for <TenantName>`, count the image build as not run, and name `/tenant-audit <TenantName>` (Check 1).
+
+```bash
+docker info >/dev/null 2>&1 && docker compose -f src/.dockercompose/docker-compose.yml build <service>
+```
+
+Must exit 0. On failure, read the first error: a restore error naming a `Core/*.csproj` is a missing `COPY` from step 5. Fix it and re-run; don't report the run as done while it fails. If `docker info` fails (Docker not installed or the engine is not running), report the image build as `skipped — Docker not available`, never as passed, with the command to run later. If the Dockerfile declares `ARG PAT` (private feed, ZamMobile), pass `--build-arg PAT=<token>` from the user's environment and never echo it.
+
+Then, without running the app:
+
+- The Dockerfile has the `Core/Internal`, `Core/Database` and `Core/Shared` pairs, each once, in the step 5 places
 - `Endpoints:Gateway` exists in **both** appsettings files, with placeholder credentials
 - `Program.cs` has `Configure<JsonSerializerOptions>` with `PropertyNameCaseInsensitive = true`, `AddCarter()`, `MapCarter()`, `RegisterGatewayEndpoint` and `AddTransient<EServicesShared>()`
 - Every selected operation has exactly one route, and no route was generated for an operation the user deselected
@@ -562,7 +604,7 @@ The new routes change the tenant's contract. Outside `tenant-pipeline`, which ru
 
 ## Report
 
-One line per file added or changed, then a table of the exposed routes (method, path, shared operation, upstream gateway path, gateway scope). Then:
+One line per file added or changed, then a table of the exposed routes (method, path, shared operation, upstream gateway path, gateway scope). Then the step 7 results: `dotnet build`, and the image build of `<service>` as passed, failed or `skipped — Docker not available`, with any service-key mismatch. Then:
 
 - **Required gateway scopes** — the distinct scopes from that table (e.g. `ndw`, `ndw-nbr`, `zra`, `zra-portal`). The tenant's gateway user must hold every one; `ScopeAuthorizationMiddleware` answers `403 Request not allowed` otherwise.
 - Any note step 2 calls for: explicit person `Id` not forwarded (`nir.person.create`), the `GetCooperativeByRegistrationNumber` upstream bug (`doc.cooperative`).
@@ -574,7 +616,7 @@ Close with what an administrator does by hand (C10):
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
 - `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly
 
-End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the developer refuses Carter (see Gate) or the build in step 7 fails.
+End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR --endpoint nbr.entity --mode routes`, and these answers for the pipeline state: `sources`, `endpoints`, `mode`, plus `dto`, `tag` and `basePath` when they differ from the defaults. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the developer refuses Carter (see Gate), the build in step 7 fails, or the image build in step 7 fails (`GATE-RESULT: failed image build <service>`). An image build `skipped — Docker not available` is not a failure: the line stays `GATE-RESULT: ran`, and the report says it was skipped.
 
 **Virtual mode.** One line for the `GATEWAY-CONFIG.md` written or changed, then the route table: route id, methods, consumer path, GOVZM path, operations reached. Then what an administrator does by hand (C10, C11):
 

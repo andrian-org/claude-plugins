@@ -11,6 +11,7 @@ Usage:
     python openapi_to_docx.py <swagger.json> <output.docx>
         --tenant APIS --role Provider --version 1.0
         [--author "Name"] [--date "August 3, 2026"] [--route apis]
+        [--history history.json]    # the Document History rows; --date is the cover's date
 
 Requires Microsoft Word (via COM automation) on the machine running this, to repaginate the
 Table of Contents with real page numbers. Falls back to an estimated TOC if Word is unavailable.
@@ -725,6 +726,41 @@ def patch_numpages_field(docx_path, page_count):
             zf.writestr(name, data)
 
 
+W14 = "{http://schemas.microsoft.com/office/word/2010/wordml}"
+HISTORY_FIELDS = (("{{HISTORY_DESCRIPTION}}", "description"), ("{{HISTORY_AUTHOR}}", "author"),
+                  ("{{HISTORY_VERSION}}", "version"), ("{{HISTORY_DATE}}", "date"))
+
+
+def fill_history(body, rows):
+    """Write the Document History rows in place of the template's single placeholder row.
+
+    Each row is a copy of the template's, so it keeps the borders and run formatting; the rows
+    come oldest first, and prior revisions are carried forward exactly as they were written.
+    """
+    if not rows:
+        sys.exit("!! --history holds no rows")
+    template_row = next((tr for tr in body.iter(qn("w:tr"))
+                         if "{{HISTORY_DESCRIPTION}}" in "".join(t.text or "" for t in tr.iter(qn("w:t")))),
+                        None)
+    if template_row is None:
+        sys.exit("!! the template has no Document History row to fill")
+    for row in rows:
+        missing = [k for _, k in HISTORY_FIELDS if not str(row.get(k, "")).strip()]
+        if missing:
+            sys.exit(f"!! --history row {row} lacks {missing}")
+        tr = copy.deepcopy(template_row)
+        # Word requires w14:paraId to be unique; a copy without one gets a fresh id on save.
+        for e in tr.iter():
+            for attr in [a for a in e.attrib if a.startswith(W14) and a[len(W14):] in ("paraId", "textId")]:
+                del e.attrib[attr]
+        for t in tr.iter(qn("w:t")):
+            for token, key in HISTORY_FIELDS:
+                if token in (t.text or ""):
+                    t.text = t.text.replace(token, str(row[key]))
+        template_row.addprevious(tr)
+    template_row.getparent().remove(template_row)
+
+
 # =============================================================================== BUILD
 
 def main():
@@ -749,6 +785,11 @@ def main():
                         help="Render only this section, making the (c)/(p) document a projection "
                              "of the (t) one. Requires --sections")
     parser.add_argument("--history-description", default="Originally drafted")
+    parser.add_argument("--history", default=None,
+                        help="JSON file: the Document History rows, oldest first, each "
+                             "{description, author, version, date}. Replaces the template's single "
+                             "row, so prior revisions are carried forward. build_package.py writes "
+                             "it from the current (t) document; --history-description is then unused")
     args = parser.parse_args()
 
     route_prefix = args.route or args.tenant.lower()
@@ -837,6 +878,10 @@ def main():
         "{{HISTORY_VERSION}}": args.version,
         "{{HISTORY_DATE}}": args.date,
     }
+
+    if args.history:
+        with open(args.history, encoding="utf-8") as fh:
+            fill_history(body, json.load(fh))
 
     def substitute_tokens(container_paragraphs):
         for p in container_paragraphs:

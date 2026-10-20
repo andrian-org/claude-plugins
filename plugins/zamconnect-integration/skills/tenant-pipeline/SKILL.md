@@ -1,7 +1,7 @@
 ---
 name: tenant-pipeline
 description: Guided end-to-end onboarding of a ZamConnect tenant — scaffold, integration, shared e-Services, tests, audit and delivery documents — as one gated chain with a saved state, so a stopped run can be resumed and a re-run step marks what it invalidated. A virtual tenant (gateway routes onto another cluster, no project) gets a shorter chain: shared e-Services routes, then the audit. A virtual tenant that needs an integration its routes and scope can't carry is promoted: scaffolded as a real tenant, its forwarded operations re-implemented with the same contract, then integrated, tested, audited and documented as usual. Use when the user says "onboard <Tenant>", "extend virtual tenant <CODE> with <System>", "promote <CODE>", "run the whole tenant pipeline", "continue/resume <Tenant>", "what's left for <Tenant>", "re-run tests and docs for <Tenant>", or types /tenant-pipeline.
-argument-hint: "<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--promote] [--status] [--auto] [--dry-run] [--help]"
+argument-hint: "<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--promote] [--status] [--source <url|path>...] [--shared-source <SYS>...] [--all] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Glob Grep Bash(ls *) Bash(grep *) Bash(find *) Bash(mkdir *) Bash(git config *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -26,7 +26,10 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 | `--resume` | Start at the first `stale` step, then the first `pending` / `failed` one. This is the default when a state file exists and neither `--from` nor `--status` is given |
 | `--promote` | The tenant is a virtual tenant and now needs an integration its routes can't carry: run the promotion chain (below) |
 | `--status` | Print the state table and the resume commands, then stop. Asks nothing, writes nothing |
-| `--auto` | No gates. Every step runs with its `(Recommended)` defaults and is given `--auto`. Stops on the first required input that has no default (R10) |
+| `--source <url\|path>` | Integration source for step 2; repeatable. Each one becomes an `answers.integrations` entry `{ "sources": [...] }`. A database source keeps its `db=<path>` form, a GraphQL one `graphql=<…>` |
+| `--shared-source <SYS>` | Shared e-Services system for step 3 (`NIR`, `NBR`, `ZRA`, …); repeatable. Becomes `answers.sharedSources`, and step 3 gets one `--source <SYS>` per code |
+| `--all` | Every shared operation for step 3. Becomes `answers.sharedAll: true`, and step 3 gets `--all` |
+| `--auto` | No gates. Every step runs with its `(Recommended)` defaults and is given `--auto`. Missing sources are checked before any step runs (see Running). Stops on the first required input that has no default (R10) |
 | `--dry-run` | Passed to every step. Plans are printed and nothing is written |
 | `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
 
@@ -34,12 +37,26 @@ All paths are relative to the ZamConnect repository root (the directory holding 
 
 | # | Step key | Skill | Offered when | Arguments passed |
 |---|---|---|---|---|
-| 1 | `init` | `tenant-init` | `src/Tenants/<T>/` does not exist | `<T> --no-pipeline` + intake answers from state |
-| 2 | `integration` | `tenant-integration` | always | `<T> --gate 2/6`, plus `--protocol` with the `rest` / `graphql` / `soap` / `db` members of the intake answer `integrates`, in that order: `--protocol rest`, `--protocol rest,soap`, `--protocol graphql,db`, … With none of them (only `shared` / `unknown`), no `--protocol` |
-| 3 | `shared` | `integrate-shared` | always. `--recommend proceed` when `integrates` contains `shared`, otherwise `--recommend skip`. On a controllers tenant without Carter the skill recommends `Skip` itself, and `Proceed` adds Carter | `<T> --gate 3/6` |
+| 1 | `init` | `tenant-init` | `src/Tenants/<T>/` does not exist | The [step 1 arguments](#step-arguments) |
+| 2 | `integration` | `tenant-integration` | always. Under `--auto`, `skipped` with the reason "no protocol or source" when state holds neither a `rest` / `graphql` / `soap` / `db` member in `integrates` nor an `integrations` source | `<T> --gate 2/6`, plus `--protocol` with the `rest` / `graphql` / `soap` / `db` members of the intake answer `integrates`, in that order: `--protocol rest`, `--protocol rest,soap`, `--protocol graphql,db`, … With none of them (only `shared` / `unknown`), no `--protocol` |
+| 3 | `shared` | `integrate-shared` | always. `--recommend proceed` when `integrates` contains `shared`, otherwise `--recommend skip`. On a controllers tenant without Carter the skill recommends `Skip` itself, and `Proceed` adds Carter | `<T> --gate 3/6`, plus the [shared source flags](#step-arguments) |
 | 4 | `tests` | `tenant-tests` | the tenant exposes at least one route (see below) | `<T> --gate 4/6` |
 | 5 | `audit` | `tenant-audit` | always. It edits no repo file, so it has **no gate**. It still builds local images and writes the tenant's gateway config and test user to the local Docker `mongo` (Checks 8–9) | `<T> --report-only` (also under `--auto`) |
 | 6 | `deliverables` | `tenant-deliverables` | the tenant exposes at least one route | `<T> --gate 6/6 --route <route>` |
+
+### Step arguments
+
+Step 1 gets exactly these arguments:
+
+- always `<T> --no-pipeline`. In `tenant-init`, `--no-pipeline` always wins over `--auto`: it scaffolds and never starts this chain a second time;
+- `--auto` and `--dry-run` when the pipeline has them;
+- `--source`, `--shared-source` and `--all` as given to the pipeline;
+- `--controllers`, `--full-name` and `--integrates` from state, when state holds them;
+- never `--gate`. Step 1 has no gate: its intake and review are its questions.
+
+Step 3 gets the shared source answers from state: one `--source <SYS>` per `answers.sharedSources` code, and `--all` when `answers.sharedAll` is `true`. With neither, step 3 asks for the groups in its own gate.
+
+The virtual and promotion chains use the same lists. The promotion chain's step 1 also gets `--no-virtual`, and its own `--integrates` in place of the one in state.
 
 ### Virtual chain
 
@@ -47,8 +64,8 @@ A virtual tenant (conventions C11) has no project, so there is nothing to scaffo
 
 | # | Step key | Skill | Arguments passed |
 |---|---|---|---|
-| 1 | `init` | `tenant-init` | Only when neither folder nor state exists: `<T> --no-pipeline`. It decides `virtual` in its step 1b |
-| 3 | `shared` | `integrate-shared` | `<T> --mode virtual --gate 3/6 --recommend proceed`, plus `--shape`, `--scope`, `--endpoint` from state |
+| 1 | `init` | `tenant-init` | Only when neither folder nor state exists: the [step 1 arguments](#step-arguments). It decides `virtual` in its step 1b |
+| 3 | `shared` | `integrate-shared` | `<T> --mode virtual --gate 3/6 --recommend proceed`, plus `--shape`, `--scope`, `--endpoint` and the [shared source flags](#step-arguments) from state |
 | 5 | `audit` | `tenant-audit` | `<T> --report-only`. It runs its virtual checks (Check V) |
 | 6 | `deliverables` | `tenant-deliverables` | `<T> --gate 6/6 --route <slug>`. Offered when `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` exists |
 
@@ -71,9 +88,9 @@ It starts with `--promote`, or from a virtual tenant's run (state `answers.virtu
 
 | # | Step key | Skill | Arguments passed |
 |---|---|---|---|
-| 1 | `init` | `tenant-init` | `<T> --no-virtual --no-pipeline --integrates <members>`: the agency upstreams asked for, plus `shared` when the host is GOVZM. It moves the virtual routes into the tenant's `GATEWAY-CONFIG.md` as cross-cluster routes, the fallback until step 2 |
+| 1 | `init` | `tenant-init` | `<T> --no-virtual --no-pipeline --integrates <members>`, plus the rest of the [step 1 arguments](#step-arguments). `<members>` is the agency upstreams asked for, plus `shared` when the host is GOVZM. It moves the virtual routes into the tenant's `GATEWAY-CONFIG.md` as cross-cluster routes, the fallback until step 2 |
 | 2 | `integration` | `tenant-integration` | `<T> --gate 2/6 --promote` plus `--protocol` as in the full chain. The promotion pass runs first, then the new upstream passes |
-| 3 | `shared` | `integrate-shared` | `<T> --gate 3/6 --recommend skip`: step 2 already exposes the forwarded shared operations. `Proceed` adds other shared operations only |
+| 3 | `shared` | `integrate-shared` | `<T> --gate 3/6 --recommend skip`, plus the [shared source flags](#step-arguments): step 2 already exposes the forwarded shared operations. `Proceed` adds other shared operations only |
 | 4 | `tests` | `tenant-tests` | `<T> --gate 4/6`. The promoted routes are on disk, so they are covered |
 | 5 | `audit` | `tenant-audit` | `<T> --report-only`. The tenant has a project, so Checks 1–9 run, not Check V |
 | 6 | `deliverables` | `tenant-deliverables` | `<T> --gate 6/6 --route <slug> --version <next>`. The route stays the virtual slug. `<next>` is one minor above `info.version` of `src/VirtualTenants/<T>/Deliverables/Tenant/<T> (t) API Swagger.json`, so consumers get a successor of the document they hold, not a new API. With no virtual package, no `--version` |
@@ -128,7 +145,10 @@ Step 2 answers map to flags one-to-one, per entry of `answers.integrations`:
 ## Running
 
 1. **Load state.** Read `.claude/zamconnect/<T>.pipeline.json` if it exists. With `--status`, print
-   the table (see Closing) and stop.
+   the table (see Closing) and stop. The source flags join the loaded answers: each `--source` an
+   `integrations` entry `{ "sources": [...] }`, `--shared-source` the `sharedSources` list, `--all`
+   `sharedAll: true`. A source already in state isn't added twice. When step 1 runs, it records them
+   itself (it gets them as given); otherwise they are written with the first step's state.
 2. **Pick the start step.** From `--from`, from `--resume`, or from step 1 when there's no state and
    no tenant folder. If there's no state but the tenant exists, start at step 2 and create the state
    file with step 1 recorded as `ran`, command unknown. If there's no state but
@@ -141,7 +161,10 @@ Step 2 answers map to flags one-to-one, per entry of `answers.integrations`:
    - Invoke the skill through the `Skill` tool with the arguments above. Don't reimplement a step
      inline, and don't paste its instructions into the conversation.
    - Read the skill's final `GATE-RESULT:` line. Step 1 (`tenant-init --no-pipeline`) prints one
-     too. Step 5, with no gate, counts as `ran` unless it reported a failure. Record `ran` /
+     too, and so does step 5 under `--report-only`: `GATE-RESULT: failed <reason>` only for a
+     finding that blocks the chain (tenant-audit Report, "Gate result"). Its other `fail`, `warn`
+     and `skipped` rows don't stop the chain: keep them for the closing summary. No line from
+     step 5 means the audit didn't finish: record `failed`. Record `ran` /
      `skipped` / `failed`, the equivalent command the step printed, and the answers it reported
      for state. Write the state file after **every** step, not at the end. With `--dry-run`,
      write nothing, the state file included.
@@ -157,10 +180,22 @@ With `--auto`, invoke each step with `--auto` instead of `--gate`, except step 5
 gets `--report-only`, because its `--auto` writes repo repairs (a missing pipeline file, compose
 service or solution entry). Its fixable findings go in the closing summary as
 `/tenant-audit <T> --fix`. `--no-pipeline` on step 1 only stops `tenant-init` from starting this
-chain; the Azure pipeline file is still created. Step 2 under `--auto` needs a `--source` in state for
-every protocol in the queue — a `db` pass a `db=<path>` source — or it stops with the missing flag. Step 3 runs
-only when the intake included `shared`, and needs `--source` or `--all` in state: without them it
-stops with `missing --source <SYS> or --all` (R10). Everything else follows the same conditions.
+chain, and wins over the `--auto` passed with it; the Azure pipeline file is still created.
+
+Under `--auto`, check the sources right after state is loaded, before any step runs, step 1
+included (R10). Use state plus the source flags. When state holds no `integrates` yet, derive it
+from the source flags as `tenant-init` step 1a does. Check only the steps that will run:
+
+- Step 2: every `rest` / `graphql` / `soap` / `db` member of `integrates` needs a source of its
+  own, and a `db` member a `db=<path>` source. Otherwise stop with
+  `missing --source <url|path> for <protocol>`.
+- Step 3: when `integrates` holds `shared`, `sharedSources` or `sharedAll` is needed. Otherwise
+  stop with `missing --shared-source <SYS> or --all`. Step 3 runs only when the intake included
+  `shared`.
+
+The stop writes nothing, the state file included, so the same command with the flag added starts
+cleanly. With neither a protocol nor a source there is nothing to check: step 2 is `skipped` (see
+the chain). Everything else follows the same conditions.
 
 ## Closing
 
@@ -181,6 +216,15 @@ Or run:  /tenant-audit PQPS
 ```
 
 Steps marked `stale` are listed with the reason, e.g. "stale — integration re-ran on 2026-09-23".
+
+When step 5 recorded `ran`, list its non-blocking rows under the chain, one line per row: check, status, finding. Lead with the `fail` rows, then `warn`, then `skipped`. They didn't stop the chain, but each one is still open:
+
+```
+Audit findings (not blocking)
+  check 4  fail     2 tokens missing from ENVIRONMENT-VARIABLES.json
+  check 9  warn     GET /t/pqps/hub/pesticides: upstream not reachable from the local stack
+  check 7  warn     no Postman collection
+```
 
 A virtual tenant's summary shows steps 2 and 4 as `skipped — virtual tenant`, and its administrator list is shorter: import `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` into each gateway and create the agency's gateway user with the route scope. There is no pipeline, variable or image.
 

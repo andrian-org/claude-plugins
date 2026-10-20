@@ -16,18 +16,20 @@ Under `--auto`, a skill never guesses a required input that has no default. It s
 
 ### `/tenant-init`
 
-`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,graphql,db,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
+`<TenantName> [--controllers] [--full-name "<name>"] [--integrates rest,soap,graphql,db,shared,unknown] [--source <url|path>...] [--shared-source <SYS>...] [--all] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
 | `<TenantName>` | Tenant project name (required). PascalCase, with no existing `src/Tenants/<TenantName>/` folder; asked in plain text when omitted |
 | `--controllers` | Scaffold MVC controllers instead of Carter modules (the default) |
 | `--full-name "<name>"` | Full descriptive name, written into `OpenApiInfo.Title` as `"<name> (<Tenant>)"`. When asked, `Take it from the integration source` leaves it pending, and `/tenant-integration` proposes it from the spec or WSDL title |
-| `--integrates` | What the tenant will integrate with. Decides the later defaults — `rest`, `soap`, `graphql` and `db` set the protocol queue of `/tenant-integration`, `shared` makes the shared e-Services step recommended. Asked as `Agency system` / `Shared e-Services` / `Not known yet`, and `Agency system` then asks what the agency system speaks |
+| `--integrates` | What the tenant will integrate with. Decides the later defaults — `rest`, `soap`, `graphql` and `db` set the protocol queue of `/tenant-integration`, `shared` makes the shared e-Services step recommended. Asked as `Agency system` / `Shared e-Services` / `Not known yet`, and `Agency system` then asks what the agency system speaks. Derived from the source flags when only they are passed |
+| `--source <url\|path>` | Integration source for the integration step, as `/tenant-integration --source` takes it; repeatable. The scaffold doesn't use it: it goes into the pipeline state |
+| `--shared-source <SYS>` / `--all` | Shared e-Services systems for the shared e-Services step (`NIR`, `NBR`, `ZRA`, …; repeatable), or every operation. Passed on as `/integrate-shared --source <SYS>` / `--all` |
 | `--virtual` / `--no-virtual` | With `--integrates shared` alone: make it a virtual tenant (nothing scaffolded), or scaffold the project anyway. Asked when neither is passed |
 | `--port <https>` | HTTPS dev port. Default: the next free pair after the ports in every tenant's `launchSettings.json` |
-| `--no-pipeline` | Stop after the scaffold; do not drive the rest of the chain. Use it when you run the other skills by hand |
-| `--auto` | Run the chain without gates. The integration step needs a source, which `tenant-init` doesn't take, so a new tenant stops there with `missing --source`. Use Guided mode for a new tenant. With `--integrates shared` alone, `--auto` picks a virtual tenant without asking |
+| `--no-pipeline` | Stop after the scaffold; do not drive the rest of the chain. Use it when you run the other skills by hand. It always wins over `--auto` |
+| `--auto` | Run the chain without gates. Pass the sources with `--source`, `--shared-source` or `--all`; when you pick `Auto` in the intake instead, it asks for them once. A missing source stops the chain right after the scaffold, before the next step runs, with the flag named. With `--no-pipeline` too, `--auto` only skips the questions, and nothing runs after the scaffold. With `--integrates shared` alone, `--auto` picks a virtual tenant without asking |
 | `--dry-run` | Stop at the review and write nothing, the pipeline state included |
 
 Before writing anything, the skill checks that the name isn't already a folder, a solution entry, or a route, cluster or scope in `docs/zamconnect-test-routes.md`. When the slug is already routed to another tenant's cluster — the agency is a virtual tenant today — it offers to keep those routes as per-path routes in the new `GATEWAY-CONFIG.md`, choose another slug, or stop. The routes of an existing `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` move into the new package the same way.
@@ -36,7 +38,7 @@ After writing, it confirms the solution, pipeline and compose registrations, the
 
 ### `/tenant-pipeline`
 
-`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--promote] [--status] [--auto] [--dry-run] [--help]`
+`<TenantName> [--from init|integration|shared|tests|audit|deliverables] [--resume] [--promote] [--status] [--source <url|path>...] [--shared-source <SYS>...] [--all] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -45,7 +47,8 @@ After writing, it confirms the solution, pipeline and compose registrations, the
 | `--resume` | Continue from the first stale step, then the first pending or failed one. The default when a state file exists |
 | `--promote` | Turn a virtual tenant into a real one because it needs an integration its gateway routes can't carry: scaffold, re-implement every forwarded operation with the same contract, then integrate, test, audit and document. Stops if the re-implemented operations differ from the virtual tenant's contract |
 | `--status` | Print what ran, what's left and the commands to resume; ask and write nothing |
-| `--auto` | No gates — every step with its recommended defaults. The audit still runs `--report-only`. A step stops on a required input that has no default and isn't in the state yet, such as the integration source of a new tenant |
+| `--source <url\|path>` / `--shared-source <SYS>` / `--all` | Sources for the integration step and the shared e-Services step, as in `/tenant-init`. Saved to the state, so a resumed run doesn't need them again |
+| `--auto` | No gates — every step with its recommended defaults. The audit still runs `--report-only`. Before any step runs, it checks that every protocol has a source and that shared e-Services have a system or `--all`, in the state or the flags. A missing one stops the run with the flag named, and nothing is written. The integration step is skipped when there is neither a protocol nor a source |
 | `--dry-run` | Passed to every step: plans are printed and nothing is written, the state file included |
 
 See [Guided mode](#guided-mode) and [State and resume](#state-and-resume).
@@ -180,7 +183,7 @@ For a single tenant (or `--only runtime`), Check 9 proves the tenant answers thr
 
 1. Builds and starts `mongo`, `admin-api` and `gateway` from the working tree, and seeds `mongo` from the local dump when it's empty.
 2. Writes the tenant's `GATEWAY-CONFIG.md` into the local `mongo` in order: scope, cluster, route. It then creates the test gateway user and bumps the tokens the gateway polls, so the change loads within 30 s.
-3. Starts `core-<slug>` and calls `/t/<slug>/health/live` and at least one endpoint per module through `http://localhost:10080`. A tenant that calls back into the gateway reaches the local compose `http://gateway/` (its Development `BaseUrl`), signed in as the same test user.
+3. Starts `core-<slug>` and calls `/t/<slug>/health/live` and at least one endpoint per module through `http://localhost:10080`. Every client that calls a gateway (an `__Endpoints.APIGATEWAY.BaseUrl__` token, or a gateway host in its Development `BaseUrl`) is pointed at the local compose `http://gateway/` by a scratch override, signed in as the same test user. Most Development `BaseUrl`s point at the public test gateway, so the tenant is not started when one can't be moved.
 
 | Test user | Value |
 |---|---|
@@ -201,7 +204,7 @@ It never touches a test, staging or production gateway. Those still take the man
 
 ### `/tenant-deliverables`
 
-`<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--auto] [--dry-run] [--help]`
+`<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--history-description <text>] [--swagger-doc <name>] [--update-working-collection] [--auto] [--dry-run] [--help]`
 
 | Argument / flag | Meaning |
 |---|---|
@@ -211,7 +214,10 @@ It never touches a test, staging or production gateway. Those still take the man
 | `--out <dir>` | Output directory holding the five role folders. Default: `src/Tenants/<Tenant>/Deliverables/`, or `src/VirtualTenants/<CODE>/Deliverables/` for a virtual tenant |
 | `--version <X.Y>` | Document version. Default `1.0` for a new package, the current version for an existing one. Bump only when the contract changed |
 | `--author <name>` | Document History author. Default `dotGov Solutions LLC` |
-| `--provide-paths` | OpenAPI paths that are Provide; the rest are Consume. Without it, unresolved endpoints are asked |
+| `--provide-paths` | OpenAPI paths that are Provide; the rest are Consume. Matched without regard to case and resolved to the exported casing (`/t/pqps/hub/pesticides` → `/t/pqps/Hub/pesticides`). Without it, unresolved endpoints are asked |
+| `--history-description <text>` | Description of the new Document History row. Required when `--version` is higher than the current `(t)` document's last row; without it, asked, with a recommendation derived from the operations added or removed |
+| `--swagger-doc <name>` | Swagger document to export. Required when `Program.cs` declares several (GOVZM: 12) |
+| `--update-working-collection` | Also replace the tracked `postman collections/<Tenant>.postman_collection.json`. Off by default |
 | `--auto` | Every default. Stops with `unresolved endpoint <path>: pass --provide-paths` when the split is unclear |
 | `--dry-run` | Inspect the tenant and print the review; nothing is built or written |
 
@@ -236,13 +242,14 @@ The split is read from the client each module injects, never from the path. An e
 
 What a run does:
 
-- Exports the tenant's own Swagger document (`dotnet build`, then `dotnet tool run swagger tofile` in Development), and prefixes every path with `/t/<route>` exactly once.
+- Exports the tenant's own Swagger document (`dotnet build`, then `dotnet tool run swagger tofile` in Development), and prefixes every path with `/t/<route>` exactly once. With several `SwaggerDoc(…)` in `Program.cs` it stops and lists them until `--swagger-doc` picks one.
 - Renders each Word document from `templates/api-specification-template.docx` in a fixed six-chapter layout: Executive Summary (from `OpenApiInfo.Description`), Glossary, Endpoints, Schemas, API Environments, Contacts and Signature (left blank for signing). Author names, SharePoint metadata and the ~1 MB `webSettings.xml` junk are stripped.
 - Repaginates through Microsoft Word so the table of contents and page numbers are exact.
 - Writes the Postman collection with collection-level Basic auth (`{{username}}` / `{{password}}`), requests at `{{zc_base_url}}`, folders by tag and synthetic example values only.
-- Moves the superseded version to `Archive/` before anything new lands. A delivered file is never overwritten in place.
-- Runs the quality gates in `verify_package.py`: path prefix, title, parameter names across all three artifacts, environment URLs, leftover placeholders, empty description columns, filing and role words, chapter set, signature block, TOC and pagination, table styles, metadata, role documents as projections of `(t)`, Postman auth, routes and example data.
-- Also copies the collection to the repo's working copy, `postman collections/<Tenant>.postman_collection.json`, when that folder exists. Pass `--no-working-collection` to `build_package.py` to skip it.
+- Carries the Document History forward from the current `(t)` document: a higher version adds one row, the same version keeps the rows, a lower version is refused.
+- Moves the superseded version to `Archive/` before anything new lands (seconds are added to the folder name when that minute's folder exists). A delivered file is never overwritten in place.
+- Runs the quality gates in `verify_package.py`: path prefix, title, `servers` and DOCX Base URLs against `environments.py`, environment headings, security scheme, tags, parameter docs, DOCX parameter names (casing and order) and response codes against the OpenAPI document, reason phrases, `ProblemDetails`, placeholders in body, header and footer, empty description columns (more than 2 per document), filenames, role words on the cover and in the header, version, history, chapter set, signature block, headings, TOC and pagination, table styles, metadata and package parts (`customXml`, `ContentTypeId`, `HLinks`, `lastPrinted`), `(t)` completeness against the OpenAPI operations, role documents as projections of `(t)`, Postman auth, shape, routes, query keys and example data, and the folder layout (at most one folder level below `Deliverables/`). The Consume/Provide split itself is not a gate. The full table is in the skill's step 8.
+- Writes the collection to `Tenant/` only. The repo's tracked working copy, `postman collections/<Tenant>.postman_collection.json`, is replaced only with `--update-working-collection`, and the report then names it.
 
 When the source can't fill a compartment — no `///` comments, no `.WithTags`, undeclared response codes — the document reflects the code as it is and the report lists each gap by file and member. The skill then asks: `Fix them now, then re-render` runs `/tenant-integration <Tenant> --spec-only` and re-renders (the pipeline marks tests and audit `stale`), `Hand over the list` keeps the documents, or `Stop`. A gap whose fix is in `src/Core` is reported only, because no skill edits Core.
 
@@ -255,8 +262,8 @@ The scripts can be run on their own from the ZamConnect root. They are under `<p
 | Script | Use |
 |---|---|
 | `inspect_tenant.py <CODE>` | Fact sheet: shape (Carter, controllers, virtual), route, every endpoint with its Consume/Provide section, config, Swagger readiness, roles |
-| `build_package.py <CODE> --route <r> --version <X.Y> --roles <roles>` | The whole build. Also takes `--provide-paths`, `--author`, `--out`, `--history-description`, `--skip-build` (reuse the existing `swagger.json`), `--from-swagger <file>` and `--no-working-collection`. Exits non-zero when a gate fails. Run alone, it does not read `GATEWAY-CONFIG.md`: `--route` defaults to the code lowercased, `--version` to `1.0` and `--roles` to `tenant,consumer`, so pass all three |
-| `verify_package.py <Deliverables dir> --route <r> --version <X.Y>` | The gates alone. Without `--route` and `--version`, the prefix and version checks are skipped |
+| `build_package.py <CODE> --route <r> --version <X.Y> --roles <roles>` | The whole build. Also takes `--provide-paths`, `--author`, `--out`, `--history-description`, `--swagger-doc <name>`, `--skip-build` (reuse the existing `swagger.json`), `--from-swagger <file>` and `--update-working-collection`. Exits non-zero when a gate fails. Run alone, it does not read `GATEWAY-CONFIG.md`: `--route` defaults to the code lowercased, `--version` to `1.0` and `--roles` to `tenant,consumer`, so pass all three |
+| `verify_package.py <Deliverables dir> --route <r> --version <X.Y>` | The gates alone. Without `--route` and `--version`, the comparisons with them are skipped (the documents' versions are still compared with each other) |
 | `openapi_to_docx.py`, `openapi_to_postman.ps1`, `apply_gateway_route.py` | The individual render, conversion and prefix steps |
 
 ### `/payment-callback`
@@ -388,7 +395,7 @@ ZamPass / RA clients are registered by hand by an administrator. The skills writ
 
 ## Known limitations
 
-- **GOVZM's Swagger documents leave out the shared `/eservices` routes.** GOVZM's `DocInclusionPredicate` keeps only routes whose group name matches a document, and `EServicesSharedModule` sets none. The host export that `/tenant-deliverables` would start from is therefore empty for a GOVZM virtual tenant. Export a tenant that inherits `EServicesSharedModule` with the default Swagger setup instead (ZPS), trim it to the operations the routes reach, and pass it with `--from-swagger`.
+- **GOVZM's Swagger documents leave out the shared `/eservices` routes.** GOVZM's `DocInclusionPredicate` keeps only routes whose group name matches a document, and `EServicesSharedModule` sets none. The host export that `/tenant-deliverables` would start from is therefore empty for a GOVZM virtual tenant. The workaround is in `tenant-deliverables` step 4: export ZPS document `v1`, keep its `EServices`-tagged operations, trim them to the operations the routes reach, and pass the result with `--from-swagger`.
 - **Shared e-Services documents have empty descriptions.** `EServicesSharedModule` declares no `.WithSummary`, `.WithDescription` or `.ProducesProblem`, and the `Shared.Models` types have no `///` comments, so those description columns stay empty and the gates report them. `POST /nir/persons` also declares `200` while it returns `201`. The fixes belong in `src/Core`, which no skill edits.
 - **The local round-trip can't reach other gateway upstreams.** A tenant or host that calls `/t/<other>/…` through the gateway gets a local `404`/`403`, because only the audited package is imported locally. The audit reports those calls as `warn`.
 - **Exact pagination needs Word on Windows.** See [Prerequisites](README.md#before-you-start).

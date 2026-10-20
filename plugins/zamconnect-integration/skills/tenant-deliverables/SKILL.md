@@ -1,7 +1,7 @@
 ---
 name: tenant-deliverables
-description: Generate the full delivery document set for a ZamConnect tenant — the OpenAPI JSON, the Word API Specification and the Postman collection, laid out in the Consumer/Provider/Tenant folders under the tenant's Deliverables directory, with every section of the document filled from the tenant's own source rather than left as boilerplate. Documentation only — never modifies tenant code or any ZamConnect library. Routes are always written with the gateway prefix (`/t/pqps/hub/pesticides`, never the bare controller route). Use when the user says "generate the documents for <Tenant>", "produce the API specification for <Tenant>", "build the deliverable package", "make the tenant docs", or types /tenant-deliverables.
-argument-hint: "<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--auto] [--dry-run] [--help]"
+description: Generate the full delivery document set for a ZamConnect tenant — the OpenAPI JSON, the Word API Specification and the Postman collection, laid out in the Consumer/Provider/Tenant folders under the tenant's Deliverables directory, with every section of the document filled from the tenant's own source rather than left as boilerplate. Documentation only — never modifies tenant code or any ZamConnect library. Routes are always written with the gateway prefix (`/t/pqps/Hub/pesticides`, never the bare controller route). Use when the user says "generate the documents for <Tenant>", "produce the API specification for <Tenant>", "build the deliverable package", "make the tenant docs", or types /tenant-deliverables.
+argument-hint: "<TenantName> [--route <gateway-route>] [--roles tenant,consumer,provider] [--out <dir>] [--version <X.Y>] [--author <name>] [--provide-paths <path>...] [--history-description <text>] [--swagger-doc <name>] [--update-working-collection] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Glob Grep Write Skill Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(mkdir *) Bash(cp *) Bash(dotnet build *) Bash(dotnet tool run *) Bash(python *) Bash(powershell *) Bash(git status *) Bash(git log *) Bash(git diff *) AskUserQuestion
 disable-model-invocation: false
 ---
@@ -21,6 +21,7 @@ The only paths this skill may write to:
 - `src/Tenants/<Tenant>/Deliverables/…` (or `--out`) — the package itself
 - the scratchpad — `sections.json`, intermediate JSON, logs
 - `src/Tenants/<Tenant>/bin/…` — build output produced by `dotnet build` and the Swashbuckle export, never hand-edited source
+- `postman collections/<Tenant>.postman_collection.json` — **only with `--update-working-collection`**. The file is tracked and may be a developer's hand-maintained collection, so it is never replaced by default; without the flag the collection is written to `Tenant/` only
 
 `dotnet build` is allowed because it only produces build output; it is the mechanism for exporting the swagger document. Do not run it with any flag that rewrites source, and never run a formatter, a code fix or `git commit`/`git add` from this skill.
 
@@ -90,7 +91,10 @@ Whatever the role, the role word lives in three places, and the last is a separa
 | `--out <dir>` | Where the package is written — this directory holds the five role folders directly. Default: `src/Tenants/<Tenant>/Deliverables/`, or `src/VirtualTenants/<Tenant>/Deliverables/` for a virtual tenant. Override only when the user asks for a location outside the repository |
 | `--version <X.Y>` | Document version. Bump only when the contract changed; keep it for a docs-only re-render |
 | `--author <name>` | Author on the Document History row. Default `dotGov Solutions LLC` |
-| `--provide-paths <path> ...` | OpenAPI paths that are Provide; every other path is Consume. Passed straight to `build_package.py`. When absent, settled in the classification question below |
+| `--provide-paths <path> ...` | OpenAPI paths that are Provide; every other path is Consume. Passed straight to `build_package.py`, which matches them without regard to case and records each in the exported casing (step 2). When absent, settled in the classification question below |
+| `--history-description <text>` | The Description of the new Document History row. Required when `--version` is higher than the last row of the current `(t)` document, ignored otherwise. When absent, settled in the History question below |
+| `--swagger-doc <name>` | The `SwaggerDoc("<name>", …)` to export. Required when the tenant's `Program.cs` declares several (GOVZM declares 12); `build_package.py` stops and lists them. Default: the only one declared, else `v1` |
+| `--update-working-collection` | Also replace the repo's tracked `postman collections/<Tenant>.postman_collection.json` with the generated collection. Off by default: the collection is written to `Tenant/` only. Pass it only when the user asks |
 | `--gate <n>/<N>` | Gate mode, set by `tenant-pipeline` |
 | `--auto` | No questions. Every default; stops with `unresolved endpoint <path>: pass --provide-paths` when an endpoint is `UNKNOWN` or `Provide?` |
 | `--dry-run` | Run `inspect_tenant.py` and the review, then stop. Nothing is built or written |
@@ -120,14 +124,22 @@ The defaults written into `Proceed` are the real values: the route from `GATEWAY
 **Classification** — always asked when `inspect_tenant.py` reports any endpoint as `UNKNOWN` or `Provide?`, because a wrong split is a wrong contract (step 3). One question per endpoint, 4 per call, header `Split`:
 
 ```
-GET /t/pqps/hub/pesticides — HubModule injects PqpsService (Endpoints:Pqps). Consume or Provide?
+GET /t/pqps/Hub/pesticides — HubModule injects PqpsService (Endpoints:Pqps). Consume or Provide?
   ( ) Provide — served from PQPS's own system (Recommended)
   ( ) Consume — reached through the ZamConnect gateway
 ```
 
 The description names the injected client and the config section that decided the recommendation. When the pipeline state records `role: provide` for the integration that added a route, that is the recommended answer. The answers become `--provide-paths`.
 
-**Review** — one R6 call before `build_package.py` writes anything. Options `Apply (Recommended)` · `Adjust` · `Cancel`. The question text lists the documents per role folder, what moves to `Archive/`, and the equivalent command. With `--dry-run`, print it and stop.
+**History** — asked when `--version` is higher than the last Document History row of the current `Deliverables/Tenant/<CODE> (t) API Specification.docx` and `--history-description` is absent. `build_package.py` carries the earlier rows forward and adds one row for the new version; it stops when that row has no description. Not asked for a new package (its one row is `Originally drafted`) or for an unchanged version (the rows are kept as they are). Header `History`:
+
+| Question | Options | → flag |
+|---|---|---|
+| What changed in `<v>`? | The derived summary `(Recommended)` · `Other…` (free text) | `--history-description` |
+
+Derive the recommendation from the operations added and removed against the current export, `Deliverables/Tenant/<CODE> (t) API Swagger.json`: `Added GET /t/<route>/…; removed POST /t/<route>/…`. When no operation was added or removed, `Updated schemas and descriptions`. `--auto` uses the recommendation.
+
+**Review** — one R6 call before `build_package.py` writes anything. Options `Apply (Recommended)` · `Adjust` · `Cancel`. The question text lists the documents per role folder, what moves to `Archive/`, the Document History rows the `(t)` document will carry, and the equivalent command. With `--update-working-collection`, it also names `postman collections/<Tenant>.postman_collection.json` as a tracked file that will be replaced. With `--dry-run`, print it and stop.
 
 **Code findings** — after the build, when the report lists code findings (missing `///`, `.WithTags`, `.WithSummary`, undeclared response codes), and not with `--auto`, ask with header `Findings`:
 
@@ -176,11 +188,13 @@ For MVC controllers the internal path is built from the attributes, with the tok
 
 | In code | Expands to | Document shows |
 |---|---|---|
-| `[Route("[controller]")]` on `HubController` | `/hub` | — |
-| `[HttpGet("pesticides")]` | `/hub/pesticides` | `GET /t/pqps/hub/pesticides` |
-| `[HttpPost("validate/ePhyto")]` | `/hub/validate/ePhyto` | `POST /t/pqps/hub/validate/ePhyto` |
+| `[Route("[controller]")]` on `HubController` | `/Hub` | — |
+| `[HttpGet("pesticides")]` | `/Hub/pesticides` | `GET /t/pqps/Hub/pesticides` |
+| `[HttpPost("validate/ePhyto")]` | `/Hub/validate/ePhyto` | `POST /t/pqps/Hub/validate/ePhyto` |
 
-The `[controller]` token expands to the class name minus its `Controller` suffix, written **lowercase** in the document — `HubController` → `hub`, giving `/t/pqps/hub/pesticides`. Action-segment casing is preserved as written (`validate/ePhyto`, `importEnvelopeHeaders`), because those are literal strings in the attribute rather than a token.
+The `[controller]` token expands to the class name minus its `Controller` suffix, **keeping the class casing** — `HubController` → `Hub`, giving `/t/pqps/Hub/pesticides`. That is what the Swashbuckle export contains, and nothing lowercases it, so every artifact shows the exported casing. Action-segment casing is preserved as written too (`validate/ePhyto`, `importEnvelopeHeaders`), because those are literal strings in the attribute.
+
+ASP.NET Core routing ignores case, so a consumer calling `/t/pqps/hub/pesticides` reaches the same endpoint. `build_package.py` matches `--provide-paths` the same way: `/t/pqps/hub/pesticides` is accepted, resolved to `/t/pqps/Hub/pesticides`, and logged. Record `providePaths` in the exported casing. Two exported paths that differ only by case are refused rather than guessed between.
 
 Two notations, deliberately different, and each artifact uses one consistently:
 
@@ -225,11 +239,13 @@ python scripts/apply_gateway_route.py \
   src/Tenants/<Tenant>/bin/Debug/net10.0/swagger.json --route <route> --version <X.Y>
 ```
 
-`<doc>` is the `SwaggerDoc("<name>", …)` name in `Program.cs` — `v1` usually, `hub` in PQPS; `build_package.py` reads it from there. The working directory and the environment variable both matter and both fail confusingly — the content root comes from the working directory, and the base `appsettings.json` ships unsubstituted `__Token__` URLs that only the Development layer replaces with something `Uri` can parse. `apply_gateway_route.py` is idempotent, fills `servers` from `scripts/environments.py`, and with `--version` sets `info.version` to the document version: the code's `OpenApiInfo.Version` is the API version (`v1` in the `tenant-init` scaffold), not the document's.
+`<doc>` is the `SwaggerDoc("<name>", …)` name in `Program.cs` — `v1` usually, `hub` in PQPS; `build_package.py` reads every one declared there. With exactly one it exports that one, with none it uses `v1`, and with several (GOVZM declares 12) it stops and lists the names until `--swagger-doc <name>` picks one; an unknown name stops it the same way. Its log names the document it exported. There is no merge across documents. The working directory and the environment variable both matter and both fail confusingly — the content root comes from the working directory, and the base `appsettings.json` ships unsubstituted `__Token__` URLs that only the Development layer replaces with something `Uri` can parse. `apply_gateway_route.py` is idempotent, fills `servers` from `scripts/environments.py`, and with `--version` sets `info.version` to the document version: the code's `OpenApiInfo.Version` is the API version (`v1` in the `tenant-init` scaffold), not the document's.
 
 For a virtual tenant, or a tenant without Swashbuckle, assemble the document by hand from the route inventory of step 1 and the DTO types each route produces. Same result, same shape: `openapi: 3.0.x`, `info`, `servers`, `paths`, `components.schemas`.
 
 For a virtual tenant, start from the host's own export instead of a blank page: build and export the host with the commands above, into a scratch folder. Keep only the operations `inspect_tenant.py` lists under `cross-cluster routes`, at the consumer's path without `/t/<route>` (`/eservices/nir/persons/nrc/{nrc}` becomes `/nir/persons/nrc/{nrc}`), and the schemas they reference. Set `info.title` to `"<full name> (<CODE>)"` and write `info.description` for the agency, not the host. Then `build_package.py <CODE> --from-swagger <file>` applies the gateway prefix, runs steps 5–9 as for any tenant, and writes to `src/VirtualTenants/<CODE>/Deliverables/`. A cross-cluster sub-route of a real tenant is missing from that tenant's export in the same way: add its operations from the host's export before `build_package.py --from-swagger`.
+
+**When the host is GOVZM, do not export GOVZM.** Its `DocInclusionPredicate` (`Program.cs`) keeps only the routes whose group name matches the document, and `EServicesSharedModule` sets none, so none of GOVZM's 12 documents holds a single `/eservices` operation. Export a tenant that inherits `EServicesSharedModule` with the default Swagger setup instead — ZPS, document `v1` — and keep only its `EServices`-tagged operations: they are the same `EServicesSharedModule` routes GOVZM serves under `/eservices`. ZPS serves them with no `/eservices` prefix (`/nir/persons/nrc/{nrc}`), which is already the consumer's path without `/t/<route>`. Trim them to the `cross-cluster routes` as above, and pass the result with `--from-swagger`.
 
 Whichever way it was produced, the document must satisfy all of:
 
@@ -287,7 +303,7 @@ Executive Summary is dropped only when `info.description` is empty; the other fi
 | | Cover: full name, `(<CODE>)`, role | `info.title` and the role being rendered |
 | | Cover: Project, Client, Contract No., Prepared by | Fixed platform constants — copy from any published spec, they do not vary per tenant |
 | | Disclaimer | Fixed. Copy verbatim |
-| | Document History | One row per real revision: Description, Author, Version, Date. Prior rows are carried forward, never rewritten. **Bump the version with the revision** — a published spec carries four history rows all at `1.0` |
+| | Document History | One row per real revision: Description, Author, Version, Date. Prior rows are carried forward, never rewritten. **Bump the version with the revision** — a published spec carries four history rows all at `1.0`. `build_package.py` reads the rows of the current `(t)` document before archiving it and writes the same rows into every role document: one `Originally drafted` row for a new package, the old rows plus one row with `--history-description` for a higher version, the rows unchanged for the same version, and a lower version is refused. The new row's date is the cover date |
 | | Table of Contents | Generated by Word, see step 6 |
 | 1 | Executive Summary | `info.description`, **and only its first section**. What this tenant is and which datasets or upstream systems it exposes, derived from the endpoint inventory — `EServicesSharedModule` routes under `/nir/persons` and `/nbr/entities` are what makes DAM's summary read "Persons (NIR), Businesses (NBR)". Do not describe capabilities no route provides |
 | 2 | Glossary | A Term / Definition table. Always `API`, `ZamConnect`, `<CODE>`; then every acronym from `GLOSSARY` in `scripts/openapi_to_docx.py` that appears in the document's text. An acronym missing from that table is left out rather than given an invented expansion — add it to `GLOSSARY` |
@@ -437,41 +453,54 @@ python scripts/verify_package.py src/Tenants/<Tenant>/Deliverables --route <r> -
 
 It checks the OpenAPI document, opens each DOCX as a package rather than extracting its text
 (headers, footers, styles and metadata are separate parts, and are exactly where staleness
-hides), checks that the role documents are projections of `(t)` (step 6), cross-checks every Postman URL
-against `paths`, and confirms the five folders exist. `Archive/` is skipped — it holds
-superseded versions by design. Exit code is non-zero if anything failed, so it can gate a commit.
+hides), compares every DOCX endpoint and the `(t)` endpoint list with the OpenAPI document, checks
+that the role documents are projections of `(t)` (step 6), checks every Postman request against its
+operation, and checks the folder layout. The DOCX and Postman gates compare against the
+`Tenant/` OpenAPI document, which is the whole surface. `Archive/` is skipped — it holds
+superseded versions by design. Without `--route` the prefix is checked only for `/t/` once; without
+`--version` the version rows compare the documents with each other only. Exit code is non-zero if
+anything failed, so it can gate a commit.
 
 | Gate | Fails when |
 |---|---|
-| Prefix | Any path does not start with `/t/<route>`, or contains it twice |
-| Title | `info.title` is a class name, or omits `(<CODE>)` |
-| Parameter names | The same operation names a path parameter differently in the DOCX, the OpenAPI and the Postman collection |
-| Environments | A Base URL in the document differs from `scripts/environments.py` |
-| Placeholders | Any `{{…}}`, `TODO`, `__Token__` or template text survives in the DOCX — **including in the header and footer parts** |
-| Empty columns | A Description column is blank for more than a couple of rows — the source lacks XML doc comments |
-| Filing | The `(c)`/`(t)` marker in the filename does not match the folder the file sits in, a role folder carries a numeric prefix, or a folder sits between `Deliverables/` and the role folders |
-| Role agreement | The filename marker, the cover role word and the running header role word disagree |
+| Prefix | An OpenAPI path does not contain `/t/` exactly once, or does not start with `/t/<route>` |
+| Title | `info.title` is a class name (`…Controller`, `…Module`), or omits `(<CODE>)` |
+| Environments | The OpenAPI `servers`, or a DOCX Base URL, differs from `scripts/environments.py` (URL, description and order) |
+| Environment headings | The API Environments Heading 3s are not the `environments.py` names in order, or the prose under one names no `(DEV)`/`(STG)`/`(PRD)` or another environment's ("Testing" over "Development environment (DEV)") |
+| Security scheme | `components.securitySchemes` is empty — every tenant is Basic-authenticated |
+| Tags | An OpenAPI tag is a C# class name — no route calls `.WithTags(…)` |
+| Parameter docs | An OpenAPI parameter has no `required` flag or no `description` |
+| Parameter names | A DOCX parameter table's names differ from its OpenAPI operation's parameters in casing or order (an optionality note in the Name cell is a difference), or a DOCX endpoint heading is not an OpenAPI operation |
+| Response codes | A DOCX response table lists a status code the OpenAPI operation does not, or misses one it has. The OpenAPI document is the export of the tenant's own `.Produces` declarations, so the comparison is with the export, not with the module source |
+| Reason phrases | An OpenAPI response description is the bare reason phrase (`OK`, `Not Found`, …) |
+| ProblemDetails | A 4xx or 5xx OpenAPI response does not reference `ProblemDetails` |
+| Placeholders | Any `{{…}}`, `TODO` or `__Token__` survives in the DOCX body, **header or footer** parts |
+| Empty columns | More than 2 Description cells in a document are blank — the source lacks XML doc comments |
+| Filenames | A DOCX filename marker does not match its folder, a folder carries a numeric prefix, or the filename uses the legacy plural `API Specifications` |
+| Role agreement | The running header does not carry the role word of the document's folder, or the cover role word is not the one the filename marker names |
+| Version | `info.version`, the running header's `Version <X>.<Y>` or the cover's version differs from `--version`, or the cover has no version or one that differs from the header's |
+| History | Two history rows share a version, the versions are out of order, or the last row is not `--version` |
 | Chapters | The Heading 2 list is not Executive Summary, Glossary, Endpoints, Schemas, API Environments, Contacts and Signature in that order (Executive Summary alone may be absent) |
 | Signature block | The Contacts and Signature tables are populated |
-| Tenant completeness | An endpoint in the module inventory has no Heading 3 in the `(t)` document |
-| Consume/Provide split | An endpoint sits in a role document that contradicts the client its module injects |
-| Response codes | A status code in a response table is one the module does not `.Produces`, or an error row's type is not `ProblemDetails` |
-| Required flags | An OpenAPI parameter has no `required`, or the DOCX marks optionality inside the Name cell instead of its own column |
-| Tags | An OpenAPI tag is a C# class name — no route calls `.WithTags(…)` |
-| Environment heading | The first environment's heading and its prose name different environments ("Testing" over "Development environment (DEV)") |
-| History | Two history rows share a version |
-| Header version | The `Version <X>.<Y>` in the running header differs from the cover and from `info.version` |
 | Heading level | Any Heading 1 is used; sections must be Heading 2 |
 | Heading text | A heading is empty, has leading or trailing whitespace, or repeats another heading |
 | TOC | TOC3 row count differs from the Heading 3 count — the TOC was not regenerated |
-| Pagination | The renderer fell back to estimated page numbers, or the footer's cached `NUMPAGES` differs from `docProps/app.xml`'s `Pages` |
+| Pagination | The footer's cached `NUMPAGES` differs from `docProps/app.xml`'s `Pages` |
 | Table style | A table carries no style instead of `Table Grid` |
-| Metadata | `dc:creator` is a person rather than `dotGov Solutions LLC`, `cp:lastModifiedBy` is populated, or any email address appears in `docProps/core.xml` |
-| Package | A `[trash]/*` part survives, or the logo `word/media/image1.png` is missing |
+| Metadata | `dc:creator` is not `dotGov Solutions LLC`, `cp:lastModifiedBy` or `cp:lastPrinted` is populated, or any email address appears in `docProps/core.xml` |
+| Package | A `[trash]/*` or `customXml/` part survives, `docProps/custom.xml` carries a SharePoint `ContentTypeId` or `MediaServiceImageTags`, `docProps/app.xml` carries a cached `HLinks` list, or the logo `word/media/image1.png` is missing |
+| Tenant completeness | An operation in the OpenAPI document has no Heading 3 in the `(t)` document |
 | Role projections | A single-role tenant: its role document and `(t)` differ anywhere beyond the role word. A tenant with both `(c)` and `(p)`: an endpoint sits in both or in neither, `(t)` doesn't list the `(c)` endpoints first and then the `(p)` ones, or the front matter (cover, disclaimer, history, Executive Summary) or Contacts and Signature differ beyond the role word |
-| Postman auth | Not collection-level Basic with `{{username}}`/`{{password}}` — `{{test}}` or a bearer token |
-| Postman routes | A request URL is absent from the OpenAPI `paths`, or drops the `/t/<route>` segment |
-| Postman data | A request carries a real-looking NRC, TPIN, registration or account number as an example value |
+| Postman auth | The collection auth is not `basic`, or carries `{{test}}` or `{{your_access_token}}` |
+| Postman shape | The collection is outside `Tenant/`, `info.name` is not the tenant code alone, requests sit loose at the root alongside folders, or a request name is not the operation (`GET /t/<route>/…`) |
+| Postman routes | A request URL (path variables included) is absent from the OpenAPI `paths`, or its method is not an operation of that path |
+| Postman query | A query key is not a query parameter of the request's operation |
+| Postman data | A query or path-variable value looks real: 8 or more digits and slashes |
+| Layout | One of the five folders is missing, or an OpenAPI, DOCX or Postman file sits more than one folder level below `Deliverables/` |
+
+The Consume/Provide split is not a gate: the package holds no record of the client each module
+injects, so step 3 settles it and the gates check only that the role documents are projections of
+`(t)`. A fallback to estimated page numbers is not a gate either; `build_package.py` reports it.
 
 One check cannot be automated: **never open a shipped DOCX in Word and save it.** The footer's `DATE` fields are live, so saving rewrites "Last modified" on a document whose content did not change. Inspect by unzipping the package, not by opening it.
 
@@ -479,13 +508,13 @@ One check cannot be automated: **never open a shipped DOCX in Word and save it.*
 
 Write into `src/Tenants/<Tenant>/Deliverables/` itself (unless `--out` overrides it), creating `Consumer`, `Provider`, `Tenant`, `Integration Requests` and `Archive` even where some stay empty — a consumer looks for all five.
 
-**Move, never overwrite.** A superseded version goes to `Archive` before the new one lands. These are delivered artifacts other people already reference; replacing one in place destroys the record of what was sent. `build_package.py` does this for you, into `Archive/<YYYY-MM-DD HHMM>/`, before it writes anything.
+**Move, never overwrite.** A superseded version goes to `Archive` before the new one lands. These are delivered artifacts other people already reference; replacing one in place destroys the record of what was sent. `build_package.py` does this for you, into `Archive/<YYYY-MM-DD HHMM>/` (`<YYYY-MM-DD HHMMSS>` when that minute's folder already exists, so a second run in the same minute cannot overwrite the first one's archive), before it writes anything.
 
 `Integration Requests` is never generated. It holds upstream material — the counterpart's own API document, mapping spreadsheets, sample certificates — plus a `readme.md` giving the source URL of each. Carry these across unchanged and leave the readme's links intact.
 
-Report: every file written with its path, which gates passed, whether Word repagination succeeded or fell back, and a **Code findings** list of everything the source could not supply — missing `///` comments, missing `.WithTags(…)`, undeclared response codes, committed credentials — each with the file and member to change. These are handed over, never applied: the only files this run touched are the ones listed under `Deliverables/`.
+Report: every file written with its path, which gates passed, whether Word repagination succeeded or fell back, and a **Code findings** list of everything the source could not supply — missing `///` comments, missing `.WithTags(…)`, undeclared response codes, committed credentials — each with the file and member to change. These are handed over, never applied: the only files this run touched are the ones listed under `Deliverables/` — plus, only when `--update-working-collection` was passed, `postman collections/<Tenant>.postman_collection.json`, which the report names as a tracked file that was replaced. Also report the Document History the `(t)` document carries, and the Swagger document exported.
 
-End with the equivalent command (R7), e.g. `/tenant-deliverables PQPS --route pqps --version 1.0 --roles tenant,provider --provide-paths /t/pqps/hub/pesticides`, and these answers for the pipeline state: `route`, `version`, `roles`, `author`, `providePaths`. When the Findings fix ran, add the line `spec-only: ran`, so `tenant-pipeline` marks the tests and the audit stale. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <gate or reason>` when a gate fails on something other than a reported source gap.
+End with the equivalent command (R7), e.g. `/tenant-deliverables PQPS --route pqps --version 1.0 --roles tenant,provider --provide-paths /t/pqps/Hub/pesticides`, and these answers for the pipeline state: `route`, `version`, `roles`, `author`, `providePaths`. When the Findings fix ran, add the line `spec-only: ran`, so `tenant-pipeline` marks the tests and the audit stale. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <gate or reason>` when a gate fails on something other than a reported source gap.
 
 ## Sensitive data
 

@@ -14,11 +14,16 @@ without re-deriving by hand what a script already establishes.
 
 **You cannot ask the developer anything.** `AskUserQuestion` doesn't exist inside a subagent, so
 skip the skill's `## Questions` section and work from the flags in your prompt: `--route`,
-`--version`, `--roles`, `--author`, `--provide-paths`, `--out`. Every missing flag takes the
-default the skill names. There is one exception: an endpoint that `inspect_tenant.py` marks
-`UNKNOWN` or `Provide?` and that `--provide-paths` doesn't settle. Don't guess it and don't build.
+`--version`, `--roles`, `--author`, `--provide-paths`, `--history-description`, `--swagger-doc`,
+`--out`, `--update-working-collection`. Every missing flag takes the default the skill names.
+There is one exception: an endpoint that `inspect_tenant.py` marks `UNKNOWN` or `Provide?` and
+that `--provide-paths` doesn't settle. Don't guess it and don't build.
 Return the list of unresolved paths, each with the client its module injects, so the caller can
-ask and dispatch you again.
+ask and dispatch you again. Two stops of `build_package.py` are settled the same way as the
+skill's `--auto`: a higher `--version` with no `--history-description` takes the description the
+skill's History question recommends, and you report it. When it stops because `Program.cs`
+declares several Swagger documents and your prompt names none, return the list it printed; don't
+pick one.
 
 **You produce documents only.** The tenant's source and the ZamConnect libraries are read-only
 input: you do not edit, add or delete anything under `src/Tenants/<Tenant>/`, `src/Core/`,
@@ -26,12 +31,18 @@ input: you do not edit, add or delete anything under `src/Tenants/<Tenant>/`, `s
 to add a missing `///` comment or `.WithTags(…)` that would visibly improve the output. You write
 only inside `src/Tenants/<Tenant>/Deliverables/` (or `--out`) and your scratchpad; `dotnet build` is allowed
 because it produces build output, which is how the swagger document is exported. Never commit.
-Every code defect is a finding you report, never a change you make.
+Every code defect is a finding you report, never a change you make. Never pass
+`--update-working-collection` on your own: it replaces the tracked
+`postman collections/<Tenant>.postman_collection.json`, which may be a developer's hand-maintained
+file. Pass it only when your prompt does, and then name that file in your report as replaced.
 
 A virtual tenant (`inspect_tenant.py` reports `shape: virtual`) has no project. Its package goes in
 `src/VirtualTenants/<Tenant>/Deliverables/`, and `src/VirtualTenants/<Tenant>/GATEWAY-CONFIG.md` is
 read-only input like the source. Build its document from the host's export in your scratchpad, as
-skill step 4 says, and pass it with `build_package.py --from-swagger`. Its `info.title` and
+skill step 4 says, and pass it with `build_package.py --from-swagger`. When the host is GOVZM, do
+not export GOVZM: none of its Swagger documents holds the shared `/eservices` routes. Export ZPS
+document `v1` instead, keep its `EServices`-tagged operations (the same `EServicesSharedModule`
+routes), and trim them to the routes the virtual tenant reaches. Its `info.title` and
 `info.description` describe the agency; when your prompt gives no full name for it, use the bare
 code and report it.
 
@@ -47,7 +58,7 @@ it alone — other developers use it, and two agents reference it. Fixes belong 
 
 **1. `inspect_tenant.py <TENANT>`** — the fact sheet for steps 1 to 3. Shape, gateway route,
 every endpoint with the client that decided its Consume/Provide section, the `Endpoints:*`
-configuration, Swagger readiness, and which roles to render. Run this first and read it instead
+and `SoapEndpoints:*` configuration, Swagger readiness, and which roles to render. Run this first and read it instead
 of opening the modules, `Program.cs`, both `appsettings`, the csproj and the gateway config.
 
 It marks what it cannot settle. `UNKNOWN` means you must open that module and read the injected
@@ -112,7 +123,9 @@ never a real NRC, TPIN or registration number.
 
 Short, and in this shape:
 
-- every file written, with its path
+- every file written, with its path, and `postman collections/<Tenant>.postman_collection.json`
+  as replaced when `--update-working-collection` was passed
+- the Document History rows of the `(t)` document, and the Swagger document exported
 - the gate result, and if anything failed, what and why
 - whether Word repaginated or fell back to estimated page numbers (estimated is not shippable)
 - **Code findings**: every source file, type and member the document needed and the code did not

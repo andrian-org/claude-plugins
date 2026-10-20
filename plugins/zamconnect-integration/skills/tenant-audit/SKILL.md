@@ -442,19 +442,70 @@ The gateway picks up the change on its next `YarpStatusWorker` poll, every 30 s.
 
 In the gateway paths below, `/t/<slug>/` stands for the prefix of the route just applied: `match.path` in `GATEWAY-CONFIG.md` minus `{**url}`. That is `/t/<slug>/` for every `tenant-init` scaffold; a hand-written file may use another route (C8), and the calls follow the file.
 
-When the tenant has an `Endpoints:Gateway` section (Check 3), its outbound gateway calls go to `http://gateway/`, the local compose gateway (the Development `BaseUrl`). Give the container the local test user as its gateway credentials through a scratch compose override, never through a repo file:
+**Outbound gateway calls stay local.** The container runs with `appsettings.Development.json`, and most Development `BaseUrl`s on the gateway point at the public test gateway, some with literal credentials. Started as is, the tenant would call it. Every client that calls a gateway is moved to the local one first, not only `Endpoints:Gateway`.
+
+A client section is gateway-bound when its `appsettings.json` `BaseUrl` is `__Endpoints.APIGATEWAY.BaseUrl__`, or its `appsettings.Development.json` `BaseUrl` host is `gateway`, `localhost:10080` or `api[.<env>].gsb.gov.zm`. That covers `Endpoints:Gateway` (Check 3) and every other REST or SOAP client on the gateway, such as CEEC `ZamConnect`, EGP `Ifmis` or DNRPC `Imago`. List them in one Bash call. It prints section names, paths and line numbers, never a host or a credential:
 
 ```bash
-cat > <scratch>/gateway-user.override.yml <<EOF
-services:
-  core-<slug>:
-    environment:
-      - Endpoints__Gateway__BaseUrl=http://gateway/
-      - Endpoints__Gateway__Username=test<TenantName>
-      - Endpoints__Gateway__Password=test
-EOF
+awk '
+  FNR == 1 { f++; depth = 0; key = last = ""; colon = 0 }
+  { sub(/\r$/, ""); n = length($(0))
+    for (i = 1; i <= n; i++) {
+      c = substr($(0), i, 1)
+      if (c == "\"") {
+        s = ""; for (i++; i <= n && substr($(0), i, 1) != "\""; i++) { if (substr($(0), i, 1) == "\\") i++; s = s substr($(0), i, 1) }
+        if (colon && tolower(key) == "baseurl") { sec = path[2]; for (j = 3; j <= depth; j++) sec = sec "__" path[j]; url[f, sec] = s; ln[f, sec] = FNR; secs[sec] = 1 }
+        if (!colon) last = s; colon = 0
+      }
+      else if (c == "/" && substr($(0), i + 1, 1) == "/") break      # comment
+      else if (c == ":") { key = last; colon = 1 }
+      else if (c == "{") { path[++depth] = key; key = ""; colon = 0 }
+      else if (c == "}") { depth--; colon = 0 }
+      else if (c == "," || c == "[") { key = ""; colon = 0 }
+      else if (c !~ /[ \t]/) colon = 0                                # number, true, false, null
+    }
+  }
+  END {
+    for (sec in secs) {
+      h = url[2, sec]; sub(/^[A-Za-z]+:\/\//, "", h)
+      p = index(h, "/") ? substr(h, index(h, "/")) : "/"; sub(/\/.*/, "", h); h = tolower(h)
+      kind = (h ~ /^(gateway|localhost:10080)$/) ? "local" : (h ~ /^api(\.[a-z0-9-]+)?\.gsb\.gov\.zm$/) ? "public" : ""
+      if (kind == "" && url[1, sec] != "__Endpoints.APIGATEWAY.BaseUrl__") continue
+      if (sec !~ /^(Endpoints|SoapEndpoints)__/) { if (kind == "public") print "uncovered\t" ln[2, sec]; continue }
+      if (kind == "") { kind = "public"; p = "/" }
+      print sec "\t" p "\t" kind
+    }
+  }' src/Tenants/<TenantName>/appsettings.json src/Tenants/<TenantName>/appsettings.Development.json | sort > <scratch>/gateway-bound.tsv
+```
+
+Each row of `<scratch>/gateway-bound.tsv` is one section, tab-separated:
+
+| Column | Value |
+|---|---|
+| 1 | The environment prefix: `Endpoints__Ifmis`, `SoapEndpoints__Imago`. A nested section joins its keys: `Endpoints__DotgovPay__Payments` |
+| 2 | The path of the Development `BaseUrl`, `/` when it has none. It is kept, so a client whose Development `BaseUrl` holds a route (PSPF `Pspf` on `/t/pspf1/…`) calls the same route on the local gateway |
+| 3 | `local` when the Development host is `gateway` or `localhost:10080`, otherwise `public` |
+
+A Development `BaseUrl` on a public gateway outside `Endpoints` / `SoapEndpoints` can't be moved by the override. It gives an `uncovered` row with its line number in `appsettings.Development.json`.
+
+| List | Action |
+|---|---|
+| Any `uncovered` row | Don't start the tenant. Report a `fail` with the line numbers only, never the value: the tenant would call the public gateway. Skip the calls below |
+| Empty | No override. Start the tenant as it is |
+| Otherwise | Generate the override below |
+
+The override gives every row the local gateway and the local test user. It is a scratch compose file, never a repo file:
+
+```bash
+awk -F'\t' -v s=core-<slug> -v u=test<TenantName> '
+  BEGIN { print "services:"; print "  " s ":"; print "    environment:" }
+  { printf "      - \"%s__BaseUrl=http://gateway%s\"\n", $(1), $(2)
+    printf "      - \"%s__Username=%s\"\n", $(1), u
+    printf "      - \"%s__Password=test\"\n", $(1) }' <scratch>/gateway-bound.tsv > <scratch>/gateway-user.override.yml
 C="$C -f <scratch>/gateway-user.override.yml"
 ```
+
+Each entry is quoted, so a path with spaces stays one value. The report lists the `public` rows: they are the calls this check moved off the public gateway. A moved call to a route the local gateway doesn't hold is the last row of the response table below, a `warn`.
 
 Then start the tenant:
 
@@ -523,7 +574,7 @@ Same rules as Check 9 (local only, no token asked, nothing printed from the data
 
 1. **Stack.** 9a as written.
 2. **Package.** 9b as written. Every route is cross-cluster, so the scratch package carries a `hostClusters` entry per host, and the test user is `test<CODE>` with the route scopes only. It never gets the host's own scope: the check proves the agency needs nothing more.
-3. **Host.** Start each host service, `$C up -d --build --no-deps core-<host slug>`. When the host has an `Endpoints:Gateway` section, apply the 9c override to the host service, so its own outbound calls go to the local gateway. Probe the host's health inside its container, as tenant-init §8 does. A catch-all route can't do it: `/t/<slug>/health/live` becomes `<prefix>/health/live`, which the host doesn't map.
+3. **Host.** Build the 9c gateway-bound list for each host, from `src/Tenants/<Host>/`, and generate its override with `s=core-<host slug>` and `u=test<CODE>`, so the host's own outbound calls go to the local gateway. Name the files `<scratch>/gateway-bound.<host slug>.tsv` and `<scratch>/gateway-user.<host slug>.override.yml`, and add each override to `$C` with `-f`. A host with an `uncovered` row is not started: report the 9c `fail` and skip its calls. Then start each host service, `$C up -d --build --no-deps core-<host slug>`. Probe the host's health inside its container, as tenant-init §8 does. A catch-all route can't do it: `/t/<slug>/health/live` becomes `<prefix>/health/live`, which the host doesn't map.
 4. **Calls.** Call one operation per route through `http://localhost:10080/t/<slug>/<path>` with `-u "test<CODE>:test"`, with fake values as in 9c. For a catch-all, call one operation per resource the host serves under the prefix. Take them from the host's routes.
 
 Classify by who answered, with the Check 9c table, and these readings for the host:
@@ -580,6 +631,19 @@ For a virtual tenant, the report's first line says so and names the host cluster
 Close by naming what the audit never reads, because an administrator sets it up by hand (C10): the variables in each environment, the ADO pipeline definitions, the scope/cluster/route records in every non-local gateway, and ZamPass / RA clients. Check 9 covers only the local Docker gateway.
 
 When anything was repaired, end with the equivalent command, e.g. `/tenant-audit PQPS --fix registration`.
+
+**Gate result.** Under `--report-only` (the mode `tenant-pipeline` step 5 runs) the report's last line is `GATE-RESULT: ran` or `GATE-RESULT: failed <reason>`. Only a blocking finding gives `failed`:
+
+| Finding | Gate |
+|---|---|
+| A check that could not run: a command or script error, not a `skipped` | Blocking |
+| The image does not build (Check 8) | Blocking |
+| The tenant does not start: `up` fails for `core-<slug>`, or 9c refuses to start it (an `uncovered` row) | Blocking |
+| A literal credential in `appsettings.json`, or committed key material (severity 1, Check 4) | Blocking |
+| Virtual tenant: a host cluster listed in `clusters`, or a `clusterId` missing from the routes doc (V1) | Blocking |
+| Every other `fail`, every `warn`, every `skipped` | Not blocking |
+
+`<reason>` names the check and the finding in one line, never a value: `failed check 8 — image build: step 7/12 COPY failed`. With several blocking findings, name the most severe and add `(+<n> more)`. The rows above it stay in the report as usual.
 
 ## Sensitive data
 

@@ -1,7 +1,7 @@
 ---
 name: tenant-init
 description: Scaffold a new ZamConnect integration tenant project from the standard tenant boilerplate (Carter + Serilog + OpenTelemetry + Prometheus + health checks, net10.0), wire it into ZamConnect.sln, and verify it builds. For an agency that needs only shared e-Services, it offers a virtual tenant (gateway routes onto GOVZM, no project) instead. Use when the user says "create a new tenant", "add tenant <NAME>", "scaffold integration for <AGENCY>", or types /tenant-init.
-argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,graphql,db,shared,unknown] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
+argument-hint: "<TenantName> [--controllers] [--full-name \"<name>\"] [--integrates rest,soap,graphql,db,shared,unknown] [--source <url|path>...] [--shared-source <SYS>...] [--all] [--virtual | --no-virtual] [--port <https>] [--no-pipeline] [--auto] [--dry-run] [--help]"
 allowed-tools: Read Write Edit Glob Grep Bash(mkdir *) Bash(cat *) Bash(dotnet *) Bash(find *) Bash(grep *) Bash(ls *) Bash(sort *) Bash(uniq *) Bash(docker *) AskUserQuestion Skill
 disable-model-invocation: false
 ---
@@ -23,10 +23,12 @@ Not every agency needs a project. An agency with no system of its own, whose nee
 | `<TenantName>` | positional, required | — PascalCase; matches folder, csproj, assembly, namespace root |
 | Style | `--controllers` | `carter` (minimal API modules) |
 | Full descriptive name | `--full-name "<name>"` | Asked in step 1a. Goes into `OpenApiInfo.Title` as `"<full name> (<TenantName>)"` |
-| What it integrates with | `--integrates rest,soap,graphql,db,shared,unknown` | Asked in step 1a. Decides the defaults of the later pipeline steps |
+| What it integrates with | `--integrates rest,soap,graphql,db,shared,unknown` | Asked in step 1a, or derived from the source flags below. Decides the defaults of the later pipeline steps |
+| Integration source | `--source <url\|path>`, repeatable | None. Not used by the scaffold. Each one is recorded in state as an `answers.integrations` entry `{ "sources": [...] }`, which `tenant-pipeline` passes to step 2. A database source keeps its `db=<path>` form, a GraphQL one `graphql=<…>`. Asked in step 1a only when `Auto` is picked |
+| Shared e-Services | `--shared-source <SYS>`, repeatable · `--all` | None. Recorded as `answers.sharedSources` and `answers.sharedAll: true`, which `tenant-pipeline` passes to step 3 as `--source <SYS>` and `--all`. `<SYS>` is a system code of `integrate-shared` (`NIR`, `NBR`, `ZRA`, …). Asked in step 1a only when `Auto` is picked |
 | Virtual tenant | `--virtual` / `--no-virtual` | Asked in step 1b, only when `--integrates` is `shared` alone. `--virtual` scaffolds nothing and hands over to the virtual chain; `--no-virtual` scaffolds the project |
 | Dev ports | `--port <https>` | Next free pair from the scan in step 2 |
-| Pipeline | `--no-pipeline` / `--auto` | Guided. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates |
+| Pipeline | `--no-pipeline` / `--auto` | Guided. `--no-pipeline` stops after the scaffold; `--auto` runs the whole chain without gates. `--no-pipeline` always wins: with both flags, `--auto` only skips this skill's questions, and there is no hand-off. That is how `tenant-pipeline --auto` runs step 1 |
 | Dry run | `--dry-run` | Off. Stops at the review in step 2a and writes nothing |
 | Help | `--help` | Print the arguments and examples, then stop (R14) |
 
@@ -69,7 +71,17 @@ Leave out the `Pipeline` question when run with `--no-pipeline`, which is how `t
 
 When `Agency system` was picked, a second call drills down (R9), header `Upstream`, `multiSelect`: "What does the agency system of `<TenantName>` speak?" — `REST API` · `SOAP service` · `GraphQL API` · `Database (SQL Server)`. Each answer becomes its member of `--integrates` (`rest`, `soap`, `graphql`, `db`), and `tenant-pipeline` turns them into one typed pass queue for step 2. Leave the call out when `--integrates` was passed.
 
-Record the answers as flags for the equivalent command, for example `/tenant-init PQPS --integrates soap --full-name "Plant Quarantine and Phytosanitary Service"`. `Take it from the integration source` records `fullName: "pending"` in state; step 2 picks it up from there.
+When `--source`, `--shared-source` or `--all` was passed and `--integrates` wasn't, derive `--integrates` from them and leave out the `Integrates` and `Upstream` questions. Each `--source` adds its protocol, detected as `tenant-integration` detects it: `db=<path>` is `db`, `graphql=<…>` is `graphql`, a `.wsdl` is `soap`, and anything else is peeked at. `--shared-source` or `--all` adds `shared`. A source whose protocol the peek can't tell keeps the `Upstream` question.
+
+When the `Pipeline` answer is `Auto` and no source flag was passed, one more call asks for the sources, so the chain can run without stopping:
+
+- One question per protocol picked under `Upstream`, header `REST source`, `SOAP source`, `GraphQL src` or `DB source`. The options are the candidates `tenant-integration` finds on disk for that protocol (its Discover sources and typed-pass rules), the best 3. The question text says "…or paste a URL or path in Other" (R3). Each answer becomes a `--source`.
+- When a protocol has no candidate, its options are `Switch to Guided — step 2 asks for the source` · `Scaffold only`. Either one replaces the `Auto` answer.
+- When `Shared e-Services` was picked, the `e-Services` group question of `integrate-shared` 3b, with its virtual groups when `Shared e-Services` is the only answer. Each picked group adds a `--shared-source` per system in it. All groups picked sets `--all` instead.
+
+At most 4 questions per call: with four protocols and shared e-Services, the `e-Services` question goes in a second call. The `--auto` flag asks none of this. `tenant-pipeline` then checks the sources before it runs any step, and stops with the missing flag named.
+
+Record the answers as flags for the equivalent command, for example `/tenant-init PQPS --integrates soap --full-name "Plant Quarantine and Phytosanitary Service"`, or `/tenant-init PQPS --source pqps.wsdl --auto` when `Auto` asked for the source. `Take it from the integration source` records `fullName: "pending"` in state; step 2 picks it up from there.
 
 ### 1b. Virtual tenant?
 
@@ -646,7 +658,7 @@ grep -n "OpenApiInfo\|AddSecurityDefinition\|IncludeXmlComments\|partial class P
 
 ## State
 
-Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contract describes, creating `.claude/zamconnect/.gitignore` (`*`) with it. Record step 1 as `ran`, its equivalent command, and the intake answers (`style`, `integrates`, `fullName`, and `virtual` when step 1b chose it). Later steps read them from there. Do this even with `--no-pipeline`, so a later `/tenant-pipeline <TenantName>` picks up where this left off. Skip it with `--dry-run`.
+Write `.claude/zamconnect/<TenantName>.pipeline.json` as the interaction contract describes, creating `.claude/zamconnect/.gitignore` (`*`) with it. Record step 1 as `ran`, its equivalent command, and the intake answers (`style`, `integrates`, `fullName`, and `virtual` when step 1b chose it). Record the source flags too: one `integrations` entry `{ "sources": [...] }` per `--source`, `sharedSources` for the `--shared-source` codes, and `sharedAll: true` for `--all`. Later steps read them from there. Do this even with `--no-pipeline`, so a later `/tenant-pipeline <TenantName>` picks up where this left off. Skip it with `--dry-run`.
 
 ## Report
 
@@ -667,8 +679,8 @@ The scaffold is step 1 of six. The rest of the chain belongs to `tenant-pipeline
 | Intake / flag | What happens after the report |
 |---|---|
 | `Guided` (default) | Invoke `tenant-pipeline` with the `Skill` tool: `<TenantName> --from integration` |
-| `Auto` / `--auto` | Invoke `tenant-pipeline`: `<TenantName> --from integration --auto` |
-| `Scaffold only` / `--no-pipeline` | Stop after the report, and print `/tenant-pipeline <TenantName>` as the command to continue |
+| `Auto` / `--auto`, without `--no-pipeline` | Invoke `tenant-pipeline`: `<TenantName> --from integration --auto`. The sources are already in state, so no source flag is passed |
+| `Scaffold only` / `--no-pipeline` | Stop after the report, and print `/tenant-pipeline <TenantName>` as the command to continue. `--no-pipeline` always wins: with `--auto` too, there is still no hand-off |
 
 A virtual tenant takes the same hand-off. `tenant-pipeline` reads `virtual: true` from state and runs its virtual chain (`integrate-shared <TenantName> --mode virtual`, then the audit).
 
