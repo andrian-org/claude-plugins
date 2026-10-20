@@ -29,9 +29,12 @@ pick one.
 input: you do not edit, add or delete anything under `src/Tenants/<Tenant>/`, `src/Core/`,
 `src/Gateway/`, any `.csproj`, `.sln`, `appsettings*.json`, pipeline or compose file — not even
 to add a missing `///` comment or `.WithTags(…)` that would visibly improve the output. You write
-only inside `src/Tenants/<Tenant>/Deliverables/` (or `--out`) and your scratchpad; `dotnet build` is allowed
+only inside `src/Tenants/<Tenant>/Deliverables/` (or `--out`), the tenant's schema description
+catalogue (`src/Tenants/<Tenant>/Swagger/schema-descriptions.json`, or
+`src/VirtualTenants/<Tenant>/schema-descriptions.json`) and your scratchpad; `dotnet build` is allowed
 because it produces build output, which is how the swagger document is exported. Never commit.
-Every code defect is a finding you report, never a change you make. Never pass
+Every code defect is a finding you report, never a change you make — except schema and property
+descriptions, which you always write into the catalogue (skill step 4a). Never pass
 `--update-working-collection` on your own: it replaces the tracked
 `postman collections/<Tenant>.postman_collection.json`, which may be a developer's hand-maintained
 file. Pass it only when your prompt does, and then name that file in your report as replaced.
@@ -73,6 +76,11 @@ collection, and the gates, in one call. Add `--provide-paths <path> ...` for a t
 provides; every path not named is Consume, and the `(c)`/`(p)` documents come out as projections
 of the `(t)` one with their schemas scoped to what they actually reach.
 
+Exit code 3 is not a failure: some schema or property has no description. Nothing was moved or
+written. Read the `missing-descriptions.json` it names, write every entry into the catalogue in the
+skill's step 4a style, and re-run the same command with `--skip-build`. You don't ask anyone: the
+administrator reviews the descriptions in the Word document.
+
 **3. `verify_package.py src/Tenants/<TENANT>/Deliverables --route <r> --version <X.Y>`** — every gate on
 its own, for a re-check after an edit. `build_package.py` already ends with this.
 
@@ -85,10 +93,12 @@ The scripts do the mechanical work. These are the parts they deliberately do not
   and lift the five folders up if you touch an older package that still has it.
 - **An `UNKNOWN` or `Provide?` split**, as above.
 - **Prose that has to come from source**: `OpenApiInfo.Description` (the executive summary and
-  glossary), `.WithSummary(...)`/`.WithDescription(...)` on routes, `///` comments on DTOs, and
-  the `ProblemDefinition` list read off the tenant's `Error` call sites. `inspect_tenant.py`
-  tells you which are missing; a blank Description column is a code fix you report rather than
-  make, and never text typed into the DOCX, which the next render would drop.
+  glossary), `.WithSummary(...)`/`.WithDescription(...)` on routes, and the `ProblemDefinition`
+  list read off the tenant's `Error` call sites. `inspect_tenant.py` tells you which are missing;
+  a gap there is a code fix you report rather than make, and never text typed into the DOCX,
+  which the next render would drop.
+- **Schema and property descriptions** the code doesn't export: you write them into the
+  catalogue when `build_package.py` exits with code 3 (skill step 4a).
 
 ## Order of work
 
@@ -97,7 +107,8 @@ The scripts do the mechanical work. These are the parts they deliberately do not
    `IncludeXmlComments`, `UseAllOfToExtendReferenceSchemas`, `.WithTags`, `.WithSummary`, XML doc
    comments, `ResponseDescriptions`, `ProblemDetailsSchemaFilter`. These go in the report as code
    findings; you do not change them.
-3. `build_package.py`, rendering whatever the source actually says.
+3. `build_package.py`, rendering whatever the source actually says. On exit code 3, fill the
+   description catalogue and re-run with `--skip-build`.
 4. If a gate fails, say which and why. A gate failing on a source gap is reported, not worked
    around by editing the rendered file or the source.
 5. Re-run `build_package.py --skip-build` (or `verify_package.py`) after any change the user

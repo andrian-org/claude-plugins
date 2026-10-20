@@ -17,6 +17,11 @@ both sections and the (c)/(p) documents become projections of it:
 
     --provide-paths /t/wcf/employers
 
+Every schema and property must have a description before anything is written (schema_descriptions.py):
+from the code's /// comments, else src/Tenants/<Tenant>/Swagger/schema-descriptions.json. The run
+stops with exit code 3 and a missing-descriptions.json when any is still missing; fill the catalogue
+and re-run with --skip-build.
+
 The Document History is carried forward from the current (t) document: a higher --version adds
 one row and needs --history-description, the same version keeps the rows, a lower one is refused.
 A tenant whose Program.cs declares several Swagger documents needs --swagger-doc <name>. The
@@ -54,6 +59,17 @@ def find_repo_root(start: Path) -> Path:
         if (d / "src" / "ZamConnect.sln").exists():
             return d
     sys.exit(f"!! no src/ZamConnect.sln at or above {start}")
+
+
+def load_sibling(name: str):
+    """A module next to this script, loaded by path so it works under `python -I`, which keeps
+    the script's own folder off sys.path."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def run(cmd, cwd=None, env=None, label=""):
@@ -266,6 +282,34 @@ def main() -> int:
     if "consumer" in roles and set(sections.values()) == {"Provide"}:
         sys.exit("!! consumer requested but every path is Provide")
 
+    # --- 2b. schema descriptions, mandatory ----------------------------------------------------
+    # Every schema and property gets a description before anything is moved or written: from the
+    # code's /// comments, else the tenant's catalogue, else another tenant's identical model.
+    # What is still missing stops the run with the context needed to describe it.
+    describe = load_sibling("schema_descriptions")
+    catalogue = describe.catalogue_path(root, tenant, virtual)
+    described = describe.apply(spec, catalogue, root)
+    shown = catalogue.relative_to(root).as_posix()
+    for entry in described.reused:
+        log.append(f"descriptions: reused {entry}, copied into {shown}")
+    for key in described.stale:
+        log.append(f"descriptions: {shown} has {key}, which the document no longer holds")
+    if described.missing:
+        missing_file = bin_dir / "missing-descriptions.json"
+        describe.write_missing(missing_file, described, catalogue, root)
+        print("\n".join(f"- {line}" for line in log))
+        print(f"\n!! {len(described.missing)} schema/property description(s) missing. Nothing was "
+              f"moved or written.\n   Write them into {shown} (context and style in "
+              f"{missing_file}), then re-run the same command"
+              + (" with --skip-build." if not args.from_swagger and not virtual else "."))
+        return 3
+    log.append(f"descriptions: {described.from_code} from the code, {described.from_catalogue} "
+               f"from {shown}")
+    # Beside the export, not over it: a --skip-build re-run must see only what the code exports,
+    # or catalogue text would count as code and outlive its removal from the catalogue.
+    described_spec = bin_dir / "swagger.described.json"
+    described_spec.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
+
     sections_file = bin_dir / "sections.json"
     sections_file.write_text(json.dumps(sections, indent=1), encoding="utf-8")
     history_file = bin_dir / "history.json"
@@ -277,6 +321,17 @@ def main() -> int:
 
     superseded = [p for d in ("Consumer", "Provider", "Tenant") for p in (pkg / d).iterdir()
                   if p.is_file()]
+    # A document open in Word (or held by a preview pane or a sync client) can't be moved. Check
+    # them all first: a failure halfway would leave the archive split across two folders.
+    locked = []
+    for p in superseded:
+        try:
+            with open(p, "r+b"):
+                pass
+        except OSError:
+            locked.append(str(p.relative_to(pkg)))
+    if locked:
+        sys.exit(f"!! close these files and re-run; nothing was moved or written: {locked}")
     if superseded:
         stamp = datetime.now().strftime("%Y-%m-%d %H%M")
         if (pkg / "Archive" / stamp).exists():
@@ -292,7 +347,7 @@ def main() -> int:
 
     written: list[Path] = []
     spec_out = pkg / "Tenant" / f"{tenant} (t) API Swagger.json"
-    shutil.copyfile(swagger, spec_out)
+    shutil.copyfile(described_spec, spec_out)
     written.append(spec_out)
 
     # --- 4. one DOCX per role ------------------------------------------------------------------

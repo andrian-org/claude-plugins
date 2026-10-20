@@ -19,6 +19,7 @@ The tenant's source is **read-only input**. Nothing here edits, adds or deletes 
 The only paths this skill may write to:
 
 - `src/Tenants/<Tenant>/Deliverables/…` (or `--out`) — the package itself
+- `src/Tenants/<Tenant>/Swagger/schema-descriptions.json` (`src/VirtualTenants/<Tenant>/schema-descriptions.json` for a virtual tenant) — the schema description catalogue of step 4a, and nothing else under `src/Tenants/<Tenant>/` outside `Deliverables/`
 - the scratchpad — `sections.json`, intermediate JSON, logs
 - `src/Tenants/<Tenant>/bin/…` — build output produced by `dotnet build` and the Swashbuckle export, never hand-edited source
 - `postman collections/<Tenant>.postman_collection.json` — **only with `--update-working-collection`**. The file is tracked and may be a developer's hand-maintained collection, so it is never replaced by default; without the flag the collection is written to `Tenant/` only
@@ -26,6 +27,8 @@ The only paths this skill may write to:
 `dotnet build` is allowed because it only produces build output; it is the mechanism for exporting the swagger document. Do not run it with any flag that rewrites source, and never run a formatter, a code fix or `git commit`/`git add` from this skill.
 
 **A code defect is a finding, not a task.** When the source cannot fill a compartment — no XML doc comments, tags defaulting to class names, a response type the code does not declare — generate the document with what the source actually says, and list the defect in the final report with the exact file, type and member to change. The user decides whether to change the code and re-run. Overriding a value straight into the generated artifact is equally forbidden: the document must reflect the tenant as it is, otherwise the spec and the running service disagree.
+
+One exception, and it is mandatory: **schema and property descriptions** (step 4a). A description the code doesn't export is written into the tenant's description catalogue, never into the document, and `build_package.py` merges it into the OpenAPI document before rendering. The code always wins: a catalogue entry never replaces a `///` comment.
 
 ## The short path
 
@@ -39,6 +42,8 @@ python scripts/verify_package.py src/Tenants/<TENANT>/Deliverables --route <r> -
 ```
 
 `build_package.py` takes `--provide-paths <path> ...` for a tenant that both consumes and provides; every path not named is Consume. It builds, exports, applies the gateway prefix, lays out the five folders, moves superseded files to `Archive/<timestamp>/`, renders one DOCX per role, writes the Postman collection and runs every gate, exiting non-zero if one fails.
+
+Between the export and the first file it moves, it describes every schema (step 4a). When a description is missing it stops with **exit code 3**, writes `missing-descriptions.json` beside the export and names it. That is not a failure: write the descriptions into the catalogue, then re-run the same command with `--skip-build`.
 
 The rest of this document is why each of those steps is what it is, and what the scripts deliberately leave to you: an endpoint the split cannot settle mechanically, and every piece of prose that has to come from source. Read on before overriding anything.
 
@@ -141,7 +146,7 @@ Derive the recommendation from the operations added and removed against the curr
 
 **Review** — one R6 call before `build_package.py` writes anything. Options `Apply (Recommended)` · `Adjust` · `Cancel`. The question text lists the documents per role folder, what moves to `Archive/`, the Document History rows the `(t)` document will carry, and the equivalent command. With `--update-working-collection`, it also names `postman collections/<Tenant>.postman_collection.json` as a tracked file that will be replaced. With `--dry-run`, print it and stop.
 
-**Code findings** — after the build, when the report lists code findings (missing `///`, `.WithTags`, `.WithSummary`, undeclared response codes), and not with `--auto`, ask with header `Findings`:
+**Code findings** — after the build, when the report lists code findings (missing route metadata, `.WithTags`, `.WithSummary`, undeclared response codes — schema descriptions are never a finding, step 4a fills them), and not with `--auto`, ask with header `Findings`:
 
 - `Fix them now, then re-render (Recommended)` — invoke `tenant-integration <T> --spec-only`. It makes the code changes, which this skill never does. Then re-run `build_package.py` with the same flags
 - `Hand over the list` — keep the documents as rendered, and report the findings by file and member
@@ -274,6 +279,55 @@ The fix belongs in the module, and this skill does not make it. Report each modu
 
 Response codes are worth checking against the code rather than the older document. A published DOCX documents `404` and `400` for an endpoint whose module declares only `.Produces(200)` and `.Produces(500)`, and gives `Person` as the type of a `500` response where the code returns `ProblemDetails`. The code is the contract — document what it declares, and report any mismatch with the older document rather than reconciling it by editing either side.
 
+## 4a. Describe every schema
+
+Mandatory, no flag. Every schema, and every property of every schema, gets a short natural-language description before the document is rendered. Swashbuckle fills a description only from a `///` comment, so without this step the Schemas tables of every tenant that republishes shared e-Services come out with blank Description columns: the Core `Shared` models are compiled without XML docs, and `ProblemDetails` is a framework type.
+
+`build_package.py` (through `scripts/schema_descriptions.py`) takes each description from the first source that has one:
+
+1. **The code** — the `///` comment Swashbuckle exported. Never overwritten.
+2. **The tenant's catalogue** — `src/Tenants/<Tenant>/Swagger/schema-descriptions.json`, or `src/VirtualTenants/<Tenant>/schema-descriptions.json` for a virtual tenant. Versioned with the tenant, and corrected there, never in the document.
+3. **Another tenant's catalogue** for a schema of the same name **and the same properties** — copied into this tenant's catalogue, so the file always holds what was used. Two tenants can declare different classes under one name (ZDI and ZDA `Permit`), which is why the property sets must match.
+
+```json
+{
+  "PersonResponse": {
+    "description": "A person registered in the National Identity Register (NIR).",
+    "properties": {
+      "id": "Person unique identifier in the National Identity Register.",
+      "dateOfBirth": "Date of birth of the person."
+    }
+  }
+}
+```
+
+When anything is still missing, the build stops with exit code 3 before a file is moved, and writes `missing-descriptions.json` beside the export. Each entry carries the context to describe it from: the property's type, format, nullability and enum members, its sibling properties, the schema's own description, the operations that return the schema (with their summaries), and the schemas that embed it. Then:
+
+1. Read the file, and for an integer enum schema read the C# enum for the member names (`grep -rn "enum <Name>" src/Core src/Tenants/<Tenant>`).
+2. Write every missing entry into the catalogue, creating it when absent. Keep the entries already there. A schema-level gap needs `description`; a property gap needs `properties.<name>`.
+3. Re-run `build_package.py` with the same flags plus `--skip-build`.
+
+No question is asked, under `--auto` or not: the administrator reviews the descriptions in the rendered Word document, and the report names the catalogue as the file to correct.
+
+Style, which `missing-descriptions.json` repeats:
+
+| Rule | Example |
+|---|---|
+| One short sentence, ending with a period, subject first | `Person unique identifier in the National Identity Register.` |
+| Same wording for the same field in the Add, Update and Response variants of a model | `AddressAddRequest.line1` and `AddressResponse.line1`: `First line of the street address.` |
+| Name the format or unit when the type alone doesn't | `ISO 3166-1 alpha-3 code of the country that issued the document.` |
+| Booleans start with "Whether" | `Whether the permit is permanent.` |
+| A schema description says what one instance represents | `An immigration permit issued by the Department of Immigration (ZDI).` |
+| An integer enum schema maps every code, because the export carries only the numbers | `Type of an address: 0 Unknown, 1 Residential, 2 Postal, 3 Billing, 4 Birth, 9 Not applicable.` |
+| Never the property name alone, never `TODO`, never a property's enum members (the document lists them) | |
+| Use the upstream source's own wording when the integration source documents the field | |
+
+The script refuses an entry that is empty, holds `TODO` or `__`, or only repeats the name, and lists it as missing again. A catalogue key the document no longer holds is reported as stale in the build log; remove it from the catalogue.
+
+A referenced property (`$ref`) gets its description the way Swashbuckle's `UseAllOfToExtendReferenceSchemas` does it, wrapped in a single-element `allOf`, because OpenAPI 3.0 ignores a sibling of a bare `$ref`. The renderer unwraps it, so the Type column still links the schema.
+
+Moving a description into the code later (`///` on a tenant DTO, or on a `Shared` model once `Shared.csproj` sets `GenerateDocumentationFile`) needs no catalogue change: the code wins, and the build log reports the entry as unused only when the property is gone.
+
 ## 5. Fill every compartment from source
 
 The section order is fixed. Nothing may be left as template text, and nothing may be invented — each compartment has exactly one source.
@@ -309,7 +363,7 @@ Executive Summary is dropped only when `info.description` is empty; the other fi
 | 2 | Glossary | A Term / Definition table. Always `API`, `ZamConnect`, `<CODE>`; then every acronym from `GLOSSARY` in `scripts/openapi_to_docx.py` that appears in the document's text. An acronym missing from that table is left out rather than given an invented expansion — add it to `GLOSSARY` |
 | 3 | Endpoints | One Heading 3 per endpoint the role carries: `(c)` the Consume endpoints, `(p)` the Provide ones, `(t)` all of them, Consume first (see step 3) |
 | | — each endpoint | Heading 3 titled `<METHOD> /t/<route>/<path>`. A prose sentence saying what it returns and from where, then **Input parameters** (Parameter Type, Name, Type, Description) and **Response** (Status Code, Content-Type, Type, Description). Parameter types come from the route signature; response codes and types come from `.Produces<T>(…)` or `ActionResult<T>`, never from a previous document |
-| 4 | Schemas | `ProblemDetails` first, its `ProblemDetailsDefinitions` next, then the rest alphabetically. One Heading 3 per DTO reachable from the endpoints **this document contains**. Name, Type, Description; descriptions from `///` XML doc comments. An enum-valued property lists its members inline (`0 – Unknown`, `1 – Phone`, …) rather than saying "integer" |
+| 4 | Schemas | `ProblemDetails` first, its `ProblemDetailsDefinitions` next, then the rest alphabetically. One Heading 3 per DTO reachable from the endpoints **this document contains**. Name, Type, Description; descriptions from `///` XML doc comments, else the description catalogue (step 4a). An enum-valued property lists its members inline (`0 – Unknown`, `1 – Phone`, …) rather than saying "integer" |
 | | ProblemDetails + ProblemDetailsDefinitions | Every tenant returning problem details documents both: the envelope, and the table of concrete Title/Detail/Status/Registry triples the tenant can actually emit. Read these from the tenant's `CustomResults.Problem` call sites and its `Error` definitions — an invented error code is worse than an omitted one |
 | 5 | API Environments | Heading 3 per environment — Development, Staging, Production. The three Base URLs from `scripts/environments.py`, with their prose, plus a worked example concatenating the Base URL with one real route of this tenant. **Never copied from an older spec** — published specs carry stale URLs (`api.dotgov.uk`, `api.stage.gov.zm`) that no longer resolve |
 | 6 | Contacts and Signature | `templates/contacts-and-signature.xml`, spliced in verbatim — the block from the published WCF `(t)` specification: bold "Client representatives" and "DotGov representatives" captions, each with an empty First Name / Last Name / Position / E-mail / Phone table, a signature rule and a `[signature of the … Representative]` caption. **Left blank.** It is filled in at signing; filling it here would put named individuals' contact details into a document going to a third party. Change the layout by editing the fragment, never the rendered DOCX |
@@ -323,7 +377,7 @@ Two naming traps in the section headings:
 
 **Scope the Schemas section to the document.** All three of one package's role documents carry the identical full schema set, so the Provider document defines `NapsaMember` and `Person` although its single endpoint returns neither. Either scope each document to what its own endpoints reach, or carry the union in all three — but do the same thing in all three, and say which.
 
-Absent `///` comments and `.WithSummary(…)` on routes, the tables come out with empty Description columns. That is a code fix, and this skill does not make it — render the document with the columns as thin as the source leaves them, and report every DTO property and route that needs a comment, by file and member. Do not invent a description to fill the cell: a description typed straight into the DOCX is both unsourced and lost at the next render.
+Schema and property descriptions are never blank: step 4a fills every one the code doesn't. Route-level text is different. Absent `.WithSummary(…)`, `.WithDescription(…)` or parameter and response descriptions on a route, the endpoint tables come out thin. That is a code fix, and this skill does not make it — render the document as the source leaves it, and report every route that needs metadata, by file and member. Never type a description into the DOCX: it is unsourced and lost at the next render.
 
 ## 6. Render the Word document, once per role
 
@@ -470,6 +524,7 @@ anything failed, so it can gate a commit.
 | Security scheme | `components.securitySchemes` is empty — every tenant is Basic-authenticated |
 | Tags | An OpenAPI tag is a C# class name — no route calls `.WithTags(…)` |
 | Parameter docs | An OpenAPI parameter has no `required` flag or no `description` |
+| Schema descriptions | A schema, or a property of a schema, has no description, or one that only repeats the property name — step 4a was bypassed |
 | Parameter names | A DOCX parameter table's names differ from its OpenAPI operation's parameters in casing or order (an optionality note in the Name cell is a difference), or a DOCX endpoint heading is not an OpenAPI operation |
 | Response codes | A DOCX response table lists a status code the OpenAPI operation does not, or misses one it has. The OpenAPI document is the export of the tenant's own `.Produces` declarations, so the comparison is with the export, not with the module source |
 | Reason phrases | An OpenAPI response description is the bare reason phrase (`OK`, `Not Found`, …) |
@@ -512,7 +567,7 @@ Write into `src/Tenants/<Tenant>/Deliverables/` itself (unless `--out` overrides
 
 `Integration Requests` is never generated. It holds upstream material — the counterpart's own API document, mapping spreadsheets, sample certificates — plus a `readme.md` giving the source URL of each. Carry these across unchanged and leave the readme's links intact.
 
-Report: every file written with its path, which gates passed, whether Word repagination succeeded or fell back, and a **Code findings** list of everything the source could not supply — missing `///` comments, missing `.WithTags(…)`, undeclared response codes, committed credentials — each with the file and member to change. These are handed over, never applied: the only files this run touched are the ones listed under `Deliverables/` — plus, only when `--update-working-collection` was passed, `postman collections/<Tenant>.postman_collection.json`, which the report names as a tracked file that was replaced. Also report the Document History the `(t)` document carries, and the Swagger document exported.
+Report: every file written with its path, which gates passed, whether Word repagination succeeded or fell back, the description counts from the build log (from the code, from the catalogue, reused from another tenant, stale keys) with the catalogue's path as the file the administrator corrects after reading the Word document, and a **Code findings** list of everything the source could not supply — missing route metadata, missing `.WithTags(…)`, undeclared response codes, committed credentials — each with the file and member to change. These are handed over, never applied: the only files this run touched are the ones listed under `Deliverables/` — plus, only when `--update-working-collection` was passed, `postman collections/<Tenant>.postman_collection.json`, which the report names as a tracked file that was replaced. Also report the Document History the `(t)` document carries, and the Swagger document exported.
 
 End with the equivalent command (R7), e.g. `/tenant-deliverables PQPS --route pqps --version 1.0 --roles tenant,provider --provide-paths /t/pqps/Hub/pesticides`, and these answers for the pipeline state: `route`, `version`, `roles`, `author`, `providePaths`. When the Findings fix ran, add the line `spec-only: ran`, so `tenant-pipeline` marks the tests and the audit stale. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <gate or reason>` when a gate fails on something other than a reported source gap.
 

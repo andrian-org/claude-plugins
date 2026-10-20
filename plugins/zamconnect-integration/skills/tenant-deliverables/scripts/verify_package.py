@@ -103,6 +103,21 @@ def check_openapi(path: Path, route: str | None, version: str | None) -> list[st
                     ref = json.dumps(resp.get("content", {}))
                     if ref and "ProblemDetails" not in ref:
                         fails.append(f"{where}: error response {code} is not ProblemDetails")
+
+    # The Schemas chapter's Description column; build_package.py fills it from the code or the
+    # tenant's schema-descriptions.json, so a gap here means the build was bypassed.
+    def same(a: str, b: str) -> bool:
+        return re.sub(r"[^a-z0-9]", "", a.lower()) == re.sub(r"[^a-z0-9]", "", b.lower())
+
+    for name, schema in s.get("components", {}).get("schemas", {}).items():
+        if not (schema.get("description") or "").strip():
+            fails.append(f"schema {name} has no description")
+        for prop, ps in (schema.get("properties") or {}).items():
+            text = (ps.get("description") or "").strip() if isinstance(ps, dict) else ""
+            if not text:
+                fails.append(f"schema {name}: property {prop} has no description")
+            elif same(text, prop):
+                fails.append(f"schema {name}: property {prop} description only repeats its name")
     return fails
 
 
