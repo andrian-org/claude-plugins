@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow name="Move">
+  <Sequence>
+    <StateProcess title="Move" name="Move" mode="CHANGE_STATE" table="Cases" process="Case" state="Open" applyforstates="Open; Open" />
+  </Sequence>
+</Workflow>

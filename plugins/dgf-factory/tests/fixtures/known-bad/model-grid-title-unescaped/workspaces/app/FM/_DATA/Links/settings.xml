@@ -1,0 +1,7 @@
+<entity>
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="PrimaryKey"/>
+    <field name="Note" type="Text" title="Notes &lt;internal&gt;"/>
+  </fields>
+</entity>

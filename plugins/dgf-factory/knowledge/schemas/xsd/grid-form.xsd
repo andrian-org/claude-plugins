@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <!-- Root Element -->
+    <xs:element name="view" type="gridViewType"/>
+
+    <!-- Main Grid View Type -->
+    <xs:complexType name="gridViewType">
+        <xs:sequence>
+            <xs:element name="row" type="gridRowType" minOccurs="0"/>
+            <xs:element name="header" type="headerType" minOccurs="0"/>
+            <xs:element name="description" type="descriptionType" minOccurs="0"/>
+            <xs:element name="fetch" type="gridFetchType" minOccurs="0"/>
+            <xs:element name="handlers" type="gridHandlersType" minOccurs="0"/>
+            <xs:element name="autoNewRow" type="xs:string" minOccurs="0"/>
+            <xs:element name="totalField" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="ordernumber" type="xs:boolean"/>
+    </xs:complexType>
+
+    <!-- Header Type -->
+    <xs:complexType name="headerType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="title" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Description Type -->
+    <xs:complexType name="descriptionType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="title" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Grid Row Type -->
+    <xs:complexType name="gridRowType">
+        <xs:sequence>
+            <xs:element name="cell" type="gridCellType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Grid Cell Type -->
+    <xs:complexType name="gridCellType">
+        <xs:sequence>
+            <xs:element name="properties" type="gridPropertiesType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string" use="required"/>
+        <xs:attribute name="width" type="xs:integer"/>
+        <xs:attribute name="align" type="alignType"/>
+    </xs:complexType>
+
+    <!-- Alignment Type -->
+    <xs:simpleType name="alignType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="left"/>
+            <xs:enumeration value="center"/>
+            <xs:enumeration value="right"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Grid Properties Type -->
+    <xs:complexType name="gridPropertiesType">
+        <xs:attribute name="readonly" type="readonlyType"/>
+        <xs:attribute name="requiredlevel" type="requiredLevelType"/>
+        <xs:attribute name="handlermode" type="handlerModeType"/>
+        <xs:attribute name="oncreatevalue" type="xs:string"/>
+        <xs:attribute name="onupdatevalue" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Readonly Type -->
+    <xs:simpleType name="readonlyType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Required Level Type -->
+    <xs:simpleType name="requiredLevelType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="required"/>
+            <xs:enumeration value="recommended"/>
+            <xs:enumeration value="optional"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Handler Mode Type -->
+    <xs:simpleType name="handlerModeType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="editable"/>
+            <xs:enumeration value="readonly"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Grid Fetch Type -->
+    <xs:complexType name="gridFetchType">
+        <xs:sequence>
+            <xs:element name="sort" type="gridSortType" minOccurs="0"/>
+            <xs:element name="filter" type="gridFilterType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Grid Sort Type -->
+    <xs:complexType name="gridSortType">
+        <xs:sequence>
+            <xs:element name="column" type="sortColumnType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Sort Column Type -->
+    <xs:complexType name="sortColumnType">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="ascending" type="xs:boolean" use="required"/>
+    </xs:complexType>
+
+    <!-- Grid Filter Type -->
+    <xs:complexType name="gridFilterType">
+        <xs:sequence>
+            <xs:element name="condition" type="filterConditionType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Filter Condition Type -->
+    <xs:complexType name="filterConditionType">
+        <xs:attribute name="attribute" type="xs:string" use="required"/>
+        <xs:attribute name="operator" type="xs:string"/>
+        <xs:attribute name="value" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Grid Handlers Type -->
+    <xs:complexType name="gridHandlersType">
+        <xs:sequence>
+            <xs:element name="smartedit" type="handlerActionType" minOccurs="0"/>
+            <xs:element name="create" type="gridHandlerActionType" minOccurs="0"/>
+            <xs:element name="select" type="gridHandlerActionType" minOccurs="0"/>
+            <xs:element name="select_ro" type="gridHandlerActionType" minOccurs="0"/>
+            <xs:element name="delete" type="handlerActionType" minOccurs="0"/>
+            <xs:element name="edit" type="gridHandlerActionType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Handler Action Type (for smartedit, delete) -->
+    <xs:complexType name="handlerActionType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="enabled" type="xs:boolean" use="required"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Grid Handler Action Type (for create, select, select_ro, edit) -->
+    <xs:complexType name="gridHandlerActionType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="enabled" type="xs:boolean" use="required"/>
+                <xs:attribute name="title" type="xs:string"/>
+                <xs:attribute name="window" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+</xs:schema>

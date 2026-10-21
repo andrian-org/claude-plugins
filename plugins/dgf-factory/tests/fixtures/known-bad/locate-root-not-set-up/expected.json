@@ -1,0 +1,12 @@
+{
+  "cli": "locate_plan.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--root-only"
+  ],
+  "exit": 1,
+  "codes": [
+    "ROOT_NOT_SET_UP"
+  ]
+}

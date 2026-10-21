@@ -1,0 +1,10 @@
+{
+  "cli": "validate_config.py",
+  "args": [
+    "workspaces/app/FM/_DATA/Cases/settings.xml"
+  ],
+  "exit": 3,
+  "codes": [
+    "FAMILY_UNRESOLVED"
+  ]
+}

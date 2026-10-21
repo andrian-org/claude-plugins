@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "dgf-mcp": {
+      "type": "http",
+      "url": "https://dgf-mcp.dotgov.uk/mcp"
+    }
+  }
+}

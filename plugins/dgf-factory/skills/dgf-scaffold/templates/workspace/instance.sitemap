@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<map xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="default" type="1" visible="true">
+  <dgf-theme>generic</dgf-theme>
+  <basedOn>default</basedOn>
+  <dbprefix>{{app.dbprefix}}</dbprefix>
+  <title>{{instance.title}}</title>
+  <tabs>
+    <mapNode content="Main" name="Main" roles="" title="Main" type="PROFILE" visible="true" />
+  </tabs>
+  <links />
+</map>

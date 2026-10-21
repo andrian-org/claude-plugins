@@ -1,0 +1,30 @@
+{
+  "type": "page",
+  "name": "About",
+  "content": [
+    {
+      "type": "container",
+      "cols": 12,
+      "content": [
+        {
+          "type": "row",
+          "content": [
+            {
+              "type": "text",
+              "name": "aboutTitle",
+              "value": "About this service",
+              "size": "xlarge",
+              "cols": 12
+            },
+            {
+              "type": "text",
+              "name": "aboutBody",
+              "value": "This page is part of Inspections Portal. Replace this text with the page's content.",
+              "cols": 12
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

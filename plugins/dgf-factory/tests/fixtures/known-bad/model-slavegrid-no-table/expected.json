@@ -1,0 +1,10 @@
+{
+  "cli": "validate_model.py",
+  "args": [
+    "workspaces/app/FM/_DATA/Cases/settings.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "MODEL_REFERENCE_UNRESOLVED"
+  ]
+}

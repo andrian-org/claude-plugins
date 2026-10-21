@@ -1,0 +1,7 @@
+<entity>
+  <primarykey>ID</primarykey>
+  <fields>
+    <field name="ID" type="Text"/>
+    <field name="Rank" type="Integer"/>
+  </fields>
+</entity>

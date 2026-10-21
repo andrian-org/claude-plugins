@@ -1,0 +1,7 @@
+<entity>
+  <primarykey>CaseId</primarykey>
+  <fields>
+    <field name="Id" type="PrimaryKey"/>
+    <field name="Title" type="Text"/>
+  </fields>
+</entity>

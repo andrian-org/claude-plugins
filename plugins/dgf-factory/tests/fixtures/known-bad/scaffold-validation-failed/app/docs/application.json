@@ -1,0 +1,136 @@
+{
+  "design_format": 1,
+  "application": {
+    "name": "Inspections",
+    "title": "Inspections Portal"
+  },
+  "dgf_version": "1.1.15",
+  "instance_model": "own-workspace",
+  "instances": [
+    {
+      "name": "lands",
+      "title": "Lands Directorate"
+    }
+  ],
+  "apis": [
+    {
+      "name": "Api",
+      "deployments": [
+        {
+          "name": "Web",
+          "instance": "lands",
+          "auth": [
+            "basic"
+          ]
+        }
+      ]
+    }
+  ],
+  "roles": [
+    "Inspector",
+    "Supervisor"
+  ],
+  "base": {
+    "source": "/path/to/webasm",
+    "supply": "mount"
+  },
+  "modules": [
+    {
+      "name": "Permits",
+      "pattern": "register",
+      "title": "Permit register",
+      "entity": "Permit",
+      "route": "/permits",
+      "roles": [
+        "Inspector",
+        "Supervisor"
+      ]
+    },
+    {
+      "name": "About",
+      "pattern": "page",
+      "title": "About this service"
+    }
+  ],
+  "data_model": {
+    "entities": [
+      {
+        "name": "PermitType",
+        "key": "Id",
+        "fields": [
+          {
+            "name": "Id",
+            "type": "Integer",
+            "dbtype": "Int32",
+            "required": true
+          },
+          {
+            "name": "Name",
+            "type": "Text",
+            "dbtype": "String",
+            "size": 100,
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "Permit",
+        "key": "Id",
+        "fields": [
+          {
+            "name": "Id",
+            "type": "Integer",
+            "dbtype": "Int32",
+            "required": true
+          },
+          {
+            "name": "Reference",
+            "type": "Text",
+            "dbtype": "String",
+            "size": 20,
+            "required": true
+          },
+          {
+            "name": "Holder",
+            "type": "Text",
+            "dbtype": "StringUnicode",
+            "size": 200,
+            "required": true
+          },
+          {
+            "name": "PermitTypeId",
+            "type": "Picklist",
+            "dbtype": "Int32",
+            "required": true,
+            "extract": {
+              "entity": "PermitType"
+            }
+          },
+          {
+            "name": "IssuedOn",
+            "type": "DateTime",
+            "dbtype": "DateTime"
+          },
+          {
+            "name": "Fee",
+            "type": "Money",
+            "dbtype": "Decimal",
+            "precision": 18,
+            "scale": 2
+          },
+          {
+            "name": "Active",
+            "type": "Boolean",
+            "dbtype": "Boolean"
+          }
+        ]
+      }
+    ]
+  },
+  "sources": {
+    "application.name": "prompt",
+    "dgf_version": "asked",
+    "base.source": "asked",
+    "base.supply": "asked"
+  }
+}

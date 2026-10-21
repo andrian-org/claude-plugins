@@ -1,0 +1,611 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "NumberConfiguration`1",
+  "definitions": {
+    "T": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "InputComponentConfigurationBase": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ComponentConfigurationBase"
+        },
+        {
+          "type": "object",
+          "x-abstract": true,
+          "additionalProperties": false,
+          "properties": {
+            "Label": {
+              "type": [
+                "null",
+                "string"
+              ],
+              "description": "Display label shown above the input field in the UI."
+            },
+            "Required": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "When true, the field must have a non-empty value before the parent form can be submitted. Triggers built-in validation and displays an error message if left empty."
+            },
+            "Readonly": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "When true, the field value is displayed but cannot be edited by the user. Differs from Disabled in that readonly fields still participate in form submission and validation."
+            },
+            "Disabled": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "When true, the field is rendered in a disabled state and excluded from form submission. Use to prevent interaction with fields that are not applicable given the current context."
+            }
+          }
+        }
+      ]
+    },
+    "ComponentConfigurationBase": {
+      "type": "object",
+      "x-abstract": true,
+      "additionalProperties": false,
+      "properties": {
+        "StorageKey": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Key used to persist component state (data, value, selection) in browser session/local storage. When set, the component restores its last state on page reload."
+        },
+        "Hidden": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the component is not rendered in the UI. Use propertyConverters.hidden to make this conditional at runtime based on data values."
+        },
+        "Type": {
+          "description": "Discriminator that determines which Angular component is rendered. Must match a valid ComponentType enum value (e.g., \"form\", \"dataTable\", \"comboBox\"). The UI factory uses this to instantiate the correct Angular component class.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ComponentType"
+            }
+          ]
+        },
+        "Uid": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Optional secondary unique identifier. Used internally for tracking and correlation when Name alone is insufficient."
+        },
+        "Name": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Unique identifier for this component instance within the application. Used to reference this component from events (as ComponentName target), parameters (as ${Name} token), button ComponentAction targets, and the ref binding system. Must be unique per page/form context."
+        },
+        "Path": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "File system path used to load this component's configuration from an external JSON file. When set, the SiteMapManager replaces this component with the fully resolved content loaded from the specified path. Enables reusable component definitions stored as separate files."
+        },
+        "Description": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Human-readable description of this component's purpose. Used for accessibility annotations and documentation; not displayed in the UI by default."
+        },
+        "Cols": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Width of this component in Bootstrap grid columns (1–12). Components are arranged in 12-column rows; use Cols=6 for half-width, Cols=12 for full-width. Omit to use the component's default width.",
+          "format": "int32"
+        },
+        "Ref": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Binds this component to a named data source declared on a parent Page or container, using dot-notation: \"pageName.dataSourceName\". The UI resolves the bound data source from the component store and uses it as this component's display data. Example: a ListBox with Ref=\"servicePassportPage.whoCanApply\" displays data from that page-level data source."
+        },
+        "Compact": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, applies compact/dense styling to reduce vertical spacing. Useful inside data-dense layouts such as DataTable row templates or sidebar panels."
+        },
+        "MetaData": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Arbitrary key-value metadata attached to this component. Special keys recognized by the framework: \"requireUser\" (\"authenticated\" or \"guest\") controls visibility based on auth state; \"requireClaims\" (array of claim filter objects) applies claim-based access control. The SiteMapManager strips nodes that fail these checks before serving to the client.",
+          "additionalProperties": {}
+        },
+        "PropertyConverters": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Conditional property override map evaluated as JavaScript expressions at runtime in the Angular UI.\nStructure: outer key = camelCase property name to override on THIS component (e.g., \"required\", \"disabled\",\n\"hidden\", \"readonly\", \"value\", \"color\", \"background\"); inner key = JavaScript expression string\nevaluated against the current data context using ${field} tokens; inner value = the property value\napplied when the expression is truthy. All entries are evaluated; last matching expression wins.\nSupported in expressions: ===, !==, ==, !=, &&, ||, .includes(), parseInt(), array literals.\nExample — conditional icon/color based on status:\n{ \"value\": { \"${item.VerifyStatus.key} === '2'\": \"dge-status-failed\" },\n  \"color\": { \"${item.VerifyStatus.key} === '2'\": \"red\", \"${item.VerifyStatus.key} != '2'\": \"green\" } }\nExample — make field readonly when count is zero:\n{ \"readonly\": { \"parseInt(${AttachCount}) == 0\": true, \"parseInt(${AttachCount}) != 0\": false } }\nExample — complex visibility with array check:\n{ \"hidden\": { \"['10','31'].includes(${passport.ServiceID}) && ${User.currentEntityId} === ''\": true } }\nUse AddPropertyConverter(propertyName, valueToAssign, expressionToCheck) as a C# server-side helper.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "Parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Dynamic query parameters injected into this component's data source API request.\nParameter values support token syntax for runtime resolution:\n${componentName} — resolves the current value of another named component on the page.\n${item.fieldName} — resolves a field from the current row/item context (use inside row templates).\n${pageName.dataSourceName.fieldName} — field from a named page-level data source.\n${User.attribute} — property of the authenticated user (e.g., ${User.currentEntityId}).\n~UserID — system token: current authenticated user ID.\n~NOW — system token: current server timestamp.\n~APPLICATIONID — system token: current application ID.\nExample — cascading filter (DataTable filtered by ComboBox selection):\n[{ \"name\": \"DepartmentId\", \"value\": \"${departmentCombo}\", \"required\": true }]\nExample — system context (Uploader stamping creator):\n[{ \"name\": \"CreatedBy\", \"value\": \"~UserID\" }, { \"name\": \"CreatedOn\", \"value\": \"~NOW\" }]",
+          "items": {
+            "$ref": "#/definitions/ComponentParameter"
+          }
+        },
+        "ComponentScript": {
+          "description": "Script hooks executed in the Angular browser context for this component. Use to implement client-side logic that reacts to component lifecycle events without server round-trips.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/ComponentScript"
+            }
+          ]
+        },
+        "Events": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Cross-component event handlers. Key = event name emitted by this component type:\nForms emit \"onSubmited\", \"onDeleted\", \"onLoaded\"; Uploaders emit \"onUploaded\", \"onDeleted\";\nInputs/ComboBoxes emit \"onChange\", \"onClick\"; DataTable emits \"onRowSelected\", \"onRowDeleted\".\nEach list entry targets another component by ComponentName and triggers an Action on it.\nAvailable actions: \"data\" (reload data), \"validate\", \"schema\", \"schemaAndData\", \"save\", \"saveAndClose\".\nEntries can include their own Parameters list with token syntax to forward event payload context.\nExample — after Form submits, trigger EligibilityComponent to re-validate:\n{ \"onSubmited\": [{ \"componentName\": \"eligibility-component\", \"action\": \"validate\",\n  \"parameters\": [{ \"name\": \"CaseId\", \"value\": \"${item.data.CaseId}\", \"required\": true }] }] }",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/EventBase"
+            }
+          }
+        },
+        "Messages": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Validation and informational messages attached to this component. Populated by the server-side Validate() method when configuration is invalid. Also used by the UI to display inline error/warning/info messages below the component.",
+          "items": {
+            "$ref": "#/definitions/ComponentMessage"
+          }
+        },
+        "CssClass": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "One or more CSS class names (space-separated) applied to the component's root element. Supports both Bootstrap utility classes and application-specific design system classes."
+        }
+      }
+    },
+    "ComponentType": {
+      "type": "string",
+      "description": "",
+      "x-enumNames": [
+        "None",
+        "Login",
+        "Search",
+        "Toggle",
+        "ComboBox",
+        "RadioButton",
+        "RadioGroup",
+        "Checkbox",
+        "Text",
+        "Button",
+        "Image",
+        "Date",
+        "Time",
+        "DateTime",
+        "Uploader",
+        "Page",
+        "ListBox",
+        "Form",
+        "Breadcrumb",
+        "PdfViewer",
+        "TreeView",
+        "Tab",
+        "Row",
+        "Section",
+        "DataTable",
+        "Link",
+        "Number",
+        "TextBox",
+        "Container",
+        "ProcessFlow",
+        "Workflow",
+        "WorkflowNew",
+        "Router",
+        "Route",
+        "Icon",
+        "Query",
+        "Pay",
+        "Separator",
+        "ReferenceComponent",
+        "DropdownTree",
+        "Option",
+        "Internal",
+        "Textarea",
+        "Booking",
+        "EligibilityCriteria",
+        "CorporateAccount",
+        "RoleSwitcher",
+        "TeamSwitcher",
+        "Iframe",
+        "CodeViewer",
+        "SelectButton",
+        "Template",
+        "PowerBi",
+        "Calendar",
+        "ProcessMonitor",
+        "Header",
+        "Footer",
+        "ProfileMenu",
+        "InputGroup",
+        "PhoneNumber",
+        "TreeTable",
+        "Badge",
+        "Card"
+      ],
+      "enum": [
+        "None",
+        "Login",
+        "Search",
+        "Toggle",
+        "ComboBox",
+        "RadioButton",
+        "RadioGroup",
+        "Checkbox",
+        "Text",
+        "Button",
+        "Image",
+        "Date",
+        "Time",
+        "DateTime",
+        "Uploader",
+        "Page",
+        "ListBox",
+        "Form",
+        "Breadcrumb",
+        "PdfViewer",
+        "TreeView",
+        "Tab",
+        "Row",
+        "Section",
+        "DataTable",
+        "Link",
+        "Number",
+        "TextBox",
+        "Container",
+        "ProcessFlow",
+        "Workflow",
+        "WorkflowNew",
+        "Router",
+        "Route",
+        "Icon",
+        "Query",
+        "Pay",
+        "Separator",
+        "ReferenceComponent",
+        "DropdownTree",
+        "Option",
+        "Internal",
+        "Textarea",
+        "Booking",
+        "EligibilityCriteria",
+        "CorporateAccount",
+        "RoleSwitcher",
+        "TeamSwitcher",
+        "Iframe",
+        "CodeViewer",
+        "SelectButton",
+        "Template",
+        "PowerBi",
+        "Calendar",
+        "ProcessMonitor",
+        "Header",
+        "Footer",
+        "ProfileMenu",
+        "InputGroup",
+        "PhoneNumber",
+        "TreeTable",
+        "Badge",
+        "Card"
+      ]
+    },
+    "ComponentParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Name"
+      ],
+      "properties": {
+        "Name": {
+          "type": "string",
+          "description": "Parameter key name sent to the data source API. Must match the expected query parameter or route parameter name on the server-side endpoint.",
+          "minLength": 1
+        },
+        "Value": {
+          "description": "Parameter value or token expression. Supports all token types: ${componentName}, ${item.field}, ~UserID, ~NOW, ~APPLICATIONID. Literal string values are also valid.",
+          "oneOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "Required": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the data source request is blocked if this parameter's resolved value is null or empty. Use to prevent API calls with incomplete parameters."
+        },
+        "RequiredMessage": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Custom validation message displayed to the user when this required parameter cannot be resolved. Defaults to a generic message if omitted."
+        }
+      }
+    },
+    "ComponentScript": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "OnValueChange": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "JavaScript code string executed in the browser each time this component's value changes. Use to calculate derived field values, conditionally show/hide other components, or enforce cross-field business rules without server round-trips. Has access to the component's Angular context and the NGXS store via injected services."
+        }
+      }
+    },
+    "EventBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "The name of this event handler entry. Typically identifies the handler within the list for debugging purposes."
+        },
+        "ComponentName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Name of the target component to trigger when this event fires. Must match the Name property of an existing component on the current page or form context."
+        },
+        "Action": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Action to invoke on the target component when this event fires. Common values: \"data\" (reload component data from its data source), \"validate\" (trigger form validation), \"schema\" (reload component schema/configuration), \"schemaAndData\" (reload both schema and data), \"save\" (submit form), \"saveAndClose\" (save and close parent modal)."
+        },
+        "Parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Additional parameters forwarded to the target component when the action is triggered. Supports the same token syntax as ComponentParameter: ${componentName}, ${item.fieldName}, ~UserID, ~NOW. Use to pass context from the event source (e.g., the submitted form's record ID) to the target component.",
+          "items": {
+            "$ref": "#/definitions/ComponentModelParameter"
+          }
+        }
+      }
+    },
+    "ComponentModelParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Name"
+      ],
+      "properties": {
+        "Name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "Value": {
+          "oneOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "Required": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "RequiredMessage": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      }
+    },
+    "ComponentMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Message": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "The message text displayed to the user in the component's message area."
+        },
+        "Type": {
+          "description": "Severity level of this message. Info = informational note, Warning = non-blocking issue, Error = blocking validation failure, Success = positive feedback.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ComponentMessageType"
+            }
+          ]
+        },
+        "Position": {
+          "description": "Controls where the message is rendered relative to the component. Defaults to Bottom.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ComponentMessagePosition"
+            }
+          ]
+        },
+        "Hidden": {
+          "type": "boolean",
+          "description": "When true, this message is not rendered in the UI regardless of its Type. Use to suppress messages programmatically without removing them from the collection."
+        },
+        "PropertyConverters": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Conditional property override map evaluated as JavaScript expressions at runtime in the Angular UI.\nStructure: outer key = camelCase property name to override on THIS component (e.g., \"required\", \"disabled\",\n\"hidden\", \"readonly\", \"value\", \"color\", \"background\"); inner key = JavaScript expression string\nevaluated against the current data context using ${field} tokens; inner value = the property value\napplied when the expression is truthy. All entries are evaluated; last matching expression wins.\nSupported in expressions: ===, !==, ==, !=, &&, ||, .includes(), parseInt(), array literals.\nExample — conditional icon/color based on status:\n{ \"value\": { \"${item.VerifyStatus.key} === '2'\": \"dge-status-failed\" },\n  \"color\": { \"${item.VerifyStatus.key} === '2'\": \"red\", \"${item.VerifyStatus.key} != '2'\": \"green\" } }\nExample — make field readonly when count is zero:\n{ \"readonly\": { \"parseInt(${AttachCount}) == 0\": true, \"parseInt(${AttachCount}) != 0\": false } }\nExample — complex visibility with array check:\n{ \"hidden\": { \"['10','31'].includes(${passport.ServiceID}) && ${User.currentEntityId} === ''\": true } }\nUse AddPropertyConverter(propertyName, valueToAssign, expressionToCheck) as a C# server-side helper.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      }
+    },
+    "ComponentMessageType": {
+      "type": "integer",
+      "description": "",
+      "x-enumNames": [
+        "Info",
+        "Warning",
+        "Error",
+        "Success"
+      ],
+      "enum": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "ComponentMessagePosition": {
+      "type": "integer",
+      "description": "",
+      "x-enumNames": [
+        "Bottom",
+        "Top"
+      ],
+      "enum": [
+        0,
+        1
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/InputComponentConfigurationBase"
+    },
+    {
+      "type": "object",
+      "description": "Form field for numeric input with increment and decrement buttons for adjusting numerical values.\n            \nPURPOSE: Use for quantities, prices, counts, and other numeric fields requiring bounds validation.\n            \nFEATURES:\n- Spinner controls (increment/decrement) with configurable step\n- Min/max bounds validation with error messaging\n- Custom numeric format strings (.NET format support)\n- Placeholder text support\n- Create/update mode default values with token syntax support\n- Generic type support for various numeric types (int, decimal, double, etc.)\n            \nBased on PrimeNG InputNumber component.",
+      "additionalProperties": false,
+      "properties": {
+        "Max": {
+          "description": "Maximum allowed value. Validation fails if the entered value exceeds this bound.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/T"
+            }
+          ]
+        },
+        "Min": {
+          "description": "Minimum allowed value. Validation fails if the entered value is below this bound.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/T"
+            }
+          ]
+        },
+        "Value": {
+          "description": "Current numeric value of the input field.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/T"
+            }
+          ]
+        },
+        "Step": {
+          "description": "Increment/decrement step applied when using the spinner controls on the input. Defaults to 1 if not set.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/T"
+            }
+          ]
+        },
+        "Format": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Display format string applied to the rendered number (e.g., \"N2\" for two decimal places, \"C\" for currency). Uses standard .NET numeric format strings."
+        },
+        "Placeholder": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Placeholder text displayed inside the input when it is empty."
+        },
+        "OnCreateValue": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Default value applied when this field is used in create mode (form has no existing record). Supports token syntax."
+        },
+        "OnUpdateValue": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Default value applied when this field is used in update mode (form is editing an existing record). Supports token syntax."
+        }
+      }
+    }
+  ]
+}

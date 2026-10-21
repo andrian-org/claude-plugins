@@ -1,0 +1,1144 @@
+[
+  {
+    "element": "cell",
+    "clrType": "FormCell",
+    "summary": "One renderable cell on a form. The cell\u0027s name attribute (inherited from ) binds to a \u003Cfield\u003E in the parent entity\u0027s settings.xml, unless the cell is a custom one (uses the control_xxx naming convention with a \u003Ccontent\u003E element instead of a field binding). See for the cell\u0027s UI-level overrides.",
+    "attributes": [
+      {
+        "name": "auto",
+        "clrType": "string",
+        "summary": "Auto-generated cell flag. Set to \u0022true\u0022 on cells the runtime auto-created (e.g., system fields injected at form-load time). Most authored cells leave this empty; the framework manages the value."
+      },
+      {
+        "name": "colspan",
+        "clrType": "int",
+        "summary": "Number of grid columns the cell spans. Defaults to 1. Set to 2 (or higher) when the cell should occupy more horizontal space within the section\u0027s column grid (a 2-column section with a colspan-2 cell gives the cell the full row width)."
+      },
+      {
+        "name": "cols",
+        "clrType": "int",
+        "summary": "Visual column count INSIDE the cell \u2014 for multi-column composite cells. Distinct from , which counts grid columns in the parent section."
+      },
+      {
+        "name": "description",
+        "clrType": "string",
+        "summary": "Tooltip / help text shown next to the cell label. Rendered as a small info icon or inline description depending on theme. Does not affect validation."
+      },
+      {
+        "name": "rowspan",
+        "clrType": "int",
+        "summary": "Number of grid rows the cell spans. Rarely used; most forms keep cells single-row and let layout flow handle taller cells (textareas, grids) by intrinsic height."
+      },
+      {
+        "name": "showhelp",
+        "clrType": "bool",
+        "summary": "When true, renders the help/description text inline beneath the cell. When false, the description is shown only on hover/focus. Use sparingly \u2014 too many inline helps clutter the form."
+      },
+      {
+        "name": "showlabel",
+        "clrType": "bool",
+        "summary": "When true, renders the cell\u0027s title/label above (or beside, depending on ) the input. When false, the input renders without a label \u2014 used for full-bleed grid cells and certain composite layouts."
+      },
+      {
+        "name": "titlealign",
+        "clrType": "string",
+        "summary": "Horizontal alignment of the title text relative to its container. Common values: left, center, right. Defaults to theme-dependent (usually left)."
+      },
+      {
+        "name": "titlepos",
+        "clrType": "string",
+        "summary": "Title position relative to the input. Values: top (default) \u2014 title above input, full-width label.left \u2014 title beside input, narrow label column."
+      },
+      {
+        "name": "format",
+        "clrType": "string",
+        "summary": "Storage/data format hint for the cell value at the model layer. Common values: image (binary image), currency, percent, guid. Distinct from , which controls render formatting only."
+      },
+      {
+        "name": "displayFormat",
+        "clrType": "string",
+        "summary": "Render-time format string applied to the displayed value. Examples: yyyy-MM-dd for dates, 0.00 for decimal numbers, {0:N0} for grouped integers. Does not affect the underlying stored value."
+      },
+      {
+        "name": "handler",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "showicon",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "columnTemplate",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "hidden",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "event",
+        "clrType": "FormCellEvent",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "event_onfocus",
+        "clrType": "FormCellEvent",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "component",
+        "clrType": "FormCellComponent",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "content",
+        "clrType": "string",
+        "repeated": false,
+        "wrapper": null,
+        "summary": "HTML/XML payload for custom cells. When set, the cell renders this content instead of binding to a settings.xml field. Triggers to return true. The naming convention for custom cells is control_\u003CN\u003E (e.g., control_288) \u2014 see the editable-grid-host recipe for the standard shape. Cross-reference validation skips cells with names starting with control_ because they intentionally don\u0027t bind to a field."
+      },
+      {
+        "name": "properties",
+        "clrType": "FormCellProperties",
+        "repeated": false,
+        "wrapper": null,
+        "summary": "UI-level overrides for the cell. Carries required-level, readonly state, default values, watermark, lookup view override, etc. See ."
+      },
+      {
+        "name": "propertyConvertor",
+        "clrType": "PropertyConvertor",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "componentEvent",
+        "clrType": "ComponentEvent",
+        "repeated": true,
+        "wrapper": "componentEvents",
+        "summary": null
+      },
+      {
+        "name": "componentValidator",
+        "clrType": "ComponentValidator",
+        "repeated": true,
+        "wrapper": "componentValidators",
+        "summary": null
+      },
+      {
+        "name": "message",
+        "clrType": "ComponentMessage",
+        "repeated": true,
+        "wrapper": "messages",
+        "summary": null
+      }
+    ]
+  },
+  {
+    "element": "component",
+    "clrType": "FormCellComponent",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "type",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "value",
+        "clrType": "string",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "required",
+        "clrType": "bool",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "datasource",
+        "clrType": "ComponentParam",
+        "repeated": true,
+        "wrapper": "datasources",
+        "summary": null
+      },
+      {
+        "name": "parameter",
+        "clrType": "ComponentParam",
+        "repeated": true,
+        "wrapper": "parameters",
+        "summary": null
+      },
+      {
+        "name": "property",
+        "clrType": "ComponentParam",
+        "repeated": true,
+        "wrapper": "properties",
+        "summary": null
+      },
+      {
+        "name": "componentEvent",
+        "clrType": "ComponentEvent",
+        "repeated": true,
+        "wrapper": "componentEvents",
+        "summary": null
+      }
+    ]
+  },
+  {
+    "element": "componentEvent",
+    "clrType": "ComponentEvent",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "eventName",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "componentName",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "action",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "valueExpression",
+        "clrType": "string",
+        "summary": "JS expression evaluated against { result, source, form } context. Used by: setValue, setReadonly, setRequired, toggleVisible."
+      },
+      {
+        "name": "when",
+        "clrType": "string",
+        "summary": "Optional boolean guard expression. When present the action is skipped if falsy."
+      },
+      {
+        "name": "message",
+        "clrType": "string",
+        "summary": "Message text for the notify verb."
+      },
+      {
+        "name": "severity",
+        "clrType": "string",
+        "summary": "Severity for the notify verb: info | success | warning | error."
+      },
+      {
+        "name": "propertyName",
+        "clrType": "string",
+        "summary": "Target property name for the setProperty verb."
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "componentValidator",
+    "clrType": "ComponentValidator",
+    "summary": "XML form of a single custom component validator. Authored inside a cell\u0027s \u003CcomponentValidators\u003E array; mapped at form-load time to the runtime ValidatorBase attached to the produced component configuration.",
+    "attributes": [
+      {
+        "name": "key",
+        "clrType": "string",
+        "summary": "Stable identifier for this validator. Surfaces in FormControl.errors[key]. Must be unique within the cell\u0027s validator array."
+      },
+      {
+        "name": "expression",
+        "clrType": "string",
+        "summary": "JS expression evaluated against { value, source, form }. Truthy = valid; falsy/string = invalid (string overrides )."
+      },
+      {
+        "name": "message",
+        "clrType": "string",
+        "summary": "Error text rendered when the validator fails. Supports ${...} token interpolation."
+      },
+      {
+        "name": "when",
+        "clrType": "string",
+        "summary": "Optional gate. When falsy, the validator is skipped (treated as valid)."
+      },
+      {
+        "name": "validateOn",
+        "clrType": "string",
+        "summary": "When to run the validator: onChange (default) | onSave | manual."
+      },
+      {
+        "name": "severity",
+        "clrType": "string",
+        "summary": "Severity: error (default, blocks save) | warning | info. Also accepts a ${...} token expression for dynamic severity."
+      },
+      {
+        "name": "fetcher",
+        "clrType": "string",
+        "summary": "Named reference to a sibling \u003CdataFetcher\u003E component on the same form (Phase 2 escape hatch). The engine wraps that component\u0027s NGXS data slice into the result envelope. Mutually exclusive with and ."
+      }
+    ],
+    "children": [
+      {
+        "name": "dataFetcher",
+        "clrType": "ComponentValidatorFetcher",
+        "repeated": false,
+        "wrapper": null,
+        "summary": "Inline single-fetcher backend probe (Phase 2). Authored as a \u003CdataFetcher\u003E child. The result is exposed to / as result. Mutually exclusive with and ."
+      },
+      {
+        "name": "dataFetcher",
+        "clrType": "ComponentValidatorFetcher",
+        "repeated": true,
+        "wrapper": "dataFetchers",
+        "summary": "Inline multi-fetcher map (Phase 2). Authored as repeated \u003CdataFetcher key=\u0022...\u0022\u003E entries inside a \u003CdataFetchers\u003E array; each entry\u0027s key becomes the identifier its envelope is referenced by in the expression (e.g. dup.ok). Mutually exclusive with and ."
+      }
+    ]
+  },
+  {
+    "element": "dataFetcher",
+    "clrType": "ComponentValidatorFetcher",
+    "summary": "XML authoring form of a validator\u0027s inline backend probe. Maps to the runtime DGF.Components.Shared.Validators.InlineDataFetcherDefinition. Authored either as the singular \u003CdataFetcher\u003E child of a \u003CcomponentValidator\u003E (surfaced to the expression as result) or as repeated \u003CdataFetcher key=\u0022...\u0022\u003E entries inside a \u003CdataFetchers\u003E array (each surfaced to the expression by its ).",
+    "attributes": [
+      {
+        "name": "key",
+        "clrType": "string",
+        "summary": "Map key \u2014 used ONLY when this fetcher is an entry inside a \u003CdataFetchers\u003E array; becomes the dictionary key the validator expression references (e.g. dup.ok). Ignored for the singular \u003CdataFetcher\u003E form (that is always bound to result). Reserved keys (rejected by the runtime): value, source, form, result."
+      },
+      {
+        "name": "dataSourcePath",
+        "clrType": "string",
+        "summary": "Relative path to the backend dataSource the validator probes. Required."
+      },
+      {
+        "name": "valueExpression",
+        "clrType": "string",
+        "summary": "Optional post-processing expression evaluated against the raw response. When present, the validator\u0027s expression sees the result as data instead of the raw payload."
+      },
+      {
+        "name": "timeoutMs",
+        "clrType": "int",
+        "summary": "Per-probe timeout in milliseconds (range 0\u201360000). Defaults to the engine default (10000ms) when omitted. On timeout the envelope resolves with error.code === \u0027TIMEOUT\u0027 and the validator fails closed."
+      }
+    ],
+    "children": [
+      {
+        "name": "parameter",
+        "clrType": "ComponentParam",
+        "repeated": true,
+        "wrapper": "parameters",
+        "summary": "Parameter bindings sent with the probe. Same shape as a query component\u0027s parameters."
+      }
+    ]
+  },
+  {
+    "element": "datasource",
+    "clrType": "ComponentParam",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "value",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "required",
+        "clrType": "bool",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "delete",
+    "clrType": "FormHandlerProperties",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enabled",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "description",
+    "clrType": "ResourceLabel",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "event",
+    "clrType": "FormCellEvent",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enablereadonly",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "enabled",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "componentEvent",
+        "clrType": "ComponentEvent",
+        "repeated": true,
+        "wrapper": "componentEvents",
+        "summary": "Optional declarative handlers, evaluated alongside the legacy CDATA script. Maps to FormScript.{OnLoad|OnSave|OnInitialize}Events via XmlFormMappingService. Coexists with the CDATA path; neither replaces the other."
+      }
+    ]
+  },
+  {
+    "element": "event_onfocus",
+    "clrType": "FormCellEvent",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enablereadonly",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "enabled",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "componentEvent",
+        "clrType": "ComponentEvent",
+        "repeated": true,
+        "wrapper": "componentEvents",
+        "summary": "Optional declarative handlers, evaluated alongside the legacy CDATA script. Maps to FormScript.{OnLoad|OnSave|OnInitialize}Events via XmlFormMappingService. Coexists with the CDATA path; neither replaces the other."
+      }
+    ]
+  },
+  {
+    "element": "form",
+    "clrType": "Form",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "labelwidth",
+        "clrType": "string",
+        "summary": "Form-wide default label column width. Accepts CSS-compatible width (e.g., \u0022200px\u0022, \u002230%\u0022). Individual sections may override via . Affects only cells with titlepos=\u0022left\u0022; top-positioned titles ignore this."
+      },
+      {
+        "name": "padding",
+        "clrType": "string",
+        "summary": "Padding mode for the form container. Common values: compact, normal, roomy. Theme-dependent; controls vertical spacing between sections and cells."
+      },
+      {
+        "name": "checkChanges",
+        "clrType": "string",
+        "summary": "Controls whether the form prompts the user before navigating away with unsaved changes. Accepts \u0022true\u0022 (warn on navigate-away) or \u0022false\u0022 (no warning). Defaults to true. Set to false for view-only or auto-save forms."
+      },
+      {
+        "name": "toolbar",
+        "clrType": "string",
+        "summary": "Toolbar visibility / behaviour. Common values: \u0022true\u0022 \u2014 render full toolbar (Save, Cancel, etc.).\u0022false\u0022 \u2014 no toolbar; caller embeds buttons elsewhere.\u0022compact\u0022 \u2014 icon-only toolbar."
+      },
+      {
+        "name": "provider",
+        "clrType": "string",
+        "summary": "Optional data-provider override. When set, the form uses the named provider for loading/saving instead of the default Table-bound provider. Used for forms that front a non-table data source (e.g., an API-backed entity)."
+      }
+    ],
+    "children": [
+      {
+        "name": "header",
+        "clrType": "ResourceLabel",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "description",
+        "clrType": "ResourceLabel",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "printheader",
+        "clrType": "ResourceLabel",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "windowMask",
+        "clrType": "WindowMask",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "triggers",
+        "clrType": "FormTriggers",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "tab",
+        "clrType": "FormTab",
+        "repeated": true,
+        "wrapper": "tabs",
+        "summary": "Visible tabs in the form. Most forms have a single tab; multi-tab forms split long field groups into focused tabs (General / Documents / History etc.). Tabs render as horizontal strip at the top of the form."
+      },
+      {
+        "name": "cell",
+        "clrType": "FormCell",
+        "repeated": true,
+        "wrapper": "hidden",
+        "summary": "Cells that never render to the user but must exist on the form for the runtime to populate them at save time. This is where the universal audit block lives (CreatedBy/IP/On \u002B ModifiedBy/IP/On with ~USERID/~IP/~NOW defaults). Distinct from a section with visible=\u0022false\u0022 \u2014 hidden cells skip layout entirely; an invisible section still occupies its slot in the tab structure."
+      },
+      {
+        "name": "handlers",
+        "clrType": "FormHandlers",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "message",
+        "clrType": "ComponentMessage",
+        "repeated": true,
+        "wrapper": "messages",
+        "summary": null
+      },
+      {
+        "name": "parameter",
+        "clrType": "ComponentParam",
+        "repeated": true,
+        "wrapper": "parameters",
+        "summary": null
+      },
+      {
+        "name": "componentValidator",
+        "clrType": "ComponentValidator",
+        "repeated": true,
+        "wrapper": "componentValidators",
+        "summary": "Form-level custom validators \u2014 cross-component invariants authored on the \u003Cform\u003E root rather than a single cell (e.g. \u0022foreign nationals must upload AND verify a passport\u0022). Mapped onto the FormComponent\u0027s own configuration; the frontend detects componentName === formName and renders failures as a top-of-form banner that gates SAVE/NEXT."
+      }
+    ]
+  },
+  {
+    "element": "handlers",
+    "clrType": "FormHandlers",
+    "summary": null,
+    "attributes": [],
+    "children": [
+      {
+        "name": "update",
+        "clrType": "FormHandlerProperties",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "saveandclose",
+        "clrType": "FormHandlerProperties",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "delete",
+        "clrType": "FormHandlerProperties",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "scriptReference",
+        "clrType": "list\u003CString\u003E",
+        "repeated": true,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "onloadscript",
+        "clrType": "FormCellEvent",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "onsavescript",
+        "clrType": "FormCellEvent",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      }
+    ]
+  },
+  {
+    "element": "header",
+    "clrType": "ResourceLabel",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "message",
+    "clrType": "ComponentMessage",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "message",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "hidden",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "type",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "position",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "propertyConvertor",
+        "clrType": "PropertyConvertor",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      }
+    ]
+  },
+  {
+    "element": "onloadscript",
+    "clrType": "FormCellEvent",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enablereadonly",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "enabled",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "componentEvent",
+        "clrType": "ComponentEvent",
+        "repeated": true,
+        "wrapper": "componentEvents",
+        "summary": "Optional declarative handlers, evaluated alongside the legacy CDATA script. Maps to FormScript.{OnLoad|OnSave|OnInitialize}Events via XmlFormMappingService. Coexists with the CDATA path; neither replaces the other."
+      }
+    ]
+  },
+  {
+    "element": "onsavescript",
+    "clrType": "FormCellEvent",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enablereadonly",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "enabled",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "componentEvent",
+        "clrType": "ComponentEvent",
+        "repeated": true,
+        "wrapper": "componentEvents",
+        "summary": "Optional declarative handlers, evaluated alongside the legacy CDATA script. Maps to FormScript.{OnLoad|OnSave|OnInitialize}Events via XmlFormMappingService. Coexists with the CDATA path; neither replaces the other."
+      }
+    ]
+  },
+  {
+    "element": "parameter",
+    "clrType": "ComponentParam",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "value",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "required",
+        "clrType": "bool",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "printheader",
+    "clrType": "ResourceLabel",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "properties",
+    "clrType": "FormCellProperties",
+    "summary": "The \u003Cproperties\u003E child element on a form cell. Carries UI-level overrides that the form runtime applies on top of the settings.xml field definition \u2014 required level, readonly state, default values, lookup view overrides, watermark, etc. Cell-side properties NEVER override the field-side required/readonly when the field is system-required or system-readonly.",
+    "attributes": [
+      {
+        "name": "behavior",
+        "clrType": "string",
+        "summary": "Polymorphic hint for the runtime renderer: Lookup: autocomplete \u2014 render as autocomplete instead of dialog.TextBox: lookup:\u003Ctable\u003E/\u003Cview\u003E \u2014 render textbox-with-lookup hybrid.File: style=\u2026 \u2014 style string for the uploader chip.Number: min|max \u2014 range constraint applied at UI level. Free-form because the value is interpreted differently per cell type."
+      },
+      {
+        "name": "format",
+        "clrType": "string",
+        "summary": "UI display-format override. Cell-level format wins over field-level. Common values: currency, percent, image, a date format string like yyyy-MM-dd, or a numeric mask. Leave empty to inherit from ."
+      },
+      {
+        "name": "gridname",
+        "clrType": "string",
+        "summary": "Name of a sub-grid configuration when the cell hosts an inline grid. Rarely set directly on a cell \u2014 most grid hosts use the control_xxx custom-cell pattern with a \u003Ccontent\u003E CDATA block instead."
+      },
+      {
+        "name": "handlermode",
+        "clrType": "string",
+        "summary": "Switches the cell into a specialised handler mode. Used by composite cells (e.g., a File cell that doubles as an attachment-list trigger). Free-form; consult the matching FormCellComponent docs for valid values."
+      },
+      {
+        "name": "itemTemplate",
+        "clrType": "string",
+        "summary": "HTML/template fragment used to render each item in a Lookup/Picklist dropdown. Supports the standard ${field} token syntax referencing columns of the lookup view. Use to show richer items than a single label (e.g., name \u002B secondary detail)."
+      },
+      {
+        "name": "inputGroupSkipDisableAndReadOnlyForAddons",
+        "clrType": "bool",
+        "summary": "InputGroup-specific: when true, addon buttons stay clickable even when the cell is disabled or readonly. Set this when the addons trigger out-of-band actions (e.g., a \u0022calculate\u0022 button that runs even on read-only forms)."
+      },
+      {
+        "name": "lines",
+        "clrType": "int",
+        "summary": "Visible line count for a TextArea cell. Defaults vary by component; typical values are 3\u20136. Sets the textarea\u0027s rows attribute on render."
+      },
+      {
+        "name": "oncreatevalue",
+        "clrType": "string",
+        "summary": "Default value applied to the cell at create time (form opened for a new record). Supports the DGF context-token convention: ~USERID, ~IP, ~NOW, ~APPLICATIONID, plus the standard ${...} expression syntax. Audit cells (CreatedBy/IP/On) set this universally."
+      },
+      {
+        "name": "onupdatevalue",
+        "clrType": "string",
+        "summary": "Default value applied at update time. Combine with for audit cells that refresh on every save (ModifiedBy/IP/On). When omitted, the cell retains its current value across updates."
+      },
+      {
+        "name": "readonly",
+        "clrType": "string",
+        "summary": "Readonly override for the cell. Accepts \u0022true\u0022, \u0022label\u0022 (renders as a label instead of a disabled input), or any falsy string. Cell-side readonly stacks with field-side: if EITHER is true, the cell is readonly. A system-required cell cannot be made readonly via this attribute."
+      },
+      {
+        "name": "requiredlevel",
+        "clrType": "string",
+        "summary": "Required-level override. Three values are meaningful: \u0022required\u0022 \u2014 form submission blocked until value provided.\u0022recommended\u0022 \u2014 soft requirement; form submits but the cell flags as recommended-empty.(omitted) \u2014 inherits from the matching settings.xml field\u0027s required attribute. System-required fields cannot be downgraded via this attribute."
+      },
+      {
+        "name": "view",
+        "clrType": "string",
+        "summary": "View name override for Lookup/Picklist cells. When set, the lookup dialog and the picklist source use the named view instead of the field\u0027s default. Used to filter the lookup down to a subset (e.g., \u0022active-only\u0022) without changing the field definition. The view must exist on the matching extract table."
+      },
+      {
+        "name": "watermark",
+        "clrType": "string",
+        "summary": "Placeholder text shown in empty input cells (the HTML placeholder attribute). Used to hint at expected format, e.g., \u0022Full legal name\u0022 or \u0022YYYY-MM-DD\u0022. Does not affect validation; pair with for format enforcement."
+      },
+      {
+        "name": "emptyOptionName",
+        "clrType": "string",
+        "summary": "Display label for the \u0022no selection\u0022 item in a Picklist. Defaults to localised equivalent of \u0022(empty)\u0022. Override when the dropdown should look different (e.g., \u0022All districts\u0022 for a filter-shaped picklist)."
+      },
+      {
+        "name": "emptyOptionValue",
+        "clrType": "string",
+        "summary": "Value bound to the \u0022no selection\u0022 item. Usually empty string or null; set when a sentinel value is needed for downstream binding (e.g., \u00220\u0022 for an integer foreign key that should default to a known \u0022all\u0022 row)."
+      },
+      {
+        "name": "pattern",
+        "clrType": "string",
+        "summary": "Regular-expression validation applied at the UI layer. Failing the regex blocks form submission and shows . Cell-side validation runs in addition to settings.xml field-side validation; both must pass."
+      },
+      {
+        "name": "patternValidationMessage",
+        "clrType": "string",
+        "summary": "Message shown to the user when the regex fails. Keep short and actionable; the user sees this inline next to the field."
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "property",
+    "clrType": "ComponentParam",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "value",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "required",
+        "clrType": "bool",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "propertyConvertor",
+    "clrType": "PropertyConvertor",
+    "summary": null,
+    "attributes": [],
+    "children": [
+      {
+        "name": "property",
+        "clrType": "list\u003CPropertyConvertorProperty\u003E",
+        "repeated": true,
+        "wrapper": null,
+        "summary": null
+      }
+    ]
+  },
+  {
+    "element": "row",
+    "clrType": "FormRow",
+    "summary": "A single row in a \u0027s grid. Holds 1-N cells which flow left-to-right across the section\u0027s column count. Use empty \u003Ccell /\u003E elements as layout fillers when a row has fewer cells than columns.",
+    "attributes": [],
+    "children": [
+      {
+        "name": "propertyConvertor",
+        "clrType": "PropertyConvertor",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "cell",
+        "clrType": "list\u003CFormCell\u003E",
+        "repeated": true,
+        "wrapper": null,
+        "summary": "Cells in this row. Cells with colspan \u003E 1 take more horizontal space; the runtime wraps to the next row if cells exceed the section\u0027s column count."
+      }
+    ]
+  },
+  {
+    "element": "saveandclose",
+    "clrType": "FormHandlerProperties",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enabled",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "section",
+    "clrType": "FormSection",
+    "summary": "A visual grouping of rows/cells inside a . Renders a titled section with optional decoration line. Use the legacy array OR the newer array \u2014 not both. The visible=\u0022false\u0022 override is the standard way to hide context/debug sections without removing them from XML.",
+    "attributes": [
+      {
+        "name": "visible",
+        "clrType": "string",
+        "summary": "Visibility override. Set to literal \u0022false\u0022 to hide the section while keeping its cells available for context binding (e.g., the hidden debug section pattern that carries ApplicationId/CaseId for workflow scoping). Any other value (or omission) renders the section normally. Read via ."
+      },
+      {
+        "name": "columns",
+        "clrType": "string",
+        "summary": "Number of grid columns inside the section. Typical values: 1 (single column) or 2 (paired cells per row). Cells with colspan=\u00222\u0022 in a 2-column section take the full row width."
+      },
+      {
+        "name": "decoration",
+        "clrType": "string",
+        "summary": "Visual border treatment around the section. Common values: line (default) \u2014 thin border with title at top-left.box \u2014 full bordered box around the section.(empty) \u2014 no decoration, section blends into the form."
+      },
+      {
+        "name": "labelwidth",
+        "clrType": "string",
+        "summary": "Override the form-level label column width for cells in this section. Used when one section needs wider labels (e.g., verbose field titles) without changing the rest of the form. Accepts CSS-compatible width (e.g., \u0022200px\u0022, \u002230%\u0022)."
+      },
+      {
+        "name": "marginTop",
+        "clrType": "string",
+        "summary": "Extra top-margin applied to the section\u0027s container. Used to visually separate stacked sections beyond the default theme spacing. Accepts a CSS value."
+      },
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": "Section identifier. Should be unique within the form (the runtime does NOT enforce this strictly, but PropertyConvertors and inter-section bindings rely on it). Convention: sec_\u003Cpurpose\u003E or numbered sec1234. The hidden debug section is typically named sec_context or similar."
+      },
+      {
+        "name": "showlabel",
+        "clrType": "bool",
+        "summary": "When true, renders the section\u0027s title heading. When false, the section\u0027s cells render in a labelled-but-untitled container \u2014 useful when the section is purely structural (hidden context, grouped audit cells)."
+      },
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "cell",
+        "clrType": "FormCell",
+        "repeated": true,
+        "wrapper": "cells",
+        "summary": "Legacy direct-cells layout (pre-2009 grids). New forms should use instead \u2014 Rows give explicit control over multi-column grids, while this Cells array flows left-to-right in -wide chunks."
+      },
+      {
+        "name": "propertyConvertor",
+        "clrType": "PropertyConvertor",
+        "repeated": false,
+        "wrapper": null,
+        "summary": null
+      },
+      {
+        "name": "row",
+        "clrType": "FormRow",
+        "repeated": true,
+        "wrapper": "rows",
+        "summary": "Modern row-based layout. Each row contains 1-N cells laid out across the section\u0027s grid. Prefer this over the legacy array for new forms."
+      },
+      {
+        "name": "message",
+        "clrType": "ComponentMessage",
+        "repeated": true,
+        "wrapper": "messages",
+        "summary": null
+      }
+    ]
+  },
+  {
+    "element": "tab",
+    "clrType": "FormTab",
+    "summary": "A single tab in a multi-tab form. Tabs are rendered as horizontal tab strip at the top of the form; each tab owns one or more s. Single-tab forms are common (the tab strip simply renders as a heading); multi-tab forms split related field groups across tabs to manage long forms.",
+    "attributes": [
+      {
+        "name": "name",
+        "clrType": "string",
+        "summary": "Tab identifier. Convention: tab_\u003Cpurpose\u003E (e.g., tab_general, tab_attachments). The runtime uses this for tab-selection state across reloads and for cross-tab references in PropertyConvertors."
+      },
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": [
+      {
+        "name": "section",
+        "clrType": "FormSection",
+        "repeated": true,
+        "wrapper": "sections",
+        "summary": "Sections contained in this tab. Sections render in order, stacked vertically within the tab body."
+      }
+    ]
+  },
+  {
+    "element": "triggers",
+    "clrType": "FormTriggers",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "onaftersave",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "onbeforesave",
+        "clrType": "bool",
+        "summary": "Tri-state via the companion (canonical XmlSerializer pattern): when the onbeforesave attribute is missing, OnBeforeSaveSpecified == false and the bool defaults to false; when present, the bool reflects the parsed value and Specified flips to true. XmlFormMappingService uses this distinction to gate FormScript.OnSave \u002B FormScript.OnSaveEvents only on an explicitonbeforesave=\u0022false\u0022 \u2014 empty \u003Ctriggers/\u003E elements remain inert (legacy default preserved)."
+      },
+      {
+        "name": "onload",
+        "clrType": "bool",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "update",
+    "clrType": "FormHandlerProperties",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "enabled",
+        "clrType": "bool",
+        "summary": null
+      },
+      {
+        "name": "title",
+        "clrType": "string",
+        "summary": null
+      },
+      {
+        "name": "reskey",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "element": "windowMask",
+    "clrType": "WindowMask",
+    "summary": null,
+    "attributes": [
+      {
+        "name": "table",
+        "clrType": "string",
+        "summary": null
+      }
+    ],
+    "children": []
+  }
+]

@@ -1,0 +1,15 @@
+{
+  // Keys in any case, an integer enum by name, a listed integer, a widened boolean.
+  "type": "page",
+  "NAME": "home",
+  "content": [
+    {
+      "type": "text",
+      "name": "t1",
+      "value": "hello",
+      "style": "BOLD",
+      "alignment": 2,
+      "hidden": "false"
+    }
+  ]
+}

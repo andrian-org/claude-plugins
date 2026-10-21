@@ -1,0 +1,1 @@
+A grid folder with no _grid.xml: copying default into it throws.

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "LeafConfiguration",
+  "definitions": {
+    "RootBase": {
+      "type": "object",
+      "x-abstract": true,
+      "additionalProperties": false,
+      "required": ["Type"],
+      "properties": {
+        "Type": {"type": "string"},
+        "Name": {"type": ["null", "string"]}
+      }
+    },
+    "MiddleBase": {
+      "allOf": [
+        {"$ref": "#/definitions/RootBase"},
+        {
+          "type": "object",
+          "x-abstract": true,
+          "additionalProperties": false,
+          "properties": {
+            "Label": {"type": ["null", "string"]},
+            "Name": {"type": ["null", "string"], "maxLength": 20}
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {"$ref": "#/definitions/MiddleBase"},
+    {
+      "type": "object",
+      "description": "The leaf of a three-level NJsonSchema-shaped inheritance chain.",
+      "additionalProperties": false,
+      "properties": {
+        "Placeholder": {"type": ["null", "string"]}
+      }
+    }
+  ]
+}

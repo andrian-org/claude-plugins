@@ -1,0 +1,165 @@
+# The local stack of {{app.name}}: a database, a cache, a log server, one API and one UI per deployment, and traefik in front.
+# Every value that is a secret, a host, a feed or an image is a ${VAR} — copy .env.example to .env and fill it in (docs/configuration.md).
+name: {{app.slug}}
+
+services:
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "${TLS_CERT_DIR}:/certificates:ro"
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_PID: Developer
+    ports:
+      - "${MSSQL_PORT}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # Publishes the framework's own database baseline. DGF pins no image for it: build one from the framework's
+  # database project and name it in DGF_DB_INIT_IMAGE.
+  db-init:
+    image: "${DGF_DB_INIT_IMAGE}"
+    environment:
+      MSSQL_HOST: sqlserver
+      MSSQL_PORT: "1433"
+      MSSQL_USER: sa
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_DB: "${MSSQL_DB}"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+  # Publishes this application's tables and seed rows into the same database, after the baseline.
+  db-app:
+    build:
+      context: ../{{database.dir}}
+    environment:
+      MSSQL_HOST: sqlserver
+      MSSQL_PORT: "1433"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_DB: "${MSSQL_DB}"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  seq:
+    image: datalust/seq:2024.3
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "True"
+    volumes:
+      - seq-data:/data
+
+{{#each deployments}}
+  {{id}}:
+    image: {{app.slug}}-{{id}}
+    build:
+      context: ..
+      dockerfile: {{api_dir}}/Dockerfile
+      args:
+        NUGET_FEED_URL: "${NUGET_FEED_URL}"
+      secrets:
+        - nuget_token
+    environment:
+      ASPNETCORE_ENVIRONMENT: "{{name}}"
+      DGF_WORKSPACES_ROOT_PATH: /workspaces
+{{#each env}}
+      {{key}}: "{{value|yaml}}"
+{{/each}}
+    volumes:
+      - "../workspaces/{{workspace}}:/workspaces/{{instance}}"
+{{#if overlay}}
+      - "../workspaces/{{workspace}}/{{sitemap_file}}:/workspaces/{{instance}}/_application.sitemap:ro"
+{{/if}}
+{{#if supply_copy}}
+      - "../workspaces/webasm:/workspaces/webasm"
+{{else}}
+      - "${DGF_BASE_WORKSPACE}:/workspaces/webasm:ro"
+{{/if}}
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.{{id}}.rule=Host(`{{ref.api_host}}`)"
+      - traefik.http.routers.{{id}}.entrypoints=websecure
+      - traefik.http.routers.{{id}}.tls=true
+      - traefik.http.services.{{id}}.loadbalancer.server.port={{port}}
+    depends_on:
+      db-app:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  {{ui_id}}:
+    image: "${DGF_UI_IMAGE}"
+    configs:
+      - source: {{ui_id}}-settings
+        target: /usr/share/nginx/html/assets/appsettings.json
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.{{ui_id}}.rule=Host(`{{ref.ui_host}}`)"
+      - traefik.http.routers.{{ui_id}}.entrypoints=websecure
+      - traefik.http.routers.{{ui_id}}.tls=true
+      - traefik.http.services.{{ui_id}}.loadbalancer.server.port=80
+    depends_on:
+      - {{id}}
+
+{{/each}}
+# The UI reads its settings from assets/appsettings.json. Compose interpolates inline config content,
+# which a bind-mounted file would not get.
+configs:
+{{#each deployments}}
+  {{ui_id}}-settings:
+    content: |
+      {
+        "apiUrl": "https://{{ref.api_host}}",
+        "dateFormat": "dd/MM/yyyy",
+        "timeFormat": "HH:mm",
+        "dateTimeFormat": "dd/MM/yyyy HH:mm",
+        "inactivityTimeout": 3600,
+        "minimumLevel": "info"
+      }
+{{/each}}
+
+secrets:
+  nuget_token:
+    environment: NUGET_FEED_TOKEN
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  seq-data:

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Tree xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      title="Main" name="Main" image="" navigator="false">
+  <Folders>
+    <Folder title="Members" name="Main" image="fa fa-th-large" control="">
+      <Folders>
+      </Folders>
+    </Folder>
+  </Folders>
+</Tree>

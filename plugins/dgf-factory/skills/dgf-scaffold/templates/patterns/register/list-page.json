@@ -1,0 +1,50 @@
+{
+  "type": "page",
+  "name": "{{module.name}}",
+  "content": [
+    {
+      "type": "container",
+      "cols": 12,
+      "content": [
+        {
+          "type": "row",
+          "content": [
+            {
+              "type": "text",
+              "name": "{{module.slug}}Title",
+              "value": "{{module.title}}",
+              "size": "xlarge",
+              "cols": 12
+            },
+            {
+              "type": "dataTable",
+              "name": "{{module.slug}}Table",
+              "title": "{{module.entity_obj.title}}",
+              "dataSourcePath": "{{module.entity_obj.name}}",
+              "allowRefresh": true,
+              "showHeaders": true,
+              "cols": 12,
+              "paging": { "pageSize": 20 },
+              "columns": [
+{{#each module.entity_obj.fields}}
+                {
+                  "name": "{{name}}",
+                  "title": "{{title}}",
+                  "displayType": "{{col_type}}",
+{{#if col_property}}
+                  "displayProperty": "{{col_property}}",
+{{/if}}
+{{#if col_format}}
+                  "format": "{{col_format}}",
+{{/if}}
+                  "allowSort": true
+                }{{#if !@last}},{{/if}}
+{{/each}}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

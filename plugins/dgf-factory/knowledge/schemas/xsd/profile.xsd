@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+    <!-- Root Element -->
+    <xs:element name="Tree" type="TreeType"/>
+
+    <!-- Tree Type Definition -->
+    <xs:complexType name="TreeType">
+        <xs:sequence>
+            <xs:element name="Folders" type="FoldersType" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="DefaultFolder" type="xs:string" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="WindowMask" type="WindowMaskType" minOccurs="0" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attribute name="title" type="xs:string" use="required"/>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="image" type="xs:string" use="optional"/>
+        <xs:attribute name="navigator" type="xs:boolean" use="required"/>
+        <xs:attribute name="width" type="xs:integer" use="optional"/>
+        <xs:attribute name="refreshSec" type="xs:integer" use="optional"/>
+        <xs:attribute name="xmlns:xsi" type="xs:string" use="optional"/>
+        <xs:attribute name="xmlns:xsd" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- Folders Type -->
+    <xs:complexType name="FoldersType">
+        <xs:sequence>
+            <xs:element name="Folder" type="FolderType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Folder Type -->
+    <xs:complexType name="FolderType">
+        <xs:sequence>
+            <xs:element name="Folders" type="FoldersType" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="AutoItems" type="AutoItemsType" minOccurs="0" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attribute name="title" type="xs:string" use="required"/>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="image" type="xs:string" use="optional"/>
+        <xs:attribute name="control" type="ControlTypeEnum" use="optional" default=""/>
+        <xs:attribute name="autocount" type="xs:string" use="optional"/>
+        <xs:attribute name="playsound" type="xs:boolean" use="optional" default="false"/>
+    </xs:complexType>
+
+    <!-- Control Type Enumeration -->
+    <xs:simpleType name="ControlTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value=""/>
+            <xs:enumeration value="GRID"/>
+            <xs:enumeration value="FORM"/>
+            <xs:enumeration value="WORKFLOW"/>
+            <xs:enumeration value="CUSTOM"/>
+            <xs:enumeration value="SERVERCONTROL"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- AutoItems Type -->
+    <xs:complexType name="AutoItemsType">
+        <xs:attribute name="lookuptable" type="xs:string" use="required"/>
+        <xs:attribute name="lookupview" type="xs:string" use="required"/>
+        <xs:attribute name="root" type="xs:boolean" use="optional" default="false"/>
+    </xs:complexType>
+
+    <!-- WindowMask Type -->
+    <xs:complexType name="WindowMaskType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="table" type="xs:string" use="optional"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Root Element for Referenced Map Nodes -->
+    <xs:element name="mapNode" type="MapNodeType"/>
+
+    <!-- MapNode Type Definition -->
+    <xs:complexType name="MapNodeType">
+        <xs:sequence>
+            <xs:element name="set" type="SetType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="type" type="MapNodeTypeEnum" use="required"/>
+        <xs:attribute name="visible" type="xs:boolean" use="optional"/>
+        <xs:attribute name="modifiedby" type="xs:string" use="optional"/>
+        <xs:attribute name="modifiedon" type="xs:dateTime" use="optional"/>
+        <xs:attribute name="content" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- MapNode Type Enumeration -->
+    <xs:simpleType name="MapNodeTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="GRID"/>
+            <xs:enumeration value="FORM"/>
+            <xs:enumeration value="WORKFLOW"/>
+            <xs:enumeration value="CUSTOM"/>
+            <xs:enumeration value="SERVERCONTROL"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Set Type -->
+    <xs:complexType name="SetType">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="value" type="xs:string" use="required"/>
+    </xs:complexType>
+
+</xs:schema>

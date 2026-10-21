@@ -1,0 +1,13 @@
+{
+  "type": "section",
+  "name": "s",
+  "content": [
+    {
+      "type": "row",
+      "name": "r",
+      "content": [
+        {"type": "text", "name": "t", "cols": "wide"}
+      ]
+    }
+  ]
+}

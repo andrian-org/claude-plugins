@@ -1,0 +1,9 @@
+<entity>
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="PrimaryKey"/>
+    <field name="Rows" type="EditableGrid">
+      <slavegrid grid="rows"/>
+    </field>
+  </fields>
+</entity>

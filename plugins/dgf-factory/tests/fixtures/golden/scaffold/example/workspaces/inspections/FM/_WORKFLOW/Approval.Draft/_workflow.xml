@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow name="Approval.Draft" version="2.0" trace="true" forceRefresh="false" title="Draft">
+  <Sequence>
+    <Invoke name="Case" title="Approval" control="Form">
+      <Settings table="Approval" form="default" />
+      <Assign>
+        <Field name="_KEYVALUE_" value="INPUT:id" />
+      </Assign>
+    </Invoke>
+    <DataMapping name="MapOutput" title="Hand the case id back to the state process">
+      <Assign>
+        <Field name="OUTPUT:id" value="Case:_KEYVALUE_" />
+      </Assign>
+    </DataMapping>
+  </Sequence>
+  <Handlers>
+    <Roundtrip enabled="false" />
+  </Handlers>
+</Workflow>

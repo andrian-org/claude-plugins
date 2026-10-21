@@ -1,0 +1,10 @@
+{
+  "cli": "validate_process.py",
+  "args": [
+    "workspaces/app/FM/_WORKFLOW/Move/_workflow.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "CHANGE_STATE_PROCESS_UNRESOLVED"
+  ]
+}

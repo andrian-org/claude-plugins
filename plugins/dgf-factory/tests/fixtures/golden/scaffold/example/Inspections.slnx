@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/PublicApi/PublicApi.csproj" />
+  <Project Path="src/StaffApi/StaffApi.csproj" />
+  <Project Path="database/Inspections.Database/Inspections.Database.sqlproj" />
+</Solution>

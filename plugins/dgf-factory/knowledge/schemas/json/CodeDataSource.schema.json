@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "CodeDataSource",
+  "type": "object",
+  "description": "Code-based data source for executing custom .NET provider logic to fetch or transform data.\nImplements IParametrizedDataSource<CodeDataSourceParameter>.\nEnables integration with registered service providers that implement custom business logic,\ndata transformation, or integration with third-party systems not directly accessible via API or database.\nParameters are passed to the code provider for custom processing.",
+  "additionalProperties": false,
+  "properties": {
+    "Name": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets the unique name identifier for this code data source. Used in component bindings."
+    },
+    "Type": {
+      "description": "Gets the data source type. Always DataSourceType.Code.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DataSourceType"
+        }
+      ]
+    },
+    "SingleResult": {
+      "type": "boolean",
+      "description": "Gets or sets whether this code provider returns a single result object rather than a collection.\nWhen true, array results are unwrapped to a single object."
+    },
+    "AllowUnauthorizedAccess": {
+      "type": "boolean",
+      "description": "Gets or sets whether this code provider allows unauthenticated execution.\nWhen true, the provider executes without requiring authentication context."
+    },
+    "CodeProviderName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the registered name of the code provider service in the DI container.\nThis references a custom service that implements data fetching or transformation logic.\nExample: \"UserLookupProvider\", \"FormValidationProvider\"."
+    },
+    "ForwardPaginationParameters": {
+      "type": "boolean",
+      "description": "Gets or sets whether pagination parameters (page, pageSize, skip, take) should be forwarded to the code provider.\nWhen true, component pagination settings are passed as provider parameters."
+    },
+    "Parameters": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "description": "Gets or sets the list of parameters to be passed to the code provider for custom processing.\nParameters support token substitution for component state, user claims, and pagination info.",
+      "items": {
+        "$ref": "#/definitions/CodeDataSourceParameter"
+      }
+    }
+  },
+  "definitions": {
+    "DataSourceType": {
+      "type": "string",
+      "description": "Specifies the type of data source, determining how data is fetched and processed.\nJSON serialized as string values. Used to classify data sources and route to appropriate executors.",
+      "x-enumNames": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ],
+      "enum": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ]
+    },
+    "CodeDataSourceParameter": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DataSourceParameterBase"
+        },
+        {
+          "type": "object",
+          "description": "Defines a code provider parameter for custom business logic data sources.\nExtends DataSourceParameterBase with an IsRequired flag to control whether the parameter must be provided.",
+          "additionalProperties": false,
+          "properties": {
+            "IsRequired": {
+              "type": "boolean",
+              "description": "Gets or sets whether this parameter is required by the code provider.\nWhen true, the parameter value must be provided or provider execution may fail.\nWhen false, the provider can proceed without this parameter if not available in component state."
+            }
+          }
+        }
+      ]
+    },
+    "DataSourceParameterBase": {
+      "type": "object",
+      "description": "Base class for all data source parameter definitions.\nParameters define how external values (component state, user claims, pagination info) map to data source inputs.\nSupports token substitution: ${componentName}, ${item.field}, ${User.attribute}, ~UserID, ~NOW.",
+      "additionalProperties": false,
+      "required": [
+        "SourceName"
+      ],
+      "properties": {
+        "SourceName": {
+          "type": "string",
+          "description": "Gets or sets the source location of the parameter value. Required.\nExamples: component name, nested path (item.field), claim name.\nSupports token syntax like \"${itemValue}\", \"${User.Id}\", \"~UserID\", \"~NOW\".",
+          "minLength": 1
+        },
+        "DestinationName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Gets or sets the destination name for this parameter in the data source.\nFor API parameters: the OpenAPI parameter name.\nFor SQL parameters: the SQL parameter name (with or without @ prefix).\nFor Table parameters: the filter/search/query field name.\nIf not specified, defaults to the SourceName."
+        }
+      }
+    }
+  }
+}

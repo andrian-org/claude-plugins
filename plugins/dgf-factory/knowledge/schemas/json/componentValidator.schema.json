@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "componentValidator.schema.json",
+  "title": "ComponentValidator",
+  "description": "A single declarative custom validator attached to a component. Failing entries with severity 'error' contribute to FormGroup.invalid through the existing form.valid gate, blocking NEXT/SAVE. For aggregating components without a real FormControl (DataTable, DocumentGrid, ...), the framework registers a shadow FormControl named '<componentName>__validity' on the parent FormGroup that carries this validator's errors.",
+  "type": "object",
+  "required": ["key", "expression"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "comment": "3-way XOR: at most ONE of dataFetcher / dataFetchers / fetcher (Phase 2). Zero is fine — that's a client-only validator (Phase 1).",
+      "not": {
+        "anyOf": [
+          { "required": ["dataFetcher", "dataFetchers"] },
+          { "required": ["dataFetcher", "fetcher"] },
+          { "required": ["dataFetchers", "fetcher"] }
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Stable identifier for this validator. Surfaces as FormControl.errors[key]. Must be unique within a single component's validators array.",
+      "minLength": 1,
+      "examples": ["allFormsSigned", "allocationsTotal100", "duplicateApplicant"]
+    },
+    "expression": {
+      "type": "string",
+      "description": "JavaScript expression evaluated in context { value, source, form } plus global tokens (${...}). Truthy = valid; falsy/string = invalid (a returned string overrides 'message'). Inside row expressions, r.Field is the RAW backend value (not token-substituted) — SQL bit/boolean columns often serialize as the string 'true'/'false', so prefer a type-robust comparison (=== true || === 'true') over a strict === true. Note [].every() returns true (an empty table passes); guard with value.items.length > 0 if that's not intended.",
+      "minLength": 1,
+      "examples": [
+        "value.items.every(r => r.IsSigned === true || r.IsSigned === 'true')",
+        "value.items.reduce((s, r) => s + (r.Percent || 0), 0) === 100",
+        "value.items.length > 0"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "description": "Error text rendered when the expression returns falsy. Supports ${...} token interpolation against the same context as expression. Missing tokens render as empty strings; the validator still applies.",
+      "examples": [
+        "All application forms must be signed before continuing.",
+        "Beneficiary allocations must sum to 100%.",
+        "Only ${value.signedCount} of ${value.totalCount} items are signed."
+      ]
+    },
+    "when": {
+      "type": "string",
+      "description": "Optional gate expression. When falsy, the validator is skipped (treated as valid). Same DSL as 'expression'.",
+      "examples": ["${@form.IsForeign} === true", "value.items.length > 0"]
+    },
+    "validateOn": {
+      "type": "string",
+      "description": "When the validator runs. Defaults to 'onChange' (reactive). Use 'onSave' to defer expensive backend probes to save time; the submit flow awaits any pending probe through the save-time barrier. For explicit-only firing (polling, 'Re-check' buttons) compose onChange with a sibling DataFetcher's manualTrigger flag and the 'revalidate' event verb — no separate trigger value is needed.",
+      "enum": ["onChange", "onSave"],
+      "default": "onChange"
+    },
+    "severity": {
+      "description": "Severity of the failure. Only 'error' blocks form.valid; 'warning' and 'info' are advisory-only. Accepts a literal value OR a ${...} token expression that resolves to one at evaluation time (e.g. \"${result.data.severity}\"). Invalid resolution falls back to 'error' with a console warning.",
+      "default": "error",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["error", "warning", "info"]
+        },
+        {
+          "type": "string",
+          "pattern": "\\$\\{.+\\}"
+        }
+      ]
+    },
+    "dataFetcher": {
+      "description": "Phase 2 — inline single-fetcher sugar. The probe result is exposed to 'expression' / 'message' as the local 'result'. Mutually exclusive with 'dataFetchers' and 'fetcher'.",
+      "$ref": "#/definitions/inlineDataFetcher"
+    },
+    "dataFetchers": {
+      "type": "object",
+      "description": "Phase 2 — inline multi-fetcher map. Each key surfaces its envelope to 'expression' / 'message' (e.g. key 'dup' is referenced as dup.ok, dup.data, dup.error). Reserved keys: 'value', 'source', 'form', 'result'. Mutually exclusive with 'dataFetcher' and 'fetcher'.",
+      "minProperties": 1,
+      "propertyNames": {
+        "description": "Map keys become identifiers in the expression sandbox, so they must be valid JS identifiers and may not collide with the reserved sandbox locals 'value', 'source', 'form', 'result'.",
+        "pattern": "^(?!value$|source$|form$|result$)[a-zA-Z_][a-zA-Z0-9_]*$"
+      },
+      "patternProperties": {
+        "^(?!value$|source$|form$|result$)[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "$ref": "#/definitions/inlineDataFetcher"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fetcher": {
+      "type": "string",
+      "description": "Phase 2 escape hatch — name of a sibling <dataFetcher> component on the same form. Use when the validator needs the full DataFetcher surface. Mutually exclusive with 'dataFetcher' and 'dataFetchers'.",
+      "pattern": "^[a-z][a-zA-Z0-9]*$"
+    }
+  },
+  "definitions": {
+    "inlineDataFetcher": {
+      "type": "object",
+      "required": ["dataSourcePath"],
+      "additionalProperties": false,
+      "description": "Narrow projection of DataFetcher carrying only the fields a validator needs to probe a backend dataSource. No name, manualTrigger, or events — those belong to a full <dataFetcher> component referenced via 'fetcher'.",
+      "properties": {
+        "dataSourcePath": {
+          "type": "string",
+          "description": "Relative path to the backend dataSource. Required.",
+          "minLength": 1,
+          "examples": ["validators/CheckDuplicateApplicant", "validators/CheckBudgetAvailability"]
+        },
+        "parameters": {
+          "type": "array",
+          "description": "Parameter bindings sent with the probe. Supports the same token DSL as DataFetcher parameters plus the validator-local '${value}' sandbox identifier.",
+          "items": {
+            "type": "object",
+            "required": ["name", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "string" },
+              "required": { "type": "boolean", "default": false }
+            }
+          }
+        },
+        "valueExpression": {
+          "type": "string",
+          "description": "Optional post-processing expression evaluated against the raw response. When present, validator expressions see the result as 'data' instead of the raw payload."
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000,
+          "description": "Per-fetcher timeout in milliseconds. Defaults to engine default (10000ms). On timeout, envelope resolves with error.code 'TIMEOUT' and the validator fails closed."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "key": "allFormsSigned",
+      "expression": "value.items.every(r => r.IsSigned === true || r.IsSigned === 'true')",
+      "message": "All application forms must be signed before continuing."
+    },
+    {
+      "key": "allocationsTotal100",
+      "expression": "value.items.reduce((s, r) => s + (r.Percent || 0), 0) === 100",
+      "message": "Beneficiary allocations must sum to 100%."
+    },
+    {
+      "key": "atLeastOneDocPerType",
+      "expression": "['ID', 'Address', 'Income'].every(t => value.items.some(d => d.Type === t))",
+      "message": "Please upload at least one document of each required type."
+    },
+    {
+      "key": "partiallySignedWarning",
+      "expression": "value.items.every(r => r.IsSigned === true || r.IsSigned === 'true')",
+      "message": "Only ${value.signedCount} of ${value.totalCount} forms are signed.",
+      "severity": "warning"
+    }
+  ]
+}

@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <!-- Root Element -->
+    <xs:element name="Workflow" type="workflowType"/>
+
+    <!-- Main Workflow Type -->
+    <xs:complexType name="workflowType">
+        <xs:sequence>
+            <xs:element name="Sequence" type="sequenceType" minOccurs="0"/>
+            <xs:element name="Input" type="xs:string" minOccurs="0"/>
+            <xs:element name="Output" type="xs:string" minOccurs="0"/>
+            <xs:element name="Variables" type="xs:string" minOccurs="0"/>
+            <xs:element name="Handlers" type="workflowHandlersType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="version" type="xs:string"/>
+        <xs:attribute name="created" type="xs:string"/>
+        <xs:attribute name="modified" type="xs:string"/>
+        <xs:attribute name="author" type="xs:string"/>
+        <xs:attribute name="title" type="xs:string"/>
+        <xs:attribute name="trace" type="xs:boolean"/>
+        <xs:attribute name="forceRefresh" type="xs:boolean"/>
+        <xs:attribute name="returnStep" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Sequence Type -->
+    <xs:complexType name="sequenceType">
+        <xs:sequence>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="XmlIsland" type="xmlIslandType"/>
+                <xs:element name="DataMapping" type="dataMappingType"/>
+                <xs:element name="UpdateRecord" type="updateRecordType"/>
+                <xs:element name="Invoke" type="invokeType"/>
+                <xs:element name="Switch" type="switchType"/>
+                <xs:element name="ExecStoredProcedure" type="execStoredProcedureType"/>
+                <xs:element name="SubWorkflow" type="subWorkflowType"/>
+            </xs:choice>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- XmlIsland Type -->
+    <xs:complexType name="xmlIslandType">
+        <xs:sequence>
+            <xs:element name="Settings" type="settingsType" minOccurs="0"/>
+            <xs:element name="FieldSet" type="fieldSetType" minOccurs="0"/>
+            <xs:element name="Assign" type="assignType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- DataMapping Type -->
+    <xs:complexType name="dataMappingType">
+        <xs:sequence>
+            <xs:element name="Assign" type="assignType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- UpdateRecord Type -->
+    <xs:complexType name="updateRecordType">
+        <xs:sequence>
+            <xs:element name="Settings" type="settingsType" minOccurs="0"/>
+            <xs:element name="Assign" type="assignType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Invoke Type -->
+    <xs:complexType name="invokeType">
+        <xs:sequence>
+            <xs:element name="Settings" type="settingsType" minOccurs="0"/>
+            <xs:element name="Assign" type="assignType" minOccurs="0"/>
+            <xs:element name="Handlers" type="invokeHandlersType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+        <xs:attribute name="control" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Switch Type -->
+    <xs:complexType name="switchType">
+        <xs:sequence>
+            <xs:element name="Case" type="caseType" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="Otherwise" type="otherwiseType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Case Type -->
+    <xs:complexType name="caseType">
+        <xs:sequence>
+            <xs:element name="Sequence" type="sequenceType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="test" type="xs:string" use="required"/>
+        <xs:attribute name="details" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Otherwise Type -->
+    <xs:complexType name="otherwiseType">
+        <xs:sequence>
+            <xs:element name="Sequence" type="sequenceType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ExecStoredProcedure Type -->
+    <xs:complexType name="execStoredProcedureType">
+        <xs:sequence>
+            <xs:element name="Settings" type="settingsType" minOccurs="0"/>
+            <xs:element name="Assign" type="assignType" minOccurs="0"/>
+            <xs:element name="Output" type="outputType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- SubWorkflow Type -->
+    <xs:complexType name="subWorkflowType">
+        <xs:sequence>
+            <xs:element name="Settings" type="settingsType" minOccurs="0"/>
+            <xs:element name="Assign" type="assignType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Settings Type -->
+    <xs:complexType name="settingsType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="table" type="xs:string"/>
+                <xs:attribute name="form" type="xs:string"/>
+                <xs:attribute name="method" type="xs:string"/>
+                <xs:attribute name="workflow" type="xs:string"/>
+                <xs:attribute name="provider" type="xs:string"/>
+                <xs:attribute name="readonly" type="xs:string"/>
+                <xs:attribute name="hideExceptions" type="xs:boolean"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- FieldSet Type -->
+    <xs:complexType name="fieldSetType">
+        <xs:sequence>
+            <xs:element name="Field" type="fieldType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Field Type -->
+    <xs:complexType name="fieldType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="name" type="xs:string" use="required"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Assign Type -->
+    <xs:complexType name="assignType">
+        <xs:sequence>
+            <xs:element name="Field" type="assignFieldType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Assign Field Type -->
+    <xs:complexType name="assignFieldType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="value" type="xs:string" use="required"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Output Type -->
+    <xs:complexType name="outputType">
+        <xs:sequence>
+            <xs:element name="Param" type="paramType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Param Type -->
+    <xs:complexType name="paramType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="type" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Invoke Handlers Type -->
+    <xs:complexType name="invokeHandlersType">
+        <xs:sequence>
+            <xs:element name="Roundtrip" type="handlerType" minOccurs="0"/>
+            <xs:element name="Previous" type="handlerType" minOccurs="0"/>
+            <xs:element name="Next" type="handlerType" minOccurs="0"/>
+            <xs:element name="Update" type="handlerType" minOccurs="0"/>
+            <xs:element name="Close" type="handlerType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Workflow Handlers Type -->
+    <xs:complexType name="workflowHandlersType">
+        <xs:sequence>
+            <xs:element name="Roundtrip" type="handlerType" minOccurs="0"/>
+            <xs:element name="Previous" type="handlerType" minOccurs="0"/>
+            <xs:element name="Next" type="handlerType" minOccurs="0"/>
+            <xs:element name="Update" type="handlerType" minOccurs="0"/>
+            <xs:element name="Close" type="handlerType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Handler Type -->
+    <xs:complexType name="handlerType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="enabled" type="xs:boolean" use="required"/>
+                <xs:attribute name="title" type="xs:string"/>
+                <xs:attribute name="window" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+</xs:schema>

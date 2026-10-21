@@ -1,0 +1,16 @@
+{
+  "cli": "verify_gate.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--plan",
+    "workspaces/.dgf-factory/plans/feature-x.md",
+    "--no-overlap",
+    "--changed",
+    "M:app/FM/_PROCESS/Case/process.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "GATE_TASK_UNCHECKED"
+  ]
+}

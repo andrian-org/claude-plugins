@@ -1,0 +1,10 @@
+{
+  "cli": "validate_model.py",
+  "args": [
+    "workspaces/app/FM/_DATA/Cases/_forms/edit/_form.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "MODEL_CELL_UNBOUND"
+  ]
+}

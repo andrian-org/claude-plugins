@@ -1,0 +1,12 @@
+{
+  "cli": "check_plan.py",
+  "args": [
+    "workspaces/.dgf-factory/plans/feature-x.md",
+    "--workspaces-root",
+    "workspaces"
+  ],
+  "exit": 1,
+  "codes": [
+    "PLAN_FIELD_INVALID"
+  ]
+}

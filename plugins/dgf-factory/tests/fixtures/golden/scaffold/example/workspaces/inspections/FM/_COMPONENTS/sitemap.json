@@ -1,0 +1,150 @@
+{
+  "theme": "generic",
+  "title": "Inspections Portal",
+  "version": "1.0.0",
+  "localization": {
+    "languages": [{ "value": "en-US", "label": "English" }],
+    "default": "en-US"
+  },
+  "routes": {
+    "type": "router",
+    "name": "mainRouter",
+    "routes": [
+      {
+        "path": "/home",
+        "name": "homeRoute",
+        "requireAuthorization": false,
+        "content": [{ "type": "page", "name": "SiteMap/home", "preloaded": false }]
+      },
+      {
+        "path": "/login",
+        "name": "loginRoute",
+        "hideHeader": true,
+        "hideFooter": true,
+        "content": [{ "type": "page", "name": "SiteMap/loginPage", "preloaded": false }]
+      },
+      {
+        "path": "/app-menu",
+        "name": "appMenuRoute",
+        "requireAuthorization": true,
+        "fluid": true,
+        "content": [{ "type": "router", "name": "Main" }]
+      },
+      {
+        "path": "/permits",
+        "name": "modPermitsRoute",
+        "requireAuthorization": true,
+        "content": [{ "type": "page", "name": "SiteMap/Permits", "preloaded": false }]
+      },
+      {
+        "path": "/approval",
+        "name": "modApprovalRoute",
+        "requireAuthorization": true,
+        "content": [{ "type": "page", "name": "SiteMap/Approval", "preloaded": false }]
+      },
+      {
+        "path": "/about",
+        "name": "modAboutRoute",
+        "requireAuthorization": false,
+        "content": [{ "type": "page", "name": "SiteMap/About", "preloaded": false }]
+      }
+    ]
+  },
+  "header": {
+    "content": [
+      {
+        "type": "container",
+        "fluid": true,
+        "background": "gray300",
+        "content": [
+          {
+            "type": "container",
+            "content": [
+              {
+                "type": "row",
+                "cssClass": "p-0 align-items-center",
+                "content": [
+                  {
+                    "type": "link",
+                    "name": "brandLink",
+                    "cols": 6,
+                    "text": "Inspections Portal",
+                    "href": "/home"
+                  },
+                  {
+                    "type": "profileMenu",
+                    "name": "profileMenu",
+                    "hideDefaultMessage": true,
+                    "cols": 6,
+                    "cssClass": "align-items-center d-flex justify-content-end",
+                    "orientation": "horizontal",
+                    "data": {
+                      "items": [
+                        {
+                          "label": "Menu",
+                          "path": "app-menu",
+                          "icon": "dge-service",
+                          "type": "button",
+                          "id": "appMenuNav",
+                          "metaData": { "requireUser": "authenticated" }
+                        },
+                        {
+                          "label": "Sign In",
+                          "path": "login",
+                          "icon": "sign-in",
+                          "type": "dropdown",
+                          "id": "signIn",
+                          "metaData": { "requireUser": "guest" }
+                        },
+                        {
+                          "label": "${User.fullName}",
+                          "icon": "user",
+                          "type": "dropdown",
+                          "id": "userName",
+                          "metaData": { "requireUser": "authenticated" },
+                          "items": [
+                            { "label": "Sign Out", "path": "logout", "id": "logout", "icon": "sign-out" }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "content": [
+      {
+        "type": "container",
+        "fluid": true,
+        "background": "gray670",
+        "content": [
+          {
+            "type": "container",
+            "content": [
+              {
+                "type": "row",
+                "content": [
+                  {
+                    "type": "text",
+                    "name": "footerText",
+                    "value": "Inspections Portal",
+                    "color": "white",
+                    "size": "small",
+                    "alignment": "center",
+                    "cols": 12
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "cli": "check_change.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--plan",
+    "workspaces/.dgf-factory/plans/feature-x.md",
+    "--changed",
+    "M:applibs-app/App.Plugin.dll",
+    "--skip-validators"
+  ],
+  "exit": 1,
+  "codes": [
+    "CHANGE_OUT_OF_SCOPE"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "type": "table",
+  "tableName": "{{module.entity_obj.name}}",
+  "viewName": "default",
+  "singleResult": false
+}

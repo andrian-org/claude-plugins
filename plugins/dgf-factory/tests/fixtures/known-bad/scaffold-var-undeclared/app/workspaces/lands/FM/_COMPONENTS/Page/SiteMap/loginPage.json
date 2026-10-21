@@ -1,0 +1,14 @@
+{
+  "type": "page",
+  "name": "loginPage",
+  "content": [
+    {
+      "type": "login",
+      "name": "login",
+      "title": "Lands Directorate",
+      "authenticationMethods": [
+        { "name": "basic", "title": "Sign in" }
+      ]
+    }
+  ]
+}

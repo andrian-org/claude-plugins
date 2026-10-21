@@ -1,0 +1,11 @@
+{
+  "cli": "skills/dgf-scaffold/scripts/generate.py",
+  "args": [
+    "--folder",
+    "app"
+  ],
+  "exit": 3,
+  "codes": [
+    "SCAFFOLD_DESIGN_INCOMPLETE"
+  ]
+}

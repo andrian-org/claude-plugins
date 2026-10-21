@@ -1,0 +1,11 @@
+# Direct dependencies of the shipped validators under scripts/ (ADR 0015).
+# Not shipped: this is the input to the lock below. Regenerate the lock with
+#   uv pip compile tools/requirements.in --universal --python-version 3.9 \
+#     --fork-strategy fewest --generate-hashes -o scripts/requirements.txt
+# `--fork-strategy fewest` keeps one version of each package for every
+# interpreter from 3.9 up, so the validators run the same engines everywhere;
+# without it uv picks newer jsonschema and rpds-py on 3.10+.
+# Python 3.9 is the floor (ADR 0015 §1). If a release drops 3.9, pin the newest
+# that still supports it here, and say so in this comment.
+lxml
+jsonschema

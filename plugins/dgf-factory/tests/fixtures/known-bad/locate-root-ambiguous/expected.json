@@ -1,0 +1,10 @@
+{
+  "cli": "locate_plan.py",
+  "args": [
+    "--root-only"
+  ],
+  "exit": 1,
+  "codes": [
+    "ROOT_AMBIGUOUS"
+  ]
+}

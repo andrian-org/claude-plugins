@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entity version="4.0">
+  <header title="Permit" />
+  <description title="" />
+  <datasource type="DB" name="Permit" />
+  <primarykey>Id</primarykey>
+  <audittrail create="false" update="false" delete="false" search="false" />
+  <fields>
+    <field name="Id" type="Integer" dbtype="Int32" format="" title="Id" description="" size="" required="true" readonly="true" uimask="001111" />
+    <field name="Reference" type="Text" dbtype="String" format="" title="Reference" description="" size="20" required="true" readonly="false" uimask="001111" />
+    <field name="Holder" type="Text" dbtype="StringUnicode" format="" title="Holder" description="" size="200" required="true" readonly="false" uimask="001111" />
+    <field name="PermitTypeId" type="Picklist" dbtype="Int32" format="" title="PermitTypeId" description="" size="" required="true" readonly="false" uimask="001111">
+      <extract table="PermitType" view="default" />
+    </field>
+    <field name="IssuedOn" type="DateTime" dbtype="DateTime" format="datetime" title="IssuedOn" description="" size="" required="false" readonly="false" uimask="001111" />
+    <field name="Fee" type="Money" dbtype="Decimal" format="" title="Fee" description="" size="" required="false" readonly="false" uimask="001111" />
+    <field name="Active" type="Boolean" dbtype="Boolean" format="" title="Active" description="" size="" required="false" readonly="false" uimask="001111" />
+  </fields>
+</entity>

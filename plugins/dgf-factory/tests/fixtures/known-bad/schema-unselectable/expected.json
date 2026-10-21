@@ -1,0 +1,10 @@
+{
+  "cli": "validate_config.py",
+  "args": [
+    "drafts/x.json"
+  ],
+  "exit": 3,
+  "codes": [
+    "SCHEMA_UNSELECTABLE"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "type": "page",
+  "name": "{{module.name}}",
+  "content": [
+    {
+      "type": "container",
+      "cols": 12,
+      "content": [
+        {
+          "type": "row",
+          "content": [
+            {
+              "type": "text",
+              "name": "{{module.slug}}Title",
+              "value": "{{module.title}}",
+              "size": "xlarge",
+              "cols": 12
+            },
+            {
+              "type": "text",
+              "name": "{{module.slug}}Body",
+              "value": "This page is part of {{app.title}}. Replace this text with the page's content.",
+              "cols": 12
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

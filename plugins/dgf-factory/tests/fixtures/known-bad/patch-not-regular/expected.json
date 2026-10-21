@@ -1,0 +1,11 @@
+{
+  "cli": "check_patches.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces"
+  ],
+  "exit": 1,
+  "codes": [
+    "PATCH_UNREADABLE"
+  ]
+}

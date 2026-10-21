@@ -1,0 +1,10 @@
+{
+  "cli": "validate_config.py",
+  "args": [
+    "workspaces/app/FM/_COMPONENTS/Text/t.json"
+  ],
+  "exit": 1,
+  "codes": [
+    "SCHEMA_INVALID"
+  ]
+}

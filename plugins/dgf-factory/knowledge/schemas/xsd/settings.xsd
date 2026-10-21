@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+    <!-- Root Element -->
+    <xs:element name="entity" type="EntityType"/>
+
+    <!-- Entity Type Definition -->
+    <xs:complexType name="EntityType">
+        <xs:all>
+            <xs:element name="header" type="HeaderType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="description" type="DescriptionType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="datasource" type="DatasourceType" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="audittrail" type="AuditTrailType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="primarykey" type="xs:string" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="watermark" type="xs:string" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="fields" type="FieldsType" minOccurs="1" maxOccurs="1"/>
+        </xs:all>
+        <xs:attribute name="version" type="xs:string" use="required"/>
+        <xs:attribute name="generator" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- Header Type -->
+    <xs:complexType name="HeaderType">
+        <xs:attribute name="title" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Description Type -->
+    <xs:complexType name="DescriptionType">
+        <xs:attribute name="title" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Datasource Type -->
+    <xs:complexType name="DatasourceType">
+        <xs:sequence>
+            <xs:element name="parameters" type="DataSourceParametersType" minOccurs="0" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attribute name="type" type="DatasourceTypeEnum" use="required"/>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="sqlview" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- Parameters Type -->
+    <xs:complexType name="DataSourceParametersType">
+        <xs:sequence>
+            <xs:element name="parameter" type="DataSourceParameterType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Parameter Type -->
+    <xs:complexType name="DataSourceParameterType">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="value" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Datasource Type Enumeration -->
+    <xs:simpleType name="DatasourceTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="DB"/>
+            <xs:enumeration value="API"/>
+            <xs:enumeration value="XML"/>
+            <xs:enumeration value="Provider"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- AuditTrail Type -->
+    <xs:complexType name="AuditTrailType">
+        <xs:attribute name="create" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="update" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="delete" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="search" type="xs:boolean" use="optional" default="false"/>
+    </xs:complexType>
+
+    <!-- Fields Type -->
+    <xs:complexType name="FieldsType">
+        <xs:sequence>
+            <xs:element name="field" type="FieldType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Field Type -->
+    <xs:complexType name="FieldType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="extract" type="ExtractType"/>
+            <xs:element name="binding" type="BindingType"/>
+            <xs:element name="slavegrid" type="SlaveGridType"/>
+            <xs:element name="relation" type="RelationType"/>
+            <xs:element name="column" type="ColumnType"/>
+        </xs:choice>
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="type" type="FieldTypeEnum" use="required"/>
+        <xs:attribute name="dbtype" type="DbTypeEnum" use="optional"/>
+        <xs:attribute name="format" type="xs:string" use="optional"/>
+        <xs:attribute name="title" type="xs:string" use="required"/>
+        <xs:attribute name="description" type="xs:string" use="optional"/>
+        <xs:attribute name="size" type="xs:string" use="optional"/>
+        <xs:attribute name="required" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="readonly" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="uimask" type="xs:string" use="optional"/>
+        <xs:attribute name="pattern" type="xs:string" use="optional"/>
+        <xs:attribute name="patternValidationMessage" type="xs:string" use="optional"/>
+        <xs:attribute name="pageSize" type="xs:integer" use="optional"/>
+        <!-- Runtime Field model attribute is 'allowFilter' (Field.cs); 'allowFiltering' is kept
+             only for the 2 legacy artifacts that misspell it (ignored at runtime). -->
+        <xs:attribute name="allowFilter" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="allowFiltering" type="xs:boolean" use="optional" default="false"/>
+        <xs:attribute name="minValue" type="xs:string" use="optional"/>
+        <xs:attribute name="maxValue" type="xs:string" use="optional"/>
+        <xs:attribute name="accuracy" type="xs:int" use="optional"/>
+    </xs:complexType>
+
+    <!-- Field Type Enumeration -->
+    <xs:simpleType name="FieldTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Text"/>
+            <xs:enumeration value="Integer"/>
+            <xs:enumeration value="Decimal"/>
+            <xs:enumeration value="Float"/>
+            <xs:enumeration value="Boolean"/>
+            <xs:enumeration value="DateTime"/>
+            <xs:enumeration value="Lookup"/>
+            <xs:enumeration value="Picklist"/>
+            <xs:enumeration value="EditableGrid"/>
+            <xs:enumeration value="Image"/>
+            <xs:enumeration value="Money"/>
+            <xs:enumeration value="Memo"/>
+            <xs:enumeration value="Html"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Database Type Enumeration -->
+    <xs:simpleType name="DbTypeEnum">
+        <xs:restriction base="xs:string">
+            <!-- Empty = non-value / user-defined field (Field.IsNonValueType when DbTypeName==""):
+                 EditableGrid, Lookup-with-relation, etc. The most common dbtype value in practice. -->
+            <xs:enumeration value=""/>
+            <xs:enumeration value="Boolean"/>
+            <xs:enumeration value="Byte"/>
+            <xs:enumeration value="Byte[]"/>
+            <xs:enumeration value="DateTime"/>
+            <xs:enumeration value="DateTimeOffset"/>
+            <xs:enumeration value="Decimal"/>
+            <xs:enumeration value="Double"/>
+            <xs:enumeration value="Float"/>
+            <xs:enumeration value="Guid"/>
+            <xs:enumeration value="Int16"/>
+            <xs:enumeration value="Int32"/>
+            <xs:enumeration value="Int64"/>
+            <xs:enumeration value="Real"/>
+            <xs:enumeration value="smallint"/>
+            <xs:enumeration value="String"/>
+            <xs:enumeration value="StringUnicode"/>
+            <xs:enumeration value="Text"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Extract Type -->
+    <xs:complexType name="ExtractType">
+        <xs:attribute name="table" type="xs:string" use="required"/>
+        <xs:attribute name="view" type="xs:string" use="required"/>
+        <xs:attribute name="dialog" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- Binding Type -->
+    <xs:complexType name="BindingType">
+        <xs:attribute name="from" type="xs:string" use="required"/>
+        <xs:attribute name="to" type="xs:string" use="required"/>
+        <!-- Runtime BindingProperties.UseInSubQuery: when true the binding is added as an extra
+             JOIN condition in the lookup sub-query (SqlQueryBuilder). Optional; present in real
+             artifacts. -->
+        <xs:attribute name="useInSubQuery" type="xs:boolean" use="optional"/>
+    </xs:complexType>
+
+    <!-- SlaveGrid Type -->
+    <!--
+        A <slavegrid> binds an EditableGrid field to a child entity. The grid MUST declare at
+        least one <column> (an empty grid cannot bind), which is the minimum enforced here.
+        Each grid scopes its child rows to the parent through EITHER a parentkey column
+        (type="parentkey") OR a value-mapped column (value="[ParentField]") — both are
+        equivalent at runtime, so a parentkey column is NOT mandatory. The richer rules XSD 1.0
+        cannot express are enforced generically by XmlCrossReferenceValidator: that at least one
+        column links to the parent, and that each column name resolves to a <field> in the child
+        entity's settings.xml (the dangling-binding bug — e.g. parentkey "Market" against a child
+        carrying "MarketID").
+    -->
+    <xs:complexType name="SlaveGridType">
+        <xs:sequence>
+            <xs:element name="column" type="ColumnType" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="table" type="xs:string" use="required"/>
+        <xs:attribute name="grid" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- Column Type -->
+    <xs:complexType name="ColumnType">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="type" type="ColumnTypeEnum" use="optional"/>
+        <xs:attribute name="value" type="xs:string" use="optional"/>
+        <!-- Runtime ColumnInfo.OverrideParentKey: lets a column override the resolved parent
+             key value. Optional; present in real artifacts (e.g. ZIGS_Forms_ZIMS). -->
+        <xs:attribute name="overrideParentKey" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- Column Type Enumeration -->
+    <xs:simpleType name="ColumnTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="parentkey"/>
+            <xs:enumeration value="childkey"/>
+            <!-- typekey: discriminator column on a typed Lookup <relation> (runtime
+                 RelationProperties.TypeField). Present in real artifacts (e.g.
+                 ZIGS_EligibilityVerification). -->
+            <xs:enumeration value="typekey"/>
+            <xs:enumeration value="value"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Relation Type. Used by a Lookup field to link through a junction table. Runtime model:
+         RelationProperties (table=DataSourceTable, filter=FilterOperator [AND|OR, default OR],
+         tableKey=relation table primary-key name). Columns carry parentkey/childkey/typekey. -->
+    <xs:complexType name="RelationType">
+        <xs:sequence>
+            <xs:element name="column" type="ColumnType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="table" type="xs:string" use="required"/>
+        <!-- Optional; present in real artifacts. RelationProperties.FilterOperator / .TableKey. -->
+        <xs:attribute name="filter" type="xs:string" use="optional"/>
+        <xs:attribute name="tableKey" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+</xs:schema>

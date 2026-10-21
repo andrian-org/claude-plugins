@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "StaticOptionsDataSource",
+  "type": "object",
+  "description": "Static options data source for providing predefined lists of values.\nImplements ITableDataSource.\nEnables definition of static dropdown, select, or radio button options that are retrieved from\nregistered static option providers. Supports multiple named option sets per table.\nDoes not support parameters—options are fixed at definition time.",
+  "additionalProperties": false,
+  "properties": {
+    "OptionsName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the static options provider in the DI container.\nThis references a provider that returns the predefined list of options.\nExample: \"ApprovalStatusOptions\", \"DocumentTypeOptions\"."
+    },
+    "Name": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets the unique name identifier for this static options data source. Used in component bindings."
+    },
+    "Type": {
+      "description": "Gets the data source type. Always DataSourceType.Static.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DataSourceType"
+        }
+      ]
+    },
+    "SingleResult": {
+      "type": "boolean",
+      "description": "Gets or sets whether this options data source returns a single result object rather than a collection.\nWhen true, a single option is returned as an object."
+    },
+    "AllowUnauthorizedAccess": {
+      "type": "boolean",
+      "description": "Gets or sets whether this options data source allows unauthenticated access.\nWhen true, static options are provided without requiring authentication."
+    },
+    "TableName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the table name associated with static options (ITableDataSource compliance).\nFor static options, this is typically null or a configuration identifier."
+    },
+    "ViewName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the view name for static options (ITableDataSource compliance).\nAllows different named views of the same static option set if needed."
+    },
+    "ForwardPaginationParameters": {
+      "type": "boolean",
+      "description": "Gets or sets whether pagination parameters should be forwarded to the static options.\nTypically false for static option sets, but may be used for large lists."
+    }
+  },
+  "definitions": {
+    "DataSourceType": {
+      "type": "string",
+      "description": "Specifies the type of data source, determining how data is fetched and processed.\nJSON serialized as string values. Used to classify data sources and route to appropriate executors.",
+      "x-enumNames": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ],
+      "enum": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ]
+    }
+  }
+}

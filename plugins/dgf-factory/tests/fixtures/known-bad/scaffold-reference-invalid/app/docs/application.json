@@ -1,0 +1,25 @@
+{
+  "design_format": 1,
+  "application": {
+    "name": "Inspections"
+  },
+  "instances": [
+    {
+      "name": "lands"
+    }
+  ],
+  "apis": [
+    {
+      "name": "Api",
+      "deployments": [
+        {
+          "name": "Web",
+          "instance": "nowhere",
+          "auth": [
+            "basic"
+          ]
+        }
+      ]
+    }
+  ]
+}

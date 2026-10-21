@@ -1,0 +1,1 @@
+<Process title="Case" table="Cases" keyName="id"><OnStart action=""><Transitions><Transition state="End"/></Transitions></OnStart><States/></Process>

@@ -1,0 +1,5 @@
+CREATE TABLE [dbo].[Beta] (
+    [Name] VARCHAR (10) NOT NULL,
+    [Uni]  NVARCHAR (5) NULL,
+    CONSTRAINT [PK_Beta] PRIMARY KEY CLUSTERED ([Name] ASC)
+);

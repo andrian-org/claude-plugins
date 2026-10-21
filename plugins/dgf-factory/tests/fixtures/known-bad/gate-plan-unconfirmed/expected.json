@@ -1,0 +1,15 @@
+{
+  "cli": "verify_gate.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--branch",
+    "feature/elsewhere",
+    "--changed",
+    "M:app/FM/_PROCESS/Case/process.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "GATE_PLAN_UNCONFIRMED"
+  ]
+}

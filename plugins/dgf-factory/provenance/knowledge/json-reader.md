@@ -1,0 +1,136 @@
+---
+sources:
+  - path: src/DGF.API/ConfigureServices.cs
+    sha256: 2b9414f21ee3e8817bad0e53da83a42e12de93edadf84312638106ded7337d8a
+  - path: src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs
+    sha256: f57d38b06a3c40d73926e0c479a576f04a7f46b146a15d3e9b7b1799e00daff7
+  - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
+    sha256: 772d63668a13942df8b43bf4937fc255d12a5049129fbcb3816c75ca16ea78fd
+  - path: src/Components/DGF.Components.Shared/ComponentAssignableTypesCache.cs
+    sha256: 08a111d859832060a4b3a41efb70abb31ce2c785136cc5adeb345a88d5e45967
+  - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
+    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+  - path: src/Core/DGF.DataSources/JsonConverters/DataSourceConverter.cs
+    sha256: fc5204bd8799da796b7dade09c8c3ffe9b77d1cbaf64f7ff3fbe35c8500628a1
+  - path: src/Components/DGF.Components.Shared/DataSources/DataSourceType.cs
+    sha256: d0676a69eca6a956b2d2eb16810b698c642c6f244ec4790b12d9d59bfe7e2e86
+  - path: src/Core/DGF.DataSources/JsonConverters/BooleanConverter.cs
+    sha256: 9b0b339a22f3f3e23059c46e2197195c0d1d14fab1277da569a8447756321276
+  - path: src/Core/DGF.DataSources/JsonConverters/DictionaryJsonConverters.cs
+    sha256: 9bb26bf66f56225896728ad030464527855cac8c9e4a66e7c4019960b8f2b70f
+  - path: src/Core/DGF.DataSources/Models/DataSourceConstants.cs
+    sha256: d4c455aa4ee7b726f93ff00d26a504ea1112a8b576b7dbdfb6433ab816987bb3
+  - path: src/Components/DGF.Components.Services/JsonConverters/ObjectParametersConverter.cs
+    sha256: b6f67d3ab56497fcc2aa79cbef0da4e35884a6310c5f0188f82df9a3fb2cef04
+  - path: src/Components/DGF.Components.Services/JsonConverters/DateOnlyConverter.cs
+    sha256: edac8297271cb595df4964968546f2a8140932b2494bec06f526dc090fa24947
+  - path: src/Components/DGF.Components.Services/JsonConverters/TimeOnlyConverter.cs
+    sha256: df3aaedbc22f238dca448ab84ea9ec70fbc5afb60757a626687cb1d27c2fd1a5
+  - path: src/Components/DGF.Components.Services/JsonConverters/ComponentModelConverter.cs
+    sha256: 2565d7a829eb902ccb5b1527fb69844538373566149e147cdc5f7fda1020f80a
+  - path: src/Components/Extensions/DGF.FlowComponents/WorkFlow/JsonConverters/AbstractStepJsonConverter.cs
+    sha256: c2dad71e62e289e87025038c01da3aac5be36a987f49bc3f9317495409c8d619
+  - path: src/Components/DGF.Components.Shared/ComponentFileLoadService.cs
+    sha256: 5d5ca13b8dd3f5b2192535776c2d5c0245c361677dc168247478733f17ad3b1d
+  - path: src/Components/DGF.Services.Extensions/ComponentServiceProvider.cs
+    sha256: 34530516d18b7b4b113c6c23eb172a7d7815a27e18215b9e1cb3c3d1efe12194
+  - path: src/Core/DGF.DataSources/DataSourceLoader.cs
+    sha256: 24e3b570fcc4e533640f03370d8278e9b3eae461dc8ebb6860ac9f8b42eab8d6
+  - path: src/Core/DGF.DataSources/Endpoints/EndpointFactory.cs
+    sha256: d0f6f004156c4ba2b07960f263a1033cb6d95dd7799e44f85e77168bea3f060d
+  - path: src/Components/Extensions/DGF.Sitemap/SiteMap/SiteMapManager.cs
+    sha256: 514b1fc09da059629e13cbc95b2d3b9558c9e1dd2b719648fa15544a709fa7fd
+  - path: src/Components/Extensions/DGF.Sitemap/SiteMap/Options/SiteMapOptions.cs
+    sha256: 94f81b82b0396ddfc729d6743c2a8f854aba35ac1cf38b34e29e79411097e377
+  - path: src/Components/Extensions/DGF.FlowComponents/WorkFlow/WorkflowLoaderService.cs
+    sha256: e023559f326314f18ed18d9f9d0d1f22d01c2ec61e32466d02c4d9305accef6b
+  - path: src/Components/Extensions/DGF.Sitemap/Models/Configuration/HeaderConfiguration.cs
+    sha256: 3660a0237ffd60d834df18866e64142bcbb77aacfa3d256348d87e4b5d19e72a
+  - path: src/Components/Extensions/DGF.FormComponents/Number/NumberConfiguration.cs
+    sha256: 4e1b0a84de099d6646107217b7e63e2e83450bc0389c65dc6ca4b5ec105f2e46
+  - path: src/Components/Extensions/DGF.DateTimeComponents/DateComponent/DatePickerConfiguration.cs
+    sha256: 7b4e4611c426dc0098dc9ef34a9ca1a5bc204ef8940b0d216964e8859f8d178f
+  - path: src/Components/Extensions/DGF.DateTimeComponents/DateTimeComponent/DateTimePickerConfiguration.cs
+    sha256: 1125432a0d9df3db11dc52b8f9f49efa1d5da4010519c11a9b1c95b2ed3647ac
+  - path: src/Components/Extensions/DGF.AccordionComponent/Models/Configuration/AccordionConfiguration.cs
+    sha256: 0fd1d3194aeeaaecd8c87e55d0ef0556b7efc364c061eb16adceff40139eb862
+  - path: src/Components/DGF.Components.Shared/ComponentsBase/Configuration/ComponentConfigurationBase.cs
+    sha256: ec8df91ac1c040a3b6f364af5d74b99b55b55c4c719a49e50a96b6ea68114075
+  - path: src/Tools/SchemaExporter/Program.cs
+    sha256: 8aebe862098764ab0429376a613c554518170e6445507e6b9eb7433ab0d16815
+  - path: src/DGF.API/DGF.API.csproj
+    sha256: 20110b272c9ee5cdfee28c1ad53be68c42744a7fa21217d0c80e27402c612501
+  - path: docs/wiki/AI-Authoring/format-coverage.md
+    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+  - path: src/Components/DGF.Components.Shared/Enums/LinkTarget.cs
+    sha256: 772eb6bea7081b4acd01c1f5642cd9bb2b9e8565ee3e0a26dca6a9fad690e748
+  - path: src/Components/DGF.Components.Shared/ListData/Paging.cs
+    sha256: 6a126ad9a269f208500b5b71b0ed5d79304c8634d56493f163ef02e28399682e
+  - path: src/Components/DGF.Components.Shared/DataSources/DataSourceParameterBase.cs
+    sha256: eb8d4ad65c2404619d03a929bb7359f2f8aa231a90eb218f7d0db06fda15df83
+  - path: src/Core/DGF.HttpClients/Extensions/DiExtensions.cs
+    sha256: cb3080bc7475d1dac56cb85d0e0921cd1b9e295522d9ea2b278861022e87caa0
+  - path: src/Components/DGF.Components.Shared/Enums/ComponentSize.cs
+    sha256: d3bfd8e1407dbf50df811e47de93b42590c88cadb1c25e57e70b78b33b021adc
+  - path: src/Components/DGF.Components.Shared/ComponentsBase/Configuration/Contracts/ILayoutComponent.cs
+    sha256: fac5508047c4380f7b3ef3ce1b898f62010a97ed9124fb7cdf3a553d18735a0d
+  - path: src/Components/Extensions/DGF.ReferenceComponent/Models/ReferenceComponentConfiguration.cs
+    sha256: 3733f7881294809b88db6f1755d7f19e77ac9b99c7f358e75576e370910b5bae
+  - path: src/Components/Extensions/DGF.ReferenceComponent/Services/ReferenceComponentServiceInternal.cs
+    sha256: 6cce4a6e2ff3d371187ba382c1ea04219022bd158d358eb162cf9acf88f2ee3f
+  - path: src/Components/DGF.Components.Services/Components/ComponentSchemaManager.cs
+    sha256: 3d1c40601c3038a2707c3243b98f1232df54383b7464c1b38c8ab7addb84e9c7
+  - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
+    sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
+  - path: src/Components/Extensions/DGF.Page/Models/Configuration/PageConfiguration.cs
+    sha256: ac6d9cdeb9823c53cd503c5d2c458ff6f970e3e0ff973afea67f37021b42eaf8
+  - path: src/Components/Extensions/DGF.Form/Models/Configuration/FormConfiguration.cs
+    sha256: 964a5e94c40f05cc21b536cabbfabed53af48e32f9c9bc6155e4efaa71cbf18a
+  - path: src/Components/Extensions/DGF.LayoutComponents/ContainerComponent/Models/Configuration/ContainerConfiguration.cs
+    sha256: ec68d7ce26ac0e9e954ba5fc0be6bbb547673552fef19e8a870c7a7bd89dab08
+  - path: src/Components/Extensions/DGF.LayoutComponents/RowComponent/Models/Configuration/RowConfig.cs
+    sha256: a03ffe385b19cc170a697a46308580fecfa9a6c156dae476b00e0762c12d2f63
+  - path: src/Components/Extensions/DGF.LayoutComponents/SectionComponent/Models/Configuration/SectionConfig.cs
+    sha256: 21edbf1ffb078f44c4a9aefa521de11fa1216d1966920470925c3f27edfd11ce
+  - path: src/Components/Extensions/DGF.Router/Models/Configuration/RouteConfiguration.cs
+    sha256: 2cd68f32ce545b8a9d40b8584dfefe1ec4426099057c2943eed8791b5ddf60f1
+  - path: src/Components/Extensions/DGF.Sitemap/Models/Configuration/FooterConfiguration.cs
+    sha256: 9d0c8deb8052f1416b095b2600256944ac211a4a7b735cb9b32ebdcccf8cb1ae
+---
+# Provenance — `knowledge/json-reader.md`
+
+Maintainer-only. Not shipped: `provenance/` is outside the directories `doctor.py` lists in
+`SHIPPED_DIRS`. This ledger records which DGF files the facts in
+[`knowledge/json-reader.md`](../../knowledge/json-reader.md) were read from, with the digest of each file as
+read. The stamp in that file (`dgf_version`, `read_date`) says which DGF; this ledger says
+from where. The contract is [ADR 0013](../../docs/adr/0013-version-gating-provenance-ledger.md)
+and [`knowledge/README.md`](../../knowledge/README.md) §1.
+
+How the `component-classes` table was derived: every non-test class under `src/` assignable to
+`IComponentConfiguration` and not to `IComponentModel` was listed from its declaration and base
+list, and `ComponentConverter`'s selection rule (exact `<Type>` or `<Type>Configuration`, then
+prefix, ignoring case) was applied to each `ComponentType` member. `DatePickerConfiguration` and
+`DateTimePickerConfiguration` are both in `DGF.DateTimeComponents`, so the name order inside that
+assembly decides `Date`. `AccordionConfiguration` is referenced by `DGF.API.csproj` and absent from
+the exporter output (`format-coverage.md` row 61).
+
+How the reader facts in §1 were confirmed (2026-09-24): a .NET 10.0.302 file-based app built a
+`JsonSerializerOptions` with the same settings as `ConfigureJsonOptions` (case-insensitive names,
+comments skipped, `JsonStringEnumConverter(CamelCase)`, a copy of DGF's `BooleanConverter`) and
+deserialized small documents. Observed: a string `"20"` for an `int` throws; `{}` for a `List<>`
+throws; a trailing comma throws; comments are skipped; enum names are read in any case with
+surrounding whitespace ignored, and as integers or integer strings, undefined integers included;
+a `[JsonStringEnumMemberName("_blank")]` member reads `"_blank"` and `1` and rejects `"_BLANK"`,
+`"Blank"` and `"blank"`; with `name` and `Name` (or `name` twice) the last value wins; `bool`
+reads `"true"`, `"TRUE"`, `" true "`, `1`, `0`, `2.5` and rejects `"yes"` and `null`; `bool?` reads
+`null`. The probe is scratch, not committed; re-run it when DGF's serializer setup changes.
+
+How §2.1 was derived (2026-09-24): `SiteMapManager.GetComponentByNameAndTypeAsync` is the only
+caller that replaces a child by its `Path` (the loop over an `ILayoutComponent`'s `Content`); its
+callers are `ComponentSchemaManager` (a component served by type and name) and
+`ReferenceComponentServiceInternal`, plus its own reference resolution. The layout classes are
+every class whose base list names `ILayoutComponent`. `ComponentFileLoadService.GetFileRootPath`
+builds the path from `ComponentsPath` or, for `BASE:`, `ComponentsBasePath` (`WorkspaceSettings`),
+and `JsonSerializationService.DeserializeFromFileAsync` returns `default` for a missing file.
+Measured on the samples: no top-level `content` child carries a `path`; 80 of 82
+`ReferenceComponent` targets exist, and the two that do not name `Page/appealPage` in `zims`.

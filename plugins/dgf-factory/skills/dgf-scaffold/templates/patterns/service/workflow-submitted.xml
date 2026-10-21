@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow name="{{module.name}}.Submitted" version="2.0" trace="true" forceRefresh="false" title="Submitted">
+  <Sequence>
+    <Invoke name="Case" title="{{module.entity_obj.title}}" control="Form">
+      <Settings table="{{module.entity_obj.name}}" form="default/READONLY" />
+      <Assign>
+        <Field name="_KEYVALUE_" value="INPUT:id" />
+      </Assign>
+    </Invoke>
+  </Sequence>
+</Workflow>

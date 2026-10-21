@@ -1,0 +1,13 @@
+# The local stack's secrets.
+docker/.env
+
+# Build output.
+bin/
+obj/
+
+# A workspace's scratch directories: uploads, attachments and storage.
+_STORAGE/
+Temp/
+
+*.user
+.vs/

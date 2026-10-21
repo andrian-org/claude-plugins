@@ -1,0 +1,222 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "DocumentDataSource",
+  "type": "object",
+  "description": "Document generation data source for producing documents from templates and table data.\nImplements ITableDataSource and IParametrizedDataSource<TableDataSourceParameter>.\nEnables generation of PDFs, Word documents, or other file formats by merging template definitions\nwith data from database tables. Supports field mapping from source data to template placeholders,\ncustom content/filename columns, and parameterized queries.",
+  "additionalProperties": false,
+  "properties": {
+    "Name": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets the unique name identifier for this document data source. Used in component bindings."
+    },
+    "TemplateName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the document template to use for generation.\nThe template defines the document structure, formatting, and placeholder definitions.\nExample: \"InvoiceTemplate\", \"CertificateTemplate\"."
+    },
+    "ContentColumnName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the database column containing the generated document content.\nThis is the field in the result that holds the actual document bytes or content.\nExample: \"DocumentContent\", \"FileData\"."
+    },
+    "ContentTypeColumnName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the database column containing the document content type/MIME type.\nExample: \"application/pdf\", \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\"."
+    },
+    "FileNameColumn": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the database column containing the generated file name.\nUsed to determine the downloaded filename when the document is returned to the client.\nExample: \"Invoice_2024_001.pdf\"."
+    },
+    "IsFileContentResult": {
+      "type": "boolean",
+      "description": "Gets or sets whether the result should be treated as raw file content.\nWhen true, the response bypasses normal component processing and returns file download."
+    },
+    "Url": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the optional URL where the generated document can be accessed.\nUsed when documents are stored externally and referenced rather than returned inline.\nExample: \"https://documents.example.gov/files/invoice-12345.pdf\"."
+    },
+    "Parameters": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "description": "Gets or sets the list of table parameters that provide runtime values for the document query.\nParameters define how component state or user claims are passed to the data source.",
+      "items": {
+        "$ref": "#/definitions/TableDataSourceParameter"
+      }
+    },
+    "Mappings": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "description": "Gets or sets the field mappings that define how source data columns are mapped to template placeholders.\nMaps source field names from the database query to template placeholder names.\nExample: source \"EmployeeFirstName\" → template placeholder \"FirstName\".",
+      "items": {
+        "$ref": "#/definitions/DataSourceMapping"
+      }
+    },
+    "Type": {
+      "description": "Gets the data source type. Always DataSourceType.Document.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DataSourceType"
+        }
+      ]
+    },
+    "SingleResult": {
+      "type": "boolean",
+      "description": "Gets or sets whether this document source returns a single document rather than a collection.\nWhen true, a single document is generated. When false, multiple documents may be generated."
+    },
+    "AllowUnauthorizedAccess": {
+      "type": "boolean",
+      "description": "Gets or sets whether this document source allows unauthenticated access.\nWhen true, document generation proceeds without requiring authentication."
+    },
+    "TableName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the name of the database table or view that provides data for the document.\nThe query against this table is filtered by the parameters and used to populate the template."
+    },
+    "ViewName": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the named view configuration for the document source table.\nViews can customize filtering or structure of the data provided to templates."
+    },
+    "ForwardPaginationParameters": {
+      "type": "boolean",
+      "description": "Gets or sets whether pagination parameters should be forwarded to the document query.\nRarely used for single documents, but may support bulk document generation."
+    }
+  },
+  "definitions": {
+    "TableDataSourceParameter": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DataSourceParameterBase"
+        },
+        {
+          "type": "object",
+          "description": "Defines a table data source parameter for database table queries.\nExtends DataSourceParameterBase with IsRequired flag and TableParameterDestinationType to determine\nwhether the parameter serves as a filter, search condition, or query parameter.",
+          "additionalProperties": false,
+          "properties": {
+            "IsRequired": {
+              "type": "boolean",
+              "description": "Gets or sets whether this parameter is required by the table query.\nWhen true, the parameter value must be provided or the query will fail.\nWhen false, the query can execute without this parameter if not available in component state."
+            },
+            "Type": {
+              "description": "Gets or sets how this parameter is applied to the table data source.\nValues: TableFilter (WHERE clause condition), TableSearch (full-text search), or Query (direct SQL parameter).\nDefault is TableFilter. Determines the SQL generation strategy used by the data source executor.",
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/TableParameterDestinationType"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "TableParameterDestinationType": {
+      "type": "string",
+      "description": "Specifies how a table parameter is applied when querying a database table or view.\nJSON serialized as string values. Determines the SQL generation strategy used by the executor.",
+      "x-enumNames": [
+        "TableFilter",
+        "TableSearch",
+        "Query"
+      ],
+      "enum": [
+        "TableFilter",
+        "TableSearch",
+        "Query"
+      ]
+    },
+    "DataSourceParameterBase": {
+      "type": "object",
+      "description": "Base class for all data source parameter definitions.\nParameters define how external values (component state, user claims, pagination info) map to data source inputs.\nSupports token substitution: ${componentName}, ${item.field}, ${User.attribute}, ~UserID, ~NOW.",
+      "additionalProperties": false,
+      "required": [
+        "SourceName"
+      ],
+      "properties": {
+        "SourceName": {
+          "type": "string",
+          "description": "Gets or sets the source location of the parameter value. Required.\nExamples: component name, nested path (item.field), claim name.\nSupports token syntax like \"${itemValue}\", \"${User.Id}\", \"~UserID\", \"~NOW\".",
+          "minLength": 1
+        },
+        "DestinationName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Gets or sets the destination name for this parameter in the data source.\nFor API parameters: the OpenAPI parameter name.\nFor SQL parameters: the SQL parameter name (with or without @ prefix).\nFor Table parameters: the filter/search/query field name.\nIf not specified, defaults to the SourceName."
+        }
+      }
+    },
+    "DataSourceMapping": {
+      "type": "object",
+      "description": "Defines a field mapping for document data sources.\nMaps source field names from database query results to target field names in document templates.",
+      "additionalProperties": false,
+      "properties": {
+        "SourceFieldName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Gets or sets the name of the source field in the database query result.\nThis is the field name returned by the SQL query against the document's source table.\nExample: \"EmployeeFirstName\", \"ApprovalDate\", \"DocumentAmount\"."
+        },
+        "TargetFieldName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Gets or sets the name of the target field in the document template.\nThis is the placeholder name in the document template that will be populated with the source value.\nExample: \"FirstName\", \"ApprovalDate\", \"Amount\"."
+        }
+      }
+    },
+    "DataSourceType": {
+      "type": "string",
+      "description": "Specifies the type of data source, determining how data is fetched and processed.\nJSON serialized as string values. Used to classify data sources and route to appropriate executors.",
+      "x-enumNames": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ],
+      "enum": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "cli": "verify_gate.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--plan",
+    "workspaces/.dgf-factory/plans/feature-x.md",
+    "--no-overlap",
+    "--strict",
+    "--changed",
+    "M:app/FM/_PROCESS/Case/process.xml",
+    "M:app/FM/_DATA/Case/settings.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "GATE_STRICT_WARNING"
+  ]
+}

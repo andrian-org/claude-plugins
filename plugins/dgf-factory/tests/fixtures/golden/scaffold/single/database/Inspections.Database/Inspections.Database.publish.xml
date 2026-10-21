@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Publish profile for this application's tables, published into the database the framework's baseline
+  already created. The framework shares its database with consumer-owned objects, so this profile never
+  drops what is not in this project, and the framework's own objects are left alone.
+-->
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CreateNewDatabase>False</CreateNewDatabase>
+    <BlockOnPossibleDataLoss>False</BlockOnPossibleDataLoss>
+    <DropObjectsNotInSource>False</DropObjectsNotInSource>
+    <DoNotDropUsers>True</DoNotDropUsers>
+    <DoNotDropRoleMembership>True</DoNotDropRoleMembership>
+    <DoNotDropPermissions>True</DoNotDropPermissions>
+    <DoNotDropLogins>True</DoNotDropLogins>
+    <IgnoreColumnOrder>True</IgnoreColumnOrder>
+    <IgnoreFillFactor>True</IgnoreFillFactor>
+    <IgnoreWhitespace>True</IgnoreWhitespace>
+    <IgnoreComments>True</IgnoreComments>
+    <IgnorePermissions>True</IgnorePermissions>
+    <IgnoreUserSettingsObjects>True</IgnoreUserSettingsObjects>
+    <ScriptDatabaseOptions>False</ScriptDatabaseOptions>
+    <AllowIncompatiblePlatform>True</AllowIncompatiblePlatform>
+    <VerifyDeployment>True</VerifyDeployment>
+  </PropertyGroup>
+</Project>

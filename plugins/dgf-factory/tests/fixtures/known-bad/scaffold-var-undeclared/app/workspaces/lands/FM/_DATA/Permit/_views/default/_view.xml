@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view>
+  <header title="" />
+  <description title="" />
+  <row keyfield="Id">
+    <cell name="Id" title="Id" />
+    <cell name="Reference" title="Reference" />
+    <cell name="Holder" title="Holder" />
+    <cell name="PermitTypeId" title="PermitTypeId" />
+    <cell name="IssuedOn" title="IssuedOn" />
+    <cell name="Fee" title="Fee" />
+    <cell name="Active" title="Active" />
+  </row>
+  <fetch>
+    <sort>
+      <column name="Id" ascending="true" />
+    </sort>
+    <filter />
+  </fetch>
+</view>

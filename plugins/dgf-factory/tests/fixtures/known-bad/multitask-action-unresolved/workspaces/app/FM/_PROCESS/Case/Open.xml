@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MultiTaskSettings>
+  <TaskGroup role="Officer" action="WORKFLOW:/Review" />
+</MultiTaskSettings>

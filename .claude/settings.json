@@ -1,13 +1,14 @@
 {
   "extraKnownMarketplaces": {
-    "dotgov": {
+    "andrian-org": {
       "source": {
-        "source": "git",
-        "url": "https://dev.azure.com/dotgov/Core/_git/dotgov-claude-plugins"
+        "source": "github",
+        "repo": "andrian-org/claude-plugins"
       }
     }
   },
-  "enabledPlugins": [
-    "doc-coverage-audit@dotgov"
-  ]
+  "enabledPlugins": {
+    "doc-coverage-audit@andrian-org": true,
+    "dgf-factory@andrian-org": true
+  }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view select="true" preview="false">
+  <header title="" />
+  <description title="" />
+  <row keyfield="Id">
+    <cell name="Name" title="Name" />
+  </row>
+  <fetch>
+    <sort>
+      <column name="Name" ascending="true" />
+    </sort>
+    <filter />
+  </fetch>
+</view>

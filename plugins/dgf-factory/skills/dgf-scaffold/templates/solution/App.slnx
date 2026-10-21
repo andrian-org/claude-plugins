@@ -1,0 +1,6 @@
+<Solution>
+{{#each apis}}
+  <Project Path="{{dir}}/{{project}}" />
+{{/each}}
+  <Project Path="{{database.dir}}/{{database.project}}.sqlproj" />
+</Solution>

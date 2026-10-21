@@ -1,0 +1,16 @@
+{
+  "type": "page",
+  "name": "loginPage",
+  "content": [
+    {
+      "type": "login",
+      "name": "login",
+      "title": "Inspections Portal",
+      "authenticationMethods": [
+        { "name": "dgpass", "title": "Sign in with DGPass" },
+        { "name": "azure", "title": "Sign in with Microsoft" },
+        { "name": "basic", "title": "Sign in" }
+      ]
+    }
+  ]
+}

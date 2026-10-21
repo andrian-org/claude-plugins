@@ -1,0 +1,13 @@
+{
+  "cli": "check_override.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--skill",
+    "dgf-plan"
+  ],
+  "exit": 1,
+  "codes": [
+    "OVERRIDE_SHAPE"
+  ]
+}

@@ -1,0 +1,9 @@
+<entity>
+  <primarykey>Id</primarykey>
+  <fields>
+    <field name="Id" type="PrimaryKey"/>
+    <field name="Status" type="Lookup">
+      <extract table="Statuses" view="default"/>
+    </field>
+  </fields>
+</entity>

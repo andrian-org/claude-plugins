@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<entity version="4.0">
+  <header title="{{entity.title}}" />
+  <description title="" />
+  <datasource type="DB" name="{{entity.name}}" />
+  <primarykey>{{entity.key}}</primarykey>
+  <audittrail create="false" update="false" delete="false" search="false" />
+  <fields>
+{{#each entity.fields}}
+{{#if has_extract}}
+    <field name="{{name}}" type="{{type}}" dbtype="{{dbtype}}" format="" title="{{title}}" description="" size="{{size_attr}}" required="{{required_attr}}" readonly="{{readonly}}" uimask="{{uimask}}">
+      <extract table="{{extract_entity}}" view="{{extract_view}}" />
+    </field>
+{{else}}
+    <field name="{{name}}" type="{{type}}" dbtype="{{dbtype}}" format="{{format_attr}}" title="{{title}}" description="" size="{{size_attr}}" required="{{required_attr}}" readonly="{{readonly}}" uimask="{{uimask}}" />
+{{/if}}
+{{/each}}
+{{#if entity.has_application_id}}
+    <field name="ApplicationId" type="Text" dbtype="Guid" format="" title="Workspace" description="" size="" required="false" readonly="false" uimask="001111" />
+{{/if}}
+  </fields>
+</entity>

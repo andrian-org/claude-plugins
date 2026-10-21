@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form labelwidth="160">
+  <header title="default" />
+  <description title="" />
+  <tabs>
+    <tab title="Permit" name="tab_main">
+      <sections>
+        <section name="sec_main" title="Permit" showlabel="false" decoration="line" columns="1">
+          <rows>
+            <row>
+              <cell title="Reference" name="Reference" />
+            </row>
+            <row>
+              <cell title="Holder" name="Holder" />
+            </row>
+            <row>
+              <cell title="PermitTypeId" name="PermitTypeId" />
+            </row>
+            <row>
+              <cell title="IssuedOn" name="IssuedOn" />
+            </row>
+            <row>
+              <cell title="Fee" name="Fee" />
+            </row>
+            <row>
+              <cell title="Active" name="Active" />
+            </row>
+          </rows>
+        </section>
+      </sections>
+    </tab>
+  </tabs>
+  <hidden>
+    <cell name="ApplicationId" title="ApplicationId">
+      <properties oncreatevalue="~APPLICATIONID" />
+    </cell>
+  </hidden>
+</form>

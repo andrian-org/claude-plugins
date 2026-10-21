@@ -1,0 +1,13 @@
+{
+  "cli": "audit_root.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--reach",
+    "app/notes.txt"
+  ],
+  "exit": 3,
+  "codes": [
+    "AUDIT_REACH_NOT_ARTIFACT"
+  ]
+}

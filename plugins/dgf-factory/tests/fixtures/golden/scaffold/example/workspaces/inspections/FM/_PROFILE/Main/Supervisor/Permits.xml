@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mapNode type="GRID">
+  <set name="TableName" value="Permit" />
+  <set name="ViewName" value="default" />
+  <set name="CreateForm" value="FORM:default" />
+  <set name="OpenForm" value="FORM:default" />
+</mapNode>

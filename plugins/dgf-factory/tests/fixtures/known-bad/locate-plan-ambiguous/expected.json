@@ -1,0 +1,13 @@
+{
+  "cli": "locate_plan.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--branch",
+    "feature/x"
+  ],
+  "exit": 1,
+  "codes": [
+    "PLAN_AMBIGUOUS"
+  ]
+}

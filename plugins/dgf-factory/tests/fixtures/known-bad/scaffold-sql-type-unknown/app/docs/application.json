@@ -1,0 +1,32 @@
+{
+  "design_format": 1,
+  "application": {
+    "name": "Inspections"
+  },
+  "data_model": {
+    "entities": [
+      {
+        "name": "Permit",
+        "key": "Id",
+        "fields": [
+          {
+            "name": "Id",
+            "type": "Integer",
+            "dbtype": "Int32"
+          },
+          {
+            "name": "Holder",
+            "type": "Text",
+            "dbtype": "String",
+            "size": 50
+          },
+          {
+            "name": "Big",
+            "type": "Integer",
+            "dbtype": "Int64"
+          }
+        ]
+      }
+    ]
+  }
+}

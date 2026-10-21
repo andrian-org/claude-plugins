@@ -1,0 +1,10 @@
+{
+  "cli": "resolve_components.py",
+  "args": [
+    "workspaces/app/FM/_DATA/Cases/_forms/Edit/_form.xml"
+  ],
+  "exit": 1,
+  "codes": [
+    "UNKNOWN_COMPONENT"
+  ]
+}
