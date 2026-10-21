@@ -79,6 +79,21 @@ def apply_route(openapi, route):
     return prefix, changes
 
 
+def explicit_optional_parameters(openapi):
+    # Microsoft.OpenApi omits `required: false`, which leaves an optional parameter indistinguishable from an
+    # undocumented one; false is the OpenAPI default, so writing it changes nothing a consumer reads.
+    count = 0
+    for operations in (openapi.get("paths") or {}).values():
+        for operation in operations.values():
+            if not isinstance(operation, dict):
+                continue
+            for parameter in operation.get("parameters") or []:
+                if "in" in parameter and "required" not in parameter:
+                    parameter["required"] = False
+                    count += 1
+    return count
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -97,6 +112,7 @@ def main():
         openapi = json.load(f)
 
     prefix, changes = apply_route(openapi, route)
+    optional = explicit_optional_parameters(openapi)
     openapi["servers"] = openapi_servers()
     # The code's OpenApiInfo.Version is the API version ("v1"); the deliverable carries the document version.
     if args.version:
@@ -113,6 +129,9 @@ def main():
             print(f"  {old} -> {new}")
     else:
         print(f"Paths already carry {prefix}; refreshed servers only.")
+
+    if optional:
+        print(f"Marked {optional} optional parameter(s) required: false")
 
     print(f"servers: {', '.join(s['url'] for s in openapi['servers'])}")
     print(f"Wrote: {output}")

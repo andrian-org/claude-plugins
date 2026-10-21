@@ -47,8 +47,12 @@ REF = "#/components/schemas/"
 STYLE = (
     "One short sentence per entry, ending with a period. Lead with the subject: "
     "'Person unique identifier.', 'Date of birth of the person.', 'Whether the permit is "
-    "permanent.' Name the format or unit when the type alone does not say it (ISO 8601, "
-    "ISO 3166-1 alpha-3, NRC in the form 123456/10/1). Booleans start with 'Whether'. Do not "
+    "permanent.' Write for a business reader, in plain words: say what the value means, not "
+    "how it is encoded. The Type column already gives the type and format, so never restate "
+    "them and never cite a standard such as ISO 8601 or ISO 3166 ('Country that issued the "
+    "document.', not 'ISO 3166-1 alpha-3 code of the country that issued the document.'). A "
+    "business example is fine when it helps (an NRC such as 123456/10/1). Booleans start "
+    "with 'Whether'. Do not "
     "repeat the property name alone, do not list enum members (the document lists them), and "
     "never write TODO. A schema description says what one instance of the schema represents; "
     "an integer enum schema's description also maps each code to its meaning, because the "
@@ -74,6 +78,8 @@ def problem(name: str, text) -> str | None:
         return "placeholder"
     if _norm(text) == _norm(name):
         return "repeats the name"
+    if re.search(r"\bISO\b", text):
+        return "cites an ISO standard; describe the value in plain words"
     return None
 
 

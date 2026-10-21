@@ -315,14 +315,15 @@ Style, which `missing-descriptions.json` repeats:
 |---|---|
 | One short sentence, ending with a period, subject first | `Person unique identifier in the National Identity Register.` |
 | Same wording for the same field in the Add, Update and Response variants of a model | `AddressAddRequest.line1` and `AddressResponse.line1`: `First line of the street address.` |
-| Name the format or unit when the type alone doesn't | `ISO 3166-1 alpha-3 code of the country that issued the document.` |
+| Plain words for a business reader: what the value means, not how it is encoded. The Type column already gives the type and format, so never restate them and never cite a standard (ISO 8601, ISO 3166) | `Country that issued the document.`, not `ISO 3166-1 alpha-3 code of the country that issued the document.` |
+| A business example is fine when it helps the reader recognise the value | `National Registration Card number, such as 123456/10/1.` |
 | Booleans start with "Whether" | `Whether the permit is permanent.` |
 | A schema description says what one instance represents | `An immigration permit issued by the Department of Immigration (ZDI).` |
 | An integer enum schema maps every code, because the export carries only the numbers | `Type of an address: 0 Unknown, 1 Residential, 2 Postal, 3 Billing, 4 Birth, 9 Not applicable.` |
 | Never the property name alone, never `TODO`, never a property's enum members (the document lists them) | |
 | Use the upstream source's own wording when the integration source documents the field | |
 
-The script refuses an entry that is empty, holds `TODO` or `__`, or only repeats the name, and lists it as missing again. A catalogue key the document no longer holds is reported as stale in the build log; remove it from the catalogue.
+The script refuses an entry that is empty, holds `TODO` or `__`, only repeats the name, or cites an ISO standard, and lists it as missing again. A catalogue key the document no longer holds is reported as stale in the build log; remove it from the catalogue.
 
 A referenced property (`$ref`) gets its description the way Swashbuckle's `UseAllOfToExtendReferenceSchemas` does it, wrapped in a single-element `allOf`, because OpenAPI 3.0 ignores a sibling of a bare `$ref`. The renderer unwraps it, so the Type column still links the schema.
 
