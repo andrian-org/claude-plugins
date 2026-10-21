@@ -28,6 +28,10 @@ hand-maintained collections are named after the tenant alone).
 .PARAMETER SwaggerJson
 Path to the exported OpenAPI document, after apply_gateway_route.py has run over it.
 
+.PARAMETER Route
+Gateway route without /t/, e.g. "rss" or "mcti/zabs". Requests are foldered by the first path
+segment after /t/<route>, so the route's own segment count has to be known.
+
 .PARAMETER OutputPath
 Required. Where to write the collection. This script ships in a plugin rather than in the
 target repository, so it cannot infer a repo root from its own location.
@@ -43,6 +47,7 @@ sidesteps that hook entirely. Requires Node/npx on the machine running this scri
 param(
     [Parameter(Mandatory = $true)][string]$Tenant,
     [Parameter(Mandatory = $true)][string]$SwaggerJson,
+    [Parameter(Mandatory = $true)][string]$Route,
     [string]$OutputPath
 )
 
@@ -133,6 +138,37 @@ function Set-GatewayHost {
     }
 }
 
+function Get-Requests {
+    param($Items)
+
+    foreach ($item in $Items) {
+        if ($item.PSObject.Properties.Name -contains 'item') { Get-Requests -Items $item.item }
+        else { $item }
+    }
+}
+
+# Internal rule: one folder per first path segment after /t/<route>, named in lowercase
+# (/t/rss/nir/... and /t/rss/zdi/... give the folders "nir" and "zdi"), with no nesting below it.
+# A path with no such segment, or one that opens with a path variable, goes in the folder named
+# after the route itself.
+function Group-BySegment {
+    param($Items, [string]$Route)
+
+    $routeSegments = @($Route.Trim('/') -split '/' | Where-Object { $_ })
+    if ($routeSegments.Count -gt 1 -and $routeSegments[0] -eq 't') { $routeSegments = @($routeSegments[1..($routeSegments.Count - 1)]) }
+    $fallback = $routeSegments[-1].ToLowerInvariant()
+    $folders = [ordered]@{}
+    foreach ($request in @(Get-Requests -Items $Items)) {
+        $path = @($request.request.url.path)
+        $index = 1 + $routeSegments.Count
+        $segment = if ($path.Count -gt $index) { [string]$path[$index] } else { '' }
+        $name = if (-not $segment -or $segment -match '^[:{]') { $fallback } else { $segment.ToLowerInvariant() }
+        if (-not $folders.Contains($name)) { $folders[$name] = New-Object System.Collections.ArrayList }
+        [void]$folders[$name].Add($request)
+    }
+    @($folders.Keys | ForEach-Object { [pscustomobject]@{ name = $_; item = @($folders[$_]) } })
+}
+
 $ScriptDir = $PSScriptRoot
 
 # This script lives in a plugin, not in the target repository, so it cannot infer a repo root
@@ -176,6 +212,7 @@ $collection = Get-Content $OutputPath -Raw | ConvertFrom-Json
 $collection.info.name = $Tenant
 
 Set-GatewayHost -Items $collection.item -Tokens $BaseTokens -Replacement $HostToken
+$collection.item = @(Group-BySegment -Items $collection.item -Route $Route)
 
 $auth = [pscustomobject]@{
     type  = 'basic'

@@ -837,7 +837,7 @@ A tenant scaffolded by `tenant-init` already has the project-level half: `Genera
 
 **Routes** — on every route generated in step 6, the APIS set:
 
-- `.WithTags("...")` — required. The Postman step folders requests by tag; untagged operations collapse into one undifferentiated list
+- `.WithTags("...")` — required. Without it the OpenAPI document advertises the C# class name (`BusinessEntitiesModule`) as the tag, and the deliverables gate fails. The Postman collection folds by path segment, not by tag
 - `.WithSummary(...)` and `.WithDescription(...)` — these become the endpoint table entries
 - `.Produces<T>(StatusCodes.Status200OK)` and `.ProducesProblem(StatusCodes.Status4xx/500…)` — already required by step 6; they populate the response tables
 - Optional: `.WithMetadata(new ProblemResponseDescriptions("…400 prose…", "…500 prose…"))` to replace the bare reason phrases. Copy `ProblemResponseOperationFilter.cs` (record + filter) from APIS into `<TenantName>.Swagger`, register `options.OperationFilter<ProblemResponseOperationFilter>();` in `AddSwaggerGen`, and add a record member for any other status (404) the tenant describes — APIS's record covers 400 and 500 only

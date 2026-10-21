@@ -371,7 +371,7 @@ def main() -> int:
     # --- 5. Postman, a Tenant-level artifact ---------------------------------------------------
     target = pkg / "Tenant" / f"{tenant}.postman_collection.json"
     run(["powershell", "-NoProfile", "-File", str(scripts / "openapi_to_postman.ps1"),
-         "-Tenant", tenant, "-SwaggerJson", str(spec_out), "-OutputPath", str(target)],
+         "-Tenant", tenant, "-SwaggerJson", str(spec_out), "-Route", route, "-OutputPath", str(target)],
         label="openapi_to_postman.ps1")
     written.append(target)
 

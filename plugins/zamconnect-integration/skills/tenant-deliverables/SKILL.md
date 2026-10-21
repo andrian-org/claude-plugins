@@ -261,7 +261,7 @@ Whichever way it was produced, the document must satisfy all of:
 | `servers` | The three environment URLs from `scripts/environments.py` |
 | `paths` | Every key prefixed with `/t/<route>` exactly **once**. A published spec ships `/t/pqps/t/pqps/Hub/pesticides` — re-running the prefix step over an already-prefixed document by hand |
 | `components.securitySchemes` | HTTP Basic. Every tenant is Basic-authenticated; a spec that omits this tells the consumer nothing about how to authenticate |
-| tags | A domain name per logical group — `NAPSA`, `PACRA`, `NIR`, `Employers` — so the Postman step can fold by tag |
+| tags | A domain name per logical group — `NAPSA`, `PACRA`, `NIR`, `Employers` — never a C# class name. The Postman collection folds by path segment, not by tag (step 7) |
 | `parameters[].required` | Set on every parameter. Published specs leave it unset throughout, so nothing distinguishes a mandatory query parameter from an optional one |
 | `responses` | Exactly the status codes the code declares. Not fewer, not invented ones |
 
@@ -483,7 +483,7 @@ Two pieces of carried-over junk to strip while you are there: a `[trash]/0000.da
 
 ```powershell
 powershell -File scripts/openapi_to_postman.ps1 `
-  -Tenant <CODE> -SwaggerJson <swagger.json>
+  -Tenant <CODE> -SwaggerJson <swagger.json> -Route <route> -OutputPath <Tenant/CODE.postman_collection.json>
 ```
 
 It goes in `Tenant/` only, as `<CODE>.postman_collection.json`, and covers the whole surface — both Consume and Provide. Required shape:
@@ -491,7 +491,7 @@ It goes in `Tenant/` only, as `<CODE>.postman_collection.json`, and covers the w
 - `info.name` is the tenant code alone, matching the collections already in `postman collections/`.
 - Requests addressed at `{{zc_base_url}}`, with `/t/<route>/…` as the literal path. Not a per-tenant host variable.
 - Collection-level **Basic** auth using `{{username}}` / `{{password}}`. One published collection ships `{{test}}` for both fields; another is `"type": "bearer"` with `{{your_access_token}}` — bearer is not how any tenant authenticates, and a collection that says so will not work for the consumer who receives it.
-- Foldered **by tag**, not by URL segment. Segment foldering produces the nesting a published collection shows — `nir` > `persons` > `zampass` > `{zamPassId}` for a single request — which nobody navigates. Partial foldering is no better: one published collection has a single `NAPSA` folder and four requests loose at the root.
+- Foldered **by the first path segment after `/t/<route>`**, one folder per segment, named in lowercase — an internal rule. Every request under `/t/rss/nir/…` goes in the folder `nir`, every one under `/t/rss/zdi/…` in `zdi`, whatever their tags. One level only: segment-by-segment nesting produces what a published collection shows — `nir` > `persons` > `zampass` > `{zamPassId}` for a single request — which nobody navigates. No request sits loose at the root: one published collection has a single `NAPSA` folder and four requests beside it. A path with no segment after the route, or one that opens with a path parameter (`/t/<route>/{id}`), goes in the folder named after the route's last segment.
 - Request names are the operation, `GET /nir/persons/identity-document`, not free text like "Nir person".
 - **Every path must carry the tenant route.** A published collection requests `{{zc_base_url}}/t/napsa/employers` where the endpoint is `/t/wcf/napsa/employers` — the tenant segment dropped, so the request 404s as shipped. Diff every URL in the collection against `paths` in the OpenAPI document.
 
@@ -548,7 +548,7 @@ anything failed, so it can gate a commit.
 | Tenant completeness | An operation in the OpenAPI document has no Heading 3 in the `(t)` document |
 | Role projections | A single-role tenant: its role document and `(t)` differ anywhere beyond the role word. A tenant with both `(c)` and `(p)`: an endpoint sits in both or in neither, `(t)` doesn't list the `(c)` endpoints first and then the `(p)` ones, or the front matter (cover, disclaimer, history, Executive Summary) or Contacts and Signature differ beyond the role word |
 | Postman auth | The collection auth is not `basic`, or carries `{{test}}` or `{{your_access_token}}` |
-| Postman shape | The collection is outside `Tenant/`, `info.name` is not the tenant code alone, requests sit loose at the root alongside folders, or a request name is not the operation (`GET /t/<route>/…`) |
+| Postman shape | The collection is outside `Tenant/`, `info.name` is not the tenant code alone, a request sits loose at the root, a folder is nested, repeated or holds a request whose first segment after `/t/<route>` is not the folder's name in lowercase, or a request name is not the operation (`GET /t/<route>/…`) |
 | Postman routes | A request URL (path variables included) is absent from the OpenAPI `paths`, or its method is not an operation of that path |
 | Postman query | A query key is not a query parameter of the request's operation |
 | Postman data | A query or path-variable value looks real: 8 or more digits and slashes |

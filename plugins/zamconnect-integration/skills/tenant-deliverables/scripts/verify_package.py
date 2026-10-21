@@ -421,7 +421,17 @@ def check_completeness(t: Path, spec: dict) -> list[str]:
             if m in METHODS and f"{m.upper()} {p}" not in have]
 
 
-def check_postman(path: Path, spec_path: Path) -> list[str]:
+def postman_folder(raw: str, route: str | None) -> str:
+    """The folder a request belongs in: the first path segment after /t/<route>, lowercased, or
+    the route's own last segment when the path has none or opens with a path variable."""
+    segments = [s for s in re.sub(r"\?.*$", "", raw.replace("{{zc_base_url}}", "")).split("/") if s]
+    depth = 1 + (len(route.strip("/").split("/")) if route else 1)
+    fallback = (route.strip("/").split("/")[-1] if route else segments[1] if len(segments) > 1 else "").lower()
+    first = segments[depth] if len(segments) > depth else ""
+    return fallback if not first or first[0] in ":{" else first.lower()
+
+
+def check_postman(path: Path, spec_path: Path, route: str | None) -> list[str]:
     fails: list[str] = []
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     paths = set(spec.get("paths", {}))
@@ -443,8 +453,17 @@ def check_postman(path: Path, spec_path: Path) -> list[str]:
         fails.append(f"info.name is {col.get('info', {}).get('name')!r}, must be the tenant code alone")
 
     loose = [i for i in col.get("item", []) if "item" not in i]
-    if loose and any("item" in i for i in col.get("item", [])):
-        fails.append(f"{len(loose)} request(s) loose at the root alongside folders; fold by tag")
+    if loose:
+        fails.append(f"{len(loose)} request(s) loose at the root; fold by the segment after /t/<route>")
+    names = [i.get("name") for i in col.get("item", []) if "item" in i]
+    fails += [f"folder {n!r} appears more than once" for n in sorted({n for n in names if names.count(n) > 1})]
+    for folder in (i for i in col.get("item", []) if "item" in i):
+        if any("item" in i for i in folder["item"]):
+            fails.append(f"folder {folder.get('name')!r} has subfolders; one folder level only")
+        for r in walk(folder["item"]):
+            want = postman_folder(r.get("request", {}).get("url", {}).get("raw", ""), route)
+            if folder.get("name") != want:
+                fails.append(f"{r.get('name')} is in folder {folder.get('name')!r}, belongs in {want!r}")
 
     for r in walk(col.get("item", [])):
         raw = r.get("request", {}).get("url", {}).get("raw", "")
@@ -522,7 +541,7 @@ def main() -> int:
             report(f"POSTMAN  {f.relative_to(pkg)}",
                    [f"lives in {f.parent.name}; the collection is a Tenant-level artifact"])
         report(f"POSTMAN  {f.relative_to(pkg)}",
-               check_postman(f, specs[0]) if specs else ["no OpenAPI document to diff against"])
+               check_postman(f, specs[0], args.route) if specs else ["no OpenAPI document to diff against"])
 
     missing = [d for d in ("Consumer", "Provider", "Tenant", "Integration Requests", "Archive")
                if not (pkg / d).is_dir()]
