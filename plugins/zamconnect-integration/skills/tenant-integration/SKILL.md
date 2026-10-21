@@ -20,7 +20,7 @@ Six patterns go beyond a plain REST or SOAP client: token login (`--auth Login`)
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`, R12 above all: **every option is a complete answer**. This skill never offers a source *type* as an option, never asks for anything the source already says (protocol, SOAP version, operations, auth block), and never writes "pick Other and…" in an option.
 
-Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), cross-cluster routes (C11) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
+Shared repo facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), cross-cluster routes (C11), upstream scopes of the tenant's gateway user (C12) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
 
 ## Arguments
 
@@ -263,7 +263,9 @@ Everything downstream follows from this one choice:
 | Payloads | `System.Text.Json` | `XmlExtensions.Serialize` / `Deserialize` |
 | Client section | Step 4 | Step 4b |
 
-**Upstream reached through the ZamConnect gateway.** When the source's base URL is a ZamConnect gateway (`api.*.gsb.gov.zm`, the compose `http://gateway/`, `localhost:10080`, or a local mock of one) or its paths start with `/t/<route>/`, the upstream is another tenant behind the gateway. Don't create a `<System>` client with its own section. Put the operations on the tenant's `Endpoints/Gateway.cs` (`public class Gateway(HttpClient client, IOptions<JsonSerializerOptions> jsonOptions) : RestEndpoint(client)`, the `src/Tenants/IOM/Endpoints/Gateway.cs` shape), creating it if missing, and call relative paths `t/<route>/…`. `RegisterEndpoints` binds it to `Endpoints:Gateway`, the same section `Shared.Endpoints.Gateway` and `EServicesShared` read (`integrate-shared` §5), so every gateway call of the tenant uses one base URL and one set of gateway credentials. Write that section with the `integrate-shared` §5 shape when it's missing, and keep it when it's there. The data role is `consume`. The review names the client `Gateway`.
+**Upstream reached through the ZamConnect gateway.** When the source's base URL is a ZamConnect gateway (`api.*.gsb.gov.zm`, the compose `http://gateway/`, `localhost:10080`, or a local mock of one) or its paths start with `/t/<route>/`, the upstream is another tenant behind the gateway. Don't create a `<System>` client with its own section. Put the operations on the tenant's `Endpoints/Gateway.cs` (`public class Gateway(HttpClient client, IOptions<JsonSerializerOptions> jsonOptions) : RestEndpoint(client)`, the `src/Tenants/IOM/Endpoints/Gateway.cs` shape), creating it if missing, and call relative paths `t/<route>/…`. `RegisterEndpoints` binds it to `Endpoints:Gateway`, the same section `Shared.Endpoints.Gateway` and `EServicesShared` read (`integrate-shared` §5), so every gateway call of the tenant uses one base URL and one set of gateway credentials. Write that section with the `integrate-shared` §5 shape when it's missing, and keep it when it's there. The data role is `consume`. The review names the client `Gateway`, and the scope each `t/<route>/…` path needs.
+
+The tenant calls those paths as its own gateway user, `Credentials.<Folder>Tenant`, so that user needs the scope of each route they land on (C12): the longest matching route in the routes doc (C8), or the target tenant's `GATEWAY-CONFIG.md` when the route isn't live in test yet. GOVZM's shared e-Services over the gateway (`t/govzm/eservices/…`) need `govzm`. A path no route matches is a `none — no route` row, and the report says an administrator must add the route before the call can work. Rewrite the `## Upstream scopes` section of `GATEWAY-CONFIG.md` in the C12 shape after step 6: one row per scope, `Calls through` naming `Gateway`, with every `t/<route>/…` path of `Endpoints/Gateway.cs` (`grep -oE '"/?t/[^"?{]+' src/Tenants/<T>/Endpoints/Gateway.cs | sort -u`), and keep the `EServicesShared` rows `integrate-shared` wrote.
 
 **Or no code at all.** When the tenant would republish the other tenant's routes unchanged — the same paths below a prefix, the same bodies and errors, no mapping (`--dto passthrough`) — a cross-cluster route forwards them without a client (C11). Find the other tenant's cluster for `/t/<route>/` in the routes doc (C8), then ask header `Pass-through`: `Build the Gateway client and routes (Recommended)` — the tenant owns the contract, its tests and its documents · `Cross-cluster routes, no code` — per-path routes onto `<cluster>` added to `routes[]` of this tenant's `GATEWAY-CONFIG.md`, in the C11 shape. The second writes no client, model, module or config, and ends the pass with that file. The review lists every route with its host path. The tenant's own export doesn't contain these operations: the report names `tenant-deliverables` step 4, which adds them from the host's export. For shared e-Services on GOVZM, `integrate-shared --mode virtual` does this.
 
@@ -322,6 +324,7 @@ No module of the tenant, and no route of the new integration, may map a promoted
 
 - Remove every cross-cluster route of the slug (`clusterId` not `<TENANT>`). Each one would shadow the code that now serves its path.
 - Set `metadata.Scope` of `t_<slug>` to the scope the virtual routes used, and its `methods` to every verb the tenant maps (step 6, Gateway methods).
+- Write the `## Upstream scopes` section (C12): the promoted operations now call the upstream as `Credentials.<T>Tenant`, so it needs every scope the host's user used for them — the `## Host scopes` table of the virtual package when it has one, else the `integrate-shared` §2 catalogue per operation reached. The cutover's step 2 points at this section.
 - Add the cutover section below, listing every old route id — from the virtual package, the routes doc and the routes just removed.
 
 Keep `src/VirtualTenants/<CODE>/` as it is. It is the rollback until every gateway has been cut over.
@@ -334,7 +337,7 @@ they exist they keep winning over `t_<slug>`: the catch-all has `order: 1`, and 
 longer path. In each gateway, in this order:
 
 1. Deploy `core-<slug>` and check that it answers `/health/live`.
-2. Grant the tenant's gateway user the upstream scopes: <scopes>.
+2. Grant the tenant's gateway user (`Credentials.<T>Tenant`) the scopes of the Upstream scopes section above: <scopes>.
 3. Import this package with `POST /Import/routes`. Traffic still goes to <host>.
 4. Delete each old route: <route ids>. `DELETE /Routes/{id}` takes the route's store id, not its
    `routeId`: look it up in the AdminAPI route list first. From here on, `t_<slug>` serves every path.
@@ -352,7 +355,7 @@ Promote TTV from virtual tenant (GOVZM /eservices) — contract frozen:
   Modules/EServicesModule.cs            7 routes copied from EServicesSharedModule, no base path (zra.tcc not reached)
   Program.cs                            + RegisterGatewayEndpoint, EServicesShared, JsonStringEnumConverter
   appsettings.json + .Development.json  Endpoints:Gateway
-  GATEWAY-CONFIG.md                     − 2 cross-cluster routes · t_ttv scope ttv · GET, POST, PATCH · cutover
+  GATEWAY-CONFIG.md                     − 2 cross-cluster routes · t_ttv scope ttv · GET, POST, PATCH · upstream scopes · cutover
 Baseline: TTV (t) API Swagger.json · 7 operations · no change allowed
 Gateway user Credentials.TTVTenant needs: ndw, ndw-nbr
 Old routes to delete at cutover: t_ttv_eservices_nir_persons, t_ttv_eservices_nbr_entities
@@ -789,6 +792,7 @@ Must report `0 Error(s)` (`CARTER1` and `NU1903` warnings come from Core and exi
 - Every exposed route declares its success type and one `ProducesProblem` per reachable failure status
 - `match.methods` in `GATEWAY-CONFIG.md` lists every verb the tenant maps
 - An upstream reached through the gateway goes through `Endpoints/Gateway.cs` and `Endpoints:Gateway`, never a second client and section with its own gateway credentials
+- The `## Upstream scopes` section of `GATEWAY-CONFIG.md` has a row for every `t/<route>/…` path the tenant calls, through `Endpoints/Gateway.cs` or `EServicesShared`, and no row for a path it no longer calls (C12)
 - No upstream DTO — JSON or XML — is returned directly where a public DTO was defined
 
 After a promotion (step 1b) — the **parity gate**. Export the tenant's Swagger the way `tenant-deliverables` step 4 does, strip `/t/<slug>` from the baseline's paths, and compare every baseline operation: path, verb, each parameter (`name`, `in`, `required`, schema), request body schema, success status and schema, enum representation, failure statuses. Every baseline operation must be there, unchanged. Two differences are allowed: the new integration's operations, and failure statuses that step 8 now documents where the host returned them without declaring them (report each one). Anything else is a failure: fix the code, never the baseline. In gate mode the last line is then `GATE-RESULT: failed parity <METHOD> <path>`. Also check:
@@ -868,7 +872,7 @@ Each pass gets its own client, config section, models and module, and the report
 
 ## Report
 
-State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list the entries added to or removed from `ENVIRONMENT-VARIABLES.json` (names only, never a value), and what an administrator does by hand (C10): add those variables to each environment, import `GATEWAY-CONFIG.md` into each gateway (locally that is `/tenant-audit <TenantName> --only runtime`), and register any RA / ZamPass client. `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly.
+State the upstream system(s) and their base URL, one line per file added or changed, and a table of the exposed routes (method, `/t/<route>/…` path, purpose). Name the spec-readiness items from step 8 that are still unmet, if any. Then list the entries added to or removed from `ENVIRONMENT-VARIABLES.json` (names only, never a value), and what an administrator does by hand (C10): add those variables to each environment, import `GATEWAY-CONFIG.md` into each gateway (locally that is `/tenant-audit <TenantName> --only runtime`), grant `Credentials.<TenantName>Tenant` the scopes of its `## Upstream scopes` section (C12) when the tenant calls back into the gateway, and register any RA / ZamPass client. `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly.
 
 After a promotion, the report opens with it: the host, the baseline, the parity result per operation, and the cutover from `GATEWAY-CONFIG.md` — the upstream scopes to grant the tenant's gateway user and the old route ids to delete in each gateway, in that order, after the deploy and the import. Consumers change nothing. Locally, the Docker `mongo` may still hold the old routes from an earlier `tenant-audit` Check V: they shadow `t_<slug>` there too, so name them for deletion before `/tenant-audit <T> --only runtime`. Name `/tenant-tests <T>` next: its tests for the promoted routes assert the baseline's statuses and JSON property names.
 

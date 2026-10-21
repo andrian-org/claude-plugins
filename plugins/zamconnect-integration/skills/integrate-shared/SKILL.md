@@ -18,7 +18,7 @@ All paths below are relative to the ZamConnect repository root (the directory ho
 
 Every question follows `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Every option is a complete answer (R12). The catalogue holds more than 4 sources, so the menus group first and drill down after (R9).
 
-Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), virtual tenants and cross-cluster routes (C11) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
+Shared facts — usings/namespace (C1), `Error` → status (C2), `Username` casing (C3), token naming (C4), Carter DI lifetime (C5), file hygiene (C6), committed-secrets baseline (C7), live routes doc (C8), virtual tenants and cross-cluster routes (C11), upstream scopes of the tenant's gateway user (C12) — live in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`. Read it before generating; this skill cites section ids instead of repeating them.
 
 ## Arguments
 
@@ -377,11 +377,23 @@ Every consumer's gateway user needs the `<scope>` scope, or the gateway answers 
 
 Registering by hand through `POST /Routes` instead: create the scope first with `POST /Scopes {"name": "<scope>"}` —
 the route validator rejects a scope that doesn't exist.
+
+## Host scopes
+
+GOVZM calls the upstream for these routes with its own gateway user, not with the consumer's. That user must
+keep the scopes below in each gateway, or GOVZM answers 500 to <CODE>'s consumers. <CODE>'s gateway user needs
+none of them.
+
+| Upstream paths | Scope |
+|---|---|
+| `/t/ndw/graphql`, `/t/ndw/nir/persons/…` | `ndw` |
 ~~~~
 
 A per-path route has the same object without `"order"`, with `"path": "/t/<slug>/<path>/{**url}"` and `"PathPattern": "/eservices/<path>/{**url}"`, and one operations-table row per operation it reaches.
 
-**Verify.** Read the file back and check each route: `clusterId` is `GOVZM`, `authorizationPolicy` is `Basic`, `metadata.Scope` is the chosen scope, the `PathPattern` starts with the GOVZM prefix, `methods` holds only verbs GOVZM maps under that path, `order` is `1` on a catch-all and absent on a per-path route. For a virtual tenant `clusters` is `[]`. For an existing tenant, `clusters` and the tenant's own route are unchanged. No other file changed. Don't run the audit from here: `/tenant-audit <CODE>` is the next step, and its Check V calls every route through the local gateway.
+**Host scopes.** One row per distinct scope of the operations the routes reach — every operation listed under `Reaches`, selected or not — with the upstream paths from the §2 catalogue. A catch-all reaches every operation GOVZM serves, so it lists every scope of the `EServicesSharedModule` set. An existing tenant's cross-cluster sub-routes add the same table, headed `## Host scopes — <route ids>`, below the operations table: the scopes are GOVZM's, never the tenant's own Upstream scopes section (C12).
+
+**Verify.** Read the file back and check each route: `clusterId` is `GOVZM`, `authorizationPolicy` is `Basic`, `metadata.Scope` is the chosen scope, the `PathPattern` starts with the GOVZM prefix, `methods` holds only verbs GOVZM maps under that path, `order` is `1` on a catch-all and absent on a per-path route. The `## Host scopes` table holds every scope of the operations under `Reaches`, and no other. For a virtual tenant `clusters` is `[]`. For an existing tenant, `clusters` and the tenant's own route are unchanged. No other file changed. Don't run the audit from here: `/tenant-audit <CODE>` is the next step, and its Check V calls every route through the local gateway.
 
 ## 5. Wire the tenant
 
@@ -460,6 +472,16 @@ grep -rhoE "Map(Get|Post|Put|Patch|Delete)\(|\[Http(Get|Post|Put|Patch|Delete)" 
 ```
 
 When any module of the tenant derives from `EServicesSharedModule` (this run's `inherit` mode or an earlier one), add the verbs of the step 1 `EServicesSharedModule` grep: its routes live in Core, so the tenant grep never sees them. Keep the order `GET`, `POST`, `PUT`, `PATCH`, `DELETE`. A tenant with no `GATEWAY-CONFIG.md` (created before `tenant-init` wrote one) gets the verbs in the report instead.
+
+**Upstream scopes.** The tenant now calls NDW or ZRA through the gateway as `Credentials.<TenantName>Tenant`, and that user needs the scope of every operation it calls (C12). Rewrite the `## Upstream scopes` section of `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` in the C12 shape, from every shared operation the tenant calls after this run, not only the new ones:
+
+```bash
+grep -oE 'public async Task<Result<.*>> [A-Za-z]+[<(]' src/Core/Shared/Services/EServicesShared.cs \
+  | sed -E 's/.*>> ([A-Za-z]+)[<(]$/\1/' | sort -u > <scratch>/shared-ops.txt
+grep -rhoFwf <scratch>/shared-ops.txt src/Tenants/<TenantName>/Modules | sort -u
+```
+
+It matches the method name wherever the call wraps (`await services\n    .GetZdiPermitsByApplicantPassportNumber<…>`). Each method maps to its §2 key, and the key gives the upstream path and the scope. An `inherit` module calls every operation of `EServicesSharedModule`, which the grep can't see: add their scopes from the step 1 grep. Calls the tenant makes through its own `Endpoints/Gateway.cs` keep their rows (`tenant-integration` writes them). Group the rows by scope; the `Calls through` cell names the system, `EServicesShared (NIR)`. Re-check each scope in the routes doc (C8) when the step 1 rescan found a path the §2 table doesn't hold. A tenant with no `GATEWAY-CONFIG.md` gets the table in the report instead.
 
 The `MapGroup` below belongs to `routes` and `common` mode only. An `inherit` module has no `AddRoutes` override at all — mapping the group there would duplicate the shared route set.
 
@@ -596,6 +618,7 @@ Then, without running the app:
 - `inherit` mode only when the selection equals the `EServicesSharedModule` route set
 - No route collides with one the tenant already exposes — `grep -rn "MapGroup\|MapGet\|MapPost\|MapPatch" src/Tenants/<TenantName>/Modules/`
 - `match.methods` in `GATEWAY-CONFIG.md` lists every verb from the step 6 grep
+- The `## Upstream scopes` section of `GATEWAY-CONFIG.md` holds one row per distinct scope of the operations the tenant now calls, and no row for an operation it doesn't (C12)
 - `Endpoints:Gateway:BaseUrl` in `appsettings.Development.json` is `http://gateway/`
 - Every generic call passes both type arguments and a `map` delegate; paginated ones map with `MapItems`
 - Every generated route has `.Produces<T>`, one `.ProducesProblem` per status from step 2, `.WithSummary` and `.WithDescription`
@@ -606,13 +629,13 @@ The new routes change the tenant's contract. Outside `tenant-pipeline`, which ru
 
 One line per file added or changed, then a table of the exposed routes (method, path, shared operation, upstream gateway path, gateway scope). Then the step 7 results: `dotnet build`, and the image build of `<service>` as passed, failed or `skipped — Docker not available`, with any service-key mismatch. Then:
 
-- **Required gateway scopes** — the distinct scopes from that table (e.g. `ndw`, `ndw-nbr`, `zra`, `zra-portal`). The tenant's gateway user must hold every one; `ScopeAuthorizationMiddleware` answers `403 Request not allowed` otherwise.
+- **Required gateway scopes** — the distinct scopes from that table (e.g. `ndw`, `ndw-nbr`, `zra`, `zra-portal`). The tenant's gateway user must hold every one; `ScopeAuthorizationMiddleware` answers `403 Request not allowed` otherwise. Say they are written in the `## Upstream scopes` section of `GATEWAY-CONFIG.md` (C12).
 - Any note step 2 calls for: explicit person `Id` not forwarded (`nir.person.create`), the `GetCooperativeByRegistrationNumber` upstream bug (`doc.cooperative`).
 
 Close with what an administrator does by hand (C10):
 
 - Add the `ENVIRONMENT-VARIABLES.json` entries this run added to each environment — `Endpoints.APIGATEWAY.BaseUrl`, `Credentials.<TenantName>Tenant.Username`, `Credentials.<TenantName>Tenant.Password` (C4, C9)
-- Grant the scopes above to the tenant's gateway user in each gateway
+- Grant the scopes above to the tenant's gateway user (`Credentials.<TenantName>Tenant`) in each gateway, as the `## Upstream scopes` section of `GATEWAY-CONFIG.md` lists them
 - A gateway route for the new paths when the tenant's existing routes don't already forward them — check `docs/zamconnect-test-routes.md` (C8); some tenants are routed per path (`t_<slug>_eservices_nir_persons`, `…_nbr_entities`) rather than with one catch-all
 - `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are not in git (C10): the engineer sends them to the administrator directly
 
@@ -622,7 +645,7 @@ End with the equivalent command (R7), e.g. `/integrate-shared ZAQA --source NIR 
 
 - Import the `GATEWAY-CONFIG.md` package into each gateway. The import rejects the routes in a gateway without a `GOVZM` cluster. The file is not in git (C10): the engineer sends it to the administrator directly
 - Create the agency's gateway user in each gateway, with the `<scope>` scope only
-- Nothing to deploy: no pipeline, no variables, no image. GOVZM serves the routes with its own gateway user, which must keep the scopes of the operations reached (`ndw`, `ndw-nbr`, `zra`, `zra-portal`)
+- Nothing to deploy: no pipeline, no variables, no image. GOVZM serves the routes with its own gateway user, which must keep the scopes of the operations reached, as the `## Host scopes` section of the file lists them (`ndw`, `ndw-nbr`, `zra`, `zra-portal`)
 
 Name `/tenant-audit <CODE>` as the next step, then `/tenant-deliverables <CODE>`: it documents the GOVZM operations the routes reach, at the consumer's paths, into `src/VirtualTenants/<CODE>/Deliverables/`. End with the equivalent command, e.g. `/integrate-shared CCPC --mode virtual --all --shape catch-all`, and the state answers `mode: virtual`, `shape`, `scope`, `endpoints`. In gate mode, the last line is `GATE-RESULT: ran`, or `GATE-RESULT: failed <reason>` when the host check or a collision stops the skill.
 

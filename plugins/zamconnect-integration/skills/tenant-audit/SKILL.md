@@ -188,6 +188,29 @@ Not fixable automatically: a section needs a `BaseUrl` and credentials only the 
 | `{**catch-all}` in `Program.cs` | `app.UseRestExceptionHandler()` earlier in the file | Missing or later → `warn`: upstream failures reach the developer exception page |
 | `Headers["IdentityName"]` or `FromHeader(Name = "IdentityName")` used to pick upstream credentials | Credentials keyed on `User.Identity.Name` | `fail`: the gateway keeps an `IdentityName` header the caller sent, so any caller can claim another's credentials |
 
+**Upstream scopes (C12).** A tenant with an `Endpoints:Gateway` section calls back into the gateway as `Credentials.<TenantName>Tenant`, and that user needs the scope of every route it lands on. Nothing else in the repo records them, so the `## Upstream scopes` section of `GATEWAY-CONFIG.md` must. List what the tenant calls:
+
+```bash
+grep -oE 'public async Task<Result<.*>> [A-Za-z]+[<(]' src/Core/Shared/Services/EServicesShared.cs \
+  | sed -E 's/.*>> ([A-Za-z]+)[<(]$/\1/' | sort -u > <scratch>/shared-ops.txt
+grep -rhoFwf <scratch>/shared-ops.txt src/Tenants/<TenantName>/Modules | sort -u          # EServicesShared operations
+grep -rlE 'EServicesSharedModule\(' src/Tenants/<TenantName>/Modules                     # inherit: every shared operation
+grep -ohE '"/?t/[^"?{]+' src/Tenants/<TenantName>/Endpoints/Gateway.cs 2>/dev/null | sort -u   # own Gateway client paths
+awk '/^## Upstream scopes/{f=1;next} /^## /{f=0} f && /^\|/' src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+Map each operation to its scope with the `integrate-shared` §2 catalogue, and each `t/<route>/…` path with the routes doc (C8), as C12 says.
+
+| Finding | Severity |
+|---|---|
+| The tenant calls back into the gateway and `GATEWAY-CONFIG.md` has no `## Upstream scopes` section | `fail` — the administrator has no list to grant, and every such call answers 403 in a fresh gateway. Report the full section to add |
+| A scope the tenant needs is missing from the section | `fail`. Report the row to add |
+| A row whose upstream paths the tenant no longer calls | `warn`: a scope granted for nothing |
+| A row with `none — no route` | `warn`: an administrator must add the route before that call can work |
+| No `GATEWAY-CONFIG.md` | Reported by Check 9 (`skipped — no GATEWAY-CONFIG.md`). Add the required scopes to that report line |
+
+Not fixable through the fix question: the file is local only and written by `integrate-shared` / `tenant-integration`. Report the exact section.
+
 ## Check 4 — Secrets
 
 Deployment substitutes tokens with `actionOnMissing: fail` (C4), so a placeholder that never got a variable breaks the release, and a literal credential that got committed is a disclosure. **Never print a value** — every command below prints file names, line numbers, key names or counts.
@@ -414,6 +437,16 @@ You can't mint a DGPass admin token locally (every AdminAPI controller is `[Auth
 2. **Cluster**: `clusters`, upserted on `ConfigJson.ClusterId`.
 3. **Route**: `routes`, upserted on `ConfigJson.RouteId`. The route validator needs the scope and cluster to exist first.
 4. **User**: `users`, upserted on `Username`. It gets a `PasswordKey` and `PasswordSalt` from `HashHelper`'s PBKDF2 settings (SHA1, 1000 iterations, 20 bytes), `IsDisabled: false`, and the route scopes added with `$addToSet`. Scopes the user already has are kept. The password is reset to `test` on every run.
+5. **Upstream scopes**: each scope of `ZC_USER_SCOPES` (below) is inserted into `scopes` when missing and added to the same user.
+
+The test user is also the tenant's own gateway user locally: 9c's override puts `test<TenantName>` into every gateway-bound client. So it needs the tenant's upstream scopes too (C12), or every call the tenant makes back through the gateway answers 403. Read them from the Scope column of the `## Upstream scopes` section, skipping `none — no route`, as one comma-separated list:
+
+```bash
+US=$(awk '/^## Upstream scopes/{f=1;next} /^## /{f=0} f && /^\|/' src/Tenants/<TenantName>/GATEWAY-CONFIG.md \
+  | awk -F'|' 'NR > 2 { print $(4) }' | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort -u | paste -sd, -)
+```
+
+and pass it to the script below as `-e ZC_USER_SCOPES="$US"`. An empty list adds nothing. The list is local only: it isn't an `/Import/routes` field, and the gateway package itself never changes. A virtual tenant (Check V) has no such section: its test user gets the route scopes only.
 
 Keys under `configJson` are PascalCased on write (`clusterId` → `ClusterId`), because the gateway deserialises `ConfigJson` with `BsonSerializer`, which is case-sensitive. The script then replaces `YarpModificationToken` and `UsersModificationToken` in `Secrets`. `YarpStatusWorker` reloads routes, clusters and users only when those tokens change, so a direct write without the bump is never picked up.
 
@@ -426,7 +459,7 @@ awk '/^```json/{f=1;next} /^```/{f=0} f' src/Tenants/<TenantName>/GATEWAY-CONFIG
 docker cp <scratch>/gateway-package.json mongo:/tmp/gateway-package.json
 docker cp "${CLAUDE_PLUGIN_ROOT}/skills/tenant-audit/scripts/apply-local-gateway.js" mongo:/tmp/apply-local-gateway.js
 $C exec -T -e ZC_PACKAGE=/tmp/gateway-package.json -e ZC_TEST_USER=test<TenantName> -e ZC_TEST_PASSWORD=test \
-  mongo sh -c "$M /tmp/apply-local-gateway.js"
+  -e ZC_USER_SCOPES="$US" mongo sh -c "$M /tmp/apply-local-gateway.js"
 $C exec -T mongo rm -f /tmp/gateway-package.json /tmp/apply-local-gateway.js
 ```
 
@@ -538,6 +571,7 @@ Classify every response by **who answered**. The gateway answers `401`, `403 Req
 | `502` / `503` / `504` from the gateway | `fail` — the tenant container isn't reachable at `http://core-<slug>`. Check `$C ps core-<slug>` and its logs |
 | `5xx` from the tenant | `warn` if the logs show an upstream connection or timeout error (the agency API isn't reachable from a local container, which is expected), otherwise `fail` |
 | `404` / `5xx` from the tenant on a route that calls back through the gateway | `warn` when the gateway log shows the call to `/t/<other route>/…` answered `404`: that other tenant's route isn't in the local gateway. The call itself reached the local gateway with the test user, which is what this check proves |
+| `5xx` from the tenant, and the gateway log shows its call to `/t/<other route>/…` answered `403` | `fail` — the scope of that route is missing from the `## Upstream scopes` section (C12), so the test user didn't get it, and an administrator wouldn't grant it either. Name the route and its scope from the routes doc |
 
 For every non-`ok` row, read `$C logs --no-color --tail 80 core-<slug>` and `$C logs --no-color --tail 40 gateway`. Quote only the exception type and message, never headers, tokens, request bodies or config values.
 
@@ -619,7 +653,7 @@ Severity, highest first:
 
 1. Literal credential in `appsettings.json`, or committed key material (check 4)
 2. No pipeline file — never deployed; `tenant:` casing mismatch (check 1)
-3. Missing endpoint section in `appsettings.json` for a REST, SOAP or Gateway client; SOAP section without `AuthenticationScheme`; block misnested under `Endpoints` (check 3)
+3. Missing endpoint section in `appsettings.json` for a REST, SOAP or Gateway client; SOAP section without `AuthenticationScheme`; block misnested under `Endpoints`; a missing Upstream scopes section or row (check 3)
 4. Slug mismatch — gateway routes to nothing (check 2); health or a module endpoint failing through the local gateway (check 9)
 5. Regression guard hit, image build failure (check 8)
 6. Everything else, including the Development-credential baseline (`warn`)

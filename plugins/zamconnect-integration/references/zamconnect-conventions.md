@@ -163,7 +163,7 @@ engineer's machine and go to the administrator directly, never through git:
 | File | Written by |
 |---|---|
 | `src/Tenants/<Folder>/ENVIRONMENT-VARIABLES.json` (C9) | `tenant-init`; entries added by `tenant-integration`, `integrate-shared`, `payment-callback`, `data-exchange` |
-| `src/Tenants/<Folder>/GATEWAY-CONFIG.md` | `tenant-init`; routes and methods added by `integrate-shared` |
+| `src/Tenants/<Folder>/GATEWAY-CONFIG.md` | `tenant-init`; routes and methods added by `integrate-shared`; the Upstream scopes section (C12) by `integrate-shared` and `tenant-integration` |
 | `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` (C11) | `integrate-shared --mode virtual` |
 
 A skill that creates one of these files makes sure the repository root `.gitignore` holds this block. It
@@ -252,7 +252,7 @@ bodies, the same errors. Nothing in the repo is generated for it except the gate
 | `transforms` | `[{ "PathPattern": "<prefix>/<path>/{**url}" }]`. `<prefix>` must be a route group the host maps: check the host's modules for `MapGroup("<prefix>")` or the base-path argument of its shared module |
 
 The consumer's gateway user gets the virtual tenant's scope only. It does not need the host's own scope
-(`govzm`). The host reaches its own upstreams with its own `Endpoints:Gateway` user and scopes.
+(`govzm`). The host reaches its own upstreams with its own `Endpoints:Gateway` user and scopes (C12).
 
 **Exposure.** A route forwards every host route below its path for the verbs it lists, not only the operations
 that were picked. List in the review every host operation each route reaches. When a broader route would reach
@@ -279,3 +279,60 @@ in the review that both are reachable.
   routes reach, at the consumer's paths (`tenant-deliverables` step 4).
 - Locally, `tenant-audit <CODE>` applies the package to the local Docker `mongo` and calls each route through
   the local gateway (its Check V).
+
+## C12 — Upstream scopes of the tenant's gateway user
+
+A tenant that calls back into the gateway does so as its own gateway user: the `Endpoints:Gateway` section,
+`__Credentials.<Folder>Tenant.Username|Password__` (C4). `EServicesShared`, `Shared.Endpoints.Gateway`, the
+tenant's `Endpoints/Gateway.cs` and every other gateway-bound client (`tenant-audit` Check 9c) share that user.
+The gateway checks the user against the scope of the route each call lands on. A missing scope gives
+`403 Request not allowed`, which the tenant turns into a 500 for its consumer. Nothing in the build, the tests
+or the tenant's own route shows the gap, so the scopes are written down where the administrator reads them.
+
+### Who needs what
+
+| Who calls | Through | Needs |
+|---|---|---|
+| A consumer of the tenant | `/t/<slug>/…` | The tenant's route scope only (`<slug>`, or the scope the agency already holds) |
+| The tenant itself (`Credentials.<Folder>Tenant`) | `EServicesShared` → NDW and ZRA | The scope of every operation it calls, from the `integrate-shared` §2 catalogue: `ndw` (NIR), `ndw-nbr`, `ndw-doc`, `ndw-srs`, `ndw-zdi`, `ndw-nlr`, `ndw-zda`, `ndw-nair`, `ndw-moh`, `zra`, `zra-portal` |
+| The tenant itself | GOVZM `/eservices` over the gateway (`/t/govzm/eservices/…`), the surface virtual tenants reach | `govzm` (route `t_govzm`) |
+| The tenant itself | Another tenant's route (`t/<route>/…` on `Endpoints/Gateway.cs`) | The scope of the route that path lands on |
+| A virtual tenant's or a cross-cluster route's consumer (C11) | `/t/<slug>/…` onto the host | The route scope only. The **host's** own gateway user calls the upstream, and must keep the scopes of the operations reached |
+
+Re-derive a scope for each upstream path, never from memory: the route in `docs/zamconnect-test-routes.md` (C8)
+whose `match.path` is the longest literal prefix of the path, then its Scope column. A path that only a
+`GATEWAY-CONFIG.md` routes (a tenant not yet imported in test) takes that file's `metadata.Scope`. A path no
+route matches gets the scope `none — no route`, and the report says an administrator must add a route first.
+
+### The section
+
+Every `src/Tenants/<Folder>/GATEWAY-CONFIG.md` of a tenant that calls back into the gateway ends with this
+section, after the import paragraphs and before a cutover section. One row per scope, every upstream path that
+needs it in the second column, sorted by scope:
+
+~~~~markdown
+## Upstream scopes
+
+<TENANT> calls back into the gateway as its own gateway user, `Credentials.<Folder>Tenant`. Grant that user
+every scope below in each gateway, or the gateway answers `403 Request not allowed` and <TENANT> returns 500.
+A consumer of <TENANT> needs none of them, only `<scope>`.
+
+| Calls through | Upstream paths | Scope |
+|---|---|---|
+| `EServicesShared` (NIR) | `/t/ndw/graphql`, `/t/ndw/nir/persons/…` | `ndw` |
+| `EServicesShared` (ZDI) | `/t/ndw/zdi/permits`, `/t/ndw/zdi/people` | `ndw-zdi` |
+~~~~
+
+- The Scope cell holds exactly one backticked scope, so `tenant-audit` can read the column.
+- A virtual tenant's file (C11) and a cross-cluster sub-route have no such section: their consumer is not the
+  caller of the upstream. Their file says instead which scopes the host's own gateway user must keep
+  (`integrate-shared` §4a).
+- Re-write the whole section whenever a skill adds, removes or re-points an upstream call, from the tenant's
+  current code, not by appending rows. A row whose path the tenant no longer calls is removed.
+- A tenant without `GATEWAY-CONFIG.md` (older than the `tenant-init` scaffold) gets the table in the report.
+
+| Writer | When |
+|---|---|
+| `integrate-shared` §6 | `routes`, `inherit` or `common` mode: the scopes of the selected operations, merged with the ones the tenant already calls |
+| `tenant-integration` step 1a / 1b | A `Gateway` client operation, or a promotion that re-implements forwarded operations |
+| `tenant-audit` Check 9b | Reads it, and gives the local test user these scopes too, so the tenant's own gateway calls pass locally |

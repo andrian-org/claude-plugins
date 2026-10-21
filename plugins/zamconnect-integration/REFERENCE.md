@@ -104,7 +104,7 @@ Under `--auto`, every listed protocol needs a `--source` of its own, or the skil
 
 For a name with no folder under `src/Tenants/`, the skill asks whether to make it a virtual tenant on GOVZM or scaffold a real tenant first, unless `--mode virtual` or `--new` was passed. Under `--auto` it stops with `missing --source <SYS> or --all`, or, for a missing tenant, `missing --mode virtual or --new`.
 
-The report lists the gateway scopes the tenant's gateway user needs for the operations it exposes (`ndw`, `ndw-nbr`, `zra`, `zra-portal`, …).
+The report lists the gateway scopes the tenant's gateway user needs for the operations it exposes (`ndw`, `ndw-nbr`, `zra`, `zra-portal`, …), and the skill writes them into the `## Upstream scopes` section of the tenant's `GATEWAY-CONFIG.md`. A virtual tenant's file gets a `## Host scopes` section instead: the scopes GOVZM's own gateway user must keep.
 
 #### Virtual tenants
 
@@ -376,7 +376,7 @@ Every skill works on the local repository and the local Docker stack. Nothing is
 |---|---|
 | `.azure/tenant.azure-pipelines.<slug>.yaml` | Registers the Azure DevOps pipeline that points at it |
 | `src/Tenants/<Tenant>/ENVIRONMENT-VARIABLES.json` | Adds every listed variable to each environment and fills the empty values. Only `helmReleaseName` and `OTEL_SERVICE_NAME` come filled in; `helmNamespace`, `OTEL_EXPORTER_OTLP_ENDPOINT` and every token are empty, and secret values are always empty |
-| `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | Imports the scope, cluster and route into each gateway, and grants the scope to each consumer's gateway user |
+| `src/Tenants/<Tenant>/GATEWAY-CONFIG.md` | Imports the scope, cluster and route into each gateway, and grants the scope to each consumer's gateway user. Its `## Upstream scopes` section lists the scopes the tenant's own gateway user needs for the routes it calls back into (NDW, ZRA, GOVZM `/eservices`, other tenants) |
 | `src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` | A virtual tenant's routes, with no cluster. Imports them into each gateway and creates the agency's gateway user with the route scope |
 
 `ENVIRONMENT-VARIABLES.json` and both `GATEWAY-CONFIG.md` files are local only and never committed: send them to the administrator directly. The skill that writes one adds these lines to the repository root `.gitignore` when they are missing:

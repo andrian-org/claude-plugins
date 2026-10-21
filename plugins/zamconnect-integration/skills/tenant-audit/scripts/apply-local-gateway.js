@@ -27,7 +27,9 @@ const now = new Date();
 const out = { scopes: [], clusters: [], routes: [], user: null };
 
 const routes = pkg.routes.map(r => ({ name: r.name, cfg: pascal(r.configJson) }));
-const scopes = [...new Set(routes.map(r => r.cfg.Metadata && r.cfg.Metadata.Scope).filter(Boolean))];
+// ZC_USER_SCOPES: the tenant's own upstream scopes (conventions C12), granted to the test user only.
+const userScopes = (process.env.ZC_USER_SCOPES || '').split(',').map(s => s.trim()).filter(Boolean);
+const scopes = [...new Set([...routes.map(r => r.cfg.Metadata && r.cfg.Metadata.Scope), ...userScopes].filter(Boolean))];
 
 for (const name of scopes) {
   const r = db.scopes.updateOne({ Name: name }, { $setOnInsert: { Name: name } }, { upsert: true });
