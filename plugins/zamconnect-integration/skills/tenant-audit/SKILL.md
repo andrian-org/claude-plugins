@@ -1,0 +1,688 @@
+---
+name: tenant-audit
+description: Read-only drift audit for ZamConnect tenants. Checks that a tenant is registered everywhere it must be (solution, Azure pipeline, docker-compose), that its slug is spelled identically across compose, Helm and the gateway route, that every REST, SOAP and Gateway client has its `Endpoints:<Name>` / `SoapEndpoints:<Name>` / `Endpoints:Gateway` section in both appsettings files, that `appsettings.json` holds no literal credential (and reports the committed Development-credential baseline), that `ENVIRONMENT-VARIABLES.json` lists exactly the tenant's tokens, that its API-spec metadata, docs, Postman collection and test project exist, that no migration regression (.NET version, Newtonsoft, AutoMapper, Dockerfile) crept back in, and that the image builds and the tenant answers through the local Docker gateway once its `GATEWAY-CONFIG.md` and a local test user (`test<Tenant>` / `test`) are written to the local Docker Mongo (health plus one endpoint per module). For a virtual tenant (`src/VirtualTenants/<CODE>/`, gateway routes onto another tenant's cluster), it checks the routes-only package against the host and calls each route through the local gateway instead. Use when the user says "audit <Tenant>", "is <Tenant> wired up correctly", "check tenant drift", "what's missing for <Tenant>", "why is my endpoint not configured", or types /tenant-audit.
+argument-hint: "<TenantName>|--all [--only registration|slugs|config|secrets|spec|tests|docs|guards|runtime] [--no-runtime] [--fix [registration]] [--report-only] [--auto] [--dry-run] [--help]"
+allowed-tools: Read Glob Grep Bash(cat *) Bash(sed *) Bash(grep *) Bash(find *) Bash(ls *) Bash(git *) Bash(awk *) Bash(sort *) Bash(wc *) Bash(head *) Bash(tail *) Bash(dotnet *) Bash(docker *) Bash(curl *) Edit Write AskUserQuestion
+disable-model-invocation: false
+---
+
+# ZamConnect Tenant Audit
+
+A tenant can build cleanly and still be broken: unregistered in the pipeline, deployed under a name the gateway route does not resolve, or running with an upstream client that was never registered. None of that fails a build. This skill finds it.
+
+Read-only on the repository by default. No repo file is edited unless the developer picks it in the fix question (see Fixing) or passes `--fix` / `--auto`, and even then only the checks marked fixable below. Checks 8 and 9 touch only the local Docker environment: they build local images, build and start the local stack (`mongo`, `admin-api`, `gateway`) and the tenant container, and apply the tenant's `GATEWAY-CONFIG.md` to the local gateway database. They run under `--report-only` too. Questions follow `${CLAUDE_PLUGIN_ROOT}/references/interaction-contract.md`. Repo facts (secrets baseline, token naming, key casing, live routes, virtual tenants) are in `${CLAUDE_PLUGIN_ROOT}/references/zamconnect-conventions.md`, cited below by section id (C1–C11).
+
+All paths are relative to the ZamConnect repository root (the directory holding `src/ZamConnect.sln`). Run every command in **Bash** (Git Bash on Windows), not the Grep tool: the patterns below are written to survive CRLF files, which ripgrep/WSL `$` anchors do not.
+
+Never state a count or a "known finding" from memory or from this file. Re-derive everything on each run.
+
+## Arguments
+
+| Argument | Meaning |
+|---|---|
+| `<TenantName>` | Audit one tenant. Required unless `--all` is given. With neither, asked first from the contract's Missing arguments menu (R13), with `All tenants` as the fourth option; `--auto` stops with `missing <TenantName> or --all`. A name with no project under `src/Tenants/<TenantName>/` (no folder, or no `*.csproj` in it) but a `src/VirtualTenants/<TenantName>/GATEWAY-CONFIG.md` is a virtual tenant: run Check V instead of Checks 1–9 |
+| `--all` | Audit every tenant under `src/Tenants/`, and the static part of Check V for every `src/VirtualTenants/*/` |
+| `--only <check>` | Run only these checks; repeatable |
+| `--fix [<check>...]` | Apply the fixable repairs without asking: all of them, or only the named checks |
+| `--report-only` | Report, and don't ask the fix question. `tenant-pipeline` always passes it (guided and `--auto`), so pipeline step 5 never writes |
+| `--auto` | Same as `--fix` — every fixable repair, no questions. Standalone use only |
+| `--no-runtime` | Skip Check 9 (the local gateway round-trip) |
+| `--dry-run` | Checks 1–7 and the static part of Check 8 only: `--report-only`, no image build, no Check 9. Nothing is written, not even to Docker. `tenant-pipeline --dry-run` passes it |
+| `--help` | Print the arguments and examples, then stop. Asks and writes nothing (R14) |
+
+A folder under `src/Tenants/` with no `*.csproj` is not a tenant. Skip it silently — it is a placeholder, not drift:
+
+```bash
+for d in src/Tenants/*/; do ls "$d"*.csproj >/dev/null 2>&1 || echo "skip $(basename "$d")"; done
+```
+
+## Check 1 — Registration
+
+A tenant must appear in three places. Missing any one is real drift, not a style issue.
+
+```bash
+grep -c "Tenants.<TenantName>.<TenantName>\.csproj" src/ZamConnect.sln
+grep -lE "tenant:[[:space:]]*<TenantName>[[:space:]]*$" .azure/tenant.azure-pipelines.*.yaml
+grep -niE "dockerfile:[[:space:]]*Tenants/<TenantName>/Dockerfile[[:space:]]*$" src/.dockercompose/docker-compose.yml
+```
+
+Match the pipeline by content, not filename — the pipeline slug's hyphenation is inconsistent (tenant-init §4). `[[:space:]]*$` absorbs a trailing `\r`; a bare `<TenantName>$` misses CRLF files.
+
+| Missing | Consequence |
+|---|---|
+| Solution entry | Not built by a solution-wide `dotnet build`; invisible in the IDE |
+| `.azure/tenant.azure-pipelines.<slug>.yaml` | **Never deployed.** No CI, no image, no release |
+| docker-compose service | Cannot be run locally alongside the gateway |
+
+Two casing findings, reported separately from "missing":
+
+- **Compose path casing.** The compose grep is `-i`. A hit whose path casing differs from the folder name works only on a case-insensitive build host and breaks on Linux Docker. Report it as its own `warn`.
+- **Pipeline `tenant:` casing.** `tenant:` must equal the folder name exactly — `tenant.pipeline.yaml` builds `src/Tenants/${{ parameters.tenant }}/Dockerfile` on a Linux agent. Re-run the pipeline grep with `-i`; a hit that only matches case-insensitively is a `fail`.
+
+Fixable (through the fix question, `--fix` or `--auto`): all three "missing" rows. Generate the pipeline, compose and solution entries exactly as tenant-init §4, §5 and §7 specify.
+
+## Check 2 — Slug consistency
+
+One string has to be spelled identically in four places, or the gateway routes to nothing:
+
+| Place | Form |
+|---|---|
+| docker-compose service key | `core-<slug>` |
+| docker-compose `container_name` | `core-<slug>.zamconnect` |
+| Helm release / k8s service | `core-$(helmReleaseName)` — the `helmReleaseName` value in `ENVIRONMENT-VARIABLES.json` (C9) |
+| Gateway YARP cluster | `docs/zamconnect-test-routes.md` (C8) |
+
+`<slug>` is the tenant name lowercased with no separators. List every compose service whose key isn't `core-<lowercase folder>`:
+
+```bash
+awk '/^  [a-z0-9.-]+:[[:space:]]*$/ { k = $(1); sub(/:$/, "", k) }
+     /dockerfile:[[:space:]]*Tenants\// { t = $(2); sub(/^Tenants\//, "", t); sub(/\/Dockerfile.*/, "", t)
+       if (k != "core-" tolower(t)) print k, t }' src/.dockercompose/docker-compose.yml
+```
+
+Each line is a finding (a typo, or a service without the `core-` prefix). Re-derive — don't carry a list forward.
+
+Gateway side: find the tenant's cluster in the routes doc. Cluster IDs are roughly the uppercase tenant name; route names and paths often differ from it:
+
+```bash
+awk -F' *[|] *' -v t=<TenantName> 'toupper($(6)) == toupper(t) { print $(3), $(5), $(8) }' docs/zamconnect-test-routes.md
+```
+
+Prints route name, test URL and scope for every route on that cluster. No row = no test-environment route (`warn`; a new tenant won't have one until its gateway package is imported).
+
+Repo side, which the audit can verdict: `helmReleaseName` in `ENVIRONMENT-VARIABLES.json` must be `<slug>`, and the `GATEWAY-CONFIG.md` cluster address must be `http://core-<slug>`. Either differing is a `fail`; a missing file is reported by Check 4.
+
+```bash
+grep -oE '"name": "helmReleaseName"[^}]*"value": "[^"]*"' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json | sed -E 's/.*"value": "([^"]*)"/\1/'
+grep -oE '"address": "[^"]*"' src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+The routes doc does not show cluster addresses, and the audit never reads a deployed environment (C10). Say that the values an administrator entered by hand must equal these; that is a flag for the user, not a verdict.
+
+## Check 3 — Endpoint configuration
+
+Clients are registered by assembly scan: `RegisterEndpoints` (`src/Core/Internal/Extensions/Extensions/Rest/RestExtensions.cs`) binds `Endpoints:<TypeName>` for every public class assignable to `IRestEndpoint`; `RegisterSoapEndpoints` (`…/Soap/SoapExtension.cs`) binds `SoapEndpoints:<TypeName>` for every public class assignable to `ISoapEndpoint`. **A class with no section logs `Endpoint {Name} is not configured` and is never registered** — any module or service that injects it fails to resolve at startup (`MapCarter()` for Carter modules). An uninjected one is dead code, not an outage. Nothing fails the build.
+
+A one-line `class X : RestEndpoint` grep is wrong: it misses subclasses of a tenant's own base (e.g. `: ZamPointEndpoint`), misses multi-line declarations (the form `tenant-integration` generates), and reports abstract bases. Resolve bases transitively instead:
+
+```bash
+find src/Tenants/<TenantName> -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*' -exec cat {} + | awk '
+  { sub(/\r$/, ""); sub(/\/\/.*/, "") }
+  !open && /(^|[^A-Za-z0-9_])class([ \t]+[A-Za-z_]|[ \t]*$)/ { open = 1; d = "" }
+  open { d = d " " $(0); if (d ~ /[{;]/) { decl(d); open = 0 } }
+  function decl(s,   name, n, p, i, b) {
+    sub(/[{;].*/, "", s)
+    if (s !~ /(^|[^A-Za-z0-9_])public[ \t]/) return
+    name = s; sub(/.*(^|[^A-Za-z0-9_])class[ \t]+/, "", name); sub(/[^A-Za-z0-9_].*/, "", name)
+    while (s ~ /<[^<>]*>/)   gsub(/<[^<>]*>/, "", s)     # generic args
+    while (s ~ /\([^()]*\)/) gsub(/\([^()]*\)/, "", s)   # primary ctor + base ctor args
+    sub(/[ \t]where[ \t].*/, "", s)
+    if (name == "" || !index(s, ":")) return
+    abstract[name] = (s ~ /(^|[^A-Za-z0-9_])abstract[ \t]/)
+    n = split(substr(s, index(s, ":") + 1), p, ",")
+    for (i = 1; i <= n; i++) { b = p[i]; gsub(/[ \t]/, "", b); sub(/.*\./, "", b); bases[name] = bases[name] " " b " " }
+  }
+  END {
+    kind["RestEndpoint"] = kind["IRestEndpoint"] = "Endpoints"
+    kind["SoapEndpoint"] = kind["ISoapEndpoint"] = "SoapEndpoints"
+    do { grew = 0
+      for (c in bases) if (!(c in kind)) for (k in kind) if (index(bases[c], " " k " ")) { kind[c] = kind[k]; grew = 1; break }
+    } while (grew)
+    for (c in bases) if ((c in kind) && !abstract[c]) print kind[c] ":" c
+  }' | sort -u
+```
+
+Output is the required section list, one `Endpoints:<Name>` / `SoapEndpoints:<Name>` per concrete public client. Base names match exactly, so `RestEndpointOptions` never counts. Add `Endpoints:Gateway` when the tenant calls `RegisterGatewayEndpoint(` (it registers `Shared.Endpoints.Gateway` from Core):
+
+```bash
+grep -rlE "RegisterGatewayEndpoint\(" src/Tenants/<TenantName> --include=*.cs
+```
+
+Actual sections, keys only (never values), for each of `appsettings.json` and `appsettings.Development.json`:
+
+```bash
+awk '
+  { buf = buf $(0) "\n" }
+  END {
+    n = length(buf)
+    for (i = 1; i <= n; i++) {
+      c = substr(buf, i, 1)
+      if (c == "\"") { s = ""; for (i++; i <= n && substr(buf, i, 1) != "\""; i++) { if (substr(buf, i, 1) == "\\") i++; s = s substr(buf, i, 1) }; last = s }
+      else if (c == "/" && substr(buf, i + 1, 1) == "/") { while (i <= n && substr(buf, i, 1) != "\n") i++ }
+      else if (c == ":") key = last
+      else if (c == "{") { path[++depth] = key; if (depth == 3 && path[2] ~ /^(Endpoints|SoapEndpoints)$/) print path[2] ":" key; key = "" }
+      else if (c == "}") depth--
+      else if (c == "," || c == "[") key = ""
+    }
+  }' src/Tenants/<TenantName>/appsettings.json
+```
+
+Compare the two lists **case-insensitively** (`IConfiguration` keys are; `MFL.Endpoints.Mfl` against `"MFL"` is fine).
+
+| Finding | Severity |
+|---|---|
+| Required section missing from `appsettings.json` | `fail` |
+| Required section missing only from `appsettings.Development.json` | `warn` |
+| `SoapEndpoints:<Name>` without an `AuthenticationScheme` key (null → startup exception; `"None"` for no auth) | `fail` |
+| A section with no matching class — dead config, usually a rename that left the old key behind | `warn` |
+| A non-endpoint block nested under `Endpoints` (`Serilog`, `Logging`, `ConnectionStrings`, …) — the real top-level section is missing, so that config is never applied | `fail` in `appsettings.json` |
+
+Before calling a section dead, exclude sections read by hand — they have no scanned class by design:
+
+```bash
+grep -rnoE 'Endpoints:(\{nameof\()?[A-Za-z0-9_]+' src/Tenants/<TenantName> --include=*.cs
+```
+
+Not fixable automatically: a section needs a `BaseUrl` and credentials only the user knows. Report the exact block to add, with `__Token__` placeholders named per C4 and `Username` casing per C3.
+
+**Sections outside the endpoint scan.** The patterns `tenant-integration` generates from `references/upstream-patterns.md` read configuration the scan above can't see. Check each one the code uses, in both files:
+
+| Code (grep in `src/Tenants/<TenantName>`) | Required config | Finding |
+|---|---|---|
+| `GetConnectionString("<Name>")` | Top-level `ConnectionStrings:<Name>`, a `__…__` placeholder in both files | Missing → `fail`. A literal value in either file → C7 baseline count (`warn`), never printed |
+| `IOptions<JwtOptions>` or `Configure<JwtOptions>` | Top-level `JwtOptions` with integer values | Missing → `fail`. A `__…__` placeholder in `appsettings.Development.json` → `fail` (local runs and tests fail at the first login); in `appsettings.json` → `warn` (replaced at deploy, but needs a variable per environment) |
+| `LoginPath` read from an `Endpoints:<Name>` client | `Endpoints:<Name>:LoginPath` | Missing → `fail` |
+| `AddCache<…>("<Suffix>")`, or `AddUsersCache(` (suffix `Users`) | `CacheOptions:<Suffix>:ExpirationInSeconds`, a positive literal | Missing or `0` (`AddOrUpdate` throws) → `fail`. For `Users` that is every authenticated request. A placeholder: as for `JwtOptions` |
+| `AddMongoDb(` | Top-level `MongoDb` with `ConnectionString` and `DatabaseName` placeholders | Missing → `fail` |
+| `Endpoints:<Name>:Users:` | One entry per caller under `Users` | Empty map → `warn`: no caller can reach the upstream yet |
+| `{**catch-all}` in `Program.cs` | `app.UseRestExceptionHandler()` earlier in the file | Missing or later → `warn`: upstream failures reach the developer exception page |
+| `Headers["IdentityName"]` or `FromHeader(Name = "IdentityName")` used to pick upstream credentials | Credentials keyed on `User.Identity.Name` | `fail`: the gateway keeps an `IdentityName` header the caller sent, so any caller can claim another's credentials |
+
+**Upstream scopes (C12).** A tenant with an `Endpoints:Gateway` section calls back into the gateway as `Credentials.<TenantName>Tenant`, and that user needs the scope of every route it lands on. Nothing else in the repo records them, so the `## Upstream scopes` section of `GATEWAY-CONFIG.md` must. List what the tenant calls:
+
+```bash
+grep -oE 'public async Task<Result<.*>> [A-Za-z]+[<(]' src/Core/Shared/Services/EServicesShared.cs \
+  | sed -E 's/.*>> ([A-Za-z]+)[<(]$/\1/' | sort -u > <scratch>/shared-ops.txt
+grep -rhoFwf <scratch>/shared-ops.txt src/Tenants/<TenantName>/Modules | sort -u          # EServicesShared operations
+grep -rlE 'EServicesSharedModule\(' src/Tenants/<TenantName>/Modules                     # inherit: every shared operation
+grep -ohE '"/?t/[^"?{]+' src/Tenants/<TenantName>/Endpoints/Gateway.cs 2>/dev/null | sort -u   # own Gateway client paths
+awk '/^## Upstream scopes/{f=1;next} /^## /{f=0} f && /^\|/' src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+Map each operation to its scope with the `integrate-shared` §2 catalogue, and each `t/<route>/…` path with the routes doc (C8), as C12 says.
+
+| Finding | Severity |
+|---|---|
+| The tenant calls back into the gateway and `GATEWAY-CONFIG.md` has no `## Upstream scopes` section | `fail` — the administrator has no list to grant, and every such call answers 403 in a fresh gateway. Report the full section to add |
+| A scope the tenant needs is missing from the section | `fail`. Report the row to add |
+| A row whose upstream paths the tenant no longer calls | `warn`: a scope granted for nothing |
+| A row with `none — no route` | `warn`: an administrator must add the route before that call can work |
+| No `GATEWAY-CONFIG.md` | Reported by Check 9 (`skipped — no GATEWAY-CONFIG.md`). Add the required scopes to that report line |
+
+Not fixable through the fix question: the file is local only and written by `integrate-shared` / `tenant-integration`. Report the exact section.
+
+## Check 4 — Secrets
+
+Deployment substitutes tokens with `actionOnMissing: fail` (C4), so a placeholder that never got a variable breaks the release, and a literal credential that got committed is a disclosure. **Never print a value** — every command below prints file names, line numbers, key names or counts.
+
+Key suffixes treated as credentials (case-insensitive): `user_?name`, `password`, `secret`, `token`, `thumbprint`, `connection_?string`, `key` (covers `ApiKey`, `api_key`, `PrivateKey`, `PublicKey`), `authheadervalue`. A value is literal when it is non-empty and doesn't start with `_`.
+
+```bash
+P='"[^"]*(user_?name|password|secret|token|thumbprint|connection_?string|key|authheadervalue)"[[:space:]]*:[[:space:]]*"[^_"]'
+grep -noiE "$P" src/Tenants/<TenantName>/appsettings.json | sed -E 's/^([0-9]+):"([^"]*)".*/\1:\2/'
+grep -noiE "$P" src/Tenants/<TenantName>/appsettings.Development.json | sed -E 's/^([0-9]+):"([^"]*)".*/\1:\2/'
+git ls-files src/Tenants | grep -iE '\.(p12|pfx|pem|key|jks)$'
+```
+
+Each JSON output line is `<line>:<KeyName>`; the last command lists committed key-material paths.
+
+| Where | Rule | Severity |
+|---|---|---|
+| `appsettings.json` (the published settings artifact) | Every credential is a `__Token__`. `BaseUrl` is a token too unless genuinely environment-independent. Clean repo-wide at the last check, so any hit is new | `fail` |
+| `appsettings.Development.json` | Committed credentials are a known repo-wide baseline (C7). Report per tenant as a count, not per line | `warn` |
+| Key material outside JSON | Report each path | `fail` |
+
+Under `--all`, lead the section with the baseline count (the C7 command) and the key-material paths, then list tenants whose `appsettings.json` hits. Recommend one rotation ticket for the baseline; don't propose per-tenant edits.
+
+Token names that don't follow C4 (e.g. an external upstream on `__Credentials.<T>Tenant.*__`) are `warn` — they deploy, but break the naming convention.
+
+**Variable list (C9).** Every token in `appsettings.json` must be listed in `ENVIRONMENT-VARIABLES.json`, and the file must list nothing else besides the four deployment variables. Names only:
+
+```bash
+grep -oE '__[A-Za-z0-9_.]+__' src/Tenants/<TenantName>/appsettings.json | sed -E 's/^__|__$//g' | sort -u > <scratch>/tokens
+grep -oE '"name": "[^"]+"' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json | sed -E 's/"name": "|"$//g' | grep -vxE 'helmReleaseName|helmNamespace|OTEL_SERVICE_NAME|OTEL_EXPORTER_OTLP_ENDPOINT' | sort -u > <scratch>/listed
+comm -23 <scratch>/tokens <scratch>/listed   # tokens missing from the file
+comm -13 <scratch>/tokens <scratch>/listed   # entries with no token
+grep -nE '"secret": true[^}]*"value": "[^"]' src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json | cut -d: -f1
+```
+
+| Finding | Severity |
+|---|---|
+| File missing | `warn` — the file is local only (C9), so a fresh clone has none. Regenerate it before the administrator handoff, or the deploy fails on the first unlisted token |
+| Token missing from the file | `fail` |
+| Entry with no token | `warn` — a leftover variable |
+| A `secret: true` entry with a non-empty `value` (print the line number only) | `fail` — same as a literal credential |
+| A credential key (C7 suffixes) listed with `secret: false` | `warn` |
+
+Fixable: the file missing, missing entries, and leftover entries. Regenerate in the C9 format, keeping every existing `description` and non-secret `value`.
+
+**Handoff files stay out of git (C10, "Not committed").** `ENVIRONMENT-VARIABLES.json` and `GATEWAY-CONFIG.md` are local only:
+
+```bash
+git ls-files src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+git check-ignore --no-index src/Tenants/<TenantName>/ENVIRONMENT-VARIABLES.json src/Tenants/<TenantName>/GATEWAY-CONFIG.md
+```
+
+The first command prints the tracked ones, the second the ones `.gitignore` covers.
+
+| Finding | Severity |
+|---|---|
+| A handoff file is tracked | `fail`. Report `git rm --cached <path>` for the engineer to run, and say the file stays in history until then. Never run it |
+| A handoff file is not covered by `.gitignore` | `warn` |
+
+Fixable: the missing `.gitignore` lines. Append the missing lines of the C10 block to the repository root `.gitignore`, and never rewrite the rest of the file. A tracked file is never an option: removing it from the index is the engineer's change to commit.
+
+For an `appsettings.json` hit, check whether it is already in history — `git log --oneline -- <file>` — and say so: removing it from the working tree does not remove it from the repository.
+
+## Check 5 — API spec readiness
+
+`/tenant-deliverables <Tenant>` (and the repo-local `/api-spec-sync`) need metadata that must already be in the code. `tenant-init` scaffolds the project-level half; `/tenant-integration <Tenant> --spec-only` adds the rest.
+
+Signals, each scored present / absent:
+
+- `<GenerateDocumentationFile>true</GenerateDocumentationFile>` and `<NoWarn>$(NoWarn);CS1591</NoWarn>` in the csproj
+- `IncludeXmlComments` and a populated `OpenApiInfo` in `Program.cs`, with `Title` in the form `"{full descriptive name} ({TENANT})"`. `AddSwaggerGen` alone is not a signal — every tenant has it
+- A `Swagger/` folder holding the narrative content and any `IOperationFilter` / `ISchemaFilter`
+- `.WithTags(...)` on every route — untagged operations collapse into one Postman folder
+- `.WithSummary(...)`, `.WithDescription(...)`, `.Produces<T>(...)` and `.ProducesProblem(...)` on every route (`grep -rcE "\.ProducesProblem\(" src/Tenants/<TenantName> --include=*.cs`)
+- `///` comments on every public **DTO** property, with no `<see cref="..."/>` in DTOs (Swashbuckle emits the raw type name as literal text). The `cref` rule doesn't apply to endpoints, services or modules
+- `.config/dotnet-tools.json` pins `swashbuckle.aspnetcore.cli` (repo-wide; the swagger export can't run without it) at the same version as the tenant's resolved `Swashbuckle.AspNetCore`
+- A route for the tenant in `GATEWAY-CONFIG.md` or `docs/zamconnect-test-routes.md` (Check 2) — the deliverables need a real gateway path, and read it in that order
+
+Report as a readiness percentage per tenant, not pass/fail — most tenants meet little of it and that is the baseline, not a regression.
+
+## Check 6 — Tests
+
+```bash
+ls src/Tests/<TenantName>.Tests/<TenantName>.Tests.csproj 2>/dev/null
+```
+
+Test for the csproj, not the folder — `src/Tests/` holds snapshot folders and untracked leftovers with no project. Report presence; offer `/tenant-tests <TenantName>` when it's missing (`AGENTS.md` requires one per tenant). Whether `Program.cs` ends with `public partial class Program` is informational only — .NET 10 generates a public `Program`, so it's not required.
+
+## Check 7 — Docs and collateral
+
+| Artefact | Rule | Missing = |
+|---|---|---|
+| Postman collection | A file in `postman collections/` matching `<TenantName>.postman_collection.json` case-insensitively, or whose `info.name` is the tenant | `warn` — many collections are named after the agency or system, not the code |
+| Gateway route | The tenant's cluster in `docs/zamconnect-test-routes.md` (Check 2). `src/Tenants/<T>/GATEWAY-CONFIG.md` is optional — only new scaffolds have one, and it is local only (C10), so a fresh clone has none | `warn` |
+| Agency register row | A table row for the tenant in `docs/zamconnect-agency-tenants.md` | `warn` |
+
+```bash
+ls "postman collections" | grep -i "^<TenantName>\.postman_collection\.json$"
+grep -m1 -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "postman collections"/*.postman_collection.json
+grep -ciE "\|[[:space:]]*\`?<TenantName>\`?[[:space:]]*\|" docs/zamconnect-agency-tenants.md
+```
+
+(Don't combine `grep -i -x -F` — it crashes Git Bash grep.)
+
+The agency register is hand-generated and goes stale. Flag the document itself when its stated generation date is older than the newest commit under `src/Tenants/`:
+
+```bash
+head -5 docs/zamconnect-agency-tenants.md
+git log -1 --format=%ad --date=short -- src/Tenants
+```
+
+Excluded from the register by design — never report them as missing rows: internal platform tenants (`CloudAdmin`, `GOVZM`, `MobileID`, `ZamMobile`, `ZamData`, `NIR`, `NLR`, `NDR`, `NDW`, `NDP`) and test/mock tenants (`MockData`, `TestTenant`, `TT`). Any other tenant without a row is a real gap.
+
+## Check 8 — Regression guards
+
+Each guard protects a completed migration. All should be clean; any hit is a regression (`fail`).
+
+```bash
+T=<TenantName>
+# Target framework is net10.0 (prints the csproj if not)
+grep -LE "<TargetFramework>net10\.0</TargetFramework>" src/Tenants/$T/$T.csproj
+# No Newtonsoft / AutoMapper — AGENTS.md: System.Text.Json only. Comments mentioning them are fine
+grep -rnE '^[[:space:]]*using[[:space:]]+(Newtonsoft|AutoMapper)|Include="[^"]*(Newtonsoft|AutoMapper)' src/Tenants/$T --include=*.cs --include=*.csproj
+# Modules implement ICarterModule, not the CarterModule base class
+grep -rnE ':[[:space:]]*CarterModule\b' src/Tenants/$T --include=*.cs
+# Config keys and tokens use Username (C3)
+grep -nE '"UserName"[[:space:]]*:|__[A-Za-z.]*UserName__' src/Tenants/$T/appsettings*.json
+# Dockerfile images match the pipeline SDK (version: in .azure/tenant.pipeline.yaml) — every tag starts 10.0
+grep -nE 'mcr.microsoft.com/dotnet/(sdk|aspnet):' src/Tenants/$T/Dockerfile
+grep -nE 'version:' .azure/tenant.pipeline.yaml
+```
+
+Also diff the Check 3 section lists of the two appsettings files: every `Endpoints` / `SoapEndpoints` key should exist in both.
+
+Dockerfile closure: list the tenant's `ProjectReference`s, follow each referenced csproj the same way, and require a `COPY ["<dir>/..."` line for every project directory reached. A missing one fails the Linux image build even though `dotnet build` passes.
+
+```bash
+grep -oE 'ProjectReference Include="[^"]+"' src/Tenants/<TenantName>/<TenantName>.csproj
+grep -oE 'ProjectReference Include="[^"]+"' src/Core/*/*.csproj src/Gateway/Gateway.csproj
+grep -E '^COPY \[' src/Tenants/<TenantName>/Dockerfile
+```
+
+Image build: the greps above are static. Confirm the image actually builds locally through its compose service — this is what catches a closure gap the grep missed, a casing mismatch, or a stale base image:
+
+```bash
+docker info >/dev/null 2>&1 && docker compose -f src/.dockercompose/docker-compose.yml build core-<slug>
+```
+
+| Result | Severity |
+|---|---|
+| Exit 0 | `ok` |
+| Non-zero exit — report the failing Dockerfile step and the first error line | `fail` |
+| No compose service (Check 1) | Not run; Check 1 already reports it |
+| `docker info` fails — Docker not installed or the engine is not running | `skipped`, never `ok`. Print the command for the user to run |
+
+Runs for a single-tenant audit and for `--only guards`. Under a plain `--all` it is `skipped` (each build takes minutes); say so in the report. The build writes only a local image, never a repo file, so it runs under `--report-only` too. If the Dockerfile declares `ARG PAT` (private feed), pass `--build-arg PAT=<token>` from the user's environment and never echo it.
+
+Not fixable automatically — each is a code change for `/tenant-integration` or a hand edit.
+
+## Check 9 — Runtime through the local gateway
+
+Checks 1–8 only read files. This check proves the tenant answers through YARP: it writes `src/Tenants/<TenantName>/GATEWAY-CONFIG.md` and a test gateway user straight into the **local** compose `mongo`, then calls the tenant through the local gateway. It runs for a single-tenant audit and for `--only runtime`. It never runs under a plain `--all`, and `--no-runtime` skips it. It needs no token or password from the user.
+
+**Local only.** Writes go only to the `mongo` compose container (`docker exec mongo`), and calls go only to `http://localhost:8081` (AdminAPI health) and `http://localhost:10080` (gateway), the ports published in `src/.dockercompose/docker-compose.yml`. Both apps read that same `mongo` service (their `appsettings.Development.json` connection strings point at host `mongo`). Never point this check at a test, staging or production database, AdminAPI or gateway, even when the user supplies one. Those registrations belong to `GATEWAY-CONFIG.md`'s manual import through the AdminAPI.
+
+### 9a. Bring up the local stack
+
+A stopped stack is the normal starting state, not a finding: the local gateway environment exists only once this check has built and started it. Build it from the current source and start it on the developer's Docker engine, without asking — every container is local, and nothing outside this machine is touched.
+
+```bash
+C="docker compose -f src/.dockercompose/docker-compose.yml"
+docker info >/dev/null 2>&1 || echo "docker: not running"
+$C up -d --build mongo admin-api gateway
+```
+
+`--build` rebuilds `admin-api` and `gateway` from the working tree, so the round-trip runs against the same Core code the tenant was built with, not a stale image.
+
+The compose `mongo` service has no named volume, so a recreated container starts with an empty database. Seed it from the local dump when the `Certificates` collection is missing. Don't test for the `zamconnect` database itself: AdminAPI creates it on startup with only `Secrets`, so it exists even when the dump was never restored.
+
+```bash
+M='mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin zamconnect'
+$C exec -T mongo sh -c "$M --eval 'db.getCollectionNames().includes(\"Certificates\")'"
+# false -> seed it; mongo-restore exits when done
+$C up mongo-restore
+```
+
+`$M` is single-quoted so the root credentials expand **inside** the `mongo` container, from the variables its compose service sets. Never write the credential values into a command, a file or the report, never use them outside the local container, and never print any other value from the database.
+
+Then wait for both apps, up to 120 s, before 9b:
+
+```bash
+for i in $(seq 1 24); do
+  a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/health/live)
+  g=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:10080/health/live)
+  [ "$a" = 200 ] && [ "$g" = 200 ] && break
+  sleep 5
+done
+```
+
+| Result | Action |
+|---|---|
+| Docker not installed or the engine not running | Stop Check 9, report it `skipped — Docker not available`, and tell the user in the report's first line |
+| `up --build` fails for `admin-api` or `gateway` | `fail` — report the service, the failing Dockerfile step and the first error line. A broken platform image is its own finding, not the tenant's |
+| A health endpoint is not `200` after 120 s | `fail` — quote the exception type and message from `$C logs --no-color --tail 60 <service>`, never config values |
+| No `GATEWAY-CONFIG.md` | `skipped — no GATEWAY-CONFIG.md`. It is optional for tenants older than the `tenant-init` scaffold (Check 7), and local only (C10), so a fresh clone has none. Report the file to create, in the `tenant-init` §6 shape, with the tenant's route from the routes doc |
+| No compose service (Check 1) | `skipped` — Check 1 already reports it |
+
+Leave the stack running after the check; the report names the containers it started.
+
+### 9b. Apply the gateway config and create the test user
+
+Check 9 uses a fixed, local-only test user per tenant. Nothing is read from the user's environment and nothing is asked:
+
+| Value | Setting |
+|---|---|
+| Username | `test<TenantName>`, e.g. `testTT`. One per tenant, so it never collides with a real or another tenant's user |
+| Password | `test` |
+
+These are throwaway values for the local compose database, not secrets. They can be printed in the report. Never create them in any other environment. The password is shorter than `CreateUserValidator` allows (8+ characters with a letter, a digit and one of `@$!%*?&`). That is why this user is written directly to local Mongo and not through `POST /Users`, and why the AdminAPI and AdminUI refuse to re-save it with the same password.
+
+You can't mint a DGPass admin token locally (every AdminAPI controller is `[Authorize(Policy = "Admin")]` against the DGPass authority), so 9b writes to the local `mongo` container directly with `${CLAUDE_PLUGIN_ROOT}/skills/tenant-audit/scripts/apply-local-gateway.js`. The script applies the package in this order, matching the `Core/Database/Entities` shapes the AdminAPI would write:
+
+1. **Scope**: `scopes` `{Name}` for each route's `metadata.Scope`, inserted only when missing.
+2. **Cluster**: `clusters`, upserted on `ConfigJson.ClusterId`.
+3. **Route**: `routes`, upserted on `ConfigJson.RouteId`. The route validator needs the scope and cluster to exist first.
+4. **User**: `users`, upserted on `Username`. It gets a `PasswordKey` and `PasswordSalt` from `HashHelper`'s PBKDF2 settings (SHA1, 1000 iterations, 20 bytes), `IsDisabled: false`, and the route scopes added with `$addToSet`. Scopes the user already has are kept. The password is reset to `test` on every run.
+5. **Upstream scopes**: each scope of `ZC_USER_SCOPES` (below) is inserted into `scopes` when missing and added to the same user.
+
+The test user is also the tenant's own gateway user locally: 9c's override puts `test<TenantName>` into every gateway-bound client. So it needs the tenant's upstream scopes too (C12), or every call the tenant makes back through the gateway answers 403. Read them from the Scope column of the `## Upstream scopes` section, skipping `none — no route`, as one comma-separated list:
+
+```bash
+US=$(awk '/^## Upstream scopes/{f=1;next} /^## /{f=0} f && /^\|/' src/Tenants/<TenantName>/GATEWAY-CONFIG.md \
+  | awk -F'|' 'NR > 2 { print $(4) }' | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort -u | paste -sd, -)
+```
+
+and pass it to the script below as `-e ZC_USER_SCOPES="$US"`. An empty list adds nothing. The list is local only: it isn't an `/Import/routes` field, and the gateway package itself never changes. A virtual tenant (Check V) has no such section: its test user gets the route scopes only.
+
+Keys under `configJson` are PascalCased on write (`clusterId` → `ClusterId`), because the gateway deserialises `ConfigJson` with `BsonSerializer`, which is case-sensitive. The script then replaces `YarpModificationToken` and `UsersModificationToken` in `Secrets`. `YarpStatusWorker` reloads routes, clusters and users only when those tokens change, so a direct write without the bump is never picked up.
+
+Extract the single ```` ```json ```` block from `GATEWAY-CONFIG.md` to a scratch file (never into the repo), copy it and the script into the container, and run it:
+
+On Git Bash, `export MSYS_NO_PATHCONV=1` first, or the `/tmp/...` container paths are rewritten to Windows paths.
+
+```bash
+awk '/^```json/{f=1;next} /^```/{f=0} f' src/Tenants/<TenantName>/GATEWAY-CONFIG.md > <scratch>/gateway-package.json
+docker cp <scratch>/gateway-package.json mongo:/tmp/gateway-package.json
+docker cp "${CLAUDE_PLUGIN_ROOT}/skills/tenant-audit/scripts/apply-local-gateway.js" mongo:/tmp/apply-local-gateway.js
+$C exec -T -e ZC_PACKAGE=/tmp/gateway-package.json -e ZC_TEST_USER=test<TenantName> -e ZC_TEST_PASSWORD=test \
+  -e ZC_USER_SCOPES="$US" mongo sh -c "$M /tmp/apply-local-gateway.js"
+$C exec -T mongo rm -f /tmp/gateway-package.json /tmp/apply-local-gateway.js
+```
+
+The script refuses to run (exit 2, `refused: <host> is not the local compose mongo`) unless mongosh is connected to `localhost`, `127.0.0.1` or `::1`, which is what `docker exec mongo` gives it. Report a refusal as a `fail` and never work around it.
+
+**Cross-cluster routes (C11).** A route whose `clusterId` isn't in the package's `clusters` points at a host. The local `mongo` may not hold that cluster: no host package is imported locally. For each such `clusterId`, find the host's compose service `core-<host slug>` (the Check 2 awk, matched on the host folder). Then write the scratch package with a `hostClusters` entry beside `clusters`, in the cluster shape of tenant-init §6 with the local compose address `http://core-<host slug>`. The script inserts a host cluster only when the local `mongo` has no cluster with that id, never changes an existing one, and reports it as `(host)`. Without a host compose service, drop the route from the scratch package and report it `skipped — host <cluster> has no compose service`. A route whose cluster is still missing stops the script before any route is written (exit 3, `refused: route <id> targets missing cluster <cluster>`): report a `fail`.
+
+It prints the scope, cluster and route ids with `created` / `exists` / `updated`, plus the user and its scopes. A mongosh error is a `fail`: quote the error message and stop 9b. The script prints no cluster addresses or other config values, and the report shouldn't either.
+
+The gateway picks up the change on its next `YarpStatusWorker` poll, every 30 s. Wait 35 s before 9c.
+
+### 9c. Start the tenant and call it through the gateway
+
+In the gateway paths below, `/t/<slug>/` stands for the prefix of the route just applied: `match.path` in `GATEWAY-CONFIG.md` minus `{**url}`. That is `/t/<slug>/` for every `tenant-init` scaffold; a hand-written file may use another route (C8), and the calls follow the file.
+
+**Outbound gateway calls stay local.** The container runs with `appsettings.Development.json`, and most Development `BaseUrl`s on the gateway point at the public test gateway, some with literal credentials. Started as is, the tenant would call it. Every client that calls a gateway is moved to the local one first, not only `Endpoints:Gateway`.
+
+A client section is gateway-bound when its `appsettings.json` `BaseUrl` is `__Endpoints.APIGATEWAY.BaseUrl__`, or its `appsettings.Development.json` `BaseUrl` host is `gateway`, `localhost:10080` or `api[.<env>].gsb.gov.zm`. That covers `Endpoints:Gateway` (Check 3) and every other REST or SOAP client on the gateway, such as CEEC `ZamConnect`, EGP `Ifmis` or DNRPC `Imago`. List them in one Bash call. It prints section names, paths and line numbers, never a host or a credential:
+
+```bash
+awk '
+  FNR == 1 { f++; depth = 0; key = last = ""; colon = 0 }
+  { sub(/\r$/, ""); n = length($(0))
+    for (i = 1; i <= n; i++) {
+      c = substr($(0), i, 1)
+      if (c == "\"") {
+        s = ""; for (i++; i <= n && substr($(0), i, 1) != "\""; i++) { if (substr($(0), i, 1) == "\\") i++; s = s substr($(0), i, 1) }
+        if (colon && tolower(key) == "baseurl") { sec = path[2]; for (j = 3; j <= depth; j++) sec = sec "__" path[j]; url[f, sec] = s; ln[f, sec] = FNR; secs[sec] = 1 }
+        if (!colon) last = s; colon = 0
+      }
+      else if (c == "/" && substr($(0), i + 1, 1) == "/") break      # comment
+      else if (c == ":") { key = last; colon = 1 }
+      else if (c == "{") { path[++depth] = key; key = ""; colon = 0 }
+      else if (c == "}") { depth--; colon = 0 }
+      else if (c == "," || c == "[") { key = ""; colon = 0 }
+      else if (c !~ /[ \t]/) colon = 0                                # number, true, false, null
+    }
+  }
+  END {
+    for (sec in secs) {
+      h = url[2, sec]; sub(/^[A-Za-z]+:\/\//, "", h)
+      p = index(h, "/") ? substr(h, index(h, "/")) : "/"; sub(/\/.*/, "", h); h = tolower(h)
+      kind = (h ~ /^(gateway|localhost:10080)$/) ? "local" : (h ~ /^api(\.[a-z0-9-]+)?\.gsb\.gov\.zm$/) ? "public" : ""
+      if (kind == "" && url[1, sec] != "__Endpoints.APIGATEWAY.BaseUrl__") continue
+      if (sec !~ /^(Endpoints|SoapEndpoints)__/) { if (kind == "public") print "uncovered\t" ln[2, sec]; continue }
+      if (kind == "") { kind = "public"; p = "/" }
+      print sec "\t" p "\t" kind
+    }
+  }' src/Tenants/<TenantName>/appsettings.json src/Tenants/<TenantName>/appsettings.Development.json | sort > <scratch>/gateway-bound.tsv
+```
+
+Each row of `<scratch>/gateway-bound.tsv` is one section, tab-separated:
+
+| Column | Value |
+|---|---|
+| 1 | The environment prefix: `Endpoints__Ifmis`, `SoapEndpoints__Imago`. A nested section joins its keys: `Endpoints__DotgovPay__Payments` |
+| 2 | The path of the Development `BaseUrl`, `/` when it has none. It is kept, so a client whose Development `BaseUrl` holds a route (PSPF `Pspf` on `/t/pspf1/…`) calls the same route on the local gateway |
+| 3 | `local` when the Development host is `gateway` or `localhost:10080`, otherwise `public` |
+
+A Development `BaseUrl` on a public gateway outside `Endpoints` / `SoapEndpoints` can't be moved by the override. It gives an `uncovered` row with its line number in `appsettings.Development.json`.
+
+| List | Action |
+|---|---|
+| Any `uncovered` row | Don't start the tenant. Report a `fail` with the line numbers only, never the value: the tenant would call the public gateway. Skip the calls below |
+| Empty | No override. Start the tenant as it is |
+| Otherwise | Generate the override below |
+
+The override gives every row the local gateway and the local test user. It is a scratch compose file, never a repo file:
+
+```bash
+awk -F'\t' -v s=core-<slug> -v u=test<TenantName> '
+  BEGIN { print "services:"; print "  " s ":"; print "    environment:" }
+  { printf "      - \"%s__BaseUrl=http://gateway%s\"\n", $(1), $(2)
+    printf "      - \"%s__Username=%s\"\n", $(1), u
+    printf "      - \"%s__Password=test\"\n", $(1) }' <scratch>/gateway-bound.tsv > <scratch>/gateway-user.override.yml
+C="$C -f <scratch>/gateway-user.override.yml"
+```
+
+Each entry is quoted, so a path with spaces stays one value. The report lists the `public` rows: they are the calls this check moved off the public gateway. A moved call to a route the local gateway doesn't hold is the last row of the response table below, a `warn`.
+
+Then start the tenant:
+
+```bash
+$C up -d --build --no-deps core-<slug>
+```
+
+When 9b added host clusters, also start each host service, `$C up -d --build --no-deps core-<host slug>`, and call one operation per cross-cluster route the way Check V2 does.
+
+Calls go to `http://localhost:10080/t/<slug>/<path>` with `-u "test<TenantName>:test"`, `-s -o <scratch>/body -w '%{http_code}'`. First the health endpoint:
+
+```bash
+curl -s -u "test<TenantName>:test" -w '\n%{http_code}\n' http://localhost:10080/t/<slug>/health/live
+```
+
+It must return `200 Healthy`. This single call proves the whole chain: route match, Basic auth, scope, cluster address `http://core-<slug>` resolving on the compose network, and the tenant being up.
+
+Then call **at least one endpoint per module**. List the routes from the tenant's code: `Map(Get|Post|Put|Delete|Patch)(` in each `Modules/*.cs` for Carter tenants, or `[Http*]` plus `[Route]` in `Controllers/*.cs`. Include any group prefix from `MapGroup(`. For each module, prefer a `GET`. Fill route parameters and bodies with obviously fake sample values that pass validation (a 12-digit NRC-shaped string, `"test"`), never real personal data. Use `POST` only when a module has nothing else, with the smallest valid body from the request DTO.
+
+Classify every response by **who answered**. The gateway answers `401`, `403 Request not allowed` and `404` with an empty body for unmatched routes. The tenant answers with its own JSON or problem details.
+
+| Response | Verdict |
+|---|---|
+| `2xx` | `ok` |
+| `400` / `422` problem details from the tenant | `ok` — the call reached the handler and validation ran |
+| `401` | `fail` — the test user wasn't picked up: the `UsersModificationToken` bump didn't happen or the users cache hasn't refreshed yet (retry once after 35 s) |
+| `403 Request not allowed` | `fail` — the user lacks the `<slug>` scope, or the route's `metadata.Scope` differs from it |
+| `404` / `405` from the gateway | `fail` — the path is outside `/t/<slug>/{**url}`, or the verb is missing from the route's `match.methods`. The fix goes in `GATEWAY-CONFIG.md`, and the next run re-applies it |
+| `404` from the tenant | `fail` — the route isn't mapped, or its path is wrong |
+| `502` / `503` / `504` from the gateway | `fail` — the tenant container isn't reachable at `http://core-<slug>`. Check `$C ps core-<slug>` and its logs |
+| `5xx` from the tenant | `warn` if the logs show an upstream connection or timeout error (the agency API isn't reachable from a local container, which is expected), otherwise `fail` |
+| `404` / `5xx` from the tenant on a route that calls back through the gateway | `warn` when the gateway log shows the call to `/t/<other route>/…` answered `404`: that other tenant's route isn't in the local gateway. The call itself reached the local gateway with the test user, which is what this check proves |
+| `5xx` from the tenant, and the gateway log shows its call to `/t/<other route>/…` answered `403` | `fail` — the scope of that route is missing from the `## Upstream scopes` section (C12), so the test user didn't get it, and an administrator wouldn't grant it either. Name the route and its scope from the routes doc |
+
+For every non-`ok` row, read `$C logs --no-color --tail 80 core-<slug>` and `$C logs --no-color --tail 40 gateway`. Quote only the exception type and message, never headers, tokens, request bodies or config values.
+
+Report one row per call: module, method, gateway path, status, verdict. Leave the containers, the applied config and the test user in place so the user can keep testing with `-u test<TenantName>:test`. The report names what was written to the local database, in order: the scope, cluster and route ids, and the test user with its scopes.
+
+Fixable through the fix question: none. Every failure here is a code, config or `GATEWAY-CONFIG.md` change. Applying the package and creating the test user are part of running the check, not repairs.
+
+## Check V — Virtual tenant
+
+Runs instead of Checks 1–9 when `src/Tenants/<T>/` holds no project (no folder, or no `*.csproj` in it) and `src/VirtualTenants/<T>/GATEWAY-CONFIG.md` exists (C11). The flags map onto it: `--only runtime` runs V2 only; `--no-runtime`, `--dry-run` and a plain `--all` run V1 only; every other `--only` value runs V1. There is no project, so there is nothing to build, register or configure. What can be wrong is the package, the host and the route through the gateway. `<CODE>` is `<T>` in upper case, `<slug>` in lower case.
+
+### V1. Package and host
+
+Read the single ```` ```json ```` block of the file. For each route, find the host folder: `src/Tenants/<dir>` whose name equals the route's `clusterId` ignoring case (`GOVZM`), else the route's cluster row in the routes doc (C8).
+
+| Check | Verdict |
+|---|---|
+| `clusters` is `[]` | A cluster listed is a `fail`: the import would overwrite the live host cluster |
+| `clusterId` is a cluster in the routes doc (`awk -F' *[\|] *' '{ print $(6) }' docs/zamconnect-test-routes.md \| sort -u`) | Missing is a `fail`: the import rejects the route with `references cluster '<id>' which does not exist` |
+| `authorizationPolicy` is `Basic`, `metadata.Scope` is set | Either missing is a `fail` (tenant-init §6 says why) |
+| The `PathPattern` prefix is a route group the host maps: `grep -rnE 'MapGroup\("<prefix>"\|SharedModule\("<prefix>"' src/Tenants/<Host>/Modules` | No match is a `fail`: every call reaches a path the host doesn't serve |
+| `match.methods` holds only verbs the host maps under the forwarded path (the `integrate-shared` §6 verb grep on the host, plus the `EServicesSharedModule` verbs when the host derives from it) | An extra verb is a `warn`: the host answers 405 |
+| `order` is `1` on a `/t/<slug>/{**url}` route and absent on a per-path route | Otherwise `warn` |
+| No other route uses the same `match.path`: `grep -n '/t/<slug>/' docs/zamconnect-test-routes.md`, plus every other `GATEWAY-CONFIG.md` under `src/Tenants/` and `src/VirtualTenants/` | A different route id on the same path is a `fail`: the gateway answers 500 |
+| No project artefacts: compose service `core-<slug>`, `.azure/tenant.azure-pipelines.<slug>.yaml`, `ZamConnect.sln` entry | Any one is a `warn`: a half-converted tenant. Its routes belong in the tenant's own `GATEWAY-CONFIG.md` (tenant-init §6) |
+| Each route id is in the routes doc | Present is `ok — live in test`. Missing is a `warn — not imported yet`, normal before the first import |
+| The file is not in git (C10): `git ls-files src/VirtualTenants/<CODE>/GATEWAY-CONFIG.md` prints nothing, and `git check-ignore --no-index` prints the path | Tracked is a `fail`: report `git rm --cached <path>` for the engineer to run, never run it. Not covered by `.gitignore` is a `warn` |
+
+Under `--all`, `--no-runtime` or `--dry-run`, V1 is all that runs for a virtual tenant.
+
+### V2. Through the local gateway
+
+Same rules as Check 9 (local only, no token asked, nothing printed from the database), with these differences:
+
+1. **Stack.** 9a as written.
+2. **Package.** 9b as written. Every route is cross-cluster, so the scratch package carries a `hostClusters` entry per host, and the test user is `test<CODE>` with the route scopes only. It never gets the host's own scope: the check proves the agency needs nothing more.
+3. **Host.** Build the 9c gateway-bound list for each host, from `src/Tenants/<Host>/`, and generate its override with `s=core-<host slug>` and `u=test<CODE>`, so the host's own outbound calls go to the local gateway. Name the files `<scratch>/gateway-bound.<host slug>.tsv` and `<scratch>/gateway-user.<host slug>.override.yml`, and add each override to `$C` with `-f`. A host with an `uncovered` row is not started: report the 9c `fail` and skip its calls. Then start each host service, `$C up -d --build --no-deps core-<host slug>`. Probe the host's health inside its container, as tenant-init §8 does. A catch-all route can't do it: `/t/<slug>/health/live` becomes `<prefix>/health/live`, which the host doesn't map.
+4. **Calls.** Call one operation per route through `http://localhost:10080/t/<slug>/<path>` with `-u "test<CODE>:test"`, with fake values as in 9c. For a catch-all, call one operation per resource the host serves under the prefix. Take them from the host's routes.
+
+Classify by who answered, with the Check 9c table, and these readings for the host:
+
+| Response | Verdict |
+|---|---|
+| `2xx`, or problem details from the host's handler (`404` not found, `400` validation) | `ok` — route, Basic auth, scope, transform and cluster all worked |
+| `404` with an empty body, and the gateway log shows the request proxied to the host | `fail` — the `PathPattern` points at a path the host doesn't map |
+| `5xx` from the host, with its logs showing an upstream connection, `401`, `403` or `404` on its own gateway call | `warn` — the host's upstream (`/t/ndw/…` for GOVZM) isn't reachable from the local stack. The virtual route itself worked |
+
+Read `$C logs --no-color --tail 40 gateway` to tell a gateway answer from a host answer: a proxied request names its destination cluster. Report one row per call: route id, method, gateway path, host path, status, verdict. Leave the containers, the applied routes and the test user in place, and name them in the report.
+
+Fixable through the fix question: the missing `.gitignore` lines only, as in Check 4. Every other failure is a change to the virtual tenant's `GATEWAY-CONFIG.md`, made with `/integrate-shared <CODE> --mode virtual` for a GOVZM host.
+
+## Fixing
+
+After the report, when at least one finding is fixable and none of `--fix`, `--auto`, `--report-only` was passed, ask once. Header `Fix`, `multiSelect: true`. Each option is one concrete repair, labelled with what it writes:
+
+```
+Apply fixes for PQPS? Only the ticked repairs are written. The rest of the report stays as-is.
+  [ ] Fix all 3 fixable findings (Recommended)
+  [ ] Add .azure/tenant.azure-pipelines.pqps.yaml       check 1 — never deployed without it
+  [ ] Add core-pqps to docker-compose.yml               check 1
+  [ ] Add PQPS to ZamConnect.sln (Tenants folder)       check 1
+```
+
+With more than 3 fixable findings, show the 3 most severe plus `Fix all <n> fixable findings`. Under `--all`, one option per root cause across tenants, naming the tenants the run actually found: `Add pipeline files for <T1>, <T2>`.
+
+Check 4's variable-list and `.gitignore` repairs are options too (`Regenerate ENVIRONMENT-VARIABLES.json   check 4 — 2 tokens unlisted`, `Ignore the handoff files in .gitignore   check 4 — 2 lines missing`). Findings that aren't fixable — a missing endpoint section, a committed credential, a tracked handoff file, a casing or slug mismatch, a regression guard — are **never** options. They stay in the report with the exact block to add.
+
+Apply the picked repairs exactly as tenant-init §4 (pipeline), §5 (compose) and §7 (`dotnet sln add … --solution-folder Tenants`) specify, re-run the checks they belong to, and report the new status.
+
+## Report
+
+Lead with the findings, not the checks that passed.
+
+For one tenant: a table of check, status (`ok` / `warn` / `fail`), and the specific finding. Then, for each `fail`, the exact file and the exact line or JSON block that fixes it.
+
+For `--all`: one row per tenant with a column per check, then the failures grouped by check — the same root cause usually spans several tenants and is worth fixing in one pass. Report the Development-credential baseline once, as a count (Check 4). Do not print per-tenant detail for tenants that pass everything.
+
+Severity, highest first:
+
+1. Literal credential in `appsettings.json`, or committed key material (check 4)
+2. No pipeline file — never deployed; `tenant:` casing mismatch (check 1)
+3. Missing endpoint section in `appsettings.json` for a REST, SOAP or Gateway client; SOAP section without `AuthenticationScheme`; block misnested under `Endpoints`; a missing Upstream scopes section or row (check 3)
+4. Slug mismatch — gateway routes to nothing (check 2); health or a module endpoint failing through the local gateway (check 9)
+5. Regression guard hit, image build failure (check 8)
+6. Everything else, including the Development-credential baseline (`warn`)
+
+When Check 9 was skipped, the report's first line says why: Docker not running, or no `GATEWAY-CONFIG.md`. A stopped stack is never a reason — 9a starts it.
+
+For a virtual tenant, the report's first line says so and names the host clusters. Then the V1 table and the V2 calls, with the same severity order: a host cluster listed in `clusters`, a missing host cluster and a path collision come first. Under `--all`, virtual tenants get their own rows, with a V1 column only.
+
+Close by naming what the audit never reads, because an administrator sets it up by hand (C10): the variables in each environment, the ADO pipeline definitions, the scope/cluster/route records in every non-local gateway, and ZamPass / RA clients. Check 9 covers only the local Docker gateway.
+
+When anything was repaired, end with the equivalent command, e.g. `/tenant-audit PQPS --fix registration`.
+
+**Gate result.** Under `--report-only` (the mode `tenant-pipeline` step 5 runs) the report's last line is `GATE-RESULT: ran` or `GATE-RESULT: failed <reason>`. Only a blocking finding gives `failed`:
+
+| Finding | Gate |
+|---|---|
+| A check that could not run: a command or script error, not a `skipped` | Blocking |
+| The image does not build (Check 8) | Blocking |
+| The tenant does not start: `up` fails for `core-<slug>`, or 9c refuses to start it (an `uncovered` row) | Blocking |
+| A literal credential in `appsettings.json`, or committed key material (severity 1, Check 4) | Blocking |
+| Virtual tenant: a host cluster listed in `clusters`, or a `clusterId` missing from the routes doc (V1) | Blocking |
+| Every other `fail`, every `warn`, every `skipped` | Not blocking |
+
+`<reason>` names the check and the finding in one line, never a value: `failed check 8 — image build: step 7/12 COPY failed`. With several blocking findings, name the most severe and add `(+<n> more)`. The rows above it stay in the report as usual.
+
+## Sensitive data
+
+No credential ever goes into this skill, into anything it generates, or into its report. That means passwords, connection strings, API keys, bearer tokens, client secrets, certificates and private keys, and equally the things that locate them: internal host names, server IP addresses and database endpoints.
+
+- In generated config, a secret is a `__Token__` placeholder. List its name in `ENVIRONMENT-VARIABLES.json` (C9) with an empty value, and leave the value out. Never write a registry, Helm, cluster, MongoDB, RA or ZamPass address (C10).
+- A credential passed to you as an argument is used in the one command that needs it and nowhere else. Never echo it, never write it to a file, never put it in a commit message or a PR description, and redact it in every line of output.
+- Never copy a credential out of a file you read, even when the repository already commits it (C7). Finding one in the repo is a finding to report, not a value to reuse. Secrets commands print key names, line numbers and counts only.

@@ -26,6 +26,24 @@
       ]
     },
     {
+      "name": "zamconnect-integration",
+      "description": "ZamConnect tenant tooling: tenant scaffolding, shared-library integration, drift audit, test generation and delivery document packages (OpenAPI, Word API Specification, Postman).",
+      "author": {
+        "name": "Ruslan Solihodjaev",
+        "email": "ruslan.solihodjaev@dotgovsolutions.net"
+      },
+      "category": "development",
+      "source": "./plugins/zamconnect-integration",
+      "keywords": [
+        "zamconnect",
+        "tenant",
+        "gateway",
+        "yarp",
+        "dotnet",
+        "openapi",
+        "postman"]
+    },
+    {
       "name": "dgf-factory",
       "description": "A DotGov Framework-aware plan/implement/verify pipeline, backed by deterministic validators that resolve both component config families — modern JSON and legacy XSD — before reporting success.",
       "author": {
