@@ -203,8 +203,10 @@ fast pre-check and never the gate: only `/dgf-verify`'s whole-root run can pass 
 ## The declared DGF version
 
 Nothing in a workspaces root states which DGF release it runs, so `/dgf` asks and records it
-as `dgf.version` ([ADR 0019](adr/0019-declared-dgf-version.md)). `unknown` is allowed and
-stays a warning. When the declared version is newer than the knowledge base's stamp, `/dgf`
+as `dgf.version` ([ADR 0019](adr/0019-declared-dgf-version.md)). The user picks it from the
+releases the DGF docs MCP's `list_release_notes` returns, with no default; the knowledge stamp is
+shown in the question but never offered as the answer. `/dgf-scaffold` asks for `dgf_version` the
+same way. `unknown` is allowed and stays a warning. When the declared version is newer than the knowledge base's stamp, `/dgf`
 says the shipped facts were read at an older release and offers the DGF docs MCP's
 `get_release_notes`. The version gate that compares it with a fact's `applies:` range is a
 follow-up: no behavioural fact carries one yet.

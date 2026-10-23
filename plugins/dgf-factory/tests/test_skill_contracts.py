@@ -285,6 +285,43 @@ class Scaffold(unittest.TestCase):
             self.assertIn("`3`", section, step)
 
 
+LIST_RELEASES = "mcp__plugin_dgf-factory_dgf-mcp__list_release_notes"
+
+
+def allowed_tools(skill_md):
+    lines = skill_md.read_text(encoding="utf-8").splitlines()
+    return next(line for line in lines[1:lines.index("---", 1)] if line.startswith("allowed-tools:")).split()
+
+
+class DgfVersionQuestion(unittest.TestCase):
+    """The DGF version is selected from the published releases, with no default — never the knowledge stamp (ADR 0019)."""
+
+    # skill → the text that opens the paragraph asking for the version
+    ASKS = {"dgf": "**The DGF version this estate runs**", "dgf-scaffold": "**`dgf_version`**"}
+
+    def question(self, name):
+        text = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn(self.ASKS[name], text, f"{name} no longer asks for the DGF version where expected")
+        return re.split(r"\n(?:\d+\.|-) |\n\n", text.split(self.ASKS[name], 1)[1], maxsplit=1)[0]
+
+    def test_each_asking_skill_may_list_the_releases(self):
+        for name in self.ASKS:
+            self.assertIn(LIST_RELEASES, allowed_tools(SKILLS / name / "SKILL.md"), name)
+
+    def test_the_options_come_from_the_release_list_with_no_default(self):
+        for name in self.ASKS:
+            question = self.question(name)
+            self.assertIn("`list_release_notes`", question, name)
+            self.assertIn("no default", question, name)
+
+    def test_the_knowledge_stamp_is_never_an_option(self):
+        for name in self.ASKS:
+            question = self.question(name)
+            self.assertNotRegex(question, r"Options: the stamp", name)
+            if "stamp" in question:
+                self.assertRegex(question, r"never (?:as an option|offer the knowledge stamp)", name)
+
+
 class WritingSkills(unittest.TestCase):
     """A skill that writes a file confirms it as the scripts behave, with git or without (ADR 0027 §1)."""
 

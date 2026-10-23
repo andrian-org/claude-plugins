@@ -2,7 +2,7 @@
 name: dgf-scaffold
 description: Create a new DGF application from scratch in an empty folder — the solution, the API hosts, Docker, the database with its SQL, the workspaces, authentication and the documentation, plus the register, service and page artefacts the request describes. Use for "new DGF application", "scaffold an app", "start a DGF project from scratch", "empty folder", "multi-tenant application", "bootstrap a DGF system".
 argument-hint: "<what the application is>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__list_release_notes mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details
 disable-model-invocation: false
 version: 0.1.0
 ---
@@ -88,6 +88,11 @@ Turn every `SCAFFOLD_ASK` line into an `AskUserQuestion`, at most four per call.
 is always there. Ask about the consequence, not the key: "How should the two directorates share their
 workspace?" — not "instance_model?".
 
+- **`dgf_version`** is selected from the published releases, with **no default**. Call the DGF docs MCP's
+  `list_release_notes`, and offer the four newest releases whose `version` is an `X.Y.Z` (skip `NOTES-NEXT`,
+  `README` and any other non-version row), newest first; any other release is typed under Other. Never preselect
+  or recommend one, and never offer the knowledge stamp: it is the release the shipped facts were read at, not a
+  package to target. When the MCP is unavailable, ask for a typed `X.Y.Z`.
 - Write each answer into the design under its key, and record it under `sources` as `asked`.
 - Then run Step 2 again.
 - After **five rounds** that still leave a value open, **STOP**. Keep the design, and say that running

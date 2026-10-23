@@ -2,7 +2,7 @@
 name: dgf
 description: Set up dgf-factory for a DGF workspaces root — inventory the workspaces, record the estate's DGF version, and write .dgf-factory/config.yaml and DESCRIPTION.md. Use for "set up dgf-factory", "dgf setup", "initialise the workspaces root", "configure dgf", "start using dgf-factory".
 argument-hint: "[workspaces-root]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_release_notes
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__list_release_notes mcp__plugin_dgf-factory_dgf-mcp__get_release_notes
 disable-model-invocation: false
 version: 0.2.0
 ---
@@ -109,9 +109,14 @@ Ask in at most **two** `AskUserQuestion` calls — the tool takes four questions
 
 1. **The estate.** Offer a name built from the git top level's directory name and the
    application workspaces, and let the user type the name and one sentence of purpose.
-2. **The DGF version this estate runs** (ADR 0019). Show the knowledge stamp from the
-   inventory's `KNOWLEDGE:` line. Options: the stamp's version, `unknown`, and a typed `X.Y.Z`.
-   Nothing in a workspaces root states it, so never infer it.
+2. **The DGF version this estate runs** (ADR 0019) — the user selects it, with **no default**.
+   Before Call 1, call the DGF docs MCP's `list_release_notes`. Options: the three newest
+   releases whose `version` is an `X.Y.Z` (skip `NOTES-NEXT`, `README` and any other non-version
+   row), newest first, then `unknown`; any other release is typed under Other. Never preselect or
+   recommend one. When the MCP is unavailable, offer only `unknown`, and say a version is typed
+   under Other. Show the knowledge stamp from the inventory's `KNOWLEDGE:` line **in the question
+   text**, as the release the shipped facts were read at — never as an option or a default.
+   Nothing in a workspaces root states the version, so never infer it.
 3. **The base branch** — the Step 2 default first. Skip when `git.enabled` is false.
 4. **The branch prefix** — `feature/` first. Skip when `git.enabled` is false.
 
@@ -198,7 +203,7 @@ warning, and the two files written. Then suggest, in order:
 
 - ✅ Take the root from `locate_plan.py`, and the counts from `inventory_root.py`
 - ✅ Relay every inventory warning, and the install command verbatim
-- ✅ Ask for the DGF version, and record `unknown` when the user does not know it
+- ✅ Ask for the DGF version from the published releases, and record `unknown` when the user does not know it
 - ✅ Show a diff and edit only managed keys on a re-run
 - ✅ Say what will not run when there is no git
 
@@ -206,6 +211,7 @@ warning, and the two files written. Then suggest, in order:
 
 - ❌ Count workspaces, processes or forms by reading directories yourself — the inventory decides
 - ❌ Infer the DGF version from schemas, package files, image tags or the UI build
+- ❌ Offer the knowledge stamp as the version's default — it is the release the facts were read at, not the estate's
 - ❌ Run `pip`, or install anything
 - ❌ Create workspaces, plans, `AGENTS.md`, rules files, `.mcp.json` or anything under a workspace
 - ❌ Edit `.gitignore`
