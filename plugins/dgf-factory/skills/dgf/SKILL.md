@@ -115,10 +115,22 @@ Ask in at most **two** `AskUserQuestion` calls — the tool takes four questions
 3. **The base branch** — the Step 2 default first. Skip when `git.enabled` is false.
 4. **The branch prefix** — `feature/` first. Skip when `git.enabled` is false.
 
-**Call 2 — stack overrides:** the plugin's defaults are auth by JWT Bearer plus OIDC via Azure
-AD and DGPass, and tests in xUnit + FluentAssertions + Moq/NSubstitute (backend) with Jest and
-Playwright (frontend). Options: keep both defaults, or record an override for either. They are
-defaults, not invariants; the estate's answer wins.
+**Call 2 — stack:**
+
+1. **Sign-in methods** — `multiSelect: true`, with **no default**: never preselect, recommend or
+   assume one. A host adds a provider only when its settings section exists, and reads no other
+   inbound scheme — there is no JWT bearer (`${CLAUDE_PLUGIN_ROOT}/knowledge/application-layout.md`
+   §5). Options:
+   - `basic` — local username and password (`Authentication:Basic:Enabled`)
+   - `dgpass` — DGPass OpenID Connect (`Authentication:DGPassOIDC`)
+   - `azure` — Azure AD OpenID Connect (`Authentication:AzureOIDC`)
+   - `none` — no sign-in method
+
+   Record the methods chosen, in that order, or `none`. `none` together with a method
+   contradicts itself: ask this one question again. Record an answer typed under Other verbatim.
+2. **Test stack.** The plugin's default is xUnit + FluentAssertions + Moq/NSubstitute (backend)
+   with Jest and Playwright (frontend). Options: keep the default, or type an override. It is a
+   default, not an invariant; the estate's answer wins.
 
 **Language.** When the existing config sets `language.ui` and `language.artifacts`, keep them.
 Otherwise use the language the user writes in for both, and say so in Step 7.

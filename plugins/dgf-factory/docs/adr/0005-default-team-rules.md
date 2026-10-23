@@ -1,8 +1,8 @@
 ---
 id: 0005
 title: Seven shipped defaults for dotGov DGF systems
-status: accepted
-date: 2026-09-21
+status: superseded-by-0028
+date: 2026-10-05
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [rules, conventions, enforcement]

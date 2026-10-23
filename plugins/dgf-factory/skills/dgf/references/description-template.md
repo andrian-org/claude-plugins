@@ -30,10 +30,11 @@
 
 ## Stack
 
-The plugin ships two stack defaults. They are defaults, not invariants, and this estate's
-answer wins where it differs.
+Sign-in has no default: it is what this estate chose from `basic`, `dgpass` and `azure`, or
+`none`. The test stack is a default, not an invariant, and this estate's answer wins where it
+differs.
 
 | Topic | Default | This estate |
 |---|---|---|
-| Auth | JWT Bearer plus OIDC via Azure AD and DGPass | {{AUTH}} |
+| Sign-in methods | none — chosen at setup | {{AUTH}} |
 | Test stack | xUnit + FluentAssertions + Moq/NSubstitute (backend); Jest and Playwright (frontend) | {{TESTS}} |

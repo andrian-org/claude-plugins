@@ -121,7 +121,7 @@ Read from `DotGovFramework` on **2026-09-18**. Re-verify before relying on these
 | .NET 10 (`net10.0`), nullable references **disabled** | `src/Directory.Build.props` |
 | Angular 19.2 frontend, standalone components, NGXS state | `AGENTS.md` tech stack |
 | SQL Server via EF Core (`Microsoft.Data.SqlClient`) | `AGENTS.md` tech stack |
-| Auth: JWT Bearer + OpenID Connect (Azure AD + DGPass) | `AGENTS.md` tech stack |
+| Auth: cookie always; DGPass OIDC, Azure AD OIDC and local `basic` sign-in each only when its `Authentication:` section enables it; **no JWT bearer** — `AGENTS.md`'s tech-stack line says otherwise and is wrong (re-read 2026-09-30, [ADR 0028](adr/0028-default-team-rules-revised.md)) | `src/PlatformServices/DGF.Authentication/AuthenticationExtensions.cs:49-286`; `knowledge/application-layout.md` §5 |
 | **34** component service registrations across 31 modules, each implementing `IComponentService<TSource>` — not "~40"; DGF has five disagreeing counts and `knowledge/component-catalogue.md` explains each | the 34 `RegisterComponentService(` call sites; `src/Components/DGF.Components.Shared/Contracts/IComponentService.cs` |
 | One dispatcher handles every UI request | `src/DGF.API/Controllers/ComponentsController.cs` |
 | Components are **statically enumerable** — name→type registry plus a reflection scan | `ComponentServiceProvider.cs`, `RegisterComponentServices()` |
