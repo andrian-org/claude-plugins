@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "zamconnect-integration",
+  "version": "0.1.0",
+  "description": "ZamConnect tenant tooling: tenant scaffolding, integration, audit, tests and delivery documents.",
+  "author": {
+    "name": "DotGov",
+    "email": "dotgovsolutions.net"
+  },
+  "skills": [
+    "./skills/tenant-init",
+    "./skills/tenant-pipeline",
+    "./skills/integrate-shared",
+    "./skills/tenant-audit",
+    "./skills/tenant-deliverables",
+    "./skills/tenant-integration",
+    "./skills/tenant-tests",
+    "./skills/payment-callback",
+    "./skills/data-exchange"
+  ],
+  "agents": [
+    "./agents/tenant-deliverables-builder.md"
+  ]
+}

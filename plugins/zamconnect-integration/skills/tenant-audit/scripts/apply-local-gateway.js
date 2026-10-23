@@ -1,0 +1,80 @@
+// Applies a tenant's GATEWAY-CONFIG.md package to the LOCAL compose mongo only, in the order
+// scope -> cluster -> route -> test user, then bumps the tokens YarpStatusWorker polls.
+// Mirrors the AdminAPI entity shapes (Core/Database/Entities) and HashHelper's PBKDF2 settings.
+// hostClusters (added by the audit for cross-cluster routes) are inserted only when missing.
+const crypto = require('crypto');
+const fs = require('fs');
+
+const conn = db.getMongo();
+// mongosh 2.x no longer exposes Mongo.host; fall back to the connection URI.
+const raw = conn.host ? conn.host.split(',')[0] : new URL(conn._uri).host;
+const host = raw.startsWith('[') ? raw.slice(1, raw.indexOf(']')) : raw.replace(/:\d+$/, '');
+if (!['localhost', '127.0.0.1', '::1'].includes(host)) {
+  print(`refused: ${host} is not the local compose mongo`);
+  quit(2);
+}
+
+const pkg = JSON.parse(fs.readFileSync(process.env.ZC_PACKAGE, 'utf8'));
+const username = process.env.ZC_TEST_USER;
+const password = process.env.ZC_TEST_PASSWORD;
+
+const pascal = v => Array.isArray(v) ? v.map(pascal)
+  : v && typeof v === 'object'
+    ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k[0].toUpperCase() + k.slice(1), pascal(x)]))
+    : v;
+const bin = b => BinData(0, b.toString('base64'));
+const now = new Date();
+const out = { scopes: [], clusters: [], routes: [], user: null };
+
+const routes = pkg.routes.map(r => ({ name: r.name, cfg: pascal(r.configJson) }));
+// ZC_USER_SCOPES: the tenant's own upstream scopes (conventions C12), granted to the test user only.
+const userScopes = (process.env.ZC_USER_SCOPES || '').split(',').map(s => s.trim()).filter(Boolean);
+const scopes = [...new Set([...routes.map(r => r.cfg.Metadata && r.cfg.Metadata.Scope), ...userScopes].filter(Boolean))];
+
+for (const name of scopes) {
+  const r = db.scopes.updateOne({ Name: name }, { $setOnInsert: { Name: name } }, { upsert: true });
+  out.scopes.push(`${name}: ${r.upsertedCount ? 'created' : 'exists'}`);
+}
+
+for (const c of pkg.clusters || []) {
+  const cfg = pascal(c.configJson);
+  const r = db.clusters.updateOne({ 'ConfigJson.ClusterId': cfg.ClusterId },
+    { $set: { Name: c.name, ConfigJson: cfg, Updated: now }, $setOnInsert: { Created: now } }, { upsert: true });
+  out.clusters.push(`${cfg.ClusterId}: ${r.upsertedCount ? 'created' : 'updated'}`);
+}
+
+for (const c of pkg.hostClusters || []) {
+  const cfg = pascal(c.configJson);
+  const r = db.clusters.updateOne({ 'ConfigJson.ClusterId': cfg.ClusterId },
+    { $setOnInsert: { Name: c.name, ConfigJson: cfg, Created: now, Updated: now } }, { upsert: true });
+  out.clusters.push(`${cfg.ClusterId}: ${r.upsertedCount ? 'created' : 'exists'} (host)`);
+}
+
+for (const { cfg } of routes) {
+  if (!db.clusters.findOne({ 'ConfigJson.ClusterId': cfg.ClusterId })) {
+    print(`refused: route ${cfg.RouteId} targets missing cluster ${cfg.ClusterId}`);
+    quit(3);
+  }
+}
+
+for (const { name, cfg } of routes) {
+  const r = db.routes.updateOne({ 'ConfigJson.RouteId': cfg.RouteId },
+    { $set: { Name: name, ConfigJson: cfg, Updated: now }, $setOnInsert: { Created: now } }, { upsert: true });
+  out.routes.push(`${cfg.RouteId}: ${r.upsertedCount ? 'created' : 'updated'}`);
+}
+
+const salt = crypto.randomBytes(20);
+const key = crypto.pbkdf2Sync(password, salt, 1000, 20, 'sha1');
+const u = db.users.updateOne({ Username: username },
+  {
+    $set: { PasswordKey: bin(key), PasswordSalt: bin(salt), IsDisabled: false },
+    $addToSet: { Scopes: { $each: scopes } },
+    $setOnInsert: { IsAdmin: false }
+  }, { upsert: true });
+out.user = `${username}: ${u.upsertedCount ? 'created' : 'updated'}, scopes ${db.users.findOne({ Username: username }).Scopes.join(',')}`;
+
+for (const k of ['YarpModificationToken', 'UsersModificationToken']) {
+  db.Secrets.updateOne({ Key: k }, { $set: { Value: crypto.randomBytes(75).toString('base64') } }, { upsert: true });
+}
+
+printjson(out);
