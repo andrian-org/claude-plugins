@@ -10,8 +10,8 @@ export const RUNTIME_TOKEN = '{{dgf_runtime}}';
 export const RUNTIME_DIR = '.dgf-factory/runtime';
 
 // AI Factory's boundary (`dist/core/transformer.js:42`) with `aif` replaced by `dgf`: a `/` that
-// follows a letter, digit, `_ . ~ / } -` is part of a path, not an invocation.
-const INVOCATION = /(^|[^A-Za-z0-9_.~/}-])\/(dgf(?:-[a-z0-9-]+)?)(?![A-Za-z0-9_-])/g;
+// follows a letter, a digit, an underscore, a dot, a tilde, a slash, `}` or `-` is part of a path.
+const INVOCATION = /(^|[^A-Za-z0-9_.\x7e/}-])\/(dgf(?:-[a-z0-9-]+)?)(?![A-Za-z0-9_-])/g;
 
 const INVOCATION_FORMS = {
   default: null,

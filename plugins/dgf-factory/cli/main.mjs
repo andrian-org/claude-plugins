@@ -6,7 +6,9 @@ import * as log from './log.mjs';
 import { packageVersion } from './paths.mjs';
 
 // command → [loader, one-line summary]. Each module exports run(args) → exit code.
-export const COMMANDS = {};
+export const COMMANDS = {
+  setup: [() => import('./commands/setup.mjs'), 'install or update dgf-factory in this project, for the harnesses you choose'],
+};
 
 export function usage() {
   const width = Math.max(0, ...Object.keys(COMMANDS).map((name) => name.length));

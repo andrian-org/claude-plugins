@@ -289,3 +289,32 @@ authority.
 - **What would reverse this:** a named requirement that `dgf-factory` and another dotGov agent-tooling
   effort share a single skill corpus or install path, or a decision to return to a single-harness
   plugin.
+
+## Errata
+
+Corrections of fact that do not change what this ADR decides. See [the ADR contract](README.md) §"Errata".
+
+- **2026-10-26** — §7 says each harness's MCP shape is verified and recorded here; this records it, and
+  three corrections to the harness list it implied. Each row was read from the harness's own documentation
+  on 2026-10-26. The decision is unchanged: an HTTP `dgf-mcp` entry per harness, or a manual step.
+
+  | Harness | Project file | Entry under the container | Source |
+  |---|---|---|---|
+  | claude, universal | `.mcp.json` | `mcpServers.dgf-mcp = {"type": "http", "url": …}` — `type` is required | code.claude.com/docs/en/mcp |
+  | cursor | `.cursor/mcp.json` | `mcpServers.dgf-mcp = {"url": …}` | cursor.com/docs/context/mcp |
+  | copilot | `.vscode/mcp.json` | `servers.dgf-mcp = {"type": "http", "url": …}` | code.visualstudio.com/docs/copilot/reference/mcp-configuration |
+  | gemini | `.gemini/settings.json` | `mcpServers.dgf-mcp = {"httpUrl": …}` — read by every version; current source prefers `url` + `type` | gemini-cli `docs/tools/mcp-server.md` |
+  | qwen | `.qwen/settings.json` | `mcpServers.dgf-mcp = {"httpUrl": …}` — a bare `url` means SSE | qwen-code `docs/users/features/mcp.md` |
+  | codex, codex-app | `.codex/config.toml` | `[mcp_servers.dgf-mcp]` `url = "…"` — read only once the user trusts the project | learn.chatgpt.com/docs/extend/mcp |
+  | junie | `.junie/mcp/mcp.json` | `mcpServers.dgf-mcp = {"url": …}` | junie.jetbrains.com/docs/junie-cli-mcp-configuration.html |
+  | warp | `.warp/.mcp.json` | `mcpServers.dgf-mcp = {"url": …}` | docs.warp.dev/agents/capabilities/mcp |
+  | roocode | `.roo/mcp.json` | `mcpServers.dgf-mcp = {"type": "streamable-http", "url": …}` — Roo Code itself was shut down on 2026-05-15 | roocodeinc.github.io/Roo-Code/features/mcp/using-mcp-in-roo |
+  | antigravity | `.agents/mcp_config.json` | `mcpServers.dgf-mcp = {"serverUrl": …}` | antigravity.google/docs/mcp |
+  | opencode | `opencode.json` | `mcp.dgf-mcp = {"type": "remote", "url": …}` | opencode.ai/docs/mcp-servers |
+  | kilocode | — manual | Kilo Code moved MCP into `kilo.jsonc`, JSON with comments, which cannot be merged without losing them | kilo.ai/docs/features/mcp/using-mcp-in-kilo-code |
+  | windsurf | — manual | now Devin Desktop; user-level configuration only | docs.devin.ai/desktop/cascade/mcp |
+  | zencoder | — manual | its documentation could not be read (HTTP 403) | — |
+
+  Corrections: AI Factory's registry gives `codex` no settings file, `kilocode` `.kilocode/mcp.json`, and
+  `gemini`, `junie`, `warp` and `antigravity` none; the table above is what each harness reads today.
+  Source: the documentation pages named in the table; `cli/harnesses.mjs` and `cli/mcp.mjs` follow it.
