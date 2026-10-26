@@ -101,3 +101,16 @@ test('without a terminal and without --yes, nothing is removed (exit 3)', (t) =>
   assert.equal(result.status, 3);
   assert.ok(existsSync(path.join(project, '.claude/skills/dgf/SKILL.md')));
 });
+
+test('Ctrl+D at the confirm prompt is a usage error, and nothing is removed', async (t) => {
+  const project = installed(t, 'claude');
+  const { run } = await import('../../cli/commands/uninstall.mjs');
+  const { parseArgs } = await import('node:util');
+  const io = {
+    question: async () => { throw Object.assign(new Error('Aborted with Ctrl+D'), { name: 'AbortError', code: 'ABORT_ERR' }); },
+    close: () => {},
+  };
+  const out = { write: () => true };
+  await assert.rejects(run(['--root', project], { parseArgs }, { io, out }), (err) => err.code === 3 && /cancelled/.test(err.message));
+  assert.ok(existsSync(path.join(project, '.claude/skills/dgf/SKILL.md')));
+});

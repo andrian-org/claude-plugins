@@ -156,3 +156,30 @@ test('an unknown harness and an unknown flag are usage errors', (t) => {
   assert.equal(cli('--root', tmp(t), '--harness', 'emacs').status, 3);
   assert.equal(cli('--frobnicate').status, 3);
 });
+
+// readline/promises rejects question() this way when the user presses Ctrl+D (or Ctrl+C)
+function abortedTerminal(answers = []) {
+  const queue = [...answers];
+  return {
+    output: sink(),
+    question: async () => {
+      if (queue.length) return queue.shift();
+      throw Object.assign(new Error('Aborted with Ctrl+D'), { name: 'AbortError', code: 'ABORT_ERR' });
+    },
+    close: () => {},
+  };
+}
+
+test('Ctrl+D at the harness prompt is a usage error, and nothing is written', async (t) => {
+  const project = tmp(t);
+  await assert.rejects(run(['--root', project, '--no-python'], { parseArgs }, { io: abortedTerminal(), out: sink() }),
+    (err) => err.code === 3 && /cancelled/.test(err.message));
+  assert.deepEqual(readdirSync(project), []);
+});
+
+test('Ctrl+D at the apply prompt is a usage error, and nothing is written', async (t) => {
+  const project = tmp(t);
+  await assert.rejects(run(['--root', project, '--harness', 'claude', '--no-python'], { parseArgs }, { io: abortedTerminal(), out: sink() }),
+    (err) => err.code === 3 && /cancelled/.test(err.message));
+  assert.deepEqual(readdirSync(project), []);
+});

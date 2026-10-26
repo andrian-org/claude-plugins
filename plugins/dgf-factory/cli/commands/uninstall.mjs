@@ -14,6 +14,7 @@ import { HARNESSES } from '../harnesses.mjs';
 import { hashFile } from '../hash.mjs';
 import * as log from '../log.mjs';
 import { removeMcpEntry } from '../mcp.mjs';
+import { ask } from '../prompt.mjs';
 import { RECEIPT, readReceipt, serialise, validate } from '../receipt.mjs';
 import { RUNTIME_DIR } from '../transform.mjs';
 import { resolveProject } from './setup.mjs';
@@ -80,7 +81,7 @@ function preview(projectRoot, plan, targets) {
 }
 
 async function confirm(io) {
-  const answer = (await io.question('Remove? [y/N] ')).trim().toLowerCase();
+  const answer = (await ask(io, 'Remove? [y/N] ')).trim().toLowerCase();
   return answer === 'y' || answer === 'yes';
 }
 

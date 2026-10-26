@@ -17,6 +17,7 @@ import { applyMcp, planMcp, previewMcp } from '../mcp.mjs';
 import { packageRoot, packageVersion } from '../paths.mjs';
 import { countKinds, planInstall } from '../plan.mjs';
 import { isNoop, renderPreview } from '../preview.mjs';
+import { ask } from '../prompt.mjs';
 import { previewPython, setupPython } from '../python.mjs';
 import { RECEIPT, emptyReceipt, readReceipt, serialise, validate } from '../receipt.mjs';
 
@@ -64,7 +65,7 @@ async function askHarnesses(receipt, io) {
   const lines = HARNESSES.map((h, i) => `  ${String(i + 1).padStart(2)}. [${preselected.has(h.id) ? 'x' : ' '}] ${h.displayName} (${h.skillsDir}/)`);
   io.output.write(`Install for which harnesses?\n${lines.join('\n')}\n`);
   const hint = preselected.size ? ` [Enter keeps ${[...preselected].join(', ')}]` : '';
-  const answer = (await io.question(`Numbers or ids, comma-separated${hint}: `)).trim();
+  const answer = (await ask(io, `Numbers or ids, comma-separated${hint}: `)).trim();
   if (!answer && preselected.size) return [...preselected];
   const ids = answer.split(/[\s,]+/).filter(Boolean).map((token) => (/^\d+$/.test(token) ? HARNESSES[Number(token) - 1]?.id ?? token : token));
   if (!ids.length) throw usageError('no harness chosen');
@@ -84,7 +85,7 @@ async function chooseHarnesses(options, receipt, io) {
 // --- 3. applying ------------------------------------------------------------------------------
 
 async function confirm(io, question) {
-  const answer = (await io.question(`${question} [y/N] `)).trim().toLowerCase();
+  const answer = (await ask(io, `${question} [y/N] `)).trim().toLowerCase();
   return answer === 'y' || answer === 'yes';
 }
 
