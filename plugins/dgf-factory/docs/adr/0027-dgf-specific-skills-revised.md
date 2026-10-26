@@ -636,3 +636,7 @@ ADR 0023's two errata of 2026-09-27 are folded into Context ("ADR 0023's errata,
   - Two things §7 did not foresee: the host does not start without its `Integrations` sections, so the generated settings
     carry them as placeholders; and a secret-named key must hold exactly one `${VAR}`, so the SQL and Redis connection
     strings are variables.
+- **2026-10-26** — §Context (line 170) quotes the permission rule as
+  `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)`. Since [ADR 0029](0029-npm-cli-delivery.md) §3 the source
+  writes `{{dgf_runtime}}` in place of `${CLAUDE_PLUGIN_ROOT}`, and `dgf-factory setup` rewrites it to
+  `.dgf-factory/runtime`. The decision is unchanged. Source: ADR 0029 §3.
