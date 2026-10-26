@@ -617,9 +617,32 @@ run_structural_check() {
     esac
 }
 
+# Reader-facing documents that once installed dgf-factory as a Claude Code plugin. It is an
+# npm CLI now (ADR 0029); a plugin install command in them sends a reader nowhere.
+INSTALL_DOCS='
+README.md
+AGENTS.md
+.ai-factory/DESCRIPTION.md
+docs/getting-started.md
+docs/demo/interview-guide.md
+docs/demo/prep-checklist.md
+docs/demo/cheat-sheet.md
+'
+
 check_install_and_package() {
     section '6. Install and package'
     run_structural_check "${DOCTOR}"
+    for rel in ${INSTALL_DOCS}; do
+        file="${PLUGIN_ROOT}/${rel}"
+        [ -f "${file}" ] || continue
+        while IFS=: read -r lineno _; do
+            [ -n "${lineno}" ] || continue
+            error "${rel}:${lineno} installs dgf-factory as a Claude Code plugin — it is an npm CLI (ADR 0029)"
+        done <<EOF
+$(grep -nE 'claude plugin install dgf-factory|dgf-factory@andrian-org|--plugin-dir' "${file}" || true)
+EOF
+        trace "scanned ${rel} for plugin install commands"
+    done
     if command -v npm >/dev/null 2>&1; then
         run_structural_check "${PACKAGE_CHECK}"
     else

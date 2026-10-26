@@ -39,13 +39,13 @@ looks at the whole root.
 | `/dgf-commit` | Conventional commits scoped by workspace, following the plan's Commit Plan | `locate_plan.py`, `check_override.py`, `check_change.py --skip-validators` | git history, after confirmation |
 
 Each runs `check_override.py` before it reads its skill-context override (see
-[The learning loop](#the-learning-loop)). `/dgf-doctor` sits beside them: it checks that the
-plugin itself is installed correctly.
+[The learning loop](#the-learning-loop)). `/dgf-doctor` sits beside them: it checks that
+dgf-factory itself is installed correctly, against the receipt `dgf-factory setup` wrote.
 
 What a change is made of is fixed by [ADR 0010](adr/0010-dgf-implement-scope.md): modern
 JSON component configuration under `FM/_COMPONENTS/` first, legacy XML where no JSON
 alternative exists, and a little JavaScript or CSS only where configuration cannot express the
-change. C#, TypeScript, Angular, SQL and plugin assemblies are out of scope: a plan names them
+change. C#, TypeScript, Angular, SQL and DGF plugin assemblies are out of scope: a plan names them
 under `## Scope`, and no task writes them.
 
 ## `.dgf-factory/` — the pipeline's artifacts
@@ -62,6 +62,15 @@ their branches, and the overlap check reads other branches' plans.
 | `patches/<YYYY-MM-DD-HH.mm>-<slug>.md` | `/dgf-fix` — append-only | `/dgf-implement`, `/dgf-fix`, `/dgf-component`, `/dgf-process` and `/dgf-model` (the latest ten, as cautions), `/dgf-evolve` (the new ones, through `check_patches.py --cursor`) |
 | `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | `check_override.py`, then the matching skill — one of the ten readers, only when the check accepts it — as an override that may only tighten |
 | `evolutions/` | `/dgf-evolve` — a log per run, and `patch-cursor.json` | `/dgf-evolve`, through `check_patches.py --cursor` |
+| `runtime/` | `dgf-factory setup` — the installed scripts, knowledge base and skill references; committed | every skill, through `{{dgf_runtime}}` paths rendered to `.dgf-factory/runtime` |
+| `runtime/.venv/` | `dgf-factory setup` — the validators' Python environment; ignored by the managed `runtime/.gitignore` | every script, which switches to it before importing an engine (ADR 0031) |
+| `install.json` | `dgf-factory setup` — the receipt: every file it wrote, with its source and installed hashes | `dgf-factory setup` on a re-run, `/dgf-doctor`, the change checks and `/dgf-scaffold` |
+
+`setup` writes `runtime/` and `install.json` where it runs, which is normally the workspaces root; no
+skill writes either. **The install footprint** — everything under `.dgf-factory/`, plus every file the
+receipt lists (the harness skill folders and the MCP files) — is not the estate's configuration: the
+change checks ignore it, and `/dgf-scaffold` counts a folder holding only the footprint as empty
+([ADR 0029](adr/0029-npm-cli-delivery.md) §2).
 
 `config.yaml` is written from `skills/dgf/references/config-template.yaml`:
 
@@ -288,8 +297,8 @@ the config exists.
 change checks are clean but a validator reports a new error, or strict mode promotes a new validator
 warning ([ADR 0022](adr/0022-gate-block-contract-revised.md) §9). An unchecked task or a change
 outside the plan still goes to `/dgf-implement` first, and the reason adds "then <n> new blocking
-finding(s) for /dgf-fix". The doctor never suggests `/dgf-fix`: a broken install is reinstalled, not
-fixed in the estate.
+finding(s) for /dgf-fix". The doctor never suggests `/dgf-fix`: a broken install is fixed by re-running
+`dgf-factory setup`, not in the estate.
 
 ## The DGF-specific skills
 
@@ -382,7 +391,7 @@ one (`knowledge/permissions.md` §1).
 DGF application in an **empty folder**, and hands the new workspaces root to `/dgf`; every change after that is
 brownfield work for `/dgf-plan` and `/dgf-implement` ([ADR 0026](adr/0026-authoring-entry-point-revised.md)
 §1–§2, [ADR 0027](adr/0027-dgf-specific-skills-revised.md) §7). DGF ships no bootstrap template or generator,
-so the skill generates the application itself, from templates this plugin ships, DGF-generic:
+so the skill generates the application itself, from templates this tool ships, DGF-generic:
 
 ```text
 empty folder + "an inspections app for two directorates: a permit register and an approval service, DGPass sign-in"

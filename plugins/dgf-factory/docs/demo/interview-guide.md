@@ -32,10 +32,11 @@ Tonight it builds a split-bill app from nothing, the app runs, and the gate catc
 Done before anyone arrives (the [T-30 list](prep-checklist.md#t-30)):
 
 - The showcase stack is up, the catalogue has loaded once, and one e-service run has completed.
-- `$APP` holds only `.git/` and `docs/application.json`, the unanswered design. The Split Bill tables, role and
+- `$APP` holds only `.git/`, `docs/application.json` (the unanswered design), and what `dgf-factory setup`
+  installed: `.dgf-factory/`, `.claude/` and `.mcp.json`. The Split Bill tables, role and
   row are absent, and no `splitbill` container runs.
-- Terminal 1 runs Claude Code in `$APP` with `--plugin-dir`, the `.venv` active, `/dgf-doctor` run once, then
-  `/clear`.
+- Terminal 1 runs Claude Code in `$APP`, after `dgf-factory setup --harness claude` there (from the checkout:
+  `node "$PLUGIN/bin/dgf-factory.mjs"`), `/dgf-doctor` run once, then `/clear`.
 - Browser tabs: the catalogue and Seq. The device toolbar preset is iPhone 14 Pro.
 - The editor has `$APP` and the `dgf` workspace's `FM` folder open.
 
@@ -87,7 +88,7 @@ editor.
 | Min | Do | Say | They see |
 |---|---|---|---|
 | 0:17 | Terminal 1: `/dgf-doctor` | "Every quality command ends in a machine-readable block. A script computes the status; the model relays it." | `CLEAN`, then a `dgf-gate-result` block with `"status": "pass"` |
-| 0:18 | Terminal 2: `ls -A "$APP" "$APP/docs"` | "An empty folder, a git repository, and one design file I wrote from the request. The skill would have written it from my sentence; I pre-wrote it to save your time." | `.git`, `docs`; `application.json` |
+| 0:18 | Terminal 2: `ls -A "$APP" "$APP/docs"` | "An empty folder — a git repository, what `dgf-factory setup` installed, and one design file I wrote from the request. The skill would have written it from my sentence; I pre-wrote it to save your time." | `.git`, `docs`; `application.json` |
 | 0:19 | Terminal 1: the scaffold prompt from the [cheat sheet](cheat-sheet.md) | "DGF ships no generator. A script checks the design, the skill asks only what is open, and every default is printed. Nothing is guessed." | Three questions |
 | 0:20 | Answer: DGF version **1.1.15**; base path: the `webasm` path you printed the night before; supply: **mount** | "Mount: the base workspace is shared, so the app references it instead of copying three thousand files." | `DEFAULT: instance_model = "own-workspace"` |
 | 0:21 | The skill shows the tree; answer **generate** | "The tree first, then it writes: a .NET solution, the database project, a compose stack, and the workspace — four entities with forms, views and data sources, five pages, and a settle-up process with one workflow per state." | `TARGETS: 68`, then `WROTE: 68 files, 0 copied` |
@@ -172,8 +173,8 @@ the model said could make the gate pass.
 Every DGF fact the plugin ships is stamped with the DGF version and the digest of the source it was read
 from, and a maintainer tool re-checks those digests against a checkout.
 
-**Where to get it.** `claude plugin marketplace add andrian-org/claude-plugins`, then
-`claude plugin install dgf-factory@andrian-org`.
+**Where to get it.** `npm install -g @andrian-org/dgf-factory`, then `dgf-factory setup` in the project —
+for Claude Code, Codex, Gemini or any of the other harnesses.
 
 **What is next**, in your own words: for DGF, published consumer images and a NuGet feed, so a generated app
 runs on its own compose file; for dgf-factory, the review, rules and QA skills, and refreshing the knowledge

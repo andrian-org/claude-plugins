@@ -1,6 +1,7 @@
 # dgf-factory
 
-> A deterministic build pipeline for Claude Code that already knows the DotGov Framework.
+> A deterministic build pipeline for Claude Code, Codex, Gemini and other AI harnesses that already
+> knows the DotGov Framework.
 
 `dgf-factory` ports the [AI Factory](https://github.com/lee-to/ai-factory) prompt-and-artifact
 pipeline into a DGF-specific agent factory. AI Factory is deliberately framework-agnostic and
@@ -15,21 +16,51 @@ grammar) — and then learns the *system you build with it*.
 > vendored JSON and legacy XSD schema set) and the **validators**. Plans, scope, routes,
 > change-relative gates, the data model, blast radius, patches and overrides are decided by scripts,
 > checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` creates a new application
-> from an empty folder, from templates the plugin ships. The plugin **loads locally** with
-> `claude --plugin-dir plugins/dgf-factory`, and is registered in the `andrian-org` marketplace.
-> See [the blueprint](docs/blueprint.md) for the build order.
+> from an empty folder, from templates the tool ships. It is delivered as an **npm CLI**,
+> `@andrian-org/dgf-factory`, whose `dgf-factory setup` installs it into a project for each AI harness
+> you use ([ADR 0029](docs/adr/0029-npm-cli-delivery.md)). See [the blueprint](docs/blueprint.md) for the
+> build order.
 
 ## Quick Start
 
-Teammates install it from the internal `andrian-org` marketplace:
+You need Node 18.3+ and Python 3.9+. The package is internal, published to GitHub Packages, so tell npm
+where `@andrian-org` packages live — once per machine, with a GitHub token that has `read:packages`:
 
 ```bash
-claude plugin marketplace add andrian-org/claude-plugins
-claude plugin install dgf-factory@andrian-org
+npm config set @andrian-org:registry https://npm.pkg.github.com
+npm login --scope=@andrian-org --auth-type=legacy --registry=https://npm.pkg.github.com
+npm install -g @andrian-org/dgf-factory
 ```
 
-To work **on** the plugin, clone the repo and open `plugins/dgf-factory/` — the AI Factory
-pipeline that builds it is already installed there. See
+Then, in your workspaces root:
+
+```bash
+cd /path/to/your/workspaces-root
+dgf-factory setup                 # choose your harnesses; it previews every file, then asks
+git add .dgf-factory .claude .mcp.json && git commit -m "chore: install dgf-factory"
+```
+
+`setup` copies each skill into each chosen harness's folder (`.claude/skills/`, `.codex/skills/`,
+`.gemini/skills/`, …), the validators and the knowledge base into `.dgf-factory/runtime/`, registers
+the dgf-mcp server where the harness keeps MCP servers, and builds `.dgf-factory/runtime/.venv` for the
+validators. A receipt, `.dgf-factory/install.json`, records every file it wrote. Then run `/dgf` in
+Claude Code (`$dgf` in Codex).
+
+- **Updating:** install the new version, then run `dgf-factory setup` again. A file you edited is kept
+  and reported, never overwritten; a file that changed on both sides is shown as a diff.
+- **Teammates** who clone a set-up project need no CLI: the skills and the runtime are committed. Only
+  the ignored `.dgf-factory/runtime/.venv` is missing — `dgf-factory setup`, or the command the doctor
+  prints, builds it.
+- **Harnesses** setup knows: Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, Junie, Qwen Code,
+  Windsurf, Warp, Zencoder, Roo Code, Kilo Code, Antigravity, OpenCode and `.agents/`. For Kilo Code,
+  Windsurf and Zencoder it prints the dgf-mcp registration as a manual step. Codex reads its project
+  `.codex/config.toml` only once you trust the project.
+- **Non-interactive:** `dgf-factory setup --harness claude,codex --yes`; `--dry-run` previews only;
+  `--no-python` skips the virtual environment.
+
+To work **on** dgf-factory, clone the repo and open `plugins/dgf-factory/` — the AI Factory
+pipeline that builds it is already installed there — and try your change in a scratch project with
+`node bin/dgf-factory.mjs setup --root <scratch project> --harness claude`. See
 [Getting Started](docs/getting-started.md).
 
 ## Key Features
@@ -71,11 +102,12 @@ or writes a little JavaScript or CSS, and why. The gate blocks only on findings 
 introduced; the estate's existing ones are reported as `PRE_EXISTING`. See
 [Pipeline Spine](docs/pipeline.md).
 
-`/dgf-doctor` answers "is this plugin installed correctly?", and the scripts behind every skill
-also run on their own — see [Getting Started](docs/getting-started.md#trying-the-spine):
+`/dgf-doctor` answers "is dgf-factory installed correctly here?" — every file the receipt lists, every
+skill for every harness, the validators' environment — and the scripts behind every skill also run on
+their own — see [Getting Started](docs/getting-started.md#trying-the-spine):
 
 ```bash
-claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
+python3 .dgf-factory/runtime/skills/dgf-doctor/scripts/doctor.py
 ```
 
 When the gate finds a new error once every task is done, it suggests `/dgf-fix`: it reproduces
@@ -105,13 +137,13 @@ of file has one writing skill. See [The DGF-specific skills](docs/pipeline.md#th
 
 | Guide | Description |
 |-------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, repo layout, working on the plugin, trying the spine and the loop |
+| [Getting Started](docs/getting-started.md) | Prerequisites, installing, repo layout, working on dgf-factory, trying the spine and the loop |
 | [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate, the learning loop, the DGF-specific skills and blast radius |
 | [Architecture](docs/architecture.md) | Slice structure, dependency rules, communication |
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |
 | [DGF Knowledge Sourcing](docs/dgf-knowledge.md) | Citing, dating and version-stamping DGF facts |
 | [DGF Schemas](docs/dgf-schemas.md) | The two schema families — JSON and XSD — runtime parity, vendoring |
-| [Decision Records](docs/adr/README.md) | Why the plugin is shaped this way — delivery model, verification, validator runtime, versioning, scope |
+| [Decision Records](docs/adr/README.md) | Why dgf-factory is shaped this way — delivery model, verification, validator runtime, versioning, scope |
 | [Architecture Blueprint](docs/blueprint.md) | The full design: AI Factory teardown + DGF mapping |
 | [Interview Demo](docs/demo/interview-guide.md) | A 75-minute live demo: a Split Bill app generated from an empty folder, run, changed and gated — with a prep checklist and a cheat sheet |
 
@@ -119,8 +151,8 @@ Project context for AI agents lives in [AGENTS.md](AGENTS.md) and `.ai-factory/`
 
 ## Related
 
-- [`doc-coverage-audit`](../doc-coverage-audit/) — sibling plugin in the same marketplace
-- [Marketplace README](../../README.md) — installing plugins from the `dotgov` marketplace
+- [`doc-coverage-audit`](../doc-coverage-audit/) — a Claude Code plugin in the same repository
+- [Marketplace README](../../README.md) — the `andrian-org` marketplace, which dgf-factory left for npm
 - DotGov Framework — the framework this plugin encodes knowledge of
 
 ## License

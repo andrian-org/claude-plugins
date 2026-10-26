@@ -842,7 +842,7 @@ From this plugin:
 
 <!-- Commit checkpoint: tasks 15-16 -->
 
-- [ ] **Task 17: Remove the Claude Code plugin channel, and switch the demo.** (depends on 14, 15, 16)
+- [x] **Task 17: Remove the Claude Code plugin channel, and switch the demo.** (depends on 14, 15, 16)
   **Precondition:** `plans/feature-interview-demo-guide.md` Task 9 (the stopwatch rehearsal, which
   relies on `--plugin-dir`) is done, or the demo is switched in this task, below. Ask the user which
   before starting.
@@ -871,7 +871,7 @@ From this plugin:
   `../../docs/plugin-installation-spec.md`, `../../README.md`, `docs/demo/interview-guide.md`,
   `docs/demo/prep-checklist.md`, `docs/demo/cheat-sheet.md`.
 
-- [ ] **Task 18: Documentation and the roadmap.** (depends on 17) Route the docs through `/aif-docs`.
+- [x] **Task 18: Documentation and the roadmap.** (depends on 17) Route the docs through `/aif-docs`.
   - **README.md:** a Quick Start with the `.npmrc` line, `npm install -g @andrian-org/dgf-factory`,
     `cd <workspaces root>`, `dgf-factory setup`, commit, then `/dgf`. Add:
     - the teammate path: clone, and if `.dgf-factory/runtime/.venv` is absent, run

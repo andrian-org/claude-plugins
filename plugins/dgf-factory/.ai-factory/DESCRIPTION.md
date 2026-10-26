@@ -2,14 +2,16 @@
 
 ## Overview
 
-`dgf-factory` is a Claude Code plugin that ports the AI Factory prompt-and-artifact
+`dgf-factory` is an npm-delivered agent toolkit that ports the AI Factory prompt-and-artifact
 pipeline into a **DGF-specific agent factory**. Where AI Factory is deliberately
 framework-agnostic and learns a project at setup time, dgf-factory is intended to
 ship already knowing the DotGov Framework (DGF), and then learn the *system built
 with* DGF on top of that.
 
-The plugin is delivered through the existing `dotgov` Claude Code marketplace in
-this repository, alongside `doc-coverage-audit`.
+It is delivered as an npm CLI, `@andrian-org/dgf-factory`: `dgf-factory setup` installs it into a
+project for each AI harness the user picks — Claude Code, Codex, Gemini CLI and the others AI Factory
+supports ([ADR 0029](../docs/adr/0029-npm-cli-delivery.md)). It left the repository's `andrian-org`
+Claude Code marketplace on 2026-10-26.
 
 Design source of truth: [docs/blueprint.md](../docs/blueprint.md) —
 Part 1 is a teardown of AI Factory's architecture, Part 2 maps it onto DGF.
@@ -24,11 +26,12 @@ Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific
 - `.claude/skills/aif-*` + `.claude/agents/*` — a full AI Factory 2.18.1 install, used as
   the working reference implementation and as the pipeline that builds this plugin
 - `.claude/skills/plugin-structure/` — Claude Code plugin layout reference (installed from skills.sh)
-- `.claude-plugin/plugin.json` — the manifest; the plugin loads with `--plugin-dir`
-- `skills/dgf-doctor/` — the walking-skeleton slice: `SKILL.md` plus `scripts/doctor.py`,
-  which exercises auto-discovery, `${CLAUDE_PLUGIN_ROOT}`, the exit-code contract and the
-  `dgf-gate-result` block without needing any DGF facts. It also blocks on a dangling
-  `${CLAUDE_PLUGIN_ROOT}/…` path and on frontmatter that YAML would read differently
+- `package.json`, `bin/`, `cli/` — the npm package and its dependency-free installer: the harness
+  registry, rendering, the install receipt, atomic writes, the MCP writers, the Python step and
+  `dgf-factory setup`; `tests/cli/` is its `node --test` suite
+- `skills/dgf-doctor/` — `SKILL.md` plus `scripts/doctor.py`: in a project, the install against its
+  receipt; in this repository, `package.json`. It also blocks on a dangling `{{dgf_runtime}}/…` path, a
+  link out of the shipped set, and frontmatter that YAML would read differently
 - `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` — the pipeline spine:
   set up a workspaces root, plan (fast, full, ultra), execute task by task, gate the change,
   commit by workspace. Their references hold the config and DESCRIPTION templates, the plan
@@ -91,19 +94,21 @@ Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
   when a skill quotes a finding code or passes a flag no script has, and holds the override
   readers and writer to the limit
-- `docs/adr/` — 27 decision records, 0001–0027; the index is `docs/adr/README.md`
+- `docs/adr/` — 31 decision records, 0001–0031; the index is `docs/adr/README.md`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
-Not yet created: `agents/` and the marketplace entry.
+Not yet created: `agents/`. The package is not yet published to GitHub Packages.
 
 ## Tech Stack
 
 - **Primary medium:** Markdown — skills are written prompt-as-program (numbered steps,
   explicit gates, mandatory outputs, STOP conditions), not prose descriptions
-- **Scripting:** Node.js (`.mjs`) and Python 3.9+ for deterministic validators and helpers;
-  the validators need `lxml` and `jsonschema`, hash-pinned in `scripts/requirements.txt` and
-  compiled from `tools/requirements.in` with `uv`
-- **Packaging:** Claude Code plugin — `.claude-plugin/plugin.json` + marketplace entry
+- **Scripting:** Python 3.9+ for the deterministic validators — they need `lxml` and `jsonschema`,
+  hash-pinned in `scripts/requirements.txt`, compiled from `tools/requirements.in` with `uv`, and
+  installed by setup into the project's `.dgf-factory/runtime/.venv` ([ADR 0031](../docs/adr/0031-validator-runtime-project-venv.md));
+  Node.js ≥ 18.3 (`.mjs`, no dependencies) for the installer
+- **Packaging:** npm — `@andrian-org/dgf-factory`, `bin: dgf-factory`, published to GitHub Packages;
+  `package.json` `files` is the shipped payload ([ADR 0030](../docs/adr/0030-shipped-package-payload.md))
 - **Target framework (the domain being encoded):** DotGov Framework — .NET 10 / Angular 19
 - **Build system:** none. There is no compile step; the artifacts are Markdown and scripts
 - **Version control:** git, GitHub (`github.com/andrian-org/claude-plugins`), base branch `main`
@@ -135,7 +140,7 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 | Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) |
 | A process **cannot be executed headlessly** — stepping one needs a case record and therefore the database | `DGF.OM/Process/StateProcess/InstanceHandler.cs` `GetProcessMapAsync` |
 | Workspaces inherit from a **base workspace** (`webasm`): `FmPath` resolves in the selected workspace, `FmBasePath` in the base, so a base artifact is live in every application | `src/Core/DGF.Kernel/WorkspaceSettings.cs` |
-| Neither Python's nor Node's standard library validates XSD or JSON Schema, and a plugin cannot install its own dependencies — so validators run on Python with `lxml` + `jsonschema`, installed by the user and detected as missing (exit `3`). `lxml` bundles its own libxml2 (2.14.6), not the system `xmllint`'s | verified 2026-09-24 — see [ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md) |
+| Neither Python's nor Node's standard library validates XSD or JSON Schema — so validators run on Python with `lxml` + `jsonschema`, installed by `dgf-factory setup` into the project's `.dgf-factory/runtime/.venv` and detected as missing (exit `3`). `lxml` bundles its own libxml2 (2.14.6), not the system `xmllint`'s | verified 2026-09-24, install revised 2026-10-26 — see [ADR 0031](../docs/adr/0031-validator-runtime-project-venv.md) |
 | Modern components are JSON files under `<workspace>/FM/_COMPONENTS/<Type>/<name>.json`, loaded only as `.json`; a `BASE:` prefix resolves the same path in `webasm` | `src/Components/DGF.Components.Shared/ComponentFileLoadService.cs:14-25` — see [ADR 0010](../docs/adr/0010-dgf-implement-scope.md) |
 | The runtime reads component JSON with **System.Text.Json**, one options object: property names case-insensitive, comments skipped, `JsonStringEnumConverter` (enum names in any case), no `NumberHandling` (a number never reads from a string), and unknown properties silently ignored. The `type` key alone is exact-case | `src/DGF.API/ConfigureServices.cs:238-258`; `src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs` — `knowledge/json-reader.md`, [ADR 0015](../docs/adr/0015-validator-runtime-and-json-reader.md) |
 | `WorkflowManager.GetWorkPath` has **one branch per name form and no fallback**; existence is `File.Exists` on the built path, case-sensitive on Linux. A process `action`'s bare name is process-local | `src/Core/DGF.OM/Workflow/WorkflowManager.cs:15-40`; `StateProcessClient.cs` `ResolveUiSettings` — `knowledge/process-model.md` §2, [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) |
@@ -211,21 +216,23 @@ Pattern: **Structured Modules (Vertical Slices)** — one skill is one self-cont
 slice, with shared DGF facts in `knowledge/` and cross-slice validators in `scripts/`.
 Maintainer material — `tools/` and `provenance/` — sits beside the slices and is never
 shipped.
-Expressed in Claude Code plugin folder names, because auto-discovery only loads
-components from the plugin's mandated paths.
+Expressed in the agent-skill folder convention every harness reads (`skills/<name>/SKILL.md`).
 
 ## Delivery Model (decided)
 
-`dgf-factory` is an **independent Claude Code plugin** in the `dotgov` marketplace, and its
-pipeline architecture **derives from AI Factory 2.18.1** — a derivation, not a dependency:
-nothing at runtime requires AI Factory to be installed.
+`dgf-factory` is an **npm CLI that installs into a project**, for each AI harness the user picks,
+and its pipeline architecture **derives from AI Factory 2.18.1** — a derivation, not a dependency:
+nothing at runtime requires AI Factory to be installed. The installer follows AI Factory's own
+model — a harness registry, per-harness rendering, a receipt with two hashes per file — but never
+overwrites a file the user edited, previews before it writes, and writes atomically.
 
 It takes no dependency on any other DGF agent-tooling effort, shares no artifacts with one,
 and is under no obligation to track another repository's ADR series. The overlap with prior
 work was measured on 2026-09-21 and deliberately set aside.
 
 Decision and its full consequences — including what this costs and what would reverse it —
-in [ADR 0001](../docs/adr/0001-independent-plugin-with-ai-factory-derived-architecture.md).
+in [ADR 0029](../docs/adr/0029-npm-cli-delivery.md), which superseded ADR 0001's Claude Code plugin
+on 2026-10-26.
 
 ## Non-Functional Requirements
 
@@ -248,10 +255,11 @@ in [ADR 0001](../docs/adr/0001-independent-plugin-with-ai-factory-derived-archit
   also why browser-driven checks stay out of the gates — see
   [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) §5.
 - **Line endings.** LF enforced repo-wide via `.gitattributes` — CRLF breaks shebangs and
-  heredocs in plugin scripts.
-- **Portability.** Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`, never absolute paths.
+  heredocs in the shipped scripts.
+- **Portability.** Runtime paths in skills are written `{{dgf_runtime}}/…`, rendered by setup to the
+  project-relative `.dgf-factory/runtime/…`, never absolute paths.
 - **No DGF repository paths in shipped files.** A developer's install has no DGF checkout,
-  so nothing under `skills/`, `agents/`, `commands/`, `scripts/`, `knowledge/` or
-  `.claude-plugin/` names a path into it. Shipped files cite the knowledge base, a DGF docs
-  MCP call or a DGF type name; paths and digests live in `provenance/`. `doctor.py` blocks
-  on a violation — see [ADR 0012](../docs/adr/0012-no-dgf-paths-in-shipped-files.md).
+  so nothing in the package payload — `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/` —
+  names a path into it, or links outside the payload. Shipped files cite the knowledge base, a
+  DGF docs MCP call or a DGF type name; paths and digests live in `provenance/`. `doctor.py` and
+  `tools/check_package.py` block on a violation — see [ADR 0030](../docs/adr/0030-shipped-package-payload.md).

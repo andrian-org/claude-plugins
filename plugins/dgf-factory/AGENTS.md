@@ -6,11 +6,13 @@
 
 ## Project Overview
 
-`dgf-factory` is a Claude Code plugin that ports the AI Factory prompt-and-artifact
+`dgf-factory` is an npm CLI, `@andrian-org/dgf-factory`, that ports the AI Factory prompt-and-artifact
 pipeline into a DGF-specific agent factory: the same deterministic
 plan → implement → verify → commit pipeline, but shipping pre-loaded knowledge of the
 DotGov Framework (.NET 10 / Angular 19 Component-Hosted Pluggable Monolith) instead of
-deriving the stack at setup time.
+deriving the stack at setup time. `dgf-factory setup` installs it into a project for each AI
+harness the user picks — the skills into each harness's folder, the validators and the knowledge
+base into `.dgf-factory/runtime/`, with a receipt ([ADR 0029](docs/adr/0029-npm-cli-delivery.md)).
 
 The pipeline spine exists — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`,
 `/dgf-commit`, beside `/dgf-doctor` — on the knowledge base and the validators, and so does the
@@ -27,9 +29,11 @@ for the decisions that shape it.
 ## Tech Stack
 
 - **Primary medium:** Markdown (skills written prompt-as-program)
-- **Scripting:** Node.js (`.mjs`), Python 3.9+ — the validators use `lxml` and `jsonschema`,
+- **Scripting:** Python 3.9+ for the validators, Node.js ≥ 18.3 (`.mjs`, no dependencies) for the
+  installer — the validators use `lxml` and `jsonschema`,
   hash-pinned in `scripts/requirements.txt`
-- **Packaging:** Claude Code plugin — `.claude-plugin/plugin.json` + marketplace entry
+- **Packaging:** npm — `package.json` (`@andrian-org/dgf-factory`, `bin: dgf-factory`, GitHub Packages);
+  its `files` list is the shipped payload ([ADR 0030](docs/adr/0030-shipped-package-payload.md))
 - **Target framework:** DotGov Framework — .NET 10, Angular 19.2, SQL Server + EF Core
 - **Build system:** none — there is no compile step
 - **Database:** none (this plugin holds no runtime state)
@@ -40,10 +44,12 @@ for the decisions that shape it.
 plugins/dgf-factory/
 ├── README.md                   # Landing page — what this plugin is, status, doc links
 ├── AGENTS.md                   # This file — navigation index
-├── .claude-plugin/             # The plugin manifest — Claude Code reads it nowhere else
-│   └── plugin.json             #   name, version, description; component paths use defaults
+├── package.json                # The npm package — name, version, bin, and `files`: what ships (ADR 0030)
+├── bin/dgf-factory.mjs         # SHIPPED — the CLI's entry
+├── cli/                        # SHIPPED — the installer: harnesses, transform, hash, receipt, fsops,
+│                               #   plan, preview, mcp, python, commands/setup.mjs; no dependencies
 ├── skills/                     # The shipped dgf-* corpus (auto-discovered)
-│   ├── dgf-doctor/             #   is the plugin installed correctly?
+│   ├── dgf-doctor/             #   is dgf-factory installed correctly? (the receipt, in a project)
 │   │   ├── SKILL.md            #     the prompt-program
 │   │   └── scripts/doctor.py   #     the structural validator it calls
 │   ├── dgf/                    #   set up a workspaces root: config.yaml + DESCRIPTION.md templates
@@ -59,7 +65,7 @@ plugins/dgf-factory/
 │   ├── dgf-audit/              #   read-only: the root's health, and a file's blast radius
 │   └── dgf-scaffold/           #   a new application from an empty folder; scripts/ design, generate, check;
 │                               #     templates/ solution, workspace, patterns + manifest.json; references/DESIGN-FORMAT.md
-├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0012)
+├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0030)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
 │   ├── component-catalogue.md  #   34 dispatchable components; why 4 other counts differ
@@ -94,7 +100,9 @@ plugins/dgf-factory/
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
 ├── tools/                      # NOT SHIPPED — repo-maintenance tools contributors run
-│   ├── check-dual-schema-docs.sh  # doc, decision-record, manifest and stamp contracts; section 8 runs the tests
+│   ├── check-dual-schema-docs.sh  # doc, decision-record, install-and-package and stamp contracts; section 8 runs the tests
+│   ├── check_package.py           # the npm tarball holds the payload, and only the payload
+│   ├── smoke_install.sh           # pack, install into a temporary prefix, set up a scratch project, end to end
 │   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
 │   ├── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
 │   ├── derive_sql_types.py        # the SQL type of each dbtype, tallied from DGF's settings/table pairs (data-model.md §6)
@@ -113,7 +121,7 @@ plugins/dgf-factory/
 │   ├── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
 │   └── demo/                   #   the interview demo: guide, prep checklist, cheat sheet; splitbill/ design,
 │                               #     compose override, settings, SQL apply/seed/reset scripts
-├── .mcp.json                   # MCP servers — dgf-mcp only; both dev config and shipped
+├── .mcp.json                   # MCP servers — dgf-mcp only; dev config for this folder. A project's entry is setup's (cli/mcp.mjs)
 ├── .ai-factory.json            # AI Factory 2.18.1 install receipts (managed-skill ownership)
 ├── skills-lock.json            # skills.sh install lock for externally sourced skills
 ├── .ai-factory/                # Pipeline artifacts — single-writer ownership per command
@@ -126,7 +134,9 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: `agents/`. The manifest and the `/dgf-doctor` walking skeleton landed with roadmap milestone 6,
+Not yet created: `agents/`. npm delivery — `package.json`, `bin/`, `cli/`, the receipt and the install-aware
+doctor — replaced the Claude Code plugin manifest on 2026-10-26 (ADR 0029). The manifest and the `/dgf-doctor`
+walking skeleton had landed with roadmap milestone 6,
 the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
 milestone 8, the pipeline spine with milestone 9, the wired gate contract — `lib/gate_result.py`,
 `verify_gate.py`, the Commit Plan check — with milestone 10, and the learning loop —
@@ -139,7 +149,12 @@ and the field-type tables, closed it.
 
 | File | Purpose |
 |---|---|
-| [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | The manifest. Component paths are left to their defaults — declaring one restates it. |
+| [package.json](package.json) | The npm package: `@andrian-org/dgf-factory`, the `dgf-factory` bin, and `files` — the shipped payload |
+| [cli/commands/setup.mjs](cli/commands/setup.mjs) | `dgf-factory setup`: choose harnesses, plan every file against the receipt, preview, write atomically, receipt last |
+| [cli/harnesses.mjs](cli/harnesses.mjs) | The 16 harnesses (AI Factory 2.19.0's folders) with this tool's transform and verified MCP target each |
+| [cli/plan.mjs](cli/plan.mjs) | Each installed file decided by ADR 0029 §5's table: create, update, keep-edited, conflict, missing, remove |
+| [scripts/lib/install_receipt.py](scripts/lib/install_receipt.py) | The receipt read from Python: the install footprint the change checks and the scaffold ignore, and the hash |
+| [scripts/lib/runtime.py](scripts/lib/runtime.py) | Every entry script switches to the project's `.dgf-factory/runtime/.venv` first (ADR 0031) |
 | [skills/dgf-doctor/SKILL.md](skills/dgf-doctor/SKILL.md) | The first prompt-as-program. The house style the next slices copy. |
 | [skills/dgf-doctor/scripts/doctor.py](skills/dgf-doctor/scripts/doctor.py) | Structural validator — manifest, slices, portability (including DGF paths in shipped files), line endings; emits the gate block |
 | [scripts/validate_config.py](scripts/validate_config.py) | The dual-family config validator: family first, the runtime's JSON reader, the parity gate |
@@ -190,15 +205,15 @@ and the field-type tables, closed it.
 | DGF release notes | `DotGovFramework/docs/wiki/Release-notes/` | The only version-aware surface DGF offers. MCP: `get_release_notes("since:X.Y.Z")` |
 | DGF workspace layout | `DotGovFramework/src/Core/DGF.Kernel/WorkspaceSettings.cs` | The `FM/_PROCESS`, `_WORKFLOW`, `_COMPONENTS` constants and the base-workspace inheritance chain |
 | DGF docs MCP | `https://dgf-mcp.dotgov.uk/mcp` | Hosted DGF documentation, wired in `.mcp.json` |
-| Sibling plugin | `../doc-coverage-audit/` | Layout conventions for a plugin in this marketplace |
-| Marketplace manifest | `../../.claude-plugin/marketplace.json` | Where this plugin must be registered to ship |
+| Sibling plugin | `../doc-coverage-audit/` | A Claude Code plugin in the same repository's marketplace, which dgf-factory left for npm |
+| AI Factory | `npm root -g`/`ai-factory/` | The installer this one follows: `dist/core/agents.js` (the harness registry), `transformer.js`, `installer.js` |
 
 ## Documentation
 
 | Document | Path | Description |
 |---|---|---|
 | README | `README.md` | Plugin landing page |
-| Getting Started | `docs/getting-started.md` | Prerequisites, repo layout, loading it locally, trying the spine |
+| Getting Started | `docs/getting-started.md` | Prerequisites, installing with `dgf-factory setup`, repo layout, a scratch project, trying the spine |
 | Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate, learning loop, the DGF-specific skills |
 | Architecture | `docs/architecture.md` | Slice structure and dependency rules |
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
@@ -207,7 +222,7 @@ and the field-type tables, closed it.
 | Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, validator runtime, version gating, scope, default rules |
 | Architecture Blueprint | `docs/blueprint.md` | AI Factory teardown and the DGF mapping |
 | Interview Demo | `docs/demo/interview-guide.md` | A live Split Bill demo from an empty folder; `prep-checklist.md` and `cheat-sheet.md` beside it |
-| Repository README | `../../README.md` | The `dotgov` marketplace and how to install its plugins |
+| Repository README | `../../README.md` | The `andrian-org` marketplace for the repository's other plugins |
 
 ## AI Context Files
 
@@ -224,9 +239,11 @@ and the field-type tables, closed it.
 - **Decisions live in `docs/adr/`.** [docs/adr/README.md](docs/adr/README.md) is the index.
   Before reopening a settled question — delivery model, what "process verified" means, version
   gating, the validator runtime, the unit of work, the default rule set — read the ADR that
-  closed it. Process verification, the validator runtime and version gating are decided by
+  closed it. Delivery — the npm CLI, `dgf-factory setup`, the receipt and the shipped payload — is
+  decided by [ADR 0029](docs/adr/0029-npm-cli-delivery.md) and [ADR 0030](docs/adr/0030-shipped-package-payload.md).
+  Process verification, the validator runtime and version gating are decided by
   [ADR 0014](docs/adr/0014-process-verification-runtime-resolution.md),
-  [ADR 0015](docs/adr/0015-validator-runtime-and-json-reader.md) and
+  [ADR 0031](docs/adr/0031-validator-runtime-project-venv.md) and
   [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); the plan format, change-relative
   gates and the declared DGF version by [ADR 0017](docs/adr/0017-plan-file-format.md),
   [ADR 0018](docs/adr/0018-change-relative-gates.md) and
@@ -240,22 +257,26 @@ and the field-type tables, closed it.
   the scaffold's reversal of "drive a template" together with the whole-root unit by
   [ADR 0026](docs/adr/0026-authoring-entry-point-revised.md); a writing skill's baseline without git — saved
   before the write, never the gate's — by [ADR 0025](docs/adr/0025-saved-baseline-without-git.md);
-  0002, 0003, 0004, 0006, 0007, 0008, 0020, 0021 and 0023 are superseded history.
+  0001, 0002, 0003, 0004, 0006, 0007, 0008, 0012, 0015, 0020, 0021 and 0023 are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.
-- **This plugin's architecture derives from AI Factory and depends on nothing else.** It takes
+- **dgf-factory's architecture derives from AI Factory and depends on nothing else.** It takes
   no dependency on any other DGF agent-tooling effort and is not obliged to track another
-  repository's ADR series ([ADR 0001](docs/adr/0001-independent-plugin-with-ai-factory-derived-architecture.md)).
+  repository's ADR series ([ADR 0029](docs/adr/0029-npm-cli-delivery.md) §9).
+- **Skills write runtime paths as `{{dgf_runtime}}/…`.** `dgf-factory setup` renders the token to
+  the project-relative `.dgf-factory/runtime` — a `SKILL.md` is installed alone into a harness's
+  folder, so a bare `knowledge/…` path resolves to nothing there. dgf-mcp tools are granted as
+  `mcp__dgf-mcp__<tool>`. `tests/test_skill_contracts.py` enforces both.
 - **Framework facts must be verified, never assumed.** The blueprint's Part 2 is marked
   `[assume]` throughout because it was written from one sentence of description. Confirm
   against the DGF repository or the DGF docs MCP before writing a fact into a skill, and
   cite where it came from.
-- **No DGF repository paths in shipped files** ([ADR 0012](docs/adr/0012-no-dgf-paths-in-shipped-files.md)).
+- **No DGF repository paths in shipped files** ([ADR 0030](docs/adr/0030-shipped-package-payload.md)).
   Files a developer installs never contain a path into the DGF repository: no `src/…`, no
-  `docs/wiki/…`, no local checkout path. Shipped files
-  are everything under the directories `doctor.py` lists in `SHIPPED_DIRS` (`skills/`,
-  `agents/`, `commands/`, `scripts/`, `knowledge/`, `.claude-plugin/`). A developer's install
+  `docs/wiki/…`, no local checkout path — and never a relative link out of the payload. Shipped
+  files are the npm package payload, `package.json` `files`: `bin/`, `cli/`, `skills/`, `scripts/`
+  and `knowledge/`, restated in `doctor.py`'s `SHIPPED_DIRS`. A developer's install
   has no DGF checkout, so shipped content cites the shipped `knowledge/` base or a DGF docs MCP
   tool instead. Workspace layout paths such as `FM/_COMPONENTS/` are allowed: they describe the
   developer's own workspaces, not the DGF repository. Maintainer material (`docs/`, ADRs,
