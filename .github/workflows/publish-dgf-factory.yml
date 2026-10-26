@@ -1,0 +1,59 @@
+# Publish @andrian-org/dgf-factory to GitHub Packages (plugins/dgf-factory, ADR 0029).
+#
+# Push a tag `dgf-factory-v<version>` whose version equals package.json's. The job runs both test
+# suites and the package check, then publishes with the workflow's own token: no personal token.
+name: Publish dgf-factory
+
+on:
+  push:
+    tags: ['dgf-factory-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/dgf-factory
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@andrian-org'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: The tag names package.json's version
+        if: github.event_name == 'push'
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME#dgf-factory-v}" != "${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
+      - name: Validator dependencies
+        run: python3 -m pip install --require-hashes -r scripts/requirements.txt
+
+      - name: CLI tests
+        run: npm test
+
+      - name: Validator tests
+        run: python3 -m unittest discover -s tests -t .
+
+      - name: Package contents
+        run: python3 tools/check_package.py
+
+      - name: Publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

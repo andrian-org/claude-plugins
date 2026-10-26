@@ -219,6 +219,17 @@ uv pip compile tools/requirements.in --universal --python-version 3.9 --generate
 `--fork-strategy fewest` resolves one version of each package for every Python from 3.9 up,
 rather than a different one per interpreter.
 
+**Releasing.** Bump `version` in `package.json`, commit, then push a tag that names it:
+
+```bash
+git tag dgf-factory-v0.2.0
+git push origin dgf-factory-v0.2.0
+```
+
+`.github/workflows/publish-dgf-factory.yml` (at the repository root) checks that the tag matches
+`package.json`, runs both test suites and `tools/check_package.py`, and publishes to GitHub
+Packages with the workflow's own token. Nobody needs a publishing token on their machine.
+
 ## Trying the spine
 
 The spine's scripts run on their own against any workspaces root. A disposable copy of DGF's
