@@ -57,6 +57,13 @@ Claude Code (`$dgf` in Codex).
   `.codex/config.toml` only once you trust the project.
 - **Non-interactive:** `dgf-factory setup --harness claude,codex --yes`; `--dry-run` previews only;
   `--no-python` skips the virtual environment.
+- **What is installed:** `dgf-factory status` compares every installed file and MCP entry with the
+  receipt, per harness, and the receipt's version with the CLI's. It writes nothing.
+- **Removing it:** `dgf-factory uninstall [--harness <id>]` previews, then removes only files that are
+  still exactly what setup wrote, and the `dgf-mcp` entry only while it is unchanged and no other
+  installed harness uses that file. The runtime and its `.venv` go when no harness is left. It never
+  touches `config.yaml`, `DESCRIPTION.md`, `plans/`, `patches/`, `skill-context/` or `evolutions/`,
+  and lists what it left behind: edited files, and MCP settings files it merged into.
 
 To work **on** dgf-factory, clone the repo and open `plugins/dgf-factory/` — the AI Factory
 pipeline that builds it is already installed there — and try your change in a scratch project with

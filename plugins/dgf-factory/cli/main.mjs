@@ -8,6 +8,8 @@ import { packageVersion } from './paths.mjs';
 // command → [loader, one-line summary]. Each module exports run(args) → exit code.
 export const COMMANDS = {
   setup: [() => import('./commands/setup.mjs'), 'install or update dgf-factory in this project, for the harnesses you choose'],
+  status: [() => import('./commands/status.mjs'), 'show what dgf-factory installed here, and what changed since'],
+  uninstall: [() => import('./commands/uninstall.mjs'), 'remove what setup installed — only files you have not edited'],
 };
 
 export function usage() {

@@ -173,3 +173,59 @@ export function applyMcp(projectRoot, actions, journal) {
   }
   return receipt;
 }
+
+// --- reading and removing an entry setup recorded (status, uninstall) -------------------------
+
+function formatOf(harness) {
+  return harness?.mcp ? FORMATS[harness.mcp.format] : null;
+}
+
+/** The hash of the `dgf-mcp` entry in a harness's file now, or null when it is absent or unreadable. */
+export function currentEntryHash(projectRoot, harness, file) {
+  const format = formatOf(harness);
+  const abs = ensureWithinRoot(projectRoot, file);
+  if (!format || !existsSync(abs)) return null;
+  if (format.syntax === 'toml') {
+    const table = tomlTable(readFileSync(abs, 'utf8'));
+    if (!table) return null;
+    const entry = Object.fromEntries(table.map((line) => {
+      const [key, ...rest] = line.split('=');
+      try { return [key.trim(), JSON.parse(rest.join('=').trim())]; } catch { return [key.trim(), rest.join('=').trim()]; }
+    }));
+    return entryHash(entry);
+  }
+  const { data, invalid } = readJson(abs, file);
+  if (invalid) return null;
+  const existing = getPath(data, format.container)?.[SERVER];
+  return existing === undefined ? null : entryHash(existing);
+}
+
+function withoutTomlTable(text) {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => TOML_HEADER.test(line));
+  let end = start + 1;
+  while (end < lines.length && !/^\s*\[/.test(lines[end])) end += 1;
+  const kept = [...lines.slice(0, start), ...lines.slice(end)];
+  return `${kept.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\n+$/, '')}\n`;
+}
+
+/**
+ * Remove the `dgf-mcp` entry setup wrote, only while it is still exactly what setup wrote.
+ * Returns removed | edited | missing. Every other key and table in the file is kept.
+ */
+export function removeMcpEntry(projectRoot, harness, record, journal) {
+  const current = currentEntryHash(projectRoot, harness, record.file);
+  if (current === null) return 'missing';
+  if (current !== record.entryHash) return 'edited';
+  const format = formatOf(harness);
+  const abs = ensureWithinRoot(projectRoot, record.file);
+  if (format.syntax === 'toml') {
+    writeAtomic(projectRoot, record.file, Buffer.from(withoutTomlTable(readFileSync(abs, 'utf8')), 'utf8'), { journal });
+  } else {
+    const { data } = readJson(abs, record.file);
+    delete getPath(data, format.container)[SERVER];
+    writeAtomic(projectRoot, record.file, Buffer.from(`${JSON.stringify(data, null, 2)}\n`, 'utf8'), { journal });
+  }
+  log.info('mcp.removeMcpEntry', 'removed', { harness: harness.id, file: record.file });
+  return 'removed';
+}

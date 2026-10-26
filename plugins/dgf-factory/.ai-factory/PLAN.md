@@ -912,7 +912,7 @@ From this plugin:
 
 ### Phase 6: Later commands
 
-- [ ] **Task 19: `dgf-factory status`.** (depends on 14)
+- [x] **Task 19: `dgf-factory status`.** (depends on 14)
   A read-only command:
   - It loads the receipt and prints each harness (selected or dropped), the version, and the counts of
     unchanged, edited and missing files and MCP entries.
@@ -923,7 +923,7 @@ From this plugin:
   Tests in `tests/cli/status.test.mjs`. Logging: DEBUG per checked file. Files:
   `cli/commands/status.mjs`, `cli/main.mjs`, `tests/cli/status.test.mjs`.
 
-- [ ] **Task 20: `dgf-factory uninstall`.** (depends on 14)
+- [x] **Task 20: `dgf-factory uninstall`.** (depends on 14)
   - `--harness a,b` removes only those harnesses, dropped ones included; with no flag, it removes all.
   - It previews, then removes only managed files whose hash still matches. Edited files are kept and
     reported.
