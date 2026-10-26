@@ -7,8 +7,8 @@ outside the shipped tree (§1). A fact without a stamp is not a fact; it is a gu
 formatting.
 
 This file is the operative contract. The decisions behind it are recorded in
-[ADR 0013](../docs/adr/0013-version-gating-provenance-ledger.md), which superseded ADR 0008 on
-2026-09-23, and [ADR 0012](../docs/adr/0012-no-dgf-paths-in-shipped-files.md), which keeps DGF
+ADR 0013, which superseded ADR 0008 on
+2026-09-23, and ADR 0012, which keeps DGF
 repository paths out of every shipped file, this directory included. This file and the ADRs
 agree; if they ever disagree, **this file wins** until a new ADR settles it.
 
@@ -54,7 +54,7 @@ behaviourally `1.1.15`.
 This is accepted. The superseded ADR 0003 gave "a stamp that lags is worse than no stamp"
 as the reason to prefer the props file over a tag, and that reason does not survive — the
 props file *is* the lagging source. The conclusion still holds, for a better reason, which
-[ADR 0013](../docs/adr/0013-version-gating-provenance-ledger.md) §1 records: **determinism.** `git describe` on a DGF checkout returns a different value depending on
+ADR 0013 §1 records: **determinism.** `git describe` on a DGF checkout returns a different value depending on
 which branch is checked out (on one branch it returns `1.1.12-21-gaa1d5c4c2`, with `1.1.13`
 and `1.1.15` unreachable), while the props file returns the same value regardless. The gate
 in §4 must be reproducible, and a version source that shifts with branch state is not.
@@ -107,7 +107,7 @@ never fires for such a fact, so it applies to every consumer version.
 **`until: null` — no known end.** The range is open-ended: true from `since` onward until
 proven otherwise. It is **not** "true through `dgf_version`".
 
-> Both conventions are decided in [ADR 0013](../docs/adr/0013-version-gating-provenance-ledger.md) §3,
+> Both conventions are decided in ADR 0013 §3,
 > which also records why the superseded ADR 0003's reading of `until: null` ("still true at
 > `dgf_version`") had to go: it made its own flagship TreeTable example incoherent.
 
@@ -219,7 +219,7 @@ same change — and keep its header exactly as it is. The marker is the only cou
 knowledge file and the code that reads it: the file still states DGF facts and names no script — with
 one exception. The `Checked by` column of `reference-edges` names the plugin validator that reports an
 edge resolving nowhere, so that such a reference is reported once and by one script
-([ADR 0027](../docs/adr/0027-dgf-specific-skills-revised.md) §4–§5). It names a validator's file, never a skill
+(ADR 0027 §4–§5). It names a validator's file, never a skill
 or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no provenance.
 
 | Table id | File |
@@ -248,8 +248,11 @@ or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no p
 
 ## See Also
 
-- [ADR 0013 — Stamp every fact, gate only behavioural ones — provenance in a maintainer ledger](../docs/adr/0013-version-gating-provenance-ledger.md)
-- [ADR 0012 — Shipped files carry no DGF repository paths](../docs/adr/0012-no-dgf-paths-in-shipped-files.md)
-- [DGF Knowledge Sourcing](../docs/dgf-knowledge.md) — the reader-facing version of §5
-- [DGF Schemas](../docs/dgf-schemas.md) — inventories, correspondence map, vendoring contract
+The ADRs and pages below are maintainer documentation in the dgf-factory repository (`docs/`); they are
+not installed with the tool (ADR 0030).
+
+- ADR 0013 — Stamp every fact, gate only behavioural ones — provenance in a maintainer ledger
+- ADR 0030 — Shipped files are the npm package payload, and carry no DGF repository paths (superseding ADR 0012)
+- DGF Knowledge Sourcing — the reader-facing version of §5
+- DGF Schemas — inventories, correspondence map, vendoring contract
 - [`schemas/MANIFEST.md`](schemas/MANIFEST.md) — what the vendored set holds: directories, dialects, membership

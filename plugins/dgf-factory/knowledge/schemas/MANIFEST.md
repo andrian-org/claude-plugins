@@ -22,7 +22,7 @@ the shipped tree (`../README.md` §1).
 
 **The shipped copies differ from upstream in one way.** Where DGF's own text names a path in
 the DGF repository, the path is rewritten as the set is copied in, because a shipped file never
-carries one ([ADR 0012](../../docs/adr/0012-no-dgf-paths-in-shipped-files.md)). A wiki link
+carries one (ADR 0012). A wiki link
 becomes a `get_doc_page('<page>')` call that resolves on the DGF docs MCP, and a source-file
 path is cut to its file name. Nothing else in a schema is changed, and every rewritten file
 still parses.

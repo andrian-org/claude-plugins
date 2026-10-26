@@ -631,7 +631,7 @@ From this plugin:
 
 ### Phase 4: `dgf-factory setup`
 
-- [ ] **Task 11: The install planner and the preview.** (depends on 9, 10)
+- [x] **Task 11: The install planner and the preview.** (depends on 9, 10)
   `cli/plan.mjs` provides
   `planInstall({projectRoot, harnesses, receipt, packageRoot}) → actions[]`.
   - **Runtime files.** Every package payload file under `skills/`, `scripts/` and `knowledge/` maps
@@ -662,7 +662,7 @@ From this plugin:
   Logging: INFO with the summary counts. DEBUG per action, with path, kind and reason. WARN per
   `keep-edited` or `conflict`. Files: `cli/plan.mjs`, `cli/preview.mjs`, `tests/cli/plan.test.mjs`.
 
-- [ ] **Task 12: The MCP writers, HTTP, per harness.** (depends on 9)
+- [x] **Task 12: The MCP writers, HTTP, per harness.** (depends on 9)
   First verify each harness's remote/HTTP MCP entry shape and file from that harness's current
   documentation, through the docs MCP or WebFetch. Record the table, with source URL and date, in
   ADR 0029 §MCP as a dated erratum or in its body if Task 1 is not committed yet.
@@ -701,7 +701,7 @@ From this plugin:
   failure, with the file and position. Files: `cli/mcp.mjs`, `tests/cli/mcp.test.mjs`,
   `docs/adr/0029-npm-cli-delivery.md`.
 
-- [ ] **Task 13: The Python step.** (depends on 5, 8)
+- [x] **Task 13: The Python step.** (depends on 5, 8)
   `cli/python.mjs`:
   - Find an interpreter: `python3`, then `python` on Windows. Require 3.9 or later via
     `--version`; below that, WARN with the version found.
@@ -718,7 +718,7 @@ From this plugin:
   lines. ERROR with pip's stderr tail on failure. Files: `cli/python.mjs`,
   `tests/cli/python.test.mjs`.
 
-- [ ] **Task 14: The `setup` command, end to end.** (depends on 11, 12, 13)
+- [x] **Task 14: The `setup` command, end to end.** (depends on 11, 12, 13)
   `cli/commands/setup.mjs` runs these steps:
   1. **Resolve the project root.** It is the current directory, or `--root`. Refuse `$HOME` and `/`
      with exit `3`.
@@ -765,7 +765,7 @@ From this plugin:
 
 ### Phase 5: Doctor, checks and the plugin channel's removal
 
-- [ ] **Task 15: `/dgf-doctor` checks an installed project.** (depends on 5, 10, 14)
+- [x] **Task 15: `/dgf-doctor` checks an installed project.** (depends on 5, 10, 14)
   Rework `skills/dgf-doctor/scripts/doctor.py`, keeping it stdlib-only.
   - **Root resolution is unchanged:** `parents[3]` is the runtime root in an install, or the source
     root in this repo.
@@ -805,7 +805,7 @@ From this plugin:
   `skills/dgf-doctor/scripts/doctor.py`, `skills/dgf-doctor/SKILL.md`, `knowledge/README.md`,
   `tests/test_doctor.py`, `tests/test_known_bad.py` (the `SHIPPED_DIRS` assertion).
 
-- [ ] **Task 16: The package check, the docs-check wiring and the smoke test.** (depends on 8, 15)
+- [x] **Task 16: The package check, the docs-check wiring and the smoke test.** (depends on 8, 15)
   - **`tools/check_package.py`** (maintainer only). It runs `npm pack --dry-run --json` and checks
     the tarball's file list:
     - an allowlist of prefixes: `package.json`, `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/`;
