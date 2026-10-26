@@ -23,7 +23,8 @@ across a dependency-inverted runtime, and there is no runtime here to invert.
 
 ```text
 plugins/dgf-factory/
-├── .claude-plugin/plugin.json   # manifest — must live here
+├── package.json                 # the npm package: @andrian-org/dgf-factory, its bin, and `files` — what ships
+├── bin/dgf-factory.mjs, cli/    # the installer: `dgf-factory setup` renders the payload into a project
 ├── skills/<name>/               # SLICES — SKILL.md + references/ + scripts/ + templates/
 │   ├── dgf-doctor/              #   the install check, with its own scripts/doctor.py
 │   ├── dgf, dgf-plan, dgf-implement, dgf-verify, dgf-commit/   # the pipeline spine
@@ -84,13 +85,15 @@ plugins/dgf-factory/
 `verify_gate.py` is the verify gate: it runs `check_plan.py`'s and `check_change.py`'s checks
 in-process and builds the one block `/dgf-verify` relays. No prompt assembles a gate block.
 
-Folder names are Claude Code plugin names rather than the reference pattern's
-`src/[Module]/Slices/` names. Auto-discovery only loads components from the plugin's
-mandated paths; a tree that ignores them is a tree Claude Code never loads. The pattern's
-boundary and dependency rules are kept in full — only the vocabulary is translated.
+Folder names are the agent-skill convention every harness reads — `skills/<name>/SKILL.md` —
+rather than the reference pattern's `src/[Module]/Slices/` names. The pattern's boundary and
+dependency rules are kept in full — only the vocabulary is translated.
 
-`knowledge/` and `scripts/` are deliberately **not** auto-discovered. They are plain
-files, reached as `${CLAUDE_PLUGIN_ROOT}/knowledge/…` and `${CLAUDE_PLUGIN_ROOT}/scripts/…`.
+`dgf-factory setup` installs this tree into a project in two places ([ADR 0029](adr/0029-npm-cli-delivery.md)):
+`skills/`, `scripts/` and `knowledge/` mirrored into `.dgf-factory/runtime/`, so every `parents[N]`
+lookup still holds, and each `SKILL.md`, rendered, into each chosen harness's skills folder. A skill
+reaches the rest as plain files, written `{{dgf_runtime}}/knowledge/…` and `{{dgf_runtime}}/scripts/…`;
+setup renders the token to the project-relative `.dgf-factory/runtime`.
 
 ### Two kinds of script
 
@@ -99,7 +102,7 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | plugin-root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py`, `audit_root.py` |
+| Runtime validator | A skill calls it mid-run | root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py`, `audit_root.py` |
 | Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
 
 A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators over DGF's
@@ -111,7 +114,7 @@ runs against a DGF checkout that only a maintainer has.
 
 A validator used by exactly one slice lives in that slice's own `scripts/`, not here —
 `skills/dgf-doctor/scripts/doctor.py` is the current example. **Promote on the second
-use, not in anticipation of it:** a helper moves up to plugin-root `scripts/` when a
+use, not in anticipation of it:** a helper moves up to the root `scripts/` when a
 second slice actually needs it, not when one might.
 
 ## Dependency direction
@@ -125,7 +128,7 @@ SKILL.md → own references/ + scripts/ → shared knowledge/ + scripts/ → not
 | | Rule |
 |---|---|
 | ✅ | A skill reads its own `references/` and `templates/`, calls its own `scripts/` |
-| ✅ | A skill reads `${CLAUDE_PLUGIN_ROOT}/knowledge/` and calls `${CLAUDE_PLUGIN_ROOT}/scripts/` |
+| ✅ | A skill reads `{{dgf_runtime}}/knowledge/` and calls `{{dgf_runtime}}/scripts/` |
 | ✅ | A shared script reads `knowledge/schemas/json/`, `.../xsd/` and `.../standalone/` |
 | ❌ | A validator or skill that handles only one schema family |
 | ❌ | A slice reads another slice's `references/`, `scripts/` or `templates/` |

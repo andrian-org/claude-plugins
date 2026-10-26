@@ -41,6 +41,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   3  the header is unreadable or the format unsupported, or a usage error
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import datetime
 import re
 import sys

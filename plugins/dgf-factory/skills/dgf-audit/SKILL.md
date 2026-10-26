@@ -2,9 +2,9 @@
 name: dgf-audit
 description: Audit a whole DGF workspaces root — the validators' health, the reference graph from processes through workflows to forms, entities and components, and the role names in use — or show a change's blast radius, the processes that reach a file in each application. Read-only. Use for "audit the estate", "blast radius", "what reaches this workflow", "which processes use this", "impact of this change".
 argument-hint: "[--reach <file>… | --branch] [--app <name>]"
-allowed-tools: Read Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
 disable-model-invocation: false
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF Audit — The Estate's Health, and a Change's Blast Radius
@@ -25,7 +25,7 @@ change's own footprint (ADR 0022 §6).
 
 **A reach is never complete.** A static walk cannot see names assigned at run time, processes chosen
 from the database, open handlers, or entry points outside processes. Every report carries a
-`LIMIT:` line that says so, and this skill relays it every time (`knowledge/reference-graph.md` §3,
+`LIMIT:` line that says so, and this skill relays it every time (`{{dgf_runtime}}/knowledge/reference-graph.md` §3,
 ADR 0027 §8).
 
 AI Factory has no audit skill: its framework-agnostic gates stop at the change. This one asks what
@@ -36,7 +36,7 @@ the change reaches.
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
@@ -46,7 +46,7 @@ root). Exit `3` → **STOP** and relay it. Otherwise the `ROOT:` line is `<root>
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-audit --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-audit --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -73,7 +73,7 @@ would relax one of these.
 Run it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>" --reach <file>
+python3 "{{dgf_runtime}}/scripts/audit_root.py" --workspaces-root "<root>" --reach <file>
 ```
 
 — with `--base "<git.base_branch>"` for `--branch`, with no mode flag for the whole root, and with
@@ -85,7 +85,7 @@ would report the pipe's own.
 | `0` | Clean, or INFO only. Summarise (Step 2). |
 | `1` | A validator `ERROR` in the root. Summarise, leading with the errors. |
 | `2` | Warnings: `AUDIT_REFERENCE_UNRESOLVED`, `CASE_ONLY_MATCH`, or `AUDIT_NARROWED` when `--app` narrowed the audit. Summarise. |
-| `3` | **STOP** and relay it: `AUDIT_REACH_NOT_ARTIFACT` (a `--reach` path that is not a configuration file under the root), `DEPENDENCY_MISSING` with its install command verbatim, `SCHEMA_UNSELECTABLE` naming a schema dialect (a vendored schema the validators cannot read — the plugin's defect: run `/dgf-doctor` and reinstall), `AUDIT_CHECK_FAILED` (a check raised; relay the report so far, and say the audit is incomplete), or a usage error. |
+| `3` | **STOP** and relay it: `AUDIT_REACH_NOT_ARTIFACT` (a `--reach` path that is not a configuration file under the root), `DEPENDENCY_MISSING` with its install command verbatim, `SCHEMA_UNSELECTABLE` naming a schema dialect (a vendored schema the validators cannot read — the installed runtime's defect: run `/dgf-doctor`, then re-run `dgf-factory setup`), `AUDIT_CHECK_FAILED` (a check raised; relay the report so far, and say the audit is incomplete), or a usage error. |
 
 ### Step 2: Summarise
 
@@ -104,7 +104,7 @@ Relay the script's findings, then summarise in `language.ui`:
   dead code: an entry point outside processes may start them.
 - **The roles:** each `ROLE:` line, as an unchecked inventory. Quote each name exactly as the line
   does — `" B"`, with its leading space, is a different role from `"B"`, and the runtime splits
-  `roles` on `,` without trimming (`knowledge/permissions.md` §2.1). Nothing in the root declares
+  `roles` on `,` without trimming (`{{dgf_runtime}}/knowledge/permissions.md` §2.1). Nothing in the root declares
   roles, so no name is checked (§1 there).
 - **Every `LIMIT:` line, verbatim.**
 - A narrowed audit (`AUDIT_NARROWED`) covers one application and `webasm`: say that the other
@@ -145,4 +145,4 @@ Relay the script's findings, then summarise in `language.ui`:
 2. **A reach is never complete.** Every `LIMIT:` line is relayed verbatim.
 3. **Per application.** A `webasm` file is reached differently in each application.
 4. **Roles are an inventory.** Nothing in the root declares one.
-5. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts.
+5. **`{{dgf_runtime}}` always** for dgf-factory's own scripts.

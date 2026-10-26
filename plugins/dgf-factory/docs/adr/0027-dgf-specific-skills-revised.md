@@ -636,3 +636,13 @@ ADR 0023's two errata of 2026-09-27 are folded into Context ("ADR 0023's errata,
   - Two things §7 did not foresee: the host does not start without its `Integrations` sections, so the generated settings
     carry them as placeholders; and a secret-named key must hold exactly one `${VAR}`, so the SQL and Redis connection
     strings are variables.
+- **2026-10-26** — §Context (line 170) quotes the permission rule as
+  `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)`. Since [ADR 0029](0029-npm-cli-delivery.md) §3 the source
+  writes `{{dgf_runtime}}` in place of `${CLAUDE_PLUGIN_ROOT}`, and `dgf-factory setup` rewrites it to
+  `.dgf-factory/runtime`. The decision is unchanged. Source: ADR 0029 §3.
+- **2026-10-26** — §7 says the scaffold writes "only into an empty folder", defined as one holding
+  nothing but `.git/` and `docs/application.json`. Since [ADR 0029](0029-npm-cli-delivery.md) §2 the skill
+  runs from an install in that folder, so "empty" also allows the install footprint: `.dgf-factory/runtime/`,
+  `.dgf-factory/install.json` and every path that receipt lists. A folder holding `.dgf-factory/config.yaml` or
+  anything else is still not empty. The decision is unchanged. Source: ADR 0029 §2;
+  `skills/dgf-scaffold/scripts/design.py` `check_folder`.

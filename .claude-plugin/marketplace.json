@@ -41,25 +41,7 @@
         "yarp",
         "dotnet",
         "openapi",
-        "postman"]
-    },
-    {
-      "name": "dgf-factory",
-      "description": "A DotGov Framework-aware plan/implement/verify pipeline, backed by deterministic validators that resolve both component config families — modern JSON and legacy XSD — before reporting success.",
-      "author": {
-        "name": "dotGov Solutions",
-        "email": "andrian.mamei@dotgovsolutions.net"
-      },
-      "category": "development",
-      "source": "./plugins/dgf-factory",
-      "keywords": [
-        "dgf",
-        "dotgov-framework",
-        "dotnet",
-        "angular",
-        "validation",
-        "json-schema",
-        "xsd"
+        "postman"
       ]
     }
   ]

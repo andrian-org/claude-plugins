@@ -332,3 +332,9 @@ doctor's allowlist: a broken plugin install is reinstalled, not fixed in the est
   adds two entries; Consequences adds one Positive point and two Negative ones, and extends a third.
   What the ADR decides still differs from ADR 0021 only in §3, §5 and §6, and the paragraph now says
   so. Source: a diff of the two ADRs' Context-to-Consequences text; found by the seventh `/aif-verify`.
+- **2026-10-26** — §Context (lines 84 and 95) quotes the permission rule as
+  `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)` and script calls as `python3 "${CLAUDE_PLUGIN_ROOT}/…"`.
+  Since [ADR 0029](0029-npm-cli-delivery.md) §3 the source writes `{{dgf_runtime}}` in place of
+  `${CLAUDE_PLUGIN_ROOT}`, and `dgf-factory setup` rewrites it to `.dgf-factory/runtime` in every installed
+  skill. The decision is unchanged: every reader pre-approves the scripts with one `Bash(…)` rule, and every
+  call matches it. Source: ADR 0029 §3; `tests/test_skill_contracts.py`.

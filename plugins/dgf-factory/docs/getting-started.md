@@ -2,22 +2,56 @@
 
 # Getting Started
 
-This page covers working **on** `dgf-factory`, and trying its pipeline on a copy of DGF's
-samples. Installing it from the marketplace is not yet possible: the plugin loads locally with
-`--plugin-dir`, but it is not registered there.
+This page covers installing `dgf-factory` into a project, working **on** it, and trying its
+pipeline on a copy of DGF's samples. It is delivered as an npm CLI, `@andrian-org/dgf-factory`,
+whose `dgf-factory setup` installs it into a project for each AI harness you use
+([ADR 0029](adr/0029-npm-cli-delivery.md)).
 
 ## Prerequisites
 
 | Tool | Version | Why |
 |------|---------|-----|
-| Claude Code | current | The runtime that loads skills and agents |
-| Node.js | ≥ 18 | AI Factory CLI and `.mjs` helper scripts |
+| Claude Code, Codex, Gemini CLI or another harness | current | The runtime that loads the skills |
+| Node.js | ≥ 18.3 | The `dgf-factory` CLI, the AI Factory CLI and `.mjs` helper scripts |
 | Python | 3.9+ | Validator scripts and the skill security scanner |
 | Git | any | GitHub remote; LF line endings enforced |
 | uv | any | Only to regenerate `scripts/requirements.txt` |
 
-Read access to the DotGov Framework repository is effectively required — the whole point
-of this plugin is encoding DGF facts, and facts must be verified against the source.
+Read access to the DotGov Framework repository is effectively required to work **on** the tool —
+the whole point of it is encoding DGF facts, and facts must be verified against the source.
+Installing it needs no DGF checkout.
+
+## Installing it in a project
+
+The package is internal and published to GitHub Packages. Once per machine, with a GitHub token that
+has `read:packages`:
+
+```bash
+npm config set @andrian-org:registry https://npm.pkg.github.com
+npm login --scope=@andrian-org --auth-type=legacy --registry=https://npm.pkg.github.com
+npm install -g @andrian-org/dgf-factory
+```
+
+Then run setup at the workspaces root, and start your harness from that same folder afterwards:
+
+```bash
+dgf-factory setup                                  # asks which harnesses; previews; asks before writing
+dgf-factory setup --harness claude,codex --yes     # the same, without questions
+dgf-factory setup --dry-run --harness claude       # the preview only
+```
+
+| Written | Where | Committed |
+|---|---|---|
+| The rendered `SKILL.md` per skill | each harness's skills folder: `.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, … | yes |
+| The validators, the knowledge base, the skills' references and templates | `.dgf-factory/runtime/` | yes |
+| The validators' Python environment | `.dgf-factory/runtime/.venv/` (ignored by a managed `.gitignore`) | no |
+| The receipt: every file written, with two hashes | `.dgf-factory/install.json` | yes |
+| A `dgf-mcp` entry | the harness's MCP file, e.g. `.mcp.json`, `.gemini/settings.json`, `.codex/config.toml` | your choice |
+
+Running `dgf-factory setup` again is the update: each file is compared with the receipt, a file you
+edited is kept and reported, and one that changed on both sides is shown as a diff and kept. Nothing
+outside the project is written, and the project's own `.gitignore` is never edited. `/dgf-doctor` checks
+the install against the receipt.
 
 ## Clone and open
 
@@ -39,46 +73,50 @@ relative to it.
 | `.claude/agents/` | 19 subagents — coordinators, workers, loop roles, sidecars |
 | `.ai-factory/` | Project context: config, description, architecture, rules |
 | `docs/` | This documentation |
-| `.claude-plugin/plugin.json` | The manifest — what makes this a loadable plugin |
+| `package.json` | The npm package: `@andrian-org/dgf-factory`, the `dgf-factory` bin, and `files` — the payload that ships ([ADR 0030](adr/0030-shipped-package-payload.md)) |
+| `bin/`, `cli/` | The CLI: plain ESM Node with no dependencies — the harness registry, rendering, the receipt, atomic writes, the MCP writers, the Python step and `setup`. Shipped |
 | `skills/dgf-doctor/` | The walking-skeleton slice: `SKILL.md` + `scripts/doctor.py` |
 | `skills/dgf`, `dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit` | The pipeline spine — set up, plan, implement, verify, commit. `dgf`, `dgf-plan`, `dgf-implement` and `dgf-verify` carry `references/` too. See [Pipeline Spine](pipeline.md) |
 | `skills/dgf-fix`, `dgf-evolve` | The learning loop — fix inside the plan and record a patch; distil patches into overrides. Each carries its format in `references/`. See [The learning loop](pipeline.md#the-learning-loop) |
 | `skills/dgf-component`, `dgf-process`, `dgf-model`, `dgf-audit` | The DGF-specific skills — components, processes and workflows, entities, and the audit with blast radius. `dgf-process` and `dgf-model` carry `templates/`. See [The DGF-specific skills](pipeline.md#the-dgf-specific-skills) |
-| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); nine stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0012](adr/0012-no-dgf-paths-in-shipped-files.md)) |
+| `knowledge/` | The DGF knowledge base — `README.md` is the stamping convention (and §7 the machine-read table contract); the stamped facts files; `schemas/` holds the vendored JSON + XSD set with `MANIFEST.md`. Shipped, so it names no DGF repository path ([ADR 0030](adr/0030-shipped-package-payload.md)) |
 | `scripts/` | The scripts skills call. The validators: `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, and the audit `audit_root.py`. The spine's: `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, and the verify gate `verify_gate.py`. The loop's: `check_patches.py` and `check_override.py`. Their shared `lib/` — `lib/gate_result.py` builds every gate block — and the hash-pinned `requirements.txt`. Shipped |
-| `tests/` | Not shipped. The `unittest` suite and its fixtures, including the known-bad corpus under `fixtures/known-bad/` |
+| `tests/` | Not shipped. The `unittest` suite and its fixtures, including the known-bad corpus under `fixtures/known-bad/`; `tests/cli/` holds the CLI's `node --test` suite |
 | `provenance/` | Not shipped. One ledger per knowledge file: the DGF files its facts were read from, each with a `sha256` |
-| `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, manifest and knowledge-stamp contracts; section 8 runs the unit tests |
+| `tools/check-dual-schema-docs.sh` | Not shipped. Repo-maintenance check: documentation, decision-record, install-and-package and knowledge-stamp contracts; section 8 runs the unit tests and the CLI tests |
+| `tools/check_package.py` | Not shipped. Holds the `npm pack` file list to the payload, and `package.json` to its contract |
+| `tools/smoke_install.sh` | Not shipped. Packs, installs into a temporary prefix, and sets up a scratch project end to end |
 | `tools/check_knowledge_stamps.py` | Not shipped. Checks stamps, ledgers and vendored schema digests; section 7 of the check invokes it |
 | `tools/vendor_schemas.py` | Not shipped. Re-vendors DGF's schema set from a DGF checkout, rewriting DGF paths on the way in |
 | `tools/run_known_good.py`, `tools/known-good-exceptions.txt` | Not shipped. Runs every validator over DGF's own samples; each error must be excused, with evidence, in the exceptions file |
 | `tools/check_drift.py` | Not shipped. Compares every provenance ledger's digests against a DGF checkout |
 | `tools/requirements.in` | Not shipped. The two validator dependencies, compiled into `scripts/requirements.txt` |
-| `.mcp.json` | The hosted DGF docs MCP (`dgf-mcp`) |
+| `.mcp.json` | The hosted DGF docs MCP (`dgf-mcp`), for this working directory only. A project gets its entry from `dgf-factory setup` (`cli/mcp.mjs`) |
 
-Nothing under `.claude/skills/aif-*` is part of the plugin being built. It is the
+Nothing under `.claude/skills/aif-*` is part of the tool being built. It is the
 toolchain, installer-managed and tracked in `.ai-factory.json`. Do not hand-edit it —
 edits are detected and overwritten on update.
 
-## Load it locally
+## Try it in a scratch project
 
-The plugin loads for a single session without touching the marketplace:
+The CLI runs straight from the checkout, with no `npm install`:
 
 ```bash
-claude --plugin-dir plugins/dgf-factory -p "/dgf-doctor"
+mkdir -p /tmp/scratch
+node bin/dgf-factory.mjs setup --root /tmp/scratch --harness claude --yes
+cd /tmp/scratch && claude -p "/dgf-doctor"
 ```
 
-Point `--plugin-dir` at `plugins/dgf-factory` specifically. A directory *of* plugins loads
-every child, so aiming at `plugins/` would pull in the siblings too.
+A change to a skill, a script or the knowledge base reaches the scratch project when you run `setup`
+again. To check the tarball itself — `npm pack`, a global install into a temporary prefix, setup for
+three harnesses, a re-run, an edit kept, and the installed doctor:
 
-This is session-scoped. It proves the manifest and slice layout are correct; it does not
-prove marketplace installation works — that claim belongs to the Marketplace Release
-milestone.
+```bash
+bash tools/smoke_install.sh            # add --python to build the project's .venv too (network)
+```
 
-`.mcp.json` now has two roles: the dev config for this working directory, **and** the
-plugin's shipped MCP declaration. Anything added to it is declared to every user who
-installs the plugin, which is why it lists only `dgf-mcp`. If a dev-only server is ever
-needed, split the file rather than quietly adding an entry.
+Skills are written with `{{dgf_runtime}}` where they name a runtime path; setup renders it to
+`.dgf-factory/runtime` ([Skill Authoring](skill-authoring.md)).
 
 ## Validators
 
@@ -86,17 +124,13 @@ The validators under `scripts/` run on Python 3.9 or later, with two pinned depe
 `lxml` (XSD validation) and `jsonschema` (JSON Schema). A validator run without them exits
 `3` with the install command; `/dgf-doctor` checks for them too.
 
-**Install, as a developer using the plugin** ([ADR 0015](adr/0015-validator-runtime-and-json-reader.md)):
+**In a project**, `dgf-factory setup` installs them into `.dgf-factory/runtime/.venv`, and every
+script switches to that environment itself before it imports either
+([ADR 0031](adr/0031-validator-runtime-project-venv.md)). With `--no-python`, or after a failure,
+setup prints the command; so do the doctor and the validators, with the real paths filled in.
 
-```bash
-python3 -m pip install --user --require-hashes -r "<plugin>/scripts/requirements.txt"
-```
-
-`<plugin>` is the installed plugin's directory. The doctor and the validators print the
-command with the real path filled in.
-
-**Work on the plugin in a `.venv/` at the plugin root.** It is ignored by git, the docs check
-prefers it, and `--user` is not used inside it:
+**Work on dgf-factory in a `.venv/` at its root.** It is ignored by git, the docs check
+prefers it, and every script switches to it too, so a bare `python3` works:
 
 ```bash
 python3 -m venv .venv
@@ -223,13 +257,15 @@ Then gate it, as `/dgf-verify` does — every check in one run, ending with the 
 ```
 
 `check_change.py` reports the samples' own findings as `INFO PRE_EXISTING` and only what the
-branch introduced as `ERROR` or `WARN`. To drive the same flow through the skills, load the
-plugin with `--plugin-dir` and run `/dgf /tmp/estate`, then `/dgf-plan`, `/dgf-implement`,
-`/dgf-verify` and `/dgf-commit` inside the copy. See [Pipeline Spine](pipeline.md).
+branch introduced as `ERROR` or `WARN`. To drive the same flow through the skills, install it there —
+`node bin/dgf-factory.mjs setup --root /tmp/estate --harness claude --yes` — start Claude Code in
+`/tmp/estate`, and run `/dgf`, then `/dgf-plan`, `/dgf-implement`, `/dgf-verify` and `/dgf-commit`.
+See [Pipeline Spine](pipeline.md).
 
 ## Starting a new application
 
-`/dgf-scaffold` needs an **empty folder** and creates a whole application in it — see
+`/dgf-scaffold` needs an **empty folder** — one that holds at most `.git/`, `docs/application.json` and
+what `dgf-factory setup` installed — and creates a whole application in it — see
 [Starting an application](pipeline.md#starting-an-application). To try its scripts without the skill, write a
 `docs/application.json` (the example in
 [DESIGN-FORMAT.md](../skills/dgf-scaffold/references/DESIGN-FORMAT.md)) into a new folder, and from the plugin
@@ -272,7 +308,8 @@ skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
 ## What is not here yet
 
 - `agents/` — coordinators and workers
-- A marketplace entry in `../../.claude-plugin/marketplace.json`
+- A published package: `@andrian-org/dgf-factory` installs today from a tarball (`npm pack`), and
+  publishing to GitHub Packages is a follow-up of ADR 0029
 
 ## Build order
 
@@ -298,7 +335,7 @@ See [the blueprint](blueprint.md) for the reasoning behind each step.
 
 ## Working with the pipeline
 
-The `aif-*` commands drive development of this plugin:
+The `aif-*` commands drive development of dgf-factory:
 
 ```bash
 /aif-roadmap                    # break the build order into milestones
@@ -313,10 +350,12 @@ Plans are branch-scoped — `/aif-plan full` creates a `feature/…` branch off 
 ## Verify your setup
 
 ```bash
-node --version                                    # ≥ 18
+node --version                                    # ≥ 18.3
 python3 --version                                 # 3.9+
 cat .ai-factory/config.yaml | head -20            # language and path settings
 .venv/bin/python skills/dgf-doctor/scripts/doctor.py   # CLEAN once the validator dependencies are in .venv/
+node --test tests/cli/*.test.mjs                  # the CLI's tests
+python3 tools/check_package.py                    # the tarball holds the payload, and only the payload
 ```
 
 Confirm the DGF docs MCP is reachable in your Claude Code session — `.mcp.json` declares

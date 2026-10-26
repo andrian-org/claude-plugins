@@ -98,16 +98,18 @@ What the spike ran, in order, with what each step printed:
    ```
 
    If the last line prints nothing: `printf 'SPLITBILL_APP=%s\n' "$APP" >> "$COMPOSE/.env"`.
-4. **Plugin loads.** From a shell with the validators' environment active:
+4. **dgf-factory installs.** From the checkout, the same CLI `npm install -g @andrian-org/dgf-factory`
+   gives (ADR 0029):
 
    ```bash
-   source "$PLUGIN/.venv/bin/activate"
-   cd "$APP" && claude --plugin-dir "$PLUGIN"
+   cd "$APP" && node "$PLUGIN/bin/dgf-factory.mjs" setup --harness claude --yes
+   claude
    ```
 
-   Type `/dgf-doctor`. Note whether the skills appear as `/dgf-doctor` or `/dgf-factory:dgf-doctor`, and
-   write that on the cheat sheet. The skills call a bare `python3`, so a shell without the `.venv` active makes
-   every validator exit `3`, `DEPENDENCY_MISSING`.
+   Setup copies the skills into `$APP/.claude/skills/`, the runtime into `$APP/.dgf-factory/runtime/`, registers
+   dgf-mcp in `$APP/.mcp.json`, and builds `$APP/.dgf-factory/runtime/.venv` (network). Type `/dgf-doctor`: the
+   skills are project skills, so they appear as `/dgf-doctor`. Every script switches to that `.venv` itself, so
+   no shell needs activating.
 5. **The scaffold's base path, copied.** The survey asks for an absolute path; print it now and keep it on
    the second screen: `echo "$DGF/src/samples/workspaces/webasm"`.
 6. **One full rehearsal** from the reset state below, against the clock. Then reset again.
@@ -119,12 +121,12 @@ What the spike ran, in order, with what each step printed:
 3. The reset state, checked:
 
    ```bash
-   ls -A "$APP" "$APP/docs"                   # .git and docs; application.json
+   ls -A "$APP" "$APP/docs"                   # .git and docs; application.json (before step 4's install)
    docker ps --format '{{.Names}}' | grep splitbill || echo "no splitbill containers running"
    ```
 
-4. Terminal 1: `source "$PLUGIN/.venv/bin/activate"`, `cd "$APP"`, `claude --plugin-dir "$PLUGIN"`,
-   `/dgf-doctor` once, then `/clear`.
+4. Terminal 1: `cd "$APP"`, `node "$PLUGIN/bin/dgf-factory.mjs" setup --harness claude --yes`, `claude`,
+   `/dgf-doctor` once, then `/clear`. The scaffold counts what setup installed as empty (ADR 0029 §2).
 5. Terminal 2: the variables above, `cd "$COMPOSE"`.
 6. Browser: tabs on `https://dgf.localtest.me/components` and Seq at `https://dgf-logs.localtest.me`. Close
    any `splitbill.localtest.me` tab. Device toolbar preset: iPhone 14 Pro (393 × 852).

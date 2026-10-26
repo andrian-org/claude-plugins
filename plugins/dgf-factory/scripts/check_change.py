@@ -3,7 +3,9 @@
 
 The changed set is the working tree against the merge-base of HEAD and
 `--base` (tracked changes plus untracked files), or an explicit `--changed`
-list. Paths under `.dgf-factory/` are the pipeline's own and are ignored.
+list. Paths under `.dgf-factory/` are the pipeline's own and are ignored, and
+so is every file `dgf-factory setup` installed, which its receipt lists
+(ADR 0029 §2: the install footprint).
 
   change-scope    every changed file's workspace is in `affects_workspaces`
                   (ADR 0009); a file in no workspace is a warning. A workspace
@@ -56,13 +58,16 @@ Exit codes (contract, see .ai-factory/rules/base.md):
      that cannot be used, or the validators' dependencies missing
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import os
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lib import cli, git, knowledge, plan, report, workspace
+from lib import cli, git, install_receipt, knowledge, plan, report, workspace
 
 HEADER = "Change check"
 CHANGE_CHECKS = ("change-scope", "change-means", "change-planned")
@@ -177,10 +182,30 @@ def known_workspaces(root, changes):
     return known
 
 
-def own_changes(changes):
-    """The changes outside `.dgf-factory/`, which is the pipeline's own."""
-    kept = [c for c in changes if not plan.is_pipeline(c.path) and not (c.old and plan.is_pipeline(c.old))]
-    report.debug("check_change.own_changes", "kept", changed=len(changes), kept=len(kept))
+def installed_paths(root):
+    """The install footprint from `.dgf-factory/install.json`; an unreadable receipt is exit 3."""
+    try:
+        return install_receipt.footprint(root)
+    except install_receipt.ReceiptError as exc:
+        report.fail(report.EXIT_USAGE, f"ERROR INSTALL_RECEIPT_UNREADABLE {exc}")
+
+
+def _not_estate(rel, installed):
+    if plan.is_pipeline(rel):
+        return True
+    if rel in installed:
+        report.debug("check_change.own_changes", "footprint skip", path=rel)
+        return True
+    return False
+
+
+def own_changes(changes, root=None):
+    """The changes outside `.dgf-factory/`, which is the pipeline's own, and outside the files
+    `dgf-factory setup` installed (ADR 0029 §2)."""
+    installed = installed_paths(root) if root is not None else frozenset()
+    kept = [c for c in changes if not _not_estate(c.path, installed) and not (c.old and _not_estate(c.old, installed))]
+    report.debug("check_change.own_changes", "kept", changed=len(changes), kept=len(kept),
+                 footprint=len(installed))
     return kept
 
 
@@ -385,7 +410,7 @@ def change_checks(parsed, root, base, changed, rep, outcome, saved=None):
         outcome.lines.append(f"BASE: {base_sha} ({base})" if base_sha else f"BASE: none ({base})")
     if changes is None:
         return base_sha
-    changes = own_changes(changes)
+    changes = own_changes(changes, root)
     outcome.changes = changes
     known = outcome.known = known_workspaces(root, changes)
     outcome.lines.append(f"CHANGED: {len(changes)}")

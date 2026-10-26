@@ -330,3 +330,8 @@ decider's choice ([ADR 0021](0021-learning-loop.md) §7).
   milestone, named because this ADR is milestone 11's. The Context's "What earlier decisions left to
   milestone 10" is reworded the same way. Nothing else in §1–§7 differs. Source:
   `docs/adr/0020-gate-block-contract.md:49`, `:151`; found by `/aif-verify`.
+- **2026-10-26** — §8 says a doctor failure is a defect in "the installed plugin — its manifest, its
+  slices, its shipped files, its validator runtime". Since [ADR 0029](0029-npm-cli-delivery.md) the doctor
+  checks an installed project, whose first check is its install receipt, not a plugin manifest; "the
+  plugin is reinstalled" now means `dgf-factory setup` is re-run. The decision is unchanged: the doctor's
+  `suggested_next` stays `null`. Source: ADR 0029 §1 and §2.

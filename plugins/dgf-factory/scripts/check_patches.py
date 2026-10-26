@@ -31,6 +31,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   3  usage error: no root, or a PATCH outside the patches directory
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import sys
 from pathlib import Path
 

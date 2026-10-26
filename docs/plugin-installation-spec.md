@@ -2,6 +2,13 @@
 
 Status: **draft** · 2026-10-05 · applies to every plugin in `.claude-plugin/marketplace.json`
 
+> **Scope (2026-10-26):** `dgf-factory` is no longer a plugin in this marketplace. It is delivered as an npm
+> CLI, `@andrian-org/dgf-factory`, whose `dgf-factory setup` installs into each project on AI Factory's own
+> model — skills copied into each harness's folder, a receipt with two hashes per file — which §1 contrasts
+> with this specification. That decision, and the rules from §3 it carries over (the receipt, user edits,
+> previews, atomic writes, files it does not own), are in `plugins/dgf-factory/docs/adr/0029-npm-cli-delivery.md`.
+> This specification governs the marketplace's other plugins.
+
 This specification sets how a plugin in the `andrian-org` marketplace is installed, set up in a project,
 updated and removed. It follows the model of [AI Factory](https://github.com/lee-to/ai-factory): a tool
 on the machine, and everything a project depends on recorded in the project. Where AI Factory's
@@ -30,10 +37,10 @@ project as well, because a second registration of the same skill name collides w
 ## 2. Terms
 
 - **Project:** the folder a team opens in Claude Code, holding `.claude/settings.json`.
-- **Setup skill:** the plugin's skill that prepares a project (for dgf-factory, `/dgf`). AI Factory's
+- **Setup skill:** the plugin's skill that prepares a project. AI Factory's
   equivalent is `ai-factory init`.
 - **Project folder of the plugin:** the one directory inside the project that the plugin owns, named
-  after the plugin (for dgf-factory, `.dgf-factory/`). AI Factory's equivalent is `.ai-factory/`.
+  after the plugin (for a plugin `foo`, `.foo/`). AI Factory's equivalent is `.ai-factory/`.
 - **Managed file:** a file the setup skill wrote from a template the plugin ships. AI Factory's
   equivalent is an entry under `managedSkills` or `managedAgentFiles`.
 - **Receipt:** the file that records what the plugin installed in the project. AI Factory's
@@ -118,11 +125,11 @@ managed files needs no receipt. Its schema:
 
 ```json
 {
-  "plugin": "dgf-factory",
+  "plugin": "<plugin>",
   "version": "0.1.0",
   "managedFiles": {
-    ".dgf-factory/config.yaml": {
-      "template": "skills/dgf/references/config-template.yaml",
+    ".<plugin>/config.yaml": {
+      "template": "skills/<setup skill>/references/config-template.yaml",
       "sourceHash": "<sha256>",
       "installedHash": "<sha256>"
     }
@@ -300,14 +307,16 @@ It reports each offender as `file:line`.
 
 ## 5. Current conformance
 
-| Requirement | dgf-factory | doc-coverage-audit |
+| Requirement | doc-coverage-audit | zamconnect-integration |
 |---|---|---|
-| INS-01, INS-05, INS-09, INS-24 | no: docs install at user scope; `.ai-factory/PLAN.md` fixes it | not checked |
-| INS-02, INS-03, INS-04 | yes: state lives in `.dgf-factory/` (to confirm across all skills) | not checked |
-| INS-10 to INS-17 (receipt, pinning, update) | no: `/dgf` writes `config.yaml` and `DESCRIPTION.md` without a receipt | not checked |
-| INS-18, INS-19 | yes: `dgf-mcp` is declared in the plugin's `.mcp.json` | not checked |
-| INS-21 | yes, by disclosure: `pip install --user`, decided by its ADR 0015 | not checked |
+| INS-01, INS-05, INS-09, INS-24 | not checked | not checked |
+| INS-02, INS-03, INS-04 | not checked | not checked |
+| INS-10 to INS-17 (receipt, pinning, update) | not checked | not checked |
+| INS-18, INS-19 | not checked | not checked |
+| INS-21 | not checked | not checked |
 | INS-23, INS-25 | no | no |
+
+`dgf-factory` left the marketplace on 2026-10-26 (see the scope note above).
 
 ## 6. Open questions
 

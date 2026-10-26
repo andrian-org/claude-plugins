@@ -1,8 +1,8 @@
 ---
 id: 0001
 title: Independent plugin with AI Factory-derived architecture
-status: accepted
-date: 2026-09-21
+status: superseded-by-0029
+date: 2026-10-26
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [delivery, architecture, provenance]

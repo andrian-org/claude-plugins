@@ -38,6 +38,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
      --skip-validators with a reach mode
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import dataclasses
 import os
 import sys
@@ -243,7 +246,7 @@ def audit_root(args, root, apps, rep, lines):
 def reach_targets(args, root):
     """[(root-relative path, change status or None)] to reach."""
     import check_change
-    from lib import git, plan
+    from lib import git
     if args.reach:
         return [(rel[2:] if rel.startswith("./") else rel, None) for rel in args.reach]
     if args.changed:
@@ -256,9 +259,7 @@ def reach_targets(args, root):
         except git.GitError as exc:
             report.fail(report.EXIT_USAGE, f"no changed set against `{args.base}`: {exc}")
     found = []
-    for change in changes:
-        if plan.is_pipeline(change.path):
-            continue
+    for change in check_change.own_changes(changes, root):
         found.append((change.path, "D" if change.status == "D" else change.status))
         if change.old:
             found.append((change.old, "D"))

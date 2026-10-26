@@ -41,6 +41,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
      settings.xml or _form.xml under FM/_DATA/<entity>/
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import sys
 from pathlib import Path
 

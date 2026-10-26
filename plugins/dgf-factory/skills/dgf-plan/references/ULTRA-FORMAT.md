@@ -159,7 +159,7 @@ Depends on: none | Phase N / Task N
 ### Validation
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<index.md>" \
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<index.md>" \
   --base "<base branch>" --files <this task's files>
 ```
 
@@ -188,7 +188,7 @@ Before saving a bundle, every task must have:
 4. **The route**: the `ROUTE:` line for a new file, the on-disk family for an existing one, the
    code place for `kind: code`.
 5. **A reason** for every `kind: code` task, citing the component doc, the schema or the
-   `EventBase` verb list (`${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §3.1).
+   `EventBase` verb list (`{{dgf_runtime}}/knowledge/composition-specs.md` §3.1).
 6. **Validation**: the exact `check_change.py … --files …` command, and the expected result.
 7. **No choice hidden behind "handle", "support", "wire up", "as needed" or "etc."** A decision
    the evidence cannot settle goes under `## Open Questions` in `index.md`, and the bundle is

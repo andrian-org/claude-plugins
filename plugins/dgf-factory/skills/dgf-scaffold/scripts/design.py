@@ -6,7 +6,8 @@ this script decides everything about it that a script can decide, so the model o
 designs and asks. It is the generator's only gate: generate.py refuses to run unless this
 exits 0.
 
-  1  the folder is empty — nothing but `.git/` and `docs/application.json` (--empty-only stops here)
+  1  the folder is empty — nothing but `.git/`, `docs/application.json` and what `dgf-factory setup`
+     installed: `.dgf-factory/` and every path its receipt lists (--empty-only stops here)
   2  the design parses: `design_format` 1, no unknown key at any level, every value the right JSON type
   3  every required value is present, else one SCAFFOLD_ASK; every defaulted value is one `DEFAULT:` line
   4  names: identifiers, lower-case instance names, roles, routes; unique ignoring case
@@ -23,8 +24,8 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   2  questions remain — every SCAFFOLD_ASK names a key, its rule and its candidates
   3  the design cannot be read, or a usage error
 
-It loads scripts/lib/report.py and scripts/lib/knowledge.py by path (they import nothing from
-their package) and needs neither lxml nor jsonschema.
+It loads scripts/lib/report.py, scripts/lib/knowledge.py and scripts/lib/install_receipt.py by
+path (they import nothing from their package) and needs neither lxml nor jsonschema.
 """
 
 import argparse
@@ -50,6 +51,7 @@ def _load(name):
 
 report = _load("report")
 knowledge = _load("knowledge")
+install_receipt = _load("install_receipt")
 
 DESIGN = Path("docs") / "application.json"
 MAX_BYTES = 1024 * 1024
@@ -164,14 +166,49 @@ def entries(path):
         return {entry.name: entry for entry in it}
 
 
+def installed(folder):
+    """The install footprint `dgf-factory setup` recorded here (ADR 0029 §2); unreadable is exit 3."""
+    try:
+        return install_receipt.footprint(folder)
+    except install_receipt.ReceiptError as exc:
+        fail(f"INSTALL_RECEIPT_UNREADABLE {exc}")
+
+
+# what setup writes under `.dgf-factory/` beside the files it lists: the runtime's own
+# ignored files (`.venv/`, `__pycache__/`) and the receipt. Never config.yaml or plans —
+# a folder `/dgf` already set up is an estate, not an empty folder.
+INSTALL_ONLY = (".dgf-factory/runtime/", ".dgf-factory/install.json")
+
+
+def _is_installed(rel, footprint):
+    return rel in footprint or rel == INSTALL_ONLY[1] or rel.startswith(INSTALL_ONLY[0])
+
+
+def _not_installed(folder, name, entry, footprint):
+    """The files under a top-level entry that the install footprint does not list."""
+    if entry.is_file(follow_symlinks=False):
+        return [] if _is_installed(name, footprint) else [name]
+    if not entry.is_dir(follow_symlinks=False):
+        return [name]
+    stray = []
+    for dirpath, dirnames, filenames in os.walk(folder / name):
+        dirnames.sort()
+        for file in sorted(filenames):
+            rel = (Path(dirpath) / file).relative_to(folder).as_posix()
+            if not _is_installed(rel, footprint):
+                stray.append(rel)
+    return stray
+
+
 def check_folder(folder, result):
-    """The folder holds nothing but `.git/` and `docs/application.json` (D2)."""
+    """The folder holds nothing but `.git/`, `docs/application.json` and the install footprint (D2)."""
     result.rep.ran("folder")
     if not folder.exists():
         report.debug("design.check", "value", key="folder", state="absent")
         return
     if not folder.is_dir():
         fail(f"not a directory: {folder}")
+    footprint = installed(folder)
     extra = []
     for name, entry in sorted(entries(folder).items()):
         if name == ".git" and entry.is_dir(follow_symlinks=False):
@@ -181,6 +218,12 @@ def check_folder(folder, result):
             for inner_name, inner_entry in sorted(inner.items()):
                 if not (inner_name == "application.json" and inner_entry.is_file(follow_symlinks=False)):
                     extra.append(f"docs/{inner_name}")
+            continue
+        if footprint:
+            stray = _not_installed(folder, name, entry, footprint)
+            if not stray:
+                report.debug("design.check", "footprint", entry=name, state="installed by dgf-factory setup")
+            extra.extend(stray)
             continue
         extra.append(name)
     if extra:

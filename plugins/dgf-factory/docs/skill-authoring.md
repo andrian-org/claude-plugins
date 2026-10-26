@@ -28,7 +28,7 @@ The frontmatter of `skills/dgf-component/SKILL.md`, the skill this example once 
 name: dgf-component
 description: Inspect, validate or scaffold a DGF component — modern JSON under FM/_COMPONENTS or a legacy form, view, grid or options file — in both schema families and parity-aware, writing only inside the active plan's scope. Use for "add a component", "check this component", "is this component valid", "scaffold a DataTable", "what uses this component".
 argument-hint: "[inspect | validate | scaffold] <file, Type/name or Type>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details mcp__plugin_dgf-factory_dgf-mcp__get_component_examples mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference mcp__plugin_dgf-factory_dgf-mcp__build_form_xml
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__build_form_xml
 disable-model-invocation: false
 version: 0.1.0
 ---
@@ -39,7 +39,7 @@ version: 0.1.0
 | `name` | Matches the directory name. kebab-case. |
 | `description` | **Carries the trigger phrases.** It is the only thing deciding whether the skill fires — write it for matching, not for elegance. Include the literal phrases a user would type. |
 | `argument-hint` | Present whenever the skill takes arguments |
-| `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `${CLAUDE_PLUGIN_ROOT}` is substituted inside Bash rules, so a skill that runs the plugin's scripts lists `Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*)`, never `Bash(python3 *)`, which also pre-approves `python3 -c …`. A skill that runs no git command lists no git rule. `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`: a rule with `*` before the subcommand draws a startup warning. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
+| `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `{{dgf_runtime}}` is rendered to `.dgf-factory/runtime` when `dgf-factory setup` installs the skill, so a skill that runs the shipped scripts lists `Bash(python3 "{{dgf_runtime}}/scripts/*)`, never `Bash(python3 *)`, which also pre-approves `python3 -c …`. The dgf-mcp tools are granted as `mcp__dgf-mcp__<tool>`, the name a project-level server has in Claude Code. A skill that runs no git command lists no git rule. `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`: a rule with `*` before the subcommand draws a startup warning. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
 | `disable-model-invocation` | `false`, so the skill fires on its description — except a skill that rewrites what other skills do (`/dgf-evolve`, which writes their overrides): `true`, so it runs only when the user asks for it. |
 | `version` | Semver. Bump when behaviour changes. |
 
@@ -246,7 +246,7 @@ Those modules are `report.py`, `knowledge.py` and `gate_result.py`; `cli.py` and
 them. A slice script that needs argument parsing therefore has its own parser, whose `error()` exits `3`, and its
 own exact-case helper over `os.scandir`. `/dgf-scaffold`'s `design.py` and `generate.py` are the worked example.
 Their codes are registered in `report.CODES`, like every other script's, and a known-bad case names such a script
-by its plugin-relative path (`skills/dgf-scaffold/scripts/design.py`).
+by its root-relative path (`skills/dgf-scaffold/scripts/design.py`).
 
 ## Before you ship a skill
 
@@ -257,7 +257,8 @@ by its plugin-relative path (`skills/dgf-scaffold/scripts/design.py`).
 - [ ] Every statically checkable rule is a script, not an instruction
 - [ ] Exit codes follow the table above
 - [ ] Artifact ownership is stated, and nothing writes another skill's artifact
-- [ ] Paths use `${CLAUDE_PLUGIN_ROOT}`, never absolute or `~/` paths
+- [ ] Runtime paths are written `{{dgf_runtime}}/…` — never absolute, `~/` or bare `knowledge/…` paths: a
+      `SKILL.md` is installed alone into a harness's folder ([ADR 0029](adr/0029-npm-cli-delivery.md) §3)
 - [ ] LF line endings
 
 ## See Also

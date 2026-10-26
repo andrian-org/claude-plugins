@@ -102,7 +102,7 @@ Beside the patch `2026-09-26-14.30-review-moves-to-undeclared-state.md` (the wor
 Checked with:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-plan --skill-context-dir ".dgf-factory/skill-context/" --patches-dir ".dgf-factory/patches/"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-plan --skill-context-dir ".dgf-factory/skill-context/" --patches-dir ".dgf-factory/patches/"
 ```
 
 ```

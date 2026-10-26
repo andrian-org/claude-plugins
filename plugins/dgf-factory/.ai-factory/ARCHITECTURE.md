@@ -18,19 +18,20 @@ is never shipped. This is the Structured Modules trade-off — soft boundaries a
 authoring rather than enforced ports and adapters — which is the right level of
 formalism for a corpus that has no runtime and no dependency injection to invert.
 
-The folder names below are Claude Code plugin names, not the reference pattern's
-`src/[ModuleName]/Slices/` names. Auto-discovery only loads components from
-`.claude-plugin/plugin.json`, `skills/<name>/SKILL.md`, `agents/*.md`, `commands/*.md`,
-`hooks/hooks.json` and `.mcp.json`; a tree that ignores those paths is a tree Claude
-Code never loads. The pattern's boundary and dependency rules are kept in full — only
-the folder vocabulary is translated.
+The folder names below follow the agent-skill convention every harness reads —
+`skills/<name>/SKILL.md` — not the reference pattern's `src/[ModuleName]/Slices/` names.
+`dgf-factory setup` installs the tree into a project: each `SKILL.md`, rendered, into each
+chosen harness's skills folder, and `skills/`, `scripts/` and `knowledge/` into
+`.dgf-factory/runtime/` ([ADR 0029](../docs/adr/0029-npm-cli-delivery.md)). The pattern's
+boundary and dependency rules are kept in full — only the folder vocabulary is translated.
 
 ## Decision Rationale
 
-- **Project type:** Claude Code plugin — a corpus of Markdown prompt-programs plus
-  deterministic validator scripts. No compile step, no runtime, no database.
-- **Tech stack:** Markdown (prompt-as-program), Python 3.9+ (`lxml`, `jsonschema`) and
-  Node.js (`.mjs`) for validators, packaged as a Claude Code plugin.
+- **Project type:** an npm CLI that installs a corpus of Markdown prompt-programs plus
+  deterministic validator scripts into a project, for each AI harness. No compile step, no
+  database.
+- **Tech stack:** Markdown (prompt-as-program), Python 3.9+ (`lxml`, `jsonschema`) for
+  validators, and dependency-free ESM Node (`.mjs`) for the `dgf-factory` installer.
 - **Key factor:** **feature independence is very high.** Every skill is auto-discovered
   and fires on its own description; nothing calls a skill as a function. Slices that own
   their material end-to-end match that reality, while a technical-layer split would
@@ -46,11 +47,12 @@ the folder vocabulary is translated.
 
 ```text
 plugins/dgf-factory/
-├── .claude-plugin/
-│   └── plugin.json                     # ── MANIFEST ── required, must live here
+├── package.json                        # ── PACKAGE ── @andrian-org/dgf-factory; `files` is what ships
+├── bin/dgf-factory.mjs                 # ── INSTALLER ── the CLI entry
+├── cli/                                #   setup: registry, rendering, receipt, MCP, Python step
 │
 ├── skills/                             # ── SLICES ── one directory per skill
-│   ├── dgf-doctor/                     # Slice: plugin install check (exists today)
+│   ├── dgf-doctor/                     # Slice: install check, against the receipt
 │   │   ├── SKILL.md
 │   │   └── scripts/doctor.py           #   owns SHIPPED_DIRS and the DGF_PATH check
 │   │
@@ -186,16 +188,17 @@ built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `
 `doctor.py` for `/dgf-doctor` — and the skill relays it
 ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md)).
 
-Root `knowledge/` and `scripts/` are not auto-discovered — they are plain files, reached
-from a slice by `${CLAUDE_PLUGIN_ROOT}/knowledge/...` and
-`${CLAUDE_PLUGIN_ROOT}/scripts/...`. That is deliberate: only things Claude Code must
-load automatically live in a discovered directory.
+Root `knowledge/` and `scripts/` are not harness skills — they are plain files, reached
+from a slice by `{{dgf_runtime}}/knowledge/...` and `{{dgf_runtime}}/scripts/...`, which
+`dgf-factory setup` renders to `.dgf-factory/runtime/...`. That is deliberate: only the
+`SKILL.md` files go into a harness's folder.
 
 **Shipped and maintainer material are kept apart, by directory.** What ships is exactly
-the directories `doctor.py` lists in `SHIPPED_DIRS`: `skills/`, `agents/`, `commands/`,
-`scripts/`, `knowledge/` and `.claude-plugin/`. A developer's install has no DGF
-checkout, so no shipped file names a path into the DGF repository
-([ADR 0012](../docs/adr/0012-no-dgf-paths-in-shipped-files.md)). That is why
+the npm package payload — `bin/`, `cli/`, `skills/`, `scripts/` and `knowledge/`, as
+`package.json` `files` lists them and `doctor.py`'s `SHIPPED_DIRS` restates; `tools/check_package.py`
+holds the tarball to it. A developer's install has no DGF checkout, so no shipped file names a path
+into the DGF repository, and no shipped file links outside the payload
+([ADR 0030](../docs/adr/0030-shipped-package-payload.md)). That is why
 repo-maintenance checks live in `tools/`, not `scripts/`: they run against a DGF checkout
 and may name its paths. It is also why a knowledge fact's DGF source paths and digests live
 in its `provenance/` ledger, not in the fact file
@@ -208,8 +211,8 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
 → shared `knowledge/` and `scripts/` → nothing.** Inner material never reaches back out.
 
 - ✅ A `SKILL.md` reads its own `references/`, `templates/`, and calls its own `scripts/`
-- ✅ A `SKILL.md` reads `${CLAUDE_PLUGIN_ROOT}/knowledge/` and calls
-  `${CLAUDE_PLUGIN_ROOT}/scripts/`
+- ✅ A `SKILL.md` reads `{{dgf_runtime}}/knowledge/` and calls
+  `{{dgf_runtime}}/scripts/`
 - ✅ A shared script reads `knowledge/schemas/json/`, `knowledge/schemas/xsd/` and
   `knowledge/schemas/standalone/`
 - ✅ A shared script reads a knowledge fact only through a **machine-read table**, found by
@@ -255,8 +258,8 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
   folder. Cite the knowledge base, a DGF docs MCP call (`get_doc_page('<page>')`) or a DGF
   type name. `doctor.py` blocks on it as `DGF_PATH`.
 - ❌ Circular invocation — slice A invokes B, B invokes A. Route through an artifact.
-- ❌ Absolute paths, `~/` or working-directory-relative paths anywhere. Always
-  `${CLAUDE_PLUGIN_ROOT}`.
+- ❌ Absolute paths, `~/` paths, or bare `knowledge/…` paths in a skill. Always
+  `{{dgf_runtime}}/…`, which setup renders project-relative.
 
 ## Layer/Module Communication
 
@@ -340,14 +343,14 @@ pre-approve `python3 -c …` — and each call has an exit table. From `skills/d
 name: dgf-process
 description: Inspect, validate, author or modify a DGF process or workflow — … Use for "add a process", "new workflow", "change this workflow", "check this process", "what calls this workflow", "blast radius of this workflow".
 argument-hint: "[inspect | validate | author | modify] <process, workflow or file>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference …
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference …
 disable-model-invocation: false
 version: 0.1.0
 ---
 
 ### Step 5: Scope — decided by the script, before the write
 
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
 
 | Exit | Action |
 |---|---|
@@ -358,7 +361,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root
 
 ### Step 6: Write
 
-Start from `${CLAUDE_PLUGIN_ROOT}/skills/dgf-process/templates/process.xml`, and replace every
+Start from `{{dgf_runtime}}/skills/dgf-process/templates/process.xml`, and replace every
 `Example`. Take every fact from `knowledge/process-model.md` and `knowledge/reference-graph.md`.
 ```
 
@@ -492,7 +495,7 @@ reads JSON the way the runtime does (ADR 0015).
 - ❌ **Parsing prose instead of the gate block.** Scraping a report's wording rather than
   reading the last fenced `dgf-gate-result` block breaks on the first rewording.
 - ❌ **Hardcoded paths.** `/Users/...`, `~/plugins/...` or `./scripts/...` all break once
-  the plugin is installed somewhere else. Use `${CLAUDE_PLUGIN_ROOT}`.
+  the project is cloned elsewhere, or the skill runs from a harness's folder. Use `{{dgf_runtime}}`.
 - ❌ **DGF repository paths in a shipped file.** "From `src/Core/…/WorkspaceSettings.cs`" in a
   knowledge file points at nothing on a developer's machine. Name the type, and put the path
   in the file's `provenance/` ledger.

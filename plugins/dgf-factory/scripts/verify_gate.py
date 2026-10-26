@@ -59,6 +59,9 @@ Exit codes (contract, see .ai-factory/rules/base.md) — they agree with the blo
      root — and then no block is printed
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import sys
 import time
 from dataclasses import dataclass, field, replace
@@ -84,7 +87,7 @@ FORM_SCRIPT = "form-script"
 # The gate could not run: the reason names the fix, and there is no command to suggest.
 CANNOT_RUN = {
     "DEPENDENCY_MISSING": lambda: f"the validators cannot run — install lxml and jsonschema: {deps.install_command()}",
-    "KNOWLEDGE_TABLE": lambda: "a knowledge table is malformed — run /dgf-doctor and reinstall the plugin",
+    "KNOWLEDGE_TABLE": lambda: "a knowledge table is malformed — run /dgf-doctor, then re-run `dgf-factory setup`",
     "ROOT_NOT_SET_UP": lambda: "there is no workspaces root — run /dgf in the workspaces root",
     "ROOT_AMBIGUOUS": lambda: "several workspaces roots were found — pass --workspaces-root",
     "PLAN_AMBIGUOUS": lambda: "more than one plan could be this branch's — pass --plan",

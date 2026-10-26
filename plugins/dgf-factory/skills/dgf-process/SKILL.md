@@ -2,9 +2,9 @@
 name: dgf-process
 description: Inspect, validate, author or modify a DGF process or workflow — process.xml and _workflow.xml, checked against process.xsd and the engine's own resolution rules — and show which processes a shared workflow reaches in each application before it changes. Writes XML only, and only inside the active plan's scope. Use for "add a process", "new workflow", "change this workflow", "check this process", "what calls this workflow", "blast radius of this workflow".
 argument-hint: "[inspect | validate | author | modify] <process, workflow or file>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__get_recipes_for mcp__plugin_dgf-factory_dgf-mcp__get_doc_page
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__search_docs mcp__dgf-mcp__get_recipes_for mcp__dgf-mcp__get_doc_page
 disable-model-invocation: false
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF Process — Inspect, Validate, Author or Modify a Process or Workflow
@@ -16,7 +16,7 @@ both work only inside the active plan's scope, decided by a script before the wr
 
 **XML always.** The runtime reads `process.xml` and `_workflow.xml` only; a `Workflow` or
 `ProcessFlow` JSON file validates against a schema the runtime ignores
-(`knowledge/schema-families.md` §6). This skill never writes one.
+(`{{dgf_runtime}}/knowledge/schema-families.md` §6). This skill never writes one.
 
 **A shared workflow is shared.** Before a modify, the audit script names every process that reaches
 the file in each application — the blast radius the gate does not compute — and those are the
@@ -30,7 +30,7 @@ by script, confirm by the same check — and emits no gate block: the gate is `/
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
@@ -41,7 +41,7 @@ root). Exit `3` → **STOP** and relay it. Otherwise the `ROOT:` line is `<root>
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-process --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-process --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -76,8 +76,8 @@ the name exists in more than one workspace, list each and ask which.
 ### Step 1: Inspect (read-only)
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_process.py" --workspaces-root "<root>" "<root>/<file>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
+python3 "{{dgf_runtime}}/scripts/validate_process.py" --workspaces-root "<root>" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
 ```
 
 From `validate_process.py`, relay every finding and its exit (the table in Step 2). From
@@ -86,16 +86,16 @@ From `validate_process.py`, relay every finding and its exit (the table in Step 
 | Exit | Action |
 |---|---|
 | `0` | Relay per application the `PROCESS:` lines — the processes that reach the file, each with its chain — the `REFERRER:` lines, every `AUDIT_REFERENCE_DYNAMIC` line (a chain through a name set at run time), and the `LIMIT:` line verbatim: a reach is never complete. |
-| `3` | `AUDIT_REACH_NOT_ARTIFACT` → the path is not a process or workflow under the root, exactly as written — check its case against the file on disk, which the message names — and say so; `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim; `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall; `AUDIT_CHECK_FAILED` → **STOP** and relay it with the lines before it: a check raised, so the reach is incomplete. Otherwise a usage error on stderr — a path that is absolute or leaves the root, or a root with no application — → **STOP** and relay it. |
+| `3` | `AUDIT_REACH_NOT_ARTIFACT` → the path is not a process or workflow under the root, exactly as written — check its case against the file on disk, which the message names — and say so; `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim; `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the installed runtime cannot read one of its own schemas — run `/dgf-doctor`, then re-run `dgf-factory setup`; `AUDIT_CHECK_FAILED` → **STOP** and relay it with the lines before it: a check raised, so the reach is incomplete. Otherwise a usage error on stderr — a path that is absolute or leaves the root, or a root with no application — → **STOP** and relay it. |
 
 Then read the file and summarise it: for a process, its states, each state's transitions and
 actions, `validationFlow`, and MultiTask settings files; for a workflow, its steps in order and
-each step's target (`knowledge/reference-graph.md` §1 lists which steps reference what).
+each step's target (`{{dgf_runtime}}/knowledge/reference-graph.md` §1 lists which steps reference what).
 
 ### Step 2: Validate (read-only)
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_process.py" --workspaces-root "<root>" <files, or --all>
+python3 "{{dgf_runtime}}/scripts/validate_process.py" --workspaces-root "<root>" <files, or --all>
 ```
 
 | Exit | Meaning |
@@ -105,7 +105,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_process.py" --workspaces-root "<
 | `2` | Warnings — `UNREACHABLE_STATE`, `WORKFLOW_APP_DEPENDENT` (a webasm process whose workflow only some applications have), `XSD_RUNTIME_DIVERGENCE`, `CASE_ONLY_MATCH` |
 | `3` | A file's own defect: `FAMILY_UNRESOLVED` — it does not parse as XML, having no XML declaration — or `SCHEMA_UNSELECTABLE` — it parses, but its root is neither `Process` nor `Workflow`. Relay it with the other findings. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error — → **STOP** and relay it. |
 
-A reference whose `Checked by` is `—` in `knowledge/reference-graph.md` §1 — a `SubWorkflow`,
+A reference whose `Checked by` is `—` in `{{dgf_runtime}}/knowledge/reference-graph.md` §1 — a `SubWorkflow`,
 `Invoke`, `UpdateRecord`, `CreateRecord`, `XmlIsland` or `DataSourceStep` target, or the process a
 `StateProcess` step starts in `START` or `INFO` mode — that resolves nowhere is not a validator's
 finding yet: the whole-root `/dgf-audit` reports it as `AUDIT_REFERENCE_UNRESOLVED`. Suggest
@@ -114,7 +114,7 @@ finding yet: the whole-root `/dgf-audit` reports it as `AUDIT_REFERENCE_UNRESOLV
 ### Step 3: Author and modify — the plan
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -126,7 +126,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 | `3` | **STOP** and relay it. |
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
 ```
 
 | Exit | Action |
@@ -143,7 +143,7 @@ view or component → **STOP**: `/dgf-component`'s. An entity's `settings.xml` �
 ### Step 4: Modify — the reach, before the edit
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
+python3 "{{dgf_runtime}}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
 ```
 
 | Exit | Action |
@@ -157,7 +157,7 @@ For author, `A:<file>`; for modify, `M:<file>`. A deletion is never this skill's
 have `/dgf-plan` plan it.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
 ```
 
 | Exit | Action |
@@ -173,7 +173,7 @@ root's findings as they are before the write, and Step 7 compares with them (ADR
 `A:` or `M:` as the scope check:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --save-baseline "<root>/.dgf-factory/baseline.json"
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --save-baseline "<root>/.dgf-factory/baseline.json"
 ```
 
 It judges none of the validators' findings, so its exit is the change checks':
@@ -191,21 +191,21 @@ It judges none of the validators' findings, so its exit is the change checks':
   workflow):
 
   ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" process
+  python3 "{{dgf_runtime}}/scripts/route_means.py" process
   ```
 
   | Exit | Action |
   |---|---|
-  | `0` | The `ROUTE:` line gives the path pattern. A process-local workflow sits in its process's folder instead: `FM/_PROCESS/<process>/<workflow>/_workflow.xml` (`knowledge/process-model.md` §2.2). |
+  | `0` | The `ROUTE:` line gives the path pattern. A process-local workflow sits in its process's folder instead: `FM/_PROCESS/<process>/<workflow>/_workflow.xml` (`{{dgf_runtime}}/knowledge/process-model.md` §2.2). |
   | `3` | **STOP** and relay it: no route is ever guessed. |
 
   **If the file exists → STOP**: author never overwrites. Start
-  from `${CLAUDE_PLUGIN_ROOT}/skills/dgf-process/templates/process.xml` or
-  `${CLAUDE_PLUGIN_ROOT}/skills/dgf-process/templates/_workflow.xml`, and replace every `Example`.
+  from `{{dgf_runtime}}/skills/dgf-process/templates/process.xml` or
+  `{{dgf_runtime}}/skills/dgf-process/templates/_workflow.xml`, and replace every `Example`.
 - **Modify:** edit only the file Step 5 checked.
 
-Take every fact from `knowledge/process-model.md` — how an `action` becomes a workflow, a bare name
-is process-local, `End` is reserved — and `knowledge/reference-graph.md` — what each step
+Take every fact from `{{dgf_runtime}}/knowledge/process-model.md` — how an `action` becomes a workflow, a bare name
+is process-local, `End` is reserved — and `{{dgf_runtime}}/knowledge/reference-graph.md` — what each step
 references and how it resolves — and from the DGF docs MCP (`get_xml_property_reference`,
 `search_docs`, `get_recipes_for`, `get_doc_page`), never from memory. A process's `table` is a
 database table name, not an entity folder.
@@ -213,7 +213,7 @@ database table name, not an entity folder.
 ### Step 7: Confirm
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_process.py" --workspaces-root "<root>" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_process.py" --workspaces-root "<root>" "<root>/<file>"
 ```
 
 | Exit | Action |
@@ -228,13 +228,13 @@ renamed or removed state breaks the `CHANGE_STATE` steps of workflows the edit n
 new process meets the ones already aimed at it (ADR 0014 §2). With git:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
 ```
 
 Without git, with the baseline Step 5 saved, in place of `--base`:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --baseline "<root>/.dgf-factory/baseline.json"
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --baseline "<root>/.dgf-factory/baseline.json"
 ```
 
 — with `A:` after an author. Either way the script reports a finding the root already held as `INFO
@@ -251,7 +251,7 @@ Then the references no validator checks yet (Step 2) — a `SubWorkflow`, `Invok
 `CreateRecord`, `XmlIsland` or `DataSourceStep` target, or a process a `StateProcess` step starts:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>" --skip-validators
+python3 "{{dgf_runtime}}/scripts/audit_root.py" --workspaces-root "<root>" --skip-validators
 ```
 
 | Exit | Action |
@@ -275,7 +275,7 @@ line. For an author or a modify, name the file written and any `CHANGE_UNPLANNED
 - ✅ Find and check the plan, and decide the scope with `check_change.py --skip-validators`, before a write
 - ✅ Run the reach before a modify, and report it as the regression list
 - ✅ Run the whole-root change check after an author or a modify — without git, against the baseline `check_change.py` saved before the write
-- ✅ Take every fact from `knowledge/` and the DGF docs MCP
+- ✅ Take every fact from `{{dgf_runtime}}/knowledge/` and the DGF docs MCP
 
 ### DON'T:
 
@@ -292,7 +292,7 @@ line. For an author or a modify, name the file written and any `CHANGE_UNPLANNED
   plan's scope, one per author or modify. Without git, `check_change.py` writes
   `.dgf-factory/baseline.json` for it, which the next save overwrites (ADR 0025).
 - **Reads:** the plan, `.dgf-factory/config.yaml`, its override after `check_override.py`, the
-  patches, its templates, the shipped `knowledge/`, and the DGF docs MCP. It never edits the plan.
+  patches, its templates, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP. It never edits the plan.
 
 ## Critical Rules
 
@@ -304,4 +304,4 @@ line. For an author or a modify, name the file written and any `CHANGE_UNPLANNED
 5. **One owner per artifact.** Forms, views and components are `/dgf-component`'s; `settings.xml`
    is `/dgf-model`'s.
 6. **Never tick a checkbox, never call a reach complete, and no gate block.**
-7. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts, knowledge, templates and references.
+7. **`{{dgf_runtime}}` always** for dgf-factory's own scripts, knowledge, templates and references.

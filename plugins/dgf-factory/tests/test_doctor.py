@@ -1,8 +1,9 @@
-"""doctor.py against temporary copies of the plugin — never the real tree for faults."""
+"""doctor.py against temporary copies of the package source, and against installed projects."""
 
 import json
 import re
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,7 +37,8 @@ def every_id(stdout):
     return gate_entries(stdout, "blockers") + gate_entries(stdout, "warnings")
 
 
-SECTIONS = ["manifest", "component-paths", "skill-slices", "portability", "line-endings", "validator-runtime"]
+SECTIONS = ["install", "skill-slices", "portability", "line-endings", "validator-runtime"]
+TOKEN = "{{" + "dgf_runtime}}"
 
 
 class DoctorOnACopy(unittest.TestCase):
@@ -45,7 +47,8 @@ class DoctorOnACopy(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp)
         self.root = Path(self.tmp) / "dgf-factory"
         shutil.copytree(helpers.PLUGIN_ROOT, self.root,
-                        ignore=shutil.ignore_patterns(".venv", "__pycache__", ".claude", "tests"))
+                        ignore=shutil.ignore_patterns(".venv", "__pycache__", ".claude", ".claude-plugin", "tests",
+                                                      "node_modules", "obj"))
 
     def run_doctor(self):
         return helpers.run_cli(self.root / DOCTOR, self.root)
@@ -177,22 +180,21 @@ class DoctorOnACopy(unittest.TestCase):
         _, out, _ = self.run_doctor()
         self.assertIn("INFO  skills/dgf-plan/ — present", out)
 
-    def test_a_dangling_plugin_path_blocks_with_file_and_line(self):
-        token = "${" + "CLAUDE_PLUGIN_ROOT}"
-        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun:\n\n    python3 "{token}/scripts/no_such.py"\n')
+    def test_a_dangling_runtime_path_blocks_with_file_and_line(self):
+        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun:\n\n    python3 "{TOKEN}/scripts/no_such.py"\n')
         code, out, _ = self.run_doctor()
         self.assertEqual(code, 1, out)
-        self.assertEqual(gate_entries(out, "blockers").count("PLUGIN_PATH_DANGLING"), 1, out)
-        self.assertRegex(out, r"skills/dgf-plan/SKILL\.md:\d+ cites `\$\{CLAUDE_PLUGIN_ROOT\}/scripts/no_such\.py`")
+        self.assertEqual(gate_entries(out, "blockers").count("RUNTIME_PATH_DANGLING"), 1, out)
+        self.assertRegex(out, r"skills/dgf-plan/SKILL\.md:\d+ cites `\{\{dgf_runtime\}\}/scripts/no_such\.py`")
 
-    def test_template_and_existing_plugin_paths_are_clean(self):
-        token = "${" + "CLAUDE_PLUGIN_ROOT}"
+    def test_template_and_existing_runtime_paths_are_clean(self):
+        token = TOKEN
         body = (f"\nRead `{token}/knowledge/README.md`, then `{token}/knowledge/schemas/`.\n"
                 f"A component is `{token}/knowledge/schemas/json/<Type>.schema.json`; globs `{token}/scripts/*.py`.\n"
                 f'Run python3 "{token}/scripts/check_plan.py".\n')
         self.write_skill("dgf-plan", self.FRONTMATTER, body)
         code, out, _ = self.run_doctor()
-        self.assertNotIn("PLUGIN_PATH_DANGLING", every_id(out), out)
+        self.assertNotIn("RUNTIME_PATH_DANGLING", every_id(out), out)
         self.assertIn(code, (0, 2), out)
 
     def test_unquoted_yaml_indicators_block(self):
@@ -212,18 +214,93 @@ class DoctorOnACopy(unittest.TestCase):
                               ("'single'", False), ('"double"', False), ("0.1.0", False)):
             self.assertEqual(doctor.yaml_unsafe(value) is not None, unsafe, value)
 
-    def test_a_plugin_path_in_the_wrong_case_dangles(self):
-        token = "${" + "CLAUDE_PLUGIN_ROOT}"
-        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun python3 "{token}/scripts/Check_Plan.py".\n')
+    def test_a_runtime_path_in_the_wrong_case_dangles(self):
+        self.write_skill("dgf-plan", self.FRONTMATTER, f'\nRun python3 "{TOKEN}/scripts/Check_Plan.py".\n')
         code, out, _ = self.run_doctor()
         self.assertEqual(code, 1, out)
-        self.assertIn("PLUGIN_PATH_DANGLING", gate_entries(out, "blockers"))
+        self.assertIn("RUNTIME_PATH_DANGLING", gate_entries(out, "blockers"))
+
+    def test_a_link_out_of_the_shipped_set_blocks(self):
+        self.write_skill("dgf-plan", self.FRONTMATTER, "\nSee [the ADRs](../../docs/adr/README.md).\n")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("LINK_LEAVES_SHIPPED", gate_entries(out, "blockers"))
+
+    def test_links_inside_the_shipped_set_and_urls_are_clean(self):
+        self.write_skill("dgf-plan", self.FRONTMATTER,
+                         "\nSee [x](../dgf/SKILL.md), [y](https://example.org/a.md) and [z](#anchor).\n")
+        code, out, _ = self.run_doctor()
+        self.assertNotIn("LINK_LEAVES_SHIPPED", every_id(out), out)
+
+    def test_the_package_source_needs_package_json(self):
+        (self.root / "package.json").unlink()
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("PACKAGE_MISSING", gate_entries(out, "blockers"))
 
     def test_quoted_values_and_tool_lists_are_clean(self):
         self.write_skill("dgf-plan", self.FRONTMATTER + [])
         code, out, _ = self.run_doctor()
         self.assertNotIn("SKILL_FRONTMATTER_YAML", every_id(out), out)
         self.assertIn(code, (0, 2), out)
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class DoctorInAProject(unittest.TestCase):
+    """The doctor an installed project runs: `.dgf-factory/runtime/skills/dgf-doctor/scripts/doctor.py`."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.project = Path(self.tmp) / "project"
+        self.project.mkdir()
+        done = subprocess.run(["node", str(helpers.PLUGIN_ROOT / "bin" / "dgf-factory.mjs"), "setup", "--root",
+                               str(self.project), "--harness", "claude,gemini", "--yes", "--no-python"],
+                              capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.runtime = self.project / ".dgf-factory" / "runtime"
+
+    def run_doctor(self):
+        return helpers.run_cli(self.runtime / DOCTOR, env={"PATH": "/usr/bin:/bin"})
+
+    def test_a_fresh_install_is_clean(self):
+        code, out, _ = self.run_doctor()
+        self.assertIn(code, (0, 2), out)
+        self.assertEqual(gate_entries(out, "blockers"), [], out)
+        if code == 2:
+            self.assertEqual(set(gate_entries(out, "warnings")), {"VALIDATOR_DEPS_MISSING"}, out)
+        self.assertEqual(gate(out)["checks_run"], SECTIONS)
+        self.assertIn("claude — all 13 skills installed", out)
+
+    def test_an_edited_skill_warns(self):
+        skill = self.project / ".claude" / "skills" / "dgf-plan" / "SKILL.md"
+        skill.write_text(skill.read_text(encoding="utf-8") + "\nmine\n", encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertIn("INSTALL_FILE_EDITED", gate_entries(out, "warnings"), out)
+        self.assertEqual(gate_entries(out, "blockers"), [], out)
+
+    def test_a_missing_skill_blocks(self):
+        (self.project / ".gemini" / "skills" / "dgf-audit" / "SKILL.md").unlink()
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("INSTALL_FILE_MISSING", gate_entries(out, "blockers"))
+
+    def test_a_harness_missing_a_skill_in_the_receipt_blocks(self):
+        receipt = self.project / ".dgf-factory" / "install.json"
+        data = json.loads(receipt.read_text(encoding="utf-8"))
+        del data["files"][".claude/skills/dgf-model/SKILL.md"]
+        receipt.write_text(json.dumps(data), encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("INSTALL_HARNESS_INCOMPLETE", gate_entries(out, "blockers"))
+
+    def test_a_dangling_rendered_path_in_a_harness_skill_blocks(self):
+        skill = self.project / ".claude" / "skills" / "dgf-plan" / "SKILL.md"
+        skill.write_text(skill.read_text(encoding="utf-8") + '\npython3 ".dgf-factory/runtime/scripts/gone.py"\n',
+                         encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("RUNTIME_PATH_DANGLING", gate_entries(out, "blockers"))
 
 
 if __name__ == "__main__":

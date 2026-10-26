@@ -1,8 +1,8 @@
 ---
 id: 0012
 title: Shipped files carry no DGF repository paths
-status: accepted
-date: 2026-09-23
+status: superseded-by-0030
+date: 2026-10-26
 deciders: [Andrian Mamei]
 supersedes: []
 tags: [packaging, portability, knowledge]

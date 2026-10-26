@@ -3,9 +3,10 @@
 #
 # NAME/SCOPE MISMATCH, DELIBERATE: this script now guards five contracts — the
 # dual-schema one it was named for, the decision-record one added 2026-09-21, the
-# plugin-manifest one added 2026-09-22, the knowledge-stamp one added the same
-# day, and ADR supersession integrity added 2026-09-23 — and, since 2026-09-24,
-# runs the validator unit tests (section 8). The filename stays as it
+# plugin-manifest one added 2026-09-22 (since 2026-10-26 the install and package
+# check: the doctor and the npm tarball, ADR 0030), the knowledge-stamp one added
+# the same day, and ADR supersession integrity added 2026-09-23 — and, since
+# 2026-09-24, runs the unit tests (section 8; the CLI's too since 2026-10-26). The filename stays as it
 # is because AGENTS.md, the docs and the plans reference it by name; renaming
 # churns them for no gain. It moved from scripts/ to tools/ on 2026-09-23: it is
 # a maintainer check, and scripts/ ships (ADR 0012).
@@ -586,82 +587,67 @@ EOF
 }
 
 
-# --- 6. plugin manifest -------------------------------------------------------
+# --- 6. install and package ---------------------------------------------------
 #
-# The structural checks are NOT reimplemented here. doctor.py owns them and the
-# /dgf-doctor skill already calls it; duplicating them would give two
-# implementations that drift apart. This section runs the doctor and adds only
-# what is genuinely a documentation contract: that the reader-facing docs have
-# stopped claiming the manifest does not exist.
+# The structural checks are NOT reimplemented here. doctor.py owns the shipped
+# tree's (ADR 0030) and the /dgf-doctor skill already calls it, and
+# tools/check_package.py owns what the npm tarball holds. Duplicating either
+# would give two implementations that drift apart; this section runs both.
 DOCTOR='skills/dgf-doctor/scripts/doctor.py'
+PACKAGE_CHECK='tools/check_package.py'
 
-# Documents that described the pre-manifest state and had to be corrected.
-MANIFEST_DOCS='
+run_structural_check() {
+    script="$1"
+    code=0
+    # Capture the status directly, never through a pipe: `cmd | tail` would
+    # report tail's exit code and turn every failure into a pass.
+    output="$(python3 "${PLUGIN_ROOT}/${script}" 2>&1)" || code=$?
+    trace "ran ${script} (exit ${code})"
+
+    if [ "${code}" -ne 0 ]; then
+        printf '%s\n' "${output}"
+    fi
+
+    case "${code}" in
+        0) ;;
+        2) warn "${script} reported warnings (exit 2) — see its output above" ;;
+        1) error "${script} reported blocking findings (exit 1) — see its output above" ;;
+        3) error "${script} was invoked incorrectly or could not run (exit 3) — see its output above" ;;
+        *) error "${script} returned an unexpected exit code ${code}" ;;
+    esac
+}
+
+# Reader-facing documents that once installed dgf-factory as a Claude Code plugin. It is an
+# npm CLI now (ADR 0029); a plugin install command in them sends a reader nowhere.
+INSTALL_DOCS='
 README.md
 AGENTS.md
 .ai-factory/DESCRIPTION.md
 docs/getting-started.md
+docs/demo/interview-guide.md
+docs/demo/prep-checklist.md
+docs/demo/cheat-sheet.md
 '
 
-MANIFEST_WINDOW=2
-
-# A stale claim is one of these phrases within MANIFEST_WINDOW lines of a
-# plugin.json mention. Window-scoped for the same reason as check 1: the phrase
-# and the filename routinely land on different lines, while file-scoped matching
-# would flag any document that mentions both anywhere.
-scan_stale_manifest_claims() {
-    for rel in ${MANIFEST_DOCS}; do
+check_install_and_package() {
+    section '6. Install and package'
+    run_structural_check "${DOCTOR}"
+    for rel in ${INSTALL_DOCS}; do
         file="${PLUGIN_ROOT}/${rel}"
         [ -f "${file}" ] || continue
-        awk -v rel="${rel}" -v win="${MANIFEST_WINDOW}" '
-            { lines[NR] = tolower($0) }
-            END {
-                for (i = 1; i <= NR; i++) {
-                    if (lines[i] !~ /not yet created|is not here yet|cannot be installed/) continue
-                    for (j = i - win; j <= i + win; j++) {
-                        if (j < 1 || j > NR) continue
-                        if (lines[j] ~ /plugin\.json/) {
-                            printf "%s\t%d\n", rel, i
-                            break
-                        }
-                    }
-                }
-            }
-        ' "${file}"
-    done
-}
-
-check_plugin_manifest() {
-    section '6. Plugin manifest'
-
-    doctor_code=0
-    # Capture the status directly, never through a pipe: `cmd | tail` would
-    # report tail's exit code and turn every failure into a pass.
-    doctor_output="$(python3 "${PLUGIN_ROOT}/${DOCTOR}" 2>&1)" || doctor_code=$?
-    trace "ran ${DOCTOR} (exit ${doctor_code})"
-
-    if [ "${doctor_code}" -ne 0 ]; then
-        printf '%s\n' "${doctor_output}"
-    fi
-
-    case "${doctor_code}" in
-        0) ;;
-        2) warn "${DOCTOR} reported warnings (exit 2) — see its output above" ;;
-        1) error "${DOCTOR} reported blocking findings (exit 1) — see its output above" ;;
-        3) error "${DOCTOR} was invoked incorrectly (exit 3) — see its output above" ;;
-        *) error "${DOCTOR} returned an unexpected exit code ${doctor_code}" ;;
-    esac
-
-    while IFS="$(printf '\t')" read -r rel lineno; do
-        [ -n "${rel}" ] || continue
-        error "${rel}:${lineno} still claims the plugin manifest does not exist"
-    done <<EOF
-$(scan_stale_manifest_claims)
+        while IFS=: read -r lineno _; do
+            [ -n "${lineno}" ] || continue
+            error "${rel}:${lineno} installs dgf-factory as a Claude Code plugin — it is an npm CLI (ADR 0029)"
+        done <<EOF
+$(grep -nE 'claude plugin install dgf-factory|dgf-factory@andrian-org|--plugin-dir' "${file}" || true)
 EOF
-
-    for rel in ${MANIFEST_DOCS}; do
-        trace "scanned ${rel} for stale manifest claims"
+        trace "scanned ${rel} for plugin install commands"
     done
+    if command -v npm >/dev/null 2>&1; then
+        run_structural_check "${PACKAGE_CHECK}"
+    else
+        warn "npm is not installed: ${PACKAGE_CHECK} did not run, so the tarball's contents are unchecked"
+    fi
 }
 
 
@@ -741,6 +727,21 @@ check_validator_tests() {
         warn "lxml and jsonschema do not import in ${tests_python}: the tests that need them were skipped. Create" \
              ".venv/ and install scripts/requirements.txt into it (docs/getting-started.md)"
     fi
+
+    # The CLI's tests: node's own runner, no dependencies to install (ADR 0029 §1).
+    if ! command -v node >/dev/null 2>&1; then
+        warn "node is not installed: the CLI tests under tests/cli/ did not run"
+        return
+    fi
+    cli_code=0
+    cli_output="$(cd "${PLUGIN_ROOT}" && node --test tests/cli/*.test.mjs 2>&1)" || cli_code=$?
+    trace "ran node --test (exit ${cli_code})"
+    if [ "${cli_code}" -eq 0 ]; then
+        printf '%s\n' "$(printf '%s\n' "${cli_output}" | grep -E '^. (tests|pass|fail) ' | tr '\n' ' ')"
+    else
+        printf '%s\n' "${cli_output}"
+        error "the CLI tests failed (exit ${cli_code}) — see their output above"
+    fi
 }
 
 main() {
@@ -763,7 +764,7 @@ main() {
     check_absolute_paths
     check_decision_records
     check_adr_supersession
-    check_plugin_manifest
+    check_install_and_package
     check_knowledge_stamps
     check_validator_tests
 

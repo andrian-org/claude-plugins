@@ -69,7 +69,7 @@ The plan prompt:
 
 ## Close 1:08
 
-What scripts decided · the numbers · `claude plugin install dgf-factory@andrian-org` · what is next · Q&A.
+What scripts decided · the numbers · `npm install -g @andrian-org/dgf-factory` + `dgf-factory setup` · what is next · Q&A.
 
 ## When something breaks
 
@@ -79,4 +79,4 @@ What scripts decided · the numbers · `claude plugin install dgf-factory@andria
 | app not answering | `docker compose logs --tail 80 splitbill-api` · re-run `apply-sql.sh` |
 | blank page or 404 | enter through `/home` and Menu · `docker restart splitbill-api` |
 | implement went wrong | restore `splitbill-implemented.tgz`, continue at `/dgf-verify` |
-| validators exit 3 | the `.venv` is not active in the shell that started `claude` |
+| validators exit 3 | `$APP/.dgf-factory/runtime/.venv` was not built: re-run `node "$PLUGIN/bin/dgf-factory.mjs" setup --harness claude --yes` in `$APP` |
