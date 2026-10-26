@@ -47,7 +47,8 @@ plugins/dgf-factory/
 ├── package.json                # The npm package — name, version, bin, and `files`: what ships (ADR 0030)
 ├── bin/dgf-factory.mjs         # SHIPPED — the CLI's entry
 ├── cli/                        # SHIPPED — the installer: harnesses, transform, hash, receipt, fsops,
-│                               #   plan, preview, mcp, python, commands/setup.mjs; no dependencies
+│                               #   plan, preview, prompt, mcp, python, commands/{setup,status,uninstall}.mjs;
+│                               #   no dependencies
 ├── skills/                     # The shipped dgf-* corpus (auto-discovered)
 │   ├── dgf-doctor/             #   is dgf-factory installed correctly? (the receipt, in a project)
 │   │   ├── SKILL.md            #     the prompt-program

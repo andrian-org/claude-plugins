@@ -31,8 +31,10 @@
   ([ADR 0030](../../docs/adr/0030-shipped-package-payload.md)).
 - `<plugin>/bin/dgf-factory.mjs` — the CLI entry. **Shipped.**
 - `<plugin>/cli/` — the installer: Node ≥ 18.3, `.mjs`, no dependencies. **Shipped.**
-- `<plugin>/skills/<name>/SKILL.md` — one directory per skill, auto-discovered
-- `<plugin>/agents/*.md` — subagent definitions, auto-discovered
+- `<plugin>/skills/<name>/SKILL.md` — one directory per skill. `dgf-factory setup` renders each
+  `SKILL.md` into every chosen harness's skills folder and copies the rest of the directory into
+  `.dgf-factory/runtime/skills/<name>/`. **Shipped.**
+- `<plugin>/agents/*.md` — subagent definitions. Not yet created, and setup installs none.
 - `<plugin>/scripts/` — shared runtime validators that skills call. **Shipped.**
 - `<plugin>/knowledge/` — stamped DGF facts and the vendored schema set. **Shipped.**
 - `<plugin>/tools/` — repo-maintenance checks and the schema vendoring tool that
