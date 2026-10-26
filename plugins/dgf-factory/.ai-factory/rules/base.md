@@ -26,8 +26,11 @@
 
 ## Module Structure
 
-- `<plugin>/.claude-plugin/plugin.json` — the manifest. Must live in `.claude-plugin/`;
-  every component directory must live at plugin root, never nested inside it.
+- `<plugin>/package.json` — the npm package `@andrian-org/dgf-factory`. Its `files` list —
+  `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/` — is what ships
+  ([ADR 0030](../../docs/adr/0030-shipped-package-payload.md)).
+- `<plugin>/bin/dgf-factory.mjs` — the CLI entry. **Shipped.**
+- `<plugin>/cli/` — the installer: Node ≥ 18.3, `.mjs`, no dependencies. **Shipped.**
 - `<plugin>/skills/<name>/SKILL.md` — one directory per skill, auto-discovered
 - `<plugin>/agents/*.md` — subagent definitions, auto-discovered
 - `<plugin>/scripts/` — shared runtime validators that skills call. **Shipped.**
@@ -37,15 +40,24 @@
 - `<plugin>/provenance/` — one ledger per knowledge file: the DGF files its facts came from,
   each with a `sha256`. **Not shipped.**
 - `.ai-factory/` — pipeline artifacts, single-writer ownership per command
-- Intra-plugin paths use `${CLAUDE_PLUGIN_ROOT}`. Never hardcode absolute paths,
-  `~/` shortcuts, or working-directory-relative paths.
+- Skills write runtime paths as `{{dgf_runtime}}/…`, which `dgf-factory setup` renders to the
+  project-relative `.dgf-factory/runtime`; dgf-mcp tools are granted as `mcp__dgf-mcp__<tool>`
+  ([ADR 0029](../../docs/adr/0029-npm-cli-delivery.md)). Never hardcode absolute paths or `~/`
+  shortcuts.
+- Every `scripts/*.py` entry script opens with the guarded venv switch, before any other
+  `from lib import …`
+  ([ADR 0031](../../docs/adr/0031-validator-runtime-project-venv.md)):
+  ```python
+  if __name__ == "__main__":
+      from lib import runtime; runtime.use_project_venv()
+  ```
 - **No DGF repository paths in shipped files.** "Shipped" is `SHIPPED_DIRS` in
   `skills/dgf-doctor/scripts/doctor.py`. A developer's install has no DGF checkout, so a
   shipped file names a DGF source by knowledge file, DGF docs MCP call
   (`get_doc_page('<page>')`) or type name, never by path. A fact's source paths go in its
   `provenance/` ledger, never in `knowledge/`. Workspace layout paths such as
   `FM/_COMPONENTS/` are fine. `doctor.py` reports a violation as `DGF_PATH`, exit `1`
-  ([ADR 0012](../../docs/adr/0012-no-dgf-paths-in-shipped-files.md)).
+  ([ADR 0030](../../docs/adr/0030-shipped-package-payload.md)).
 - **Re-vendor schemas only with `tools/vendor_schemas.py`.** Never copy or hand-edit a file
   under `knowledge/schemas/`. The tool rewrites DGF paths and regenerates the digests, and a
   hand edit fails `tools/check_knowledge_stamps.py`.
@@ -112,7 +124,7 @@ and implemented by `scripts/validate_config.py`. Call it rather than re-implemen
   `ProcessFlow`, and every `◐` row — is **exit 2 (warning)** at minimum, reporting
   `schema-valid but not runtime-supported`. Passing schema validation is not proof of
   runtime support.
-- **Validate JSON the way the runtime reads it** ([ADR 0015](../../docs/adr/0015-validator-runtime-and-json-reader.md)),
+- **Validate JSON the way the runtime reads it** ([ADR 0031](../../docs/adr/0031-validator-runtime-project-venv.md)),
   never with a case-sensitive, strict validator. Property names and enum names match in any
   case, the `type` key alone is exact, nested components dispatch by their own `type`, and
   a number never reads from a string. An unknown property is a **warning**: the runtime
