@@ -2,9 +2,9 @@
 name: dgf-evolve
 description: Distil the estate's patches into skill-context overrides that tighten the dgf-* skills — rules and checks added, never a STOP, an exit code or a gate's status relaxed — each checked by a script before any skill applies it. Use for "evolve", "dgf evolve", "learn from the patches", "update the skill rules", "distil the patches".
 argument-hint: "[<skill> | all]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
 disable-model-invocation: true
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF Evolve — Turn Patches into Rules That Tighten the Skills
@@ -20,8 +20,8 @@ never fires on its own. It asks before it writes anything.
 
 This skill ports AI Factory's `/aif-evolve`. It keeps the incremental patch cursor, the registry of
 prevention points, the ask-before-apply step and the evolution log. It drops the codebase and
-tech-stack analysis and every edit to a skill itself: the plugin is installed read-only, so the
-overrides are the only thing it writes. Its cursor is a set of names, not a high-water mark, because
+tech-stack analysis and every edit to a skill itself: the installed runtime and the skills are
+managed by `dgf-factory setup` — never edit them — so the overrides are the only thing it writes. Its cursor is a set of names, not a high-water mark, because
 branches merge patches into one ledger in any order.
 
 **Targets:** `dgf`, `dgf-audit`, `dgf-commit`, `dgf-component`, `dgf-fix`, `dgf-implement`, `dgf-model`, `dgf-plan`, `dgf-process`, `dgf-verify`
@@ -39,7 +39,7 @@ artifacts. Refuse a prevention point that would, and log it with its patch.
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
@@ -59,7 +59,7 @@ The argument picks the targets:
 ### Step 1: The patches
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir "<paths.patches>" --cursor "<paths.evolutions>patch-cursor.json"
+python3 "{{dgf_runtime}}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir "<paths.patches>" --cursor "<paths.evolutions>patch-cursor.json"
 ```
 
 | Exit | Action |
@@ -92,7 +92,7 @@ with its patch, and is never written.
 For each target:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill <target> --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill <target> --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -102,7 +102,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<ro
 | `2` | Read it. The flagged rules are judged again in Step 4. |
 | `3` | **STOP** and relay it. |
 
-Then read the target's shipped `${CLAUDE_PLUGIN_ROOT}/skills/<target>/SKILL.md`, read-only — never its
+Then read the target's shipped `{{dgf_runtime}}/skills/<target>/SKILL.md`, read-only — never its
 references or scripts. Propose removing a current rule the shipped skill now covers, or one that
 contradicts it.
 
@@ -141,11 +141,11 @@ Per target, show the rules to **add**, **change** and **remove**, each with its 
 Skip this step for **Apply none** and **Cancel**.
 
 Write each target's override, `<root>/<paths.skill_context><target>/SKILL.md`, exactly as
-`${CLAUDE_PLUGIN_ROOT}/skills/dgf-evolve/references/OVERRIDE-FORMAT.md` specifies. Then check every file
+`{{dgf_runtime}}/skills/dgf-evolve/references/OVERRIDE-FORMAT.md` specifies. Then check every file
 written:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill <target> --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill <target> --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |

@@ -19,7 +19,7 @@ SKILLS = helpers.PLUGIN_ROOT / "skills"
 DOCTOR = SKILLS / "dgf-doctor" / "scripts" / "doctor.py"
 BACKTICKED = re.compile(r"`([^`\n]+)`")
 CODE_TOKEN = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\Z")
-SCRIPT_CALL = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/((?:skills/[a-z0-9-]+/)?scripts/[a-z_]+\.py)\"?(.*)")
+SCRIPT_CALL = re.compile(r"\{\{dgf_runtime\}\}/((?:skills/[a-z0-9-]+/)?scripts/[a-z_]+\.py)\"?(.*)")
 FLAG = re.compile(r"(?<![\w-])--[a-z][a-z-]*")
 
 # Upper-case tokens a skill may quote that are not finding codes. One line each, with why.
@@ -170,7 +170,7 @@ class Overrides(unittest.TestCase):
 
 
 BASH_RULE = re.compile(r"Bash\(([^)]*)\)")
-PLUGIN_PYTHON = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/.*')
+PLUGIN_PYTHON = re.compile(r'python3 "\{\{dgf_runtime\}\}/.*')
 GIT_COMMAND = re.compile(r"`git |^\s*git |git -C ", re.MULTILINE)
 READ_ONLY = ("dgf-audit", "dgf-doctor", "dgf-verify")
 # /dgf-fix's git reads are check_change.py's, and the DGF-specific skills' are the scripts'; /dgf-evolve needs none
@@ -271,7 +271,7 @@ class Scaffold(unittest.TestCase):
 
     def test_it_runs_only_its_own_two_scripts(self):
         rules = bash_rules(self.SKILL / "SKILL.md")
-        self.assertEqual(rules, ['python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/*'])
+        self.assertEqual(rules, ['python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/*'])
         called = set()
         for doc in self.texts():
             called |= {m.group(1) for m in SCRIPT_CALL.finditer(doc.read_text(encoding="utf-8"))}
@@ -285,7 +285,7 @@ class Scaffold(unittest.TestCase):
             self.assertIn("`3`", section, step)
 
 
-LIST_RELEASES = "mcp__plugin_dgf-factory_dgf-mcp__list_release_notes"
+LIST_RELEASES = "mcp__dgf-mcp__list_release_notes"
 
 
 def allowed_tools(skill_md):
@@ -376,6 +376,38 @@ class WritingSkills(unittest.TestCase):
                                         for line in [save]], f"{name} compares with another run than it saved")
             checked.append(name)
         self.assertEqual(checked, ["dgf-model", "dgf-process"])
+
+
+# a backticked runtime path with no token: `knowledge/…`, `references/…` or `templates/…`
+BARE_RUNTIME_PATH = re.compile(r"`(?:knowledge|references|templates)/")
+PLUGIN_ROOT_TOKEN = "${" + "CLAUDE_PLUGIN_ROOT}"
+
+
+class RuntimeToken(unittest.TestCase):
+    """Every path into the installed runtime is written `{{dgf_runtime}}/…`, which setup rewrites (ADR 0029 §3)."""
+
+    def test_no_plugin_root_token_remains(self):
+        for path in skill_markdown():
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn(PLUGIN_ROOT_TOKEN, text, path.relative_to(SKILLS))
+            self.assertNotIn("mcp__plugin_", text, path.relative_to(SKILLS))
+
+    def test_no_bare_runtime_path_in_prose(self):
+        # a SKILL.md is installed alone into a harness's folder, so a bare `knowledge/…` resolves to nothing there
+        for path in sorted(SKILLS.glob("*/SKILL.md")):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                self.assertNotRegex(line, BARE_RUNTIME_PATH, f"{path.relative_to(SKILLS)}:{number}")
+
+    def test_every_runtime_path_exists(self):
+        token = re.compile(r"\{\{dgf_runtime\}\}(/[^\s'\"`)\]§]*)")
+        for path in skill_markdown():
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for match in token.finditer(line):
+                    target = match.group(1).rstrip(".,;:")
+                    if any(marker in target for marker in ("<", "*", "{", "…")):
+                        continue
+                    self.assertTrue((helpers.PLUGIN_ROOT / target.lstrip("/")).exists(),
+                                    f"{path.relative_to(SKILLS)}:{number} cites {{{{dgf_runtime}}}}{target}")
 
 
 if __name__ == "__main__":

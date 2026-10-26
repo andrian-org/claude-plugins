@@ -120,7 +120,7 @@ folder shows a dead transition before the gate does.
 Checked with:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir ".dgf-factory/patches/" "<root>/.dgf-factory/patches/2026-09-26-14.30-review-moves-to-undeclared-state.md"
+python3 "{{dgf_runtime}}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir ".dgf-factory/patches/" "<root>/.dgf-factory/patches/2026-09-26-14.30-review-moves-to-undeclared-state.md"
 ```
 
 ```

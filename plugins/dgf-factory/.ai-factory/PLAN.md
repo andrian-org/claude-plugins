@@ -399,7 +399,7 @@ From this plugin:
 
 ### Phase 2: Harness-neutral source
 
-- [ ] **Task 4: Replace the plugin token and the plugin MCP names in the skills.** (depends on 1)
+- [x] **Task 4: Replace the plugin token and the plugin MCP names in the skills.** (depends on 1)
   - In every file under `skills/`, replace `${CLAUDE_PLUGIN_ROOT}` with `{{dgf_runtime}}`. That
     covers 13 `SKILL.md` files and 4 reference files.
   - Turn the about 30 bare prose paths (`knowledge/…`, `references/…`, `templates/…`) into
@@ -431,7 +431,7 @@ From this plugin:
   `python3 skills/dgf-doctor/scripts/doctor.py` pass. Files: `skills/*/SKILL.md`,
   `skills/*/references/*.md`, `scripts/verify_gate.py`, `tests/test_skill_contracts.py`.
 
-- [ ] **Task 5: Re-execute into the project venv; the dependency command.** (depends on 3)
+- [x] **Task 5: Re-execute into the project venv; the dependency command.** (depends on 3)
   Create `scripts/lib/runtime.py`, stdlib only, with no imports from `lib/` (`lib/__init__.py`
   imports nothing), so `doctor.py` and `design.py` can load it by path.
   - `runtime_root()` is `Path(__file__).resolve().parents[2]`.
@@ -471,7 +471,7 @@ From this plugin:
   scripts), `scripts/lib/deps.py`, `skills/dgf-doctor/scripts/doctor.py`, `tests/test_runtime.py`,
   `tests/test_deps.py`, `tests/test_skill_contracts.py`.
 
-- [ ] **Task 6: The change checks ignore the install footprint.** (depends on 1)
+- [x] **Task 6: The change checks ignore the install footprint.** (depends on 1)
   Create `scripts/lib/install_receipt.py`, stdlib only and loadable by path. Its function
   `footprint(root)` returns the set of root-relative POSIX paths:
   - every key of `.dgf-factory/install.json` `files`;
@@ -506,7 +506,7 @@ From this plugin:
   INFO under `--verbose`. Files: `scripts/lib/install_receipt.py`, `scripts/lib/plan.py` or
   `scripts/check_change.py`, `scripts/lib/report.py`, `tests/test_installed_root.py`, the fixture.
 
-- [ ] **Task 7: The scaffold's empty folder allows the install footprint.** (depends on 1, 6)
+- [x] **Task 7: The scaffold's empty folder allows the install footprint.** (depends on 1, 6)
   `skills/dgf-scaffold/scripts/design.py:170-190` treats a folder as empty when it holds only `.git/`
   and `docs/application.json`. After `dgf-factory setup` it also holds `.dgf-factory/`, the harness
   folders and the MCP files, so `SCAFFOLD_DIR_NOT_EMPTY` would refuse every installed folder.

@@ -2,9 +2,9 @@
 name: dgf-scaffold
 description: Create a new DGF application from scratch in an empty folder — the solution, the API hosts, Docker, the database with its SQL, the workspaces, authentication and the documentation, plus the register, service and page artefacts the request describes. Use for "new DGF application", "scaffold an app", "start a DGF project from scratch", "empty folder", "multi-tenant application", "bootstrap a DGF system".
 argument-hint: "<what the application is>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__list_release_notes mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details
 disable-model-invocation: false
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF — Scaffold a New Application
@@ -37,20 +37,20 @@ root and no plan yet, so this skill reads and writes no `.dgf-factory/` and runs
 The folder is the working directory, unless the request names another, empty folder.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/design.py" --folder "<folder>" --empty-only
+python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/design.py" --folder "<folder>" --empty-only
 ```
 
 Capture the exit code before any pipe.
 
 | Exit | Meaning | Action |
 |---|---|---|
-| `0` | the folder holds nothing but a `.git` folder and possibly `docs/application.json` | Step 1 |
+| `0` | the folder holds nothing but a `.git` folder, possibly `docs/application.json`, and what `dgf-factory setup` installed — `.dgf-factory/runtime/`, `.dgf-factory/install.json` and every file that receipt lists, which this skill never writes | Step 1 |
 | `1`, `SCAFFOLD_DIR_NOT_EMPTY` | anything else is in it | **STOP.** Say: "this command only creates a new application; use `/dgf-plan` in an existing one." Name what the line lists, and suggest an empty folder |
-| `3` | the folder is not a directory | **STOP** and relay it |
+| `3` | the folder is not a directory, or `INSTALL_RECEIPT_UNREADABLE`: `.dgf-factory/install.json` cannot be read, and this skill never writes it | **STOP** and relay it; for the receipt, suggest re-running `dgf-factory setup` |
 
 ### Step 1: Write the design
 
-Read [DESIGN-FORMAT.md](references/DESIGN-FORMAT.md) — every key, its rule and its default.
+Read `{{dgf_runtime}}/skills/dgf-scaffold/references/DESIGN-FORMAT.md` — every key, its rule and its default.
 
 - If `docs/application.json` exists, this is a **resume**: read it, keep it, and go to Step 2.
 - Otherwise, if the request reads as two different applications, ask which one before writing anything.
@@ -69,7 +69,7 @@ component does. They change nothing about what is generated.
 ### Step 2: Check the design
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/design.py" --folder "<folder>"
+python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/design.py" --folder "<folder>"
 ```
 
 | Exit | Meaning | Action |
@@ -107,7 +107,7 @@ Nothing has been generated yet. Show the user:
 2. **The tree.**
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/generate.py" --folder "<folder>" --dry-run
+python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/generate.py" --folder "<folder>" --dry-run
 ```
 
 | Exit | Action |
@@ -122,7 +122,7 @@ the design kept. "Cancel" stops; the design stays in `docs/` for a later run.
 ### Step 5: Generate
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/generate.py" --folder "<folder>"
+python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/generate.py" --folder "<folder>"
 ```
 
 | Exit | Meaning | Action |
@@ -134,7 +134,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/generate.py" --folder
 ### Step 6: Check what was generated
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-scaffold/scripts/generate.py" --folder "<folder>" --check
+python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/generate.py" --folder "<folder>" --check
 ```
 
 | Exit | Meaning | Action |
@@ -167,7 +167,7 @@ No summary file, no report file.
 - Write the design from the request alone, and let `design.py` ask for the rest.
 - Ask the survey questions in the user's terms, four at a time.
 - Show every `DEFAULT:` line before anything is generated.
-- Run every script with `${CLAUDE_PLUGIN_ROOT}`, and relay its lines verbatim.
+- Run every script with `{{dgf_runtime}}`, and relay its lines verbatim.
 - Keep `docs/application.json` on a STOP: a re-run in the same folder resumes it.
 
 ### DON'T
@@ -182,7 +182,7 @@ No summary file, no report file.
 ## Artifact Ownership
 
 - **Writes**: `docs/application.json`, and the application — through `generate.py` only.
-- **Never writes**: a plan, anything under `.dgf-factory/`, or anything in a folder that is not empty.
+- **Never writes**: a plan, anything under `.dgf-factory/` (the install there is `dgf-factory setup`'s), or anything in a folder that is not empty.
 - **Reads**: DESIGN-FORMAT.md, and the scripts' output.
 
 ## Critical Rules
@@ -193,4 +193,4 @@ No summary file, no report file.
 3. `generate.py` runs only after the user has seen the defaults and the tree, and said generate.
 4. A failed check is a defect of the generator. Say so, quote it, and stop.
 5. No literal secret and no `BASE:` reference in anything this skill produces.
-6. Always `${CLAUDE_PLUGIN_ROOT}`, never a hand-typed plugin path.
+6. Always `{{dgf_runtime}}`, never a hand-typed path.

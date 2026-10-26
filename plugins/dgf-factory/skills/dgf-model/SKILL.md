@@ -2,9 +2,9 @@
 name: dgf-model
 description: Inspect, validate, add or modify a DGF entity — FM/_DATA/<entity>/settings.xml, its fields and its extract, relation and slavegrid references — checking every reference the way its loader resolves it, and naming the database work a change needs without writing SQL. Writes only inside the active plan's scope. Use for "add an entity", "add a field", "change this entity", "check the data model", "which forms use this entity", "what does this table need in the database".
 argument-hint: "[inspect | validate | add | modify] <entity or settings.xml>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference mcp__plugin_dgf-factory_dgf-mcp__search_docs
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__search_docs
 disable-model-invocation: false
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF Model — Inspect, Validate, Add or Modify an Entity
@@ -15,14 +15,14 @@ fields, and the references its fields make (`extract`, `relation`, `slavegrid`, 
 and both work only inside the active plan's scope, decided by a script before the write
 (ADR 0027 §1).
 
-**The references are checked the way each loader resolves them** (`knowledge/data-model.md` §3):
+**The references are checked the way each loader resolves them** (`{{dgf_runtime}}/knowledge/data-model.md` §3):
 a table's name is cleaned before `BASE:` is tested, a dialog has no base path, and a missing table
 or dialog throws while a missing view, grid or form is generated and written into the workspace —
 unless that generation throws, which depends on the table's fields (§3.6).
 `validate_model.py` blocks only where the loader throws (ADR 0027 §3).
 
 **The schema is not in the workspaces root.** An entity's `datasource` names a database table or
-view, and a relation's `table` a junction table (`knowledge/data-model.md` §1, §3.3): a change to
+view, and a relation's `table` a junction table (`{{dgf_runtime}}/knowledge/data-model.md` §1, §3.3): a change to
 either is database work in the consumer's own database project (§5 there). This skill names that
 work and never writes SQL (ADR 0010 §3).
 
@@ -34,7 +34,7 @@ scope by script, confirm by the same check — and emits no gate block: the gate
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
@@ -45,7 +45,7 @@ root). Exit `3` → **STOP** and relay it. Otherwise the `ROOT:` line is `<root>
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-model --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-model --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -79,9 +79,9 @@ than one workspace, list each and ask which.
 ### Step 1: Inspect (read-only)
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" "<root>/<file>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
+python3 "{{dgf_runtime}}/scripts/validate_config.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
 ```
 
 - `validate_config.py` checks the file against `settings.xsd`:
@@ -102,17 +102,17 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>"
   | Exit | Action |
   |---|---|
   | `0` | Relay its `PROCESS:` and `REFERRER:` lines per application, and the `LIMIT:` line verbatim: a reach is never complete. |
-  | `3` | `AUDIT_REACH_NOT_ARTIFACT` → the path is not an entity's `settings.xml` under the root, exactly as written — check its case against the file on disk, which the message names — and say so; `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim; `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall; `AUDIT_CHECK_FAILED` → **STOP** and relay it with the lines before it: a check raised, so the reach is incomplete. Otherwise a usage error on stderr — a path that is absolute or leaves the root, or a root with no application — → **STOP** and relay it. |
+  | `3` | `AUDIT_REACH_NOT_ARTIFACT` → the path is not an entity's `settings.xml` under the root, exactly as written — check its case against the file on disk, which the message names — and say so; `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim; `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the installed runtime cannot read one of its own schemas — run `/dgf-doctor`, then re-run `dgf-factory setup`; `AUDIT_CHECK_FAILED` → **STOP** and relay it with the lines before it: a check raised, so the reach is incomplete. Otherwise a usage error on stderr — a path that is absolute or leaves the root, or a root with no application — → **STOP** and relay it. |
 
 Then read the file and list its fields — name, `type`, and any `extract`, `relation`, `slavegrid` or
 `binding` — and its `datasource` name, which is **a database object outside the root**. A `type`
-must be a `FieldTypeEnum` member exactly (`knowledge/data-model.md` §2): any other value stops the
+must be a `FieldTypeEnum` member exactly (`{{dgf_runtime}}/knowledge/data-model.md` §2): any other value stops the
 whole entity loading.
 
 ### Step 2: Validate (read-only)
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_model.py" --workspaces-root "<root>" <files, or --all>
+python3 "{{dgf_runtime}}/scripts/validate_model.py" --workspaces-root "<root>" <files, or --all>
 ```
 
 | Exit | Meaning |
@@ -129,7 +129,7 @@ already covers the file.
 ### Step 3: Add and modify — the plan
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -141,7 +141,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 | `3` | **STOP** and relay it. |
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
 ```
 
 | Exit | Action |
@@ -161,7 +161,7 @@ For add, `A:<file>`; for modify, `M:<file>`. A deletion is never this skill's �
 `/dgf-plan` plan it.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --skip-validators
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --skip-validators
 ```
 
 | Exit | Action |
@@ -177,7 +177,7 @@ entity included. So the script saves the root's findings as they are before the 
 compares with them (ADR 0025). Pass the same `A:` or `M:` as the scope check:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --save-baseline "<root>/.dgf-factory/baseline.json"
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --save-baseline "<root>/.dgf-factory/baseline.json"
 ```
 
 It judges none of the validators' findings, so its exit is the change checks':
@@ -194,7 +194,7 @@ It judges none of the validators' findings, so its exit is the change checks':
 - **Add:** the path comes from the `legacy-artifacts` row:
 
   ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" settings
+  python3 "{{dgf_runtime}}/scripts/route_means.py" settings
   ```
 
   | Exit | Action |
@@ -203,18 +203,18 @@ It judges none of the validators' findings, so its exit is the change checks':
   | `3` | **STOP** and relay it: no route is ever guessed. |
 
   **If the file exists → STOP**: add never overwrites. Start from
-  `${CLAUDE_PLUGIN_ROOT}/skills/dgf-model/templates/settings.xml`, and replace every `Example`.
+  `{{dgf_runtime}}/skills/dgf-model/templates/settings.xml`, and replace every `Example`.
 - **Modify:** edit only the file Step 4 checked.
 
-Take every fact from `knowledge/data-model.md` and the DGF docs MCP (`get_xml_property_reference`,
+Take every fact from `{{dgf_runtime}}/knowledge/data-model.md` and the DGF docs MCP (`get_xml_property_reference`,
 `search_docs`), never from memory: a `primarykey` the table needs, a `uimask` on every field, a
 `type` that is a `FieldTypeEnum` member, and a reference the loader can resolve.
 
 ### Step 6: Confirm
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" "<root>/<file>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_config.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
 ```
 
 Each script's exit:
@@ -227,17 +227,17 @@ Each script's exit:
 | `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts: it does not parse as XML, or its root is not `entity` — the message says which. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 Then the change check **over the whole root — no `--files`:** a removed or renamed field unbinds the
-cells of forms the edit never touched (`knowledge/data-model.md` §4), and a removed entity breaks
+cells of forms the edit never touched (`{{dgf_runtime}}/knowledge/data-model.md` §4), and a removed entity breaks
 every `extract` that names it (§3.2 there). With git:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
 ```
 
 Without git, with the baseline Step 4 saved, in place of `--base`:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --baseline "<root>/.dgf-factory/baseline.json"
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --baseline "<root>/.dgf-factory/baseline.json"
 ```
 
 — with `A:` after an add. Either way the script reports a finding the root already held as `INFO
@@ -271,7 +271,7 @@ to continue the task the file belongs to, then `/dgf-verify`.
 - ✅ Find and check the plan, and decide the scope with `check_change.py --skip-validators`, before a write
 - ✅ Run the whole-root change check after a write — without git, against the baseline `check_change.py` saved before it
 - ✅ Name the database work a change needs, and whether the plan covers it
-- ✅ Take every fact from `knowledge/data-model.md` and the DGF docs MCP
+- ✅ Take every fact from `{{dgf_runtime}}/knowledge/data-model.md` and the DGF docs MCP
 
 ### DON'T:
 
@@ -288,7 +288,7 @@ to continue the task the file belongs to, then `/dgf-verify`.
   Without git, `check_change.py` writes `.dgf-factory/baseline.json` for it, which the next save
   overwrites (ADR 0025).
 - **Reads:** the plan, `.dgf-factory/config.yaml`, its override after `check_override.py`, the
-  patches, its template, the shipped `knowledge/`, and the DGF docs MCP. It never edits the plan.
+  patches, its template, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP. It never edits the plan.
 
 ## Critical Rules
 
@@ -300,4 +300,4 @@ to continue the task the file belongs to, then `/dgf-verify`.
 6. **One owner per artifact.** Forms and views are `/dgf-component`'s; processes and workflows
    `/dgf-process`'s.
 7. **Never tick a checkbox, and no gate block.**
-8. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts, knowledge, templates and references.
+8. **`{{dgf_runtime}}` always** for dgf-factory's own scripts, knowledge, templates and references.

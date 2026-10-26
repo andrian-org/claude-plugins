@@ -2,9 +2,9 @@
 name: dgf
 description: Set up dgf-factory for a DGF workspaces root — inventory the workspaces, record the estate's DGF version, and write .dgf-factory/config.yaml and DESCRIPTION.md. Use for "set up dgf-factory", "dgf setup", "initialise the workspaces root", "configure dgf", "start using dgf-factory".
 argument-hint: "[workspaces-root]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__list_release_notes mcp__plugin_dgf-factory_dgf-mcp__get_release_notes
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) Bash(git *) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_release_notes
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF — Set Up a Workspaces Root
@@ -16,8 +16,8 @@ The unit of work is the **whole workspaces root**, and `.dgf-factory/` lives the
 per workspace. The estate is brownfield: this skill reads what is on disk and never scaffolds.
 
 This skill ports AI Factory's `/aif` Mode 1 ("analyze an existing project"). It installs no
-skills and writes no MCP configuration: the plugin ships both. It writes no `AGENTS.md` and no
-rules file.
+skills and writes no MCP configuration: `dgf-factory setup` installs the skills and registers the
+dgf-mcp server, and this skill never does either. It writes no `AGENTS.md` and no rules file.
 
 ## Workflow
 
@@ -26,13 +26,13 @@ rules file.
 With an argument, it is the workspaces root:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<argument>" --setup
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<argument>" --setup
 ```
 
 Without one:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --setup
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --setup
 ```
 
 Capture the exit code before any pipe.
@@ -53,7 +53,7 @@ no config yet: pass the template's values, `.dgf-factory/skill-context/` and
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -71,13 +71,13 @@ would relax one of these.
 ### Step 1: Inventory
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/inventory_root.py" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/inventory_root.py" --workspaces-root "<root>"
 ```
 
 | Exit | Action |
 |---|---|
 | `0` | Continue. |
-| `2` | Continue, and relay every `WARN` line. `BASE_WORKSPACE_ABSENT`: the base workspace is mounted from elsewhere, so `BASE:` references cannot be checked here (`${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §1.2). `VALIDATOR_DEPS_MISSING`: relay its install command **verbatim** — never run `pip` yourself. |
+| `2` | Continue, and relay every `WARN` line. `BASE_WORKSPACE_ABSENT`: the base workspace is mounted from elsewhere, so `BASE:` references cannot be checked here (`{{dgf_runtime}}/knowledge/composition-specs.md` §1.2). `VALIDATOR_DEPS_MISSING`: relay its install command **verbatim** — never run `pip` yourself. |
 | `3` | **STOP.** `ROOT_NO_WORKSPACE`: this is not a DGF workspaces root. Say so, and ask for the right directory. An empty folder, or one with no DGF application yet, is `/dgf-scaffold`'s, not this skill's: suggest it. A scaffolded application keeps its workspaces in `workspaces/`: when the root has that folder, suggest `/dgf workspaces`. |
 
 Keep the output: Step 5 pastes its `WORKSPACE:` and `NOT A WORKSPACE:` lines into
@@ -124,7 +124,7 @@ Ask in at most **two** `AskUserQuestion` calls — the tool takes four questions
 
 1. **Sign-in methods** — `multiSelect: true`, with **no default**: never preselect, recommend or
    assume one. A host adds a provider only when its settings section exists, and reads no other
-   inbound scheme — there is no JWT bearer (`${CLAUDE_PLUGIN_ROOT}/knowledge/application-layout.md`
+   inbound scheme — there is no JWT bearer (`{{dgf_runtime}}/knowledge/application-layout.md`
    §5). Options:
    - `basic` — local username and password (`Authentication:Basic:Enabled`)
    - `dgpass` — DGPass OpenID Connect (`Authentication:DGPassOIDC`)
@@ -156,12 +156,12 @@ it today.
 
 Create `<root>/.dgf-factory/` if it is missing.
 
-1. **`config.yaml`** from `${CLAUDE_PLUGIN_ROOT}/skills/dgf/references/config-template.yaml`.
+1. **`config.yaml`** from `{{dgf_runtime}}/skills/dgf/references/config-template.yaml`.
    Fill every `{{…}}` placeholder; quote the version (`"1.1.15"` or `"unknown"`). Without git,
    write `base_branch: main` and `branch_prefix: feature/` anyway: a full plan's `branch` still
    names the plan. There is no
    `plan_id_format` key: plan ids are always the branch name.
-2. **`DESCRIPTION.md`** from `${CLAUDE_PLUGIN_ROOT}/skills/dgf/references/description-template.md`.
+2. **`DESCRIPTION.md`** from `{{dgf_runtime}}/skills/dgf/references/description-template.md`.
    One table row per `WORKSPACE:` line, with its counts copied exactly; one bullet per
    `NOT A WORKSPACE:` line; every inventory `WARN` line under the table. `{{VERSION_NOTE}}` is
    the Step 4 warning, or empty.
@@ -213,7 +213,7 @@ warning, and the two files written. Then suggest, in order:
 - ❌ Infer the DGF version from schemas, package files, image tags or the UI build
 - ❌ Offer the knowledge stamp as the version's default — it is the release the facts were read at, not the estate's
 - ❌ Run `pip`, or install anything
-- ❌ Create workspaces, plans, `AGENTS.md`, rules files, `.mcp.json` or anything under a workspace
+- ❌ Create workspaces, plans, `AGENTS.md`, rules files, `.mcp.json` or any MCP configuration, or anything under a workspace or under `.dgf-factory/runtime/` — `dgf-factory setup` owns the install
 - ❌ Edit `.gitignore`
 - ❌ Treat an `applibs*` folder as a workspace
 
@@ -232,4 +232,4 @@ warning, and the two files written. Then suggest, in order:
 3. **One `.dgf-factory/` per workspaces root**, at the root — never inside a workspace.
 4. **A re-run edits; it never overwrites.** The user's own lines in these files survive.
 5. **Nothing is installed.** A missing dependency is reported with its command, and stops there.
-6. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts and templates.
+6. **`{{dgf_runtime}}` always** for dgf-factory's own scripts and templates.

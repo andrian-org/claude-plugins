@@ -22,6 +22,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   3  not a workspaces root — no directory under it has an `FM/` — or a usage error
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import importlib.util
 import os
 import re

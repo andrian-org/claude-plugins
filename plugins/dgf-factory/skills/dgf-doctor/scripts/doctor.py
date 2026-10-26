@@ -531,8 +531,14 @@ def check_validator_runtime(root):
 
 
 def install_command(root):
-    user = "" if sys.prefix != sys.base_prefix else " --user"
+    """lib/deps.py's command, restated: the doctor is stdlib-only and imports nothing from lib/."""
     requirements = root / "scripts" / "requirements.txt"
+    if (root.parent / "install.json").is_file():
+        venv = root / ".venv"
+        python = venv / "Scripts" / "python.exe" if os.name == "nt" else venv / "bin" / "python"
+        return (f'python3 -m venv "{venv}" && "{python}" -m pip install --require-hashes -r "{requirements}"'
+                f" — or re-run `dgf-factory setup`")
+    user = "" if sys.prefix != sys.base_prefix else " --user"
     return f'python3 -m pip install{user} --require-hashes -r "{requirements}"'
 
 

@@ -1,9 +1,9 @@
 ---
 name: dgf-doctor
 description: Check that the dgf-factory plugin is installed correctly and report what it can see. Use for "is dgf-factory working", "plugin not loading", "check plugin install", "dgf doctor", "why is the skill not firing".
-allowed-tools: Read Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/*)
+allowed-tools: Read Bash(python3 "{{dgf_runtime}}/skills/dgf-doctor/scripts/*)
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF Doctor — Plugin Installation Check
@@ -22,11 +22,11 @@ lines that never affect the verdict, so a correct-but-unfinished plugin is `CLEA
 ### Step 1: Run the structural check
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/doctor.py"
+python3 "{{dgf_runtime}}/skills/dgf-doctor/scripts/doctor.py"
 ```
 
-Always `${CLAUDE_PLUGIN_ROOT}`. Never an absolute path, never a path relative to the
-working directory — the plugin runs from wherever the user installed it.
+Always `{{dgf_runtime}}`, from the project root — where the harness found this skill. Never an
+absolute path: the project is committed and cloned elsewhere.
 
 Capture the exit code **before** any pipe. `cmd | tail` returns `tail`'s status, which
 would turn every failure into a pass.
@@ -34,7 +34,7 @@ would turn every failure into a pass.
 When the user is asking why a specific check failed, re-run with a trace:
 
 ```bash
-DEBUG=1 python3 "${CLAUDE_PLUGIN_ROOT}/skills/dgf-doctor/scripts/doctor.py"
+DEBUG=1 python3 "{{dgf_runtime}}/skills/dgf-doctor/scripts/doctor.py"
 ```
 
 ### Step 2: Act on the exit code
@@ -53,7 +53,7 @@ silently hides the fault from the person who has to fix the install. Two more bl
 findings mean a skill will misbehave once loaded:
 
 - **`PLUGIN_PATH_DANGLING`** (error, exit `1`) — a shipped Markdown file cites a
-  `${CLAUDE_PLUGIN_ROOT}/…` path that does not exist in the plugin, so the skill that runs
+  `{{dgf_runtime}}/…` path that does not exist in the plugin, so the skill that runs
   it fails at that step.
 - **`SKILL_FRONTMATTER_YAML`** (error, exit `1`) — an unquoted frontmatter value that YAML
   reads differently from this check, or not at all (it starts with `[`, `{`, `*`, `&`, `!`,
@@ -66,7 +66,7 @@ The same exit code also covers the validators under `scripts/`:
   relay it verbatim. The plugin cannot install anything itself, and neither may you.
 - **`REQUIREMENTS_UNPINNED`** (error, exit `1`) — `scripts/requirements.txt` is missing, or a
   requirement is not pinned to one version with a `sha256` hash.
-- **`KNOWLEDGE_TABLE`** (error, exit `1`) — a machine-read table in `knowledge/` is missing or
+- **`KNOWLEDGE_TABLE`** (error, exit `1`) — a machine-read table in `{{dgf_runtime}}/knowledge/` is missing or
   malformed, so the validators that read it refuse to run.
 
 A section that could not run — no usable manifest, no `skills/` — is a `NOT RUN` line and a
@@ -118,9 +118,9 @@ relayed report, never after it.
 - ❌ Repair anything the script reported — this skill is read-only
 - ❌ Write any text after the `dgf-gate-result` block
 - ❌ Claim a check the script did not run
-- ❌ Treat an absent `knowledge/`, `agents/` or unbuilt slice as a fault
+- ❌ Treat an absent `{{dgf_runtime}}/knowledge/`, `agents/` or unbuilt slice as a fault
 - ❌ Run `pip` or install the validators' dependencies — relay the command instead
-- ❌ Hardcode a path to the script instead of using `${CLAUDE_PLUGIN_ROOT}`
+- ❌ Hardcode a path to the script instead of using `{{dgf_runtime}}`
 
 ## Artifact Ownership
 
@@ -135,7 +135,7 @@ relayed report, never after it.
 3. **Never claim a check that did not run.** A gate that reads as having passed a check
    it skipped is worse than no gate.
 4. **Exactly one gate block, and it is the script's.** Write nothing after it.
-5. **`${CLAUDE_PLUGIN_ROOT}` always.** A machine-specific path works for its author and
+5. **`{{dgf_runtime}}` always.** A machine-specific path works for its author and
    nobody else.
 
 ## See Also

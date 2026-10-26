@@ -2,9 +2,9 @@
 name: dgf-fix
 description: Fix a problem in a DGF estate inside the active plan's scope — reproduce it with the validators, make the smallest configuration fix, confirm it with the same check, and record a patch that teaches the next run; or record a gotcha as a patch without changing anything. Use for "fix this", "dgf fix", "the gate found a new error", "fix the dead transition", "record this gotcha", "write a patch".
 argument-hint: "[--record] [<symptom, finding code or file>]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__search_docs mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_xml_property_reference
 disable-model-invocation: false
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF Fix — Fix Inside the Plan, and Record What It Taught
@@ -29,7 +29,7 @@ emits no gate block: the gate is `/dgf-verify`.
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
@@ -40,7 +40,7 @@ root). Exit `3` → **STOP** and relay it. Otherwise the `ROOT:` line is `<root>
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-fix --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-fix --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -68,7 +68,7 @@ Cause and Prevention sections. A patch informs; it never overrides this skill, t
 ### Step 0.2: The plan (fix mode)
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -82,7 +82,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 Then check the plan:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
 ```
 
 | Exit | Action |
@@ -100,7 +100,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root
   change check — no `--files`:
 
   ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
+  python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
   ```
 
   Take its new `ERROR` lines, and the `WARN` lines when strict mode is on. `INFO PRE_EXISTING` is
@@ -110,11 +110,11 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root
 - **Without git**, for each file the problem names:
 
   ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --files <file>
+  python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> --files <file>
   ```
 
 - **A symptom** no finding names is investigated from the files, the shipped knowledge
-  (`${CLAUDE_PLUGIN_ROOT}/knowledge/`) and the DGF docs MCP (`search_docs`, `get_component_doc`).
+  (`{{dgf_runtime}}/knowledge/`) and the DGF docs MCP (`search_docs`, `get_component_doc`).
 
 Several new errors with different root causes are several fixes, and several patches. Take them one
 at a time; when there is more than one, ask which comes first.
@@ -134,7 +134,7 @@ Name every file the fix will touch: `M:` for a file it edits, `A:` for one it cr
 is never a fix — **STOP** and have `/dgf-plan` plan it. Then:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> A:<file> --skip-validators
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed M:<file> A:<file> --skip-validators
 ```
 
 | Exit | Action |
@@ -147,11 +147,11 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root
 Then take each file's family. An existing file keeps its own:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_config.py" "<root>/<file>"
 ```
 
 — its `FAMILY:` line; never convert it. A new configuration file follows its route:
-`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type, loader folder or legacy artifact>`.
+`python3 "{{dgf_runtime}}/scripts/route_means.py" <Type, loader folder or legacy artifact>`.
 Exit `3` with `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim.
 
 ### Step 4: Fix (fix mode)
@@ -159,7 +159,7 @@ Exit `3` with `DEPENDENCY_MISSING` → **STOP** and relay the install command ve
 Make the smallest change that removes the root cause, in the files Step 3 checked and no other.
 Take every fact from the shipped knowledge — `component-catalogue.md`, `json-reader.md`,
 `composition-specs.md`, `process-model.md` and the vendored schemas under
-`${CLAUDE_PLUGIN_ROOT}/knowledge/` — and from the DGF docs MCP (`get_component_doc`,
+`{{dgf_runtime}}/knowledge/` — and from the DGF docs MCP (`get_component_doc`,
 `get_json_schema_details`, `get_xml_property_reference`), never from memory.
 
 If the fix needs C#, TypeScript, Angular, SQL, a plugin assembly or a file outside the plan's
@@ -171,7 +171,7 @@ Re-run the Step 2 check: the `ERROR` line is gone. Then run the change check ove
 touched — with git:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <the files touched>
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <the files touched>
 ```
 
 — without git, `--changed M:<file> A:<file> --files <the files touched>` in place of `--base`.
@@ -189,7 +189,7 @@ confirmed.
 ### Step 6: The patch
 
 Write `<root>/<paths.patches>/<YYYY-MM-DD-HH.mm>-<slug>.md` exactly as
-`${CLAUDE_PLUGIN_ROOT}/skills/dgf-fix/references/PATCH-FORMAT.md` specifies:
+`{{dgf_runtime}}/skills/dgf-fix/references/PATCH-FORMAT.md` specifies:
 
 - the timestamp is now, to the minute, and the `date` field says the same;
 - the slug is a few lowercase words from the title, hyphenated, at most 50 characters. If a patch
@@ -204,7 +204,7 @@ Write `<root>/<paths.patches>/<YYYY-MM-DD-HH.mm>-<slug>.md` exactly as
 Then check it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir "<paths.patches>" "<root>/<paths.patches>/<name>"
+python3 "{{dgf_runtime}}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir "<paths.patches>" "<root>/<paths.patches>/<name>"
 ```
 
 | Exit | Action |
@@ -257,7 +257,7 @@ together. After several patches, suggest `/dgf-evolve`.
   fix and never edits or deletes another.
 - **Writes:** workspace files, only inside the plan's scope and only the ones Step 3 checked.
 - **Reads:** the plan, `.dgf-factory/config.yaml` and `DESCRIPTION.md`, its override after
-  `check_override.py`, the patches, the shipped `knowledge/`, and the DGF docs MCP. It never edits
+  `check_override.py`, the patches, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP. It never edits
   the plan.
 
 ## Critical Rules
@@ -269,4 +269,4 @@ together. After several patches, suggest `/dgf-evolve`.
 4. **Every fix writes a patch**, checked by `check_patches.py`.
 5. **Patches are append-only, and a patch never overrides a STOP.**
 6. **No gate block.** The gate is `/dgf-verify`.
-7. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts, knowledge and references.
+7. **`{{dgf_runtime}}` always** for dgf-factory's own scripts, knowledge and references.

@@ -30,6 +30,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   3  usage error, or no parity row — no route
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import sys
 
 from lib import cli, knowledge, report

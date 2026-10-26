@@ -2,9 +2,9 @@
 name: dgf-plan
 description: Plan a change to a DGF estate — a fast, full or ultra plan that says which workspaces it touches and, per task, whether it composes configuration or writes a little JavaScript or CSS, and why. Use for "plan a DGF change", "dgf plan", "new feature", "plan this change", "plan the workflow change", "ultra plan".
 argument-hint: "[fast | full | ultra] <description>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) Agent AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__search_docs mcp__plugin_dgf-factory_dgf-mcp__how_to_build mcp__plugin_dgf-factory_dgf-mcp__get_recipes_for mcp__plugin_dgf-factory_dgf-mcp__get_component_doc
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) Bash(git *) Agent AskUserQuestion mcp__dgf-mcp__search_docs mcp__dgf-mcp__how_to_build mcp__dgf-mcp__get_recipes_for mcp__dgf-mcp__get_component_doc
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF Plan — Plan a Change to the Estate
@@ -27,7 +27,7 @@ docs questions: the validators are a DGF plan's tests.
 ### Step 0: Load context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 - Exit `1` (`ROOT_NOT_SET_UP`) → **STOP**: "run `/dgf` in the workspaces root first".
@@ -40,7 +40,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-plan --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-plan --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -76,7 +76,7 @@ Never run `git init`.
 ### Step 1: Reconnaissance
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/inventory_root.py" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/inventory_root.py" --workspaces-root "<root>"
 ```
 
 Its `WORKSPACE:` lines are the **only** names `affects_workspaces` may use. An `applibs*`
@@ -97,9 +97,9 @@ each the root and a DGF-shaped question; they return summaries, never whole file
 - **How DGF builds it.** Ask the DGF docs MCP, yourself: `search_docs`, `how_to_build`,
   `get_recipes_for` and `get_component_doc` for the components the change needs.
 
-How a reference resolves is in `${CLAUDE_PLUGIN_ROOT}/knowledge/process-model.md` §2,
-`${CLAUDE_PLUGIN_ROOT}/knowledge/json-reader.md` §2.1, `${CLAUDE_PLUGIN_ROOT}/knowledge/data-model.md`
-§3 and `${CLAUDE_PLUGIN_ROOT}/knowledge/reference-graph.md` §1–§2. Cite those files; do not restate
+How a reference resolves is in `{{dgf_runtime}}/knowledge/process-model.md` §2,
+`{{dgf_runtime}}/knowledge/json-reader.md` §2.1, `{{dgf_runtime}}/knowledge/data-model.md`
+§3 and `{{dgf_runtime}}/knowledge/reference-graph.md` §1–§2. Cite those files; do not restate
 their rules from memory.
 
 ### Step 1.2: Identifier
@@ -160,7 +160,7 @@ For each artifact the change touches:
 3. **Route every new file:**
 
    ```bash
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <ComponentType, loader folder or legacy artifact type>
+   python3 "{{dgf_runtime}}/scripts/route_means.py" <ComponentType, loader folder or legacy artifact type>
    ```
 
    For a file under `FM/_COMPONENTS/<Folder>/`, pass `<Folder>`: a ComponentType, or one of the
@@ -170,12 +170,12 @@ For each artifact the change touches:
    XML artifact of its own. Exit `3` (`ROUTE_NO_ROW`) means no family can be chosen for that
    name: **STOP** and report it; never default to JSON.
 4. **Choose `kind`.** `config` for every JSON or XML file. `code` only when no component
-   property, `EventBase` verb (`${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §3.1) or
+   property, `EventBase` verb (`{{dgf_runtime}}/knowledge/composition-specs.md` §3.1) or
    DataFetcher can express the change. Its `reason` names the configuration route tried and
    cites the component doc, the schema or the verb list. "Quicker in JavaScript" is not a
    reason.
 5. **Code goes only where something loads it** (`code-places`,
-   `${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §5): a form's `_form.js`, new or
+   `{{dgf_runtime}}/knowledge/composition-specs.md` §5): a form's `_form.js`, new or
    existing; or an **existing** file under a workspace's `js/`, `FM/js/` or `css/`. A new file
    there loads nothing until a deployment mounts it — plan it under `## Scope` as out of scope.
 6. **Anything that needs C#, TypeScript, Angular, SQL, a plugin assembly or deployment
@@ -200,8 +200,8 @@ Required Detail Gate).
 
 ### Step 5: Save
 
-Write the plan exactly as `${CLAUDE_PLUGIN_ROOT}/skills/dgf-plan/references/PLAN-FORMAT.md`
-specifies for fast and full, or as `${CLAUDE_PLUGIN_ROOT}/skills/dgf-plan/references/ULTRA-FORMAT.md`
+Write the plan exactly as `{{dgf_runtime}}/skills/dgf-plan/references/PLAN-FORMAT.md`
+specifies for fast and full, or as `{{dgf_runtime}}/skills/dgf-plan/references/ULTRA-FORMAT.md`
 for ultra. For ultra, write the phase files first and `index.md` last, so its Phase Index and
 task links match them. Create the plans directory if it is missing.
 
@@ -211,7 +211,7 @@ For a full or ultra plan with git, offer `git -C "<root>" fetch` first: the over
 remote branches only as fresh as the last fetch, and it never fetches. Then:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan entrypoint>" --workspaces-root "<root>" --overlap
+python3 "{{dgf_runtime}}/scripts/check_plan.py" "<plan entrypoint>" --workspaces-root "<root>" --overlap
 ```
 
 Leave out `--overlap` when `git.enabled` is false.
@@ -261,7 +261,7 @@ Full and ultra plans stop here: the user reviews the plan before anything is imp
 - **Owns:** the plan artifacts — `<paths.plan>` for fast, `<paths.plans>/<stem>.md` for full,
   and `<paths.plans>/<stem>/` for ultra.
 - **Reads:** `.dgf-factory/config.yaml` and `DESCRIPTION.md` (owned by `/dgf`), the workspaces,
-  the shipped `knowledge/`, and the DGF docs MCP.
+  the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP.
 - **Never writes** a workspace file, the config, DESCRIPTION.md, or another branch's plan.
 
 ## Critical Rules
@@ -275,4 +275,4 @@ Full and ultra plans stop here: the user reviews the plan before anything is imp
 4. **The executor never re-decides.** Everything `/dgf-implement` needs — file, family,
    reference, reason — is in the plan, or the plan is not finished.
 5. **One plan per branch,** named by the branch. Ids are never numbered.
-6. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts and references.
+6. **`{{dgf_runtime}}` always** for dgf-factory's own scripts and references.

@@ -2,9 +2,9 @@
 name: dgf-verify
 description: Verify a branch's DGF change against its plan and the merge-base — every task done, every changed file inside the declared workspaces and means, and no new validator finding across the whole workspaces root — then relay the dgf-gate-result block the verify gate script computes. Use for "verify the change", "dgf verify", "check my work", "did we miss anything", "is this ready to commit".
 argument-hint: "[--strict]"
-allowed-tools: Read Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
 disable-model-invocation: false
-version: 0.3.0
+version: 0.4.0
 ---
 
 # DGF Verify — The Change Gate
@@ -30,14 +30,14 @@ context gates, Handoff and roadmap checks are dropped.
 ### Step 0.0: Config
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → the gate cannot run. Run the gate with no arguments, which reports the same finding
 in its block, relay its output verbatim, and **STOP**:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify_gate.py"
+python3 "{{dgf_runtime}}/scripts/verify_gate.py"
 ```
 
 Otherwise read `<root>/.dgf-factory/config.yaml`.
@@ -45,7 +45,7 @@ Otherwise read `<root>/.dgf-factory/config.yaml`.
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-verify --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-verify --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -64,14 +64,14 @@ would relax one of these.
 
 ### Step 0.1: Gate contract
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/dgf-verify/references/GATE-RESULT-CONTRACT.md` in full. It
+Read `{{dgf_runtime}}/skills/dgf-verify/references/GATE-RESULT-CONTRACT.md` in full. It
 says what the block holds, how the script computes the status, what each entry means, and which
 next commands it may suggest — so you can explain the block. You never write or edit one.
 
 ### Step 0.2: Find the plan
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -83,7 +83,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 The command without a plan, in full:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify_gate.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/verify_gate.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 ### Step 1: The base workspace
@@ -93,7 +93,7 @@ name the application workspaces the change reaches: every `WORKSPACE:` line with
 `role=application` from
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/inventory_root.py" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/inventory_root.py" --workspaces-root "<root>"
 ```
 
 The gate's whole-root run validates all of them (ADR 0005 rule 3). If the inventory reports
@@ -103,7 +103,7 @@ be checked against it.
 ### Step 2: Run the gate
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify_gate.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
+python3 "{{dgf_runtime}}/scripts/verify_gate.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>"
 ```
 
 Add `--strict` in strict mode, and `--no-overlap` when `git.enabled` is false. Never pass

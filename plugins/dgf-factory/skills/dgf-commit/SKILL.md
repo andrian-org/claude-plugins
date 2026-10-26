@@ -2,9 +2,9 @@
 name: dgf-commit
 description: Commit staged DGF changes with a conventional commit message scoped by workspace, following the plan's Commit Plan when there is one, after a warn-only check that the change stays inside its plan. Use for "commit", "dgf commit", "save changes", "create commit", "commit the plan", "commit the setup".
 argument-hint: "[scope or context]"
-allowed-tools: Read Glob Grep Bash(git *) Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(git *) Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF Commit — Conventional Commits for a DGF Estate
@@ -22,7 +22,7 @@ and adds workspace scopes and the change check. It never modifies the plan.
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 - Exit `0` → the `ROOT:` line is `<root>`. Read `<root>/.dgf-factory/config.yaml` for
@@ -35,7 +35,7 @@ An applied override's rules apply to the commit message too.
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-commit --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-commit --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -74,7 +74,7 @@ unasked.
 An argument starting with `@` is the plan. Otherwise:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -115,7 +115,7 @@ different reasons, a plan and a feature), suggest a split the same way.
 ### Step 4: The change check — warn only
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --skip-validators
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --skip-validators
 ```
 
 `--skip-validators` runs only the scope, means and planned checks; it needs neither `lxml` nor

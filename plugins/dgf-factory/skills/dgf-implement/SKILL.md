@@ -2,9 +2,9 @@
 name: dgf-implement
 description: Execute a dgf-factory plan task by task — compose DGF configuration (modern JSON first, legacy XML where the route says so, a little JavaScript or CSS only for kind code tasks), validate each task against the merge-base, and tick the plan's checkboxes. Use for "implement the plan", "dgf implement", "continue implementation", "execute the plan", "next task".
 argument-hint: "[--list] [@plan] [task-id | status]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(git *) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details mcp__plugin_dgf-factory_dgf-mcp__get_component_examples mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) Bash(git *) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF Implement — Execute the Plan
@@ -56,7 +56,7 @@ them, or cancel. Never discard them.
 ### Step 0.1: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`). Otherwise read
@@ -67,7 +67,7 @@ An override holds project rules that apply to every file this skill writes.
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-implement --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-implement --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -91,7 +91,7 @@ this skill, the plan or a STOP.
 Skip this step for `@<path>`. Otherwise, with the config's paths:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -103,7 +103,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 ### Step 1: Load and check the plan
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
 ```
 
 | Exit | Action |
@@ -120,7 +120,7 @@ question means the bundle is not implementation-ready — **STOP** and send it b
 ### Step 2: Progress
 
 Build the display from the `TASK:` and `PROGRESS:` lines, in the format of
-`${CLAUDE_PLUGIN_ROOT}/skills/dgf-implement/references/IMPLEMENTATION-GUIDE.md`. The next task
+`{{dgf_runtime}}/skills/dgf-implement/references/IMPLEMENTATION-GUIDE.md`. The next task
 is the first unchecked one whose dependencies are all checked, or Task N when given. When no
 task is unchecked, go to Step 5. For `status`, **STOP** here.
 
@@ -140,13 +140,13 @@ a file it calls new exists — **STOP and report the drift**. Do not choose a ne
 - **An existing file keeps its family.** Read it with:
 
   ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" "<root>/<file>"
+  python3 "{{dgf_runtime}}/scripts/validate_config.py" "<root>/<file>"
   ```
 
   and take its `FAMILY:` line. Edit it in that family; never convert it. Exit `3` with
   `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim.
 - **A new configuration file follows its route.** Run
-  `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type, loader folder or legacy artifact>`
+  `python3 "{{dgf_runtime}}/scripts/route_means.py" <Type, loader folder or legacy artifact>`
   — for a file under `FM/_COMPONENTS/<Folder>/`, pass `<Folder>` — and confirm the plan's path
   matches its `ROUTE:` line: `json` under `<ws>/FM/_COMPONENTS/<Type>/`, `xml` at the legacy
   artifact's folder and filename. A mismatch is drift: **STOP**. Exit `2` is
@@ -161,19 +161,19 @@ a file it calls new exists — **STOP and report the drift**. Do not choose a ne
 
 Take every fact from the shipped knowledge and the DGF docs MCP, never from memory:
 
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/component-catalogue.md` — which components the runtime
+- `{{dgf_runtime}}/knowledge/component-catalogue.md` — which components the runtime
   dispatches;
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/json-reader.md` — how the runtime reads component JSON, and
+- `{{dgf_runtime}}/knowledge/json-reader.md` — how the runtime reads component JSON, and
   how a component file reference resolves (§2.1);
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` — artifact folders (§1–§2), the
+- `{{dgf_runtime}}/knowledge/composition-specs.md` — artifact folders (§1–§2), the
   `EventBase` verbs and DataFetcher (§3), where script and style load from (§5);
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/process-model.md` — how process and workflow references
+- `{{dgf_runtime}}/knowledge/process-model.md` — how process and workflow references
   resolve (§2), and the reserved `End` (§3);
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/data-model.md` — entities, fields and their relations, how each
+- `{{dgf_runtime}}/knowledge/data-model.md` — entities, fields and their relations, how each
   model loader resolves a table, view, dialog, grid or form (§3), and which cells a form binds (§4);
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/reference-graph.md` — every reference a configuration file
+- `{{dgf_runtime}}/knowledge/reference-graph.md` — every reference a configuration file
   makes, how it resolves, and what the runtime does when its target is missing (§1–§2);
-- the vendored schemas under `${CLAUDE_PLUGIN_ROOT}/knowledge/schemas/` — `json/` for component
+- the vendored schemas under `{{dgf_runtime}}/knowledge/schemas/` — `json/` for component
   JSON, `xsd/` for legacy XML;
 - the DGF docs MCP: `get_component_doc`, `get_json_schema_details`, `get_component_examples`,
   `get_xml_property_reference`.
@@ -190,7 +190,7 @@ why. That work belongs to a general coding flow (ADR 0010 §3).
 With git:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <the task's files that exist>
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <the task's files that exist>
 ```
 
 **A task with `deletes`** runs the same command without `--files`: the whole root is the only run
@@ -200,7 +200,7 @@ Without git, give the change set yourself — `A:` for a file this task created,
 edited, `D:` for one it deleted:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> M:<file> --files <the task's files that exist>
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> M:<file> --files <the task's files that exist>
 ```
 
 Again, leave out `--files` for a task with `deletes`.
@@ -263,7 +263,7 @@ count, and suggest **`/dgf-verify`** — the whole-root gate — before `/dgf-co
 - **Writes:** the workspace files the current task lists in `files`, and removes those in
   `deletes`.
 - **Reads:** the plan, `.dgf-factory/config.yaml` and `DESCRIPTION.md`, the skill-context
-  override and patches when present, the shipped `knowledge/`, and the DGF docs MCP.
+  override and patches when present, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP.
 
 ## Critical Rules
 
@@ -274,4 +274,4 @@ count, and suggest **`/dgf-verify`** — the whole-root gate — before `/dgf-co
 4. **Every task is validated** before its checkbox is ticked. A task that does not validate is
    not done.
 5. **The per-task check is not the gate.** Only `/dgf-verify`'s whole-root run can pass one.
-6. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts, knowledge and schemas.
+6. **`{{dgf_runtime}}` always** for dgf-factory's own scripts, knowledge and schemas.

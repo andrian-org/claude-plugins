@@ -217,6 +217,49 @@ class Conflicts(Base):
     def test_a_missing_folder_is_empty(self):
         self.assertEqual(design.check(Path(self.tmp) / "nowhere", empty_only=True).exit_code, 0)
 
+    def install(self, path, extra_files=()):
+        """What `dgf-factory setup` leaves in a folder: the runtime, the receipt, a skill and the MCP file."""
+        receipt = {"tool": "dgf-factory", "version": "0.2.0", "harnesses": [{"id": "claude", "selected": True}],
+                   "files": {".claude/skills/dgf-scaffold/SKILL.md": {},
+                             ".dgf-factory/runtime/scripts/locate_plan.py": {}},
+                   "mcp": {"claude": {"file": ".mcp.json", "key": "dgf-mcp", "entryHash": "x"}}}
+        files = {".dgf-factory/install.json": json.dumps(receipt),
+                 ".dgf-factory/runtime/scripts/locate_plan.py": "#",
+                 ".dgf-factory/runtime/.venv/bin/python": "",
+                 ".claude/skills/dgf-scaffold/SKILL.md": "---\n",
+                 ".mcp.json": "{}\n"}
+        files.update({rel: "x" for rel in extra_files})
+        helpers.make_root(path, files)
+        return path
+
+    def test_the_install_footprint_counts_as_empty(self):
+        path = self.install(Path(self.tmp) / "installed")
+        self.assertEqual(design.check(path, empty_only=True).exit_code, 0)
+
+    def test_a_file_the_receipt_does_not_list_is_named(self):
+        path = self.install(Path(self.tmp) / "installed", [".claude/skills/mine/SKILL.md"])
+        result = design.check(path, empty_only=True)
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn(".claude/skills/mine/SKILL.md", "\n".join(f.message for f in result.rep.findings))
+
+    def test_an_estate_set_up_by_dgf_is_not_empty(self):
+        path = self.install(Path(self.tmp) / "installed", [".dgf-factory/config.yaml"])
+        result = design.check(path, empty_only=True)
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn(".dgf-factory/config.yaml", "\n".join(f.message for f in result.rep.findings))
+
+    def test_without_a_receipt_nothing_changes(self):
+        path = Path(self.tmp) / "plain"
+        helpers.make_root(path, {".mcp.json": "{}\n"})
+        self.assertEqual(design.check(path, empty_only=True).exit_code, 1)
+
+    def test_an_unreadable_receipt_is_exit_3(self):
+        path = Path(self.tmp) / "broken"
+        helpers.make_root(path, {".dgf-factory/install.json": "{nope"})
+        with self.assertRaises(SystemExit) as ctx:
+            design.check(path, empty_only=True)
+        self.assertEqual(ctx.exception.code, 3)
+
     def test_name_invalid(self):
         doc = example()
         doc["application"]["name"] = "9 Bad name"

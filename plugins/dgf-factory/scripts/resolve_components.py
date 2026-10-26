@@ -33,6 +33,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   3  usage error, missing dependency, unresolved family, no selectable schema
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import sys
 from collections import Counter
 

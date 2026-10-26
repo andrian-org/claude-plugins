@@ -49,7 +49,7 @@ The keys are exactly these six, plus `archived`, which is reserved and ignored. 
 | `base_workspace_reason` | required when `webasm` is listed: why every application must see this change | `PLAN_BASE_REASON_MISSING` |
 
 An `applibs*` folder is never a workspace: it holds plugin assemblies and no `FM/`
-(`${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §1.2).
+(`{{dgf_runtime}}/knowledge/composition-specs.md` §1.2).
 
 ## The body — sections in this order
 
@@ -133,7 +133,7 @@ checked all the same.
 ## Which files a task may name
 
 Every path is in exactly one class (ADR 0017 §3). Where script and style may go is read from
-the `code-places` table in `${CLAUDE_PLUGIN_ROOT}/knowledge/composition-specs.md` §5.
+the `code-places` table in `{{dgf_runtime}}/knowledge/composition-specs.md` §5.
 
 | Class | Paths | May appear in |
 |---|---|---|
@@ -148,7 +148,7 @@ A new configuration file must follow its route:
   as the ComponentType member or the loader folder (`DataTable`, `DataSource` — not
   `datasource`), and only when `route_means.py <Type>` answers `json`. The loader folders —
   `DataSource`, `Template`, `Endpoints` — are always JSON: their loaders read nothing else
-  (`${CLAUDE_PLUGIN_ROOT}/knowledge/json-reader.md` §4). A name may continue into subfolders
+  (`{{dgf_runtime}}/knowledge/json-reader.md` §4). A name may continue into subfolders
   (`Page/SiteMap/loginPage.json`); a file directly under `_COMPONENTS/` is the site map.
 - **The five legacy types** — form, workflow, process, settings, view — stay XML, at the folder
   and filename `route_means.py` prints. Never `_form.json` or `process.json`.

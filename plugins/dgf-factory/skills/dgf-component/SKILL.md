@@ -2,9 +2,9 @@
 name: dgf-component
 description: Inspect, validate or scaffold a DGF component — modern JSON under FM/_COMPONENTS or a legacy form, view, grid or options file — in both schema families and parity-aware, writing only inside the active plan's scope. Use for "add a component", "check this component", "is this component valid", "scaffold a DataTable", "what uses this component".
 argument-hint: "[inspect | validate | scaffold] <file, Type/name or Type>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/*) AskUserQuestion mcp__plugin_dgf-factory_dgf-mcp__get_component_doc mcp__plugin_dgf-factory_dgf-mcp__get_json_schema_details mcp__plugin_dgf-factory_dgf-mcp__get_component_examples mcp__plugin_dgf-factory_dgf-mcp__get_xml_property_reference mcp__plugin_dgf-factory_dgf-mcp__build_form_xml
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__build_form_xml
 disable-model-invocation: false
-version: 0.1.0
+version: 0.2.0
 ---
 
 # DGF Component — Inspect, Validate or Scaffold a Component, in Both Families
@@ -28,7 +28,7 @@ DGF docs MCP for composition. It emits no gate block: the gate is `/dgf-verify`.
 ### Step 0: Context
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --root-only
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`; `ROOT_AMBIGUOUS`: name the
@@ -39,7 +39,7 @@ root). Exit `3` → **STOP** and relay it. Otherwise the `ROOT:` line is `<root>
 Check this skill's override before reading it:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-component --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
+python3 "{{dgf_runtime}}/scripts/check_override.py" --workspaces-root "<root>" --skill dgf-component --skill-context-dir "<paths.skill_context>" --patches-dir "<paths.patches>"
 ```
 
 | Exit | Action |
@@ -75,8 +75,8 @@ is more than one. No match → say so, and offer `scaffold`.
 Run each, and relay what it says:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" "<root>/<file>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_components.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_config.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/resolve_components.py" "<root>/<file>"
 ```
 
 | Exit | Action |
@@ -84,12 +84,12 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_components.py" "<root>/<file>"
 | `0` | Relay the `FAMILY:` line — the file's family, `json` or `xsd` — and any `INFO` line. |
 | `1` | Relay every `ERROR` line: each is a defect the file has now. Inspect on. |
 | `2` | Relay every `WARN`. `PARITY_NOT_RUNTIME` or `PARITY_PARTIAL` → the runtime does not read this component from JSON, or reads part of it from XML: say it plainly, whatever the schema says. `XSD_LAGS_RUNTIME` is advisory: the legacy grammar lags the runtime (ADR 0016). |
-| `3` | The file's own defect: `FAMILY_UNRESOLVED` — it parses as neither XML nor JSON — or `SCHEMA_UNSELECTABLE` naming its root — XML whose root no XSD reads. Relay it, and inspect on: the route, the reach and, for a form, `validate_model.py` still apply. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | The file's own defect: `FAMILY_UNRESOLVED` — it parses as neither XML nor JSON — or `SCHEMA_UNSELECTABLE` naming its root — XML whose root no XSD reads. Relay it, and inspect on: the route, the reach and, for a form, `validate_model.py` still apply. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the installed runtime cannot read one of its own schemas — run `/dgf-doctor`, then re-run `dgf-factory setup`. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 For the route a new component of this type would take, and its parity row:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type or legacy artifact>
+python3 "{{dgf_runtime}}/scripts/route_means.py" <Type or legacy artifact>
 ```
 
 | Exit | Action |
@@ -102,18 +102,18 @@ For what uses it — the processes that reach the file in each application, and 
 referrers:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
+python3 "{{dgf_runtime}}/scripts/audit_root.py" --workspaces-root "<root>" --reach <root-relative file>
 ```
 
 | Exit | Action |
 |---|---|
 | `0` | Relay its `PROCESS:` and `REFERRER:` lines per application, any `AUDIT_REFERENCE_DYNAMIC` note, and its `LIMIT:` line verbatim: a reach is never complete. |
-| `3` | `AUDIT_REACH_NOT_ARTIFACT` → the path is not a configuration file under the root, exactly as written — check its case against the file on disk, which the message names — and say so; `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim; `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall; `AUDIT_CHECK_FAILED` → **STOP** and relay it with the lines before it: a check raised, so the reach is incomplete. Otherwise a usage error on stderr — a path that is absolute or leaves the root, or a root with no application — → **STOP** and relay it. |
+| `3` | `AUDIT_REACH_NOT_ARTIFACT` → the path is not a configuration file under the root, exactly as written — check its case against the file on disk, which the message names — and say so; `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim; `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the installed runtime cannot read one of its own schemas — run `/dgf-doctor`, then re-run `dgf-factory setup`; `AUDIT_CHECK_FAILED` → **STOP** and relay it with the lines before it: a check raised, so the reach is incomplete. Otherwise a usage error on stderr — a path that is absolute or leaves the root, or a root with no application — → **STOP** and relay it. |
 
 For a legacy form, check that its entity's `settings.xml` is there and every bound cell names one of its fields — whether the entity itself loads is its `settings.xml`'s own check (`/dgf-model`):
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
 ```
 
 | Exit | Action |
@@ -129,8 +129,8 @@ family, parity, the checks' findings, who reaches it, and what the component doe
 ### Step 2: Validate (read-only)
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" <files or directories>
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_components.py" <files or directories>
+python3 "{{dgf_runtime}}/scripts/validate_config.py" <files or directories>
+python3 "{{dgf_runtime}}/scripts/resolve_components.py" <files or directories>
 ```
 
 Both families are validated: a directory walk collects the component JSON and the legacy artifact
@@ -141,14 +141,14 @@ files alike. Relay every `ERROR` and `WARN` line, and each script's exit:
 | `0` | Clean in both checks |
 | `1` | Blocked — an `ERROR` line names each defect, for example `COMPONENT_FILE_UNRESOLVED` |
 | `2` | Warnings — parity, a lagging grammar, an unknown property the runtime ignores |
-| `3` | A file's own defect: `FAMILY_UNRESOLVED` — it parses as neither XML nor JSON — or `SCHEMA_UNSELECTABLE` naming its root or a missing `type`. Relay it with the other findings. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin cannot read one of its own schemas — run `/dgf-doctor` and reinstall. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error — → **STOP** and relay it. |
+| `3` | A file's own defect: `FAMILY_UNRESOLVED` — it parses as neither XML nor JSON — or `SCHEMA_UNSELECTABLE` naming its root or a missing `type`. Relay it with the other findings. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the installed runtime cannot read one of its own schemas — run `/dgf-doctor`, then re-run `dgf-factory setup`. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other — a usage error — → **STOP** and relay it. |
 
 Suggest `/dgf-plan` for a defect worth fixing, or `/dgf-fix` when a plan already covers the file.
 
 ### Step 3: Scaffold — the plan
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
+python3 "{{dgf_runtime}}/scripts/locate_plan.py" --workspaces-root "<root>" --plans-dir "<paths.plans>" --fast-plan "<paths.plan>"
 ```
 
 | Exit | Action |
@@ -160,7 +160,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/locate_plan.py" --workspaces-root "<root>
 | `3` | **STOP** and relay it. |
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
+python3 "{{dgf_runtime}}/scripts/check_plan.py" "<plan>" --workspaces-root "<root>"
 ```
 
 | Exit | Action |
@@ -173,7 +173,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_plan.py" "<plan>" --workspaces-root
 ### Step 4: Scaffold — the route and the owner
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/route_means.py" <Type or legacy artifact>
+python3 "{{dgf_runtime}}/scripts/route_means.py" <Type or legacy artifact>
 ```
 
 | Exit | Action |
@@ -194,7 +194,7 @@ scaffold never overwrites, and an edit belongs to a plan task (`/dgf-implement`)
 ### Step 5: Scaffold — scope, decided by the script before the write
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --changed A:<file> --skip-validators
 ```
 
 | Exit | Action |
@@ -210,13 +210,13 @@ Compose from the DGF docs MCP and the shipped knowledge, never from memory:
 
 - **JSON:** read `get_json_schema_details` for the component's schema and `get_component_examples`
   for its type, then write the smallest valid file. The `type` key is exact-case: the member name
-  as `knowledge/json-reader.md` §2 spells it. Property names and enum member names match in any
+  as `{{dgf_runtime}}/knowledge/json-reader.md` §2 spells it. Property names and enum member names match in any
   case (§1 there), but write them as the schema spells them — except an enum member with a custom
   JSON name, such as `LinkTarget`'s `_blank`: it is read only as that name, exactly, and never by the
   C# name the schema lists (§1's `enum-member-names` table).
 - **A legacy form:** build it with `build_form_xml` from a FormSpec, then adjust it by hand from
   `get_xml_property_reference`. Every bound cell names a field of the entity
-  (`knowledge/data-model.md` §4): a cell that names no field makes the form fail to load.
+  (`{{dgf_runtime}}/knowledge/data-model.md` §4): a cell that names no field makes the form fail to load.
 - **A view, grid form or options file:** from `get_xml_property_reference` and the entity's fields.
 
 Write only the file Step 5 checked.
@@ -224,14 +224,14 @@ Write only the file Step 5 checked.
 ### Step 7: Scaffold — confirm
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_config.py" "<root>/<file>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_components.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_config.py" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/resolve_components.py" "<root>/<file>"
 ```
 
 For a form, also:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
+python3 "{{dgf_runtime}}/scripts/validate_model.py" --workspaces-root "<root>" "<root>/<file>"
 ```
 
 Each script's exit:
@@ -241,12 +241,12 @@ Each script's exit:
 | `0` | Continue to the change check. |
 | `1` | An `ERROR` → correct the file and re-run, at most 3 attempts, then **STOP** with the findings. |
 | `2` | Surface every `WARN`, a `PARITY_*` one said plainly. The change check below decides what strict mode does with it. |
-| `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts: JSON cut short, XML with no declaration that does not parse, or a root no XSD reads — the message says which. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the plugin's own defect — run `/dgf-doctor` and reinstall. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
+| `3` | `FAMILY_UNRESOLVED`, or `SCHEMA_UNSELECTABLE` naming its root, on the file written → correct it, within the same 3 attempts: JSON cut short, XML with no declaration that does not parse, or a root no XSD reads — the message says which. `SCHEMA_UNSELECTABLE` naming a schema dialect → **STOP**: the installed runtime's own defect — run `/dgf-doctor`, then re-run `dgf-factory setup`. `DEPENDENCY_MISSING` → **STOP** and relay the install command verbatim. Any other → **STOP** and relay it. |
 
 Then the change check over the new file — with git:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <file>
+python3 "{{dgf_runtime}}/scripts/check_change.py" --workspaces-root "<root>" --plan "<plan>" --base "<git.base_branch>" --files <file>
 ```
 
 — without git, `--changed A:<file> --files <file>` in place of `--base`.
@@ -272,7 +272,7 @@ scaffold — the file written and any `CHANGE_UNPLANNED_FILE`. After a scaffold,
 - ✅ Resolve the family first, and handle both — JSON and legacy XML
 - ✅ Relay `PARITY_*` warnings: a schema that validates is not the runtime reading it
 - ✅ Find and check the plan, and decide the scope with `check_change.py --skip-validators`, before a scaffold writes
-- ✅ Compose from the DGF docs MCP and `knowledge/`, and confirm with the same scripts
+- ✅ Compose from the DGF docs MCP and `{{dgf_runtime}}/knowledge/`, and confirm with the same scripts
 - ✅ Relay every `LIMIT:` line of a reach, verbatim
 
 ### DON'T:
@@ -288,7 +288,7 @@ scaffold — the file written and any `CHANGE_UNPLANNED_FILE`. After a scaffold,
 - **Writes:** one new component file per scaffold — JSON under `FM/_COMPONENTS/`, or a legacy
   `form`, `table-view`, `lookup-view`, `grid-form` or `options` file — only inside the plan's scope.
 - **Reads:** the plan, `.dgf-factory/config.yaml`, its override after `check_override.py`, the
-  patches, the shipped `knowledge/`, and the DGF docs MCP. It never edits the plan.
+  patches, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP. It never edits the plan.
 
 ## Critical Rules
 
@@ -299,4 +299,4 @@ scaffold — the file written and any `CHANGE_UNPLANNED_FILE`. After a scaffold,
 4. **One owner per artifact.** Processes and workflows are `/dgf-process`'s; `settings.xml` is
    `/dgf-model`'s.
 5. **Never tick a checkbox, and no gate block.**
-6. **`${CLAUDE_PLUGIN_ROOT}` always** for the plugin's own scripts, knowledge and references.
+6. **`{{dgf_runtime}}` always** for dgf-factory's own scripts, knowledge and references.

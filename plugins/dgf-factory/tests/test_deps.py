@@ -60,6 +60,31 @@ class InstallCommand(unittest.TestCase):
         self.assertIn(f'"{deps.REQUIREMENTS}"', command)
         self.assertTrue(deps.REQUIREMENTS.is_absolute())
 
+    def test_an_installed_runtime_installs_into_its_own_venv(self):
+        with mock.patch.object(deps, "installed", return_value=True):
+            command = deps.install_command()
+        self.assertNotIn("--user", command)
+        self.assertIn(f'-m venv "{deps.RUNTIME_ROOT / ".venv"}"', command)
+        self.assertIn(f'"{deps.venv_python()}" -m pip install --require-hashes -r "{deps.REQUIREMENTS}"', command)
+
+    def test_an_installed_runtime_names_setup_in_the_message(self):
+        err = io.StringIO()
+        with mock.patch.object(deps, "installed", return_value=True), \
+                mock.patch("builtins.__import__", _import_without("lxml")), \
+                contextlib.redirect_stderr(err), self.assertRaises(SystemExit):
+            deps.require()
+        self.assertIn("dgf-factory setup", err.getvalue())
+
+    def test_installed_reads_the_receipt_beside_the_runtime(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime_root = Path(tmp) / ".dgf-factory" / "runtime"
+            runtime_root.mkdir(parents=True)
+            self.assertFalse(deps.installed(runtime_root))
+            (runtime_root.parent / "install.json").write_text("{}")
+            self.assertTrue(deps.installed(runtime_root))
+
 
 if __name__ == "__main__":
     unittest.main()

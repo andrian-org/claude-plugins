@@ -22,6 +22,9 @@ Exit codes (contract, see .ai-factory/rules/base.md):
   3  usage error, missing dependency, unresolved family, not a process or workflow
 """
 
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
 import sys
 from pathlib import Path
 
