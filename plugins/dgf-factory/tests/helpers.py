@@ -88,6 +88,8 @@ def run_cli_blocking(script, *args, blocked=("lxml", "jsonschema"), cwd=None):
     env = dict(os.environ)
     env.pop("DEBUG", None)
     env.pop("LOG_LEVEL", None)
+    # the blocking lives in this interpreter: a re-exec into a project .venv would import them after all (ADR 0031)
+    env["DGF_NO_VENV"] = "1"
     proc = subprocess.run([sys.executable, "-c", program], capture_output=True, text=True, env=env, cwd=cwd)
     return proc.returncode, proc.stdout, proc.stderr
 
