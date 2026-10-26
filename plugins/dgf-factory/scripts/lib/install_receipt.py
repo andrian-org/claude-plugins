@@ -71,6 +71,38 @@ def footprint(root):
     return frozenset(found)
 
 
+# --- the receipt's hash: cli/hash.mjs restated, held to tests/fixtures/hash/expected.json ---------
+
+TRAILING = " \t\r\n"
+
+
+def is_text(data):
+    """UTF-8 that holds no NUL byte."""
+    if b"\x00" in data:
+        return False
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def normalise(text):
+    """CRLF becomes LF; the trailing run of spaces, tabs, CRs and LFs at the end is dropped."""
+    return text.replace("\r\n", "\n").rstrip(TRAILING)
+
+
+def hash_bytes(data):
+    """SHA-256, lower-case hex, of normalised text or of the raw bytes (ADR 0029 §4)."""
+    import hashlib
+    payload = normalise(data.decode("utf-8")).encode("utf-8") if is_text(data) else data
+    return hashlib.sha256(payload).hexdigest()
+
+
+def hash_file(path):
+    return hash_bytes(Path(path).read_bytes())
+
+
 def is_pipeline(rel_path):
     """True for anything under `.dgf-factory/` — the pipeline's state and the installed runtime."""
     parts = [p for p in str(rel_path).replace("\\", "/").split("/") if p not in ("", ".")]

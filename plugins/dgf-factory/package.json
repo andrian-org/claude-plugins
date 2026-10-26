@@ -1,0 +1,52 @@
+{
+  "name": "@andrian-org/dgf-factory",
+  "version": "0.2.0",
+  "description": "Installs the dgf-factory pipeline — DotGov Framework-aware plan/implement/verify skills and their dual-schema validators — into a project, for every AI harness you use.",
+  "type": "module",
+  "bin": {
+    "dgf-factory": "bin/dgf-factory.mjs"
+  },
+  "files": [
+    "bin",
+    "cli",
+    "skills",
+    "scripts",
+    "knowledge",
+    "!**/__pycache__",
+    "!**/*.pyc",
+    "!skills/dgf-scaffold/templates/solution/obj",
+    "!skills/dgf-scaffold/templates/solution/bin"
+  ],
+  "scripts": {
+    "test": "node --test tests/cli/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18.3"
+  },
+  "author": {
+    "name": "dotGov Solutions",
+    "email": "andrian.mamei@dotgovsolutions.net"
+  },
+  "homepage": "https://github.com/andrian-org/claude-plugins",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrian-org/claude-plugins.git",
+    "directory": "plugins/dgf-factory"
+  },
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "keywords": [
+    "dgf",
+    "dotgov-framework",
+    "dotnet",
+    "angular",
+    "validation",
+    "json-schema",
+    "xsd",
+    "claude-code",
+    "codex",
+    "gemini"
+  ]
+}

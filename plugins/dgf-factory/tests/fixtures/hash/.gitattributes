@@ -1,0 +1,4 @@
+# The hash fixtures are byte-exact on purpose: CRLF, a BOM and trailing whitespace are what they test.
+* -text
+.gitattributes text eol=lf
+expected.json text eol=lf

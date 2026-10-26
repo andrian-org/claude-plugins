@@ -16,6 +16,12 @@ bin/
 obj/
 .vs/
 *.user
+# ...but an npm package's bin/ is source
+!/plugins/dgf-factory/bin/
+
+# Node: dependencies and packed tarballs
+node_modules/
+*.tgz
 
 # Claude Code: each contributor's personal settings
 **/.claude/settings.local.json

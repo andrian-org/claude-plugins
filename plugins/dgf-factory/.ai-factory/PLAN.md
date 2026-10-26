@@ -538,7 +538,7 @@ From this plugin:
 
 ### Phase 3: CLI core
 
-- [ ] **Task 8: The package skeleton.** (depends on 2)
+- [x] **Task 8: The package skeleton.** (depends on 2)
   Create `package.json` at the plugin root (`plugins/dgf-factory/`):
   - `name: @andrian-org/dgf-factory`;
   - `version: 0.2.0`;
@@ -572,7 +572,7 @@ From this plugin:
   `3`. Files: `package.json`, `bin/dgf-factory.mjs`, `cli/main.mjs`, `cli/log.mjs`, `cli/paths.mjs`,
   `../../.gitignore`, `tests/cli/main.test.mjs`.
 
-- [ ] **Task 9: The harness registry and transformers.** (depends on 8)
+- [x] **Task 9: The harness registry and transformers.** (depends on 8)
   `cli/harnesses.mjs` holds all 16 entries from AI Factory 2.19.0 `dist/core/agents.js:7-174`, with
   the same id, displayName, configDir, skillsDir, agentsDir and settingsFile. A comment cites the
   version and lines.
@@ -602,7 +602,7 @@ From this plugin:
   skill renders with zero replacements but contains `python3`. Files: `cli/harnesses.mjs`,
   `cli/transform.mjs`, `tests/cli/harnesses.test.mjs`, `tests/cli/transform.test.mjs`.
 
-- [ ] **Task 10: Hashing, the receipt and the atomic writer.** (depends on 6, 8)
+- [x] **Task 10: Hashing, the receipt and the atomic writer.** (depends on 6, 8)
   - `cli/hash.mjs` implements the ADR 0029 hashing rule. Its Python twin, `hash_file`, is added to
     `scripts/lib/install_receipt.py` (Task 6) for the doctor.
   - Both are tested against one shared fixture, `tests/fixtures/hash/` (CRLF text, a trailing-newline
