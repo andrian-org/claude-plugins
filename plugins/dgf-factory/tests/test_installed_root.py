@@ -23,9 +23,10 @@ RECEIPT = {
     "version": "0.2.0",
     "harnesses": [{"id": "claude", "selected": True}],
     "files": {
-        ".claude/skills/dgf-plan/SKILL.md": {"source": "skills/dgf-plan/SKILL.md", "sourceHash": "a", "installedHash": "b"},
+        ".claude/skills/dgf-plan/SKILL.md": {"source": "skills/dgf-plan/SKILL.md", "owner": "claude",
+                                             "sourceHash": "a", "installedHash": "b"},
         ".dgf-factory/runtime/skills/dgf-scaffold/templates/workspace/FM/_PROCESS/Case/process.xml":
-            {"source": "skills/dgf-scaffold/templates/workspace/FM/_PROCESS/Case/process.xml",
+            {"source": "skills/dgf-scaffold/templates/workspace/FM/_PROCESS/Case/process.xml", "owner": "runtime",
              "sourceHash": "c", "installedHash": "d"},
     },
     "mcp": {"claude": {"file": ".mcp.json", "key": "dgf-mcp", "entryHash": "e"}},
@@ -88,6 +89,28 @@ class Footprint(Base):
         with self.assertRaises(install_receipt.ReceiptError):
             install_receipt.footprint(self.root)
 
+    def test_an_entry_setup_never_writes_is_left_out_and_named(self):
+        bad = json.loads(json.dumps(RECEIPT))
+        entry = {"source": "x", "sourceHash": "a", "installedHash": "b"}
+        bad["files"].update({
+            PROCESS: dict(entry, owner="runtime"),                                # an estate file, as runtime
+            "app/FM/_WORKFLOW/w.xml": dict(entry, owner="claude"),                # outside claude's folders
+            ".claude/skills/x/.git/hooks/pre-commit": dict(entry, owner="claude"),  # a .git folder
+            ".cursor/skills/dgf/SKILL.md": dict(entry, owner="claude"),           # another harness's folder
+            ".claude/agents/a.md": dict(entry, owner="nobody"),                   # an unknown owner
+            ".claude/agents/dgf-x.md": dict(entry, owner="claude"),               # fine: claude's agents
+        })
+        bad["mcp"]["gemini"] = {"file": "app/FM/_PROCESS/Case/process.xml", "key": "dgf-mcp", "entryHash": "e"}
+        (self.root / ".dgf-factory" / "install.json").write_text(json.dumps(bad), encoding="utf-8")
+        found = install_receipt.footprint(self.root)
+        self.assertNotIn(PROCESS, found)
+        self.assertIn(".claude/agents/dgf-x.md", found)
+        self.assertEqual(found & {"app/FM/_WORKFLOW/w.xml", ".claude/skills/x/.git/hooks/pre-commit",
+                                  ".cursor/skills/dgf/SKILL.md", ".claude/agents/a.md"}, set())
+        self.assertEqual(sorted(rel for _, rel, _ in install_receipt.ignored(self.root)), sorted([
+            PROCESS, PROCESS, "app/FM/_WORKFLOW/w.xml", ".claude/skills/x/.git/hooks/pre-commit",
+            ".cursor/skills/dgf/SKILL.md", ".claude/agents/a.md"]))
+
     def test_each_wrong_type_is_refused_not_a_traceback(self):
         for bad in ([], {"files": []}, {"files": {}, "mcp": {"claude": "x"}}, {"files": {"": {}}},
                     {"files": {}, "mcp": {"claude": {"file": 3}}}):
@@ -114,6 +137,19 @@ class ChangeChecks(Base):
         self.assertEqual(code, 3, err)
         self.assertIn("INSTALL_RECEIPT_UNREADABLE", err)
         self.assertNotIn("Traceback", err)
+
+    def test_an_estate_file_listed_in_the_receipt_still_counts_as_a_change(self):
+        # the reviewer's case: listing an estate file in the receipt turned CHANGE_UNDECLARED_WORKSPACE clean
+        other = "other/FM/_PROCESS/Case/process.xml"
+        (self.root / "other" / "FM" / "_PROCESS" / "Case").mkdir(parents=True)
+        (self.root / other).write_text(GOOD_PROCESS, encoding="utf-8")
+        bad = json.loads(json.dumps(RECEIPT))
+        bad["files"][other] = {"source": "scripts/x.py", "owner": "runtime", "sourceHash": "a", "installedHash": "b"}
+        (self.root / ".dgf-factory" / "install.json").write_text(json.dumps(bad), encoding="utf-8")
+        code, found = self.check(f"M:{PROCESS}", f"M:{other}")
+        self.assertEqual(code, 1, self.out)
+        self.assertIn("CHANGE_UNDECLARED_WORKSPACE", found)
+        self.assertIn("INSTALL_RECEIPT_ENTRY_IGNORED", found)
 
     def test_own_changes_without_a_root_keeps_the_old_behaviour(self):
         from lib import git

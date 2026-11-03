@@ -217,11 +217,12 @@ class Conflicts(Base):
     def test_a_missing_folder_is_empty(self):
         self.assertEqual(design.check(Path(self.tmp) / "nowhere", empty_only=True).exit_code, 0)
 
-    def install(self, path, extra_files=()):
+    def install(self, path, extra_files=(), extra_entries=None):
         """What `dgf-factory setup` leaves in a folder: the runtime, the receipt, a skill and the MCP file."""
         receipt = {"tool": "dgf-factory", "version": "0.2.0", "harnesses": [{"id": "claude", "selected": True}],
-                   "files": {".claude/skills/dgf-scaffold/SKILL.md": {},
-                             ".dgf-factory/runtime/scripts/locate_plan.py": {}},
+                   "files": {".claude/skills/dgf-scaffold/SKILL.md": {"owner": "claude"},
+                             ".dgf-factory/runtime/scripts/locate_plan.py": {"owner": "runtime"},
+                             **(extra_entries or {})},
                    "mcp": {"claude": {"file": ".mcp.json", "key": "dgf-mcp", "entryHash": "x"}}}
         files = {".dgf-factory/install.json": json.dumps(receipt),
                  ".dgf-factory/runtime/scripts/locate_plan.py": "#",
@@ -235,6 +236,13 @@ class Conflicts(Base):
     def test_the_install_footprint_counts_as_empty(self):
         path = self.install(Path(self.tmp) / "installed")
         self.assertEqual(design.check(path, empty_only=True).exit_code, 0)
+
+    def test_a_receipt_entry_setup_never_writes_does_not_empty_the_folder(self):
+        path = self.install(Path(self.tmp) / "installed", ["src/Program.cs"],
+                            {"src/Program.cs": {"owner": "runtime"}})
+        result = design.check(path, empty_only=True)
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("src/Program.cs", "\n".join(f.message for f in result.rep.findings))
 
     def test_a_file_the_receipt_does_not_list_is_named(self):
         path = self.install(Path(self.tmp) / "installed", [".claude/skills/mine/SKILL.md"])

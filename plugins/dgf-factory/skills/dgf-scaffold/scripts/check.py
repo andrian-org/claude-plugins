@@ -26,6 +26,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from xml.parsers import expat
 
 SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
 SECRET_KEY = re.compile(r"password|secret|key|token|connectionstring", re.IGNORECASE)
@@ -231,10 +232,27 @@ def check_secrets(folder, targets, ctx, rep, report):
 
 # --- 2. structure ----------------------------------------------------------------------
 
+def _refuse_dtd(*_):
+    raise ET.ParseError("a DTD is not read")
+
+
+def parse_xml(path):
+    """ElementTree's parse, with a DTD refused first: ElementTree reads with expat, which expands a DTD's
+    entities, and a few nested ones grow to gigabytes (the billion laughs). A generated file holds none."""
+    data = Path(path).read_bytes()
+    guard = expat.ParserCreate()
+    guard.StartDoctypeDeclHandler = _refuse_dtd
+    try:
+        guard.Parse(data, True)
+    except expat.ExpatError:
+        pass  # malformed: ElementTree reports it in its own words
+    return ET.ElementTree(ET.fromstring(data))
+
+
 def shape(path, row, rep, report, rel):
     """Parse an XML file and hold it to its workspace-minimum row; the root element is returned."""
     try:
-        root = ET.parse(path).getroot()
+        root = parse_xml(path).getroot()
     except (ET.ParseError, OSError) as error:
         rep.add("SCAFFOLD_STRUCTURE_INVALID", f"{rel} is not well-formed XML: {report.one_line(error)}")
         return None

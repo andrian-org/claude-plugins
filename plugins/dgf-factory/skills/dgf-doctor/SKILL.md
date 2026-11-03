@@ -1,9 +1,9 @@
 ---
 name: dgf-doctor
 description: Check that dgf-factory is installed correctly in this project and report what it can see. Use for "is dgf-factory working", "skills not loading", "check the install", "dgf doctor", "why is the skill not firing", "did setup work".
-allowed-tools: Read Bash(python3 "{{dgf_runtime}}/skills/dgf-doctor/scripts/*)
+allowed-tools: Read Bash(python3 "{{dgf_runtime}}/skills/dgf-doctor/scripts/doctor.py"*)
 disable-model-invocation: false
-version: 0.3.0
+version: 0.4.0
 ---
 
 # DGF Doctor — Installation Check
@@ -60,6 +60,11 @@ findings:
 - **`INSTALL_FILE_MISSING`** (error, exit `1`) — a file the receipt lists is not on disk.
 - **`INSTALL_HARNESS_INCOMPLETE`** (error, exit `1`) — a chosen harness lacks a skill.
 - **`INSTALL_RECEIPT_UNREADABLE`** (error, exit `1`) — `.dgf-factory/install.json` cannot be read.
+- **`INSTALL_RECEIPT_ENTRY_MISPLACED`** (error, exit `1`) — the receipt names a file setup never installs there:
+  outside `.dgf-factory/runtime/` and the owning harness's folders, or inside a `.git` folder. Setup, `status` and
+  `uninstall` refuse such a receipt; restore it from history or delete it and re-run `dgf-factory setup`.
+- **`INSTALL_VENV_COMMITTED`** (error, exit `1`) — the runtime's `.venv` folder is tracked by git. Its interpreter
+  is never run: remove the folder from git, delete it, and re-run `dgf-factory setup`.
 - **`INSTALL_FILE_EDITED`** (warning, exit `2`) — an installed file was edited. Setup keeps the
   edit and will not update that file; say so.
 - **`INSTALL_VERSION_DRIFT`** (warning, exit `2`) — the `dgf-factory` CLI on PATH is a different

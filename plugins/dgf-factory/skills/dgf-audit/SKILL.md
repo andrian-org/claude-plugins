@@ -2,7 +2,7 @@
 name: dgf-audit
 description: Audit a whole DGF workspaces root — the validators' health, the reference graph from processes through workflows to forms, entities and components, and the role names in use — or show a change's blast radius, the processes that reach a file in each application. Read-only. Use for "audit the estate", "blast radius", "what reaches this workflow", "which processes use this", "impact of this change".
 argument-hint: "[--reach <file>… | --branch] [--app <name>]"
-allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/audit_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) AskUserQuestion
 disable-model-invocation: false
 version: 0.2.0
 ---

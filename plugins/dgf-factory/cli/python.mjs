@@ -3,7 +3,8 @@
 // Find a Python 3.9+, create .dgf-factory/runtime/.venv when it is absent, and install the hash-pinned
 // requirements into it — skipped when both packages already import, so a re-run needs no network. pip
 // never runs outside the environment. A failure leaves the installed files alone; setup reports the
-// command and exits 2.
+// command and exits 2. An environment git tracks was committed by someone else: it is never run, and
+// setup exits 1 until it is removed from git.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -51,6 +52,25 @@ export function findPython(spawn = spawnSync, windows = process.platform === 'wi
   return null;
 }
 
+/**
+ * The files git tracks under the runtime's .venv: an interpreter a clone brought with it. Empty when
+ * git is absent or the project is not a repository — there is then nobody else's commit to run.
+ */
+export function committedVenv(projectRoot, spawn = spawnSync) {
+  const listed = run(spawn, 'git', ['-c', 'core.fsmonitor=false', 'ls-files', '-z', '--', VENV], projectRoot);
+  if (!listed.ok) return [];
+  return listed.stdout.split('\0').filter(Boolean);
+}
+
+function refusedCommitted(tracked, windows) {
+  log.error('python.setupPython', 'refused: the environment is committed', { files: tracked.length });
+  return {
+    status: 'refused',
+    lines: [`Python step refused: ${VENV} is committed to git (${tracked.length} file(s)) — a committed interpreter is never run.`,
+      `Remove it from git — git rm -r --cached ${VENV} — and delete the folder, then re-run setup; or run: ${manualCommand(windows)}`],
+  };
+}
+
 /** What the step would do, for the preview. */
 export function previewPython(projectRoot, { skip }) {
   if (skip) return [`skipped (--no-python) — run by hand: ${manualCommand()}`];
@@ -58,14 +78,17 @@ export function previewPython(projectRoot, { skip }) {
   return [`create ${VENV}, then install lxml and jsonschema into it from ${REQUIREMENTS} (needs network)`];
 }
 
-/** Run the step. Returns { status, lines }: status is ready | skipped | failed. */
+/** Run the step. Returns { status, lines }: status is ready | skipped | failed | refused. */
 export function setupPython(projectRoot, { skip = false, spawn = spawnSync, windows = process.platform === 'win32' } = {}) {
   if (skip) {
     log.info('python.setupPython', 'skipped by --no-python');
     return { status: 'skipped', lines: [`Python step skipped. Run: ${manualCommand(windows)}`] };
   }
   const venvPy = venvPython(projectRoot, windows);
-  if (!existsSync(venvPy)) {
+  if (existsSync(venvPy)) {
+    const tracked = committedVenv(projectRoot, spawn);
+    if (tracked.length) return refusedCommitted(tracked, windows);
+  } else {
     const python = findPython(spawn, windows);
     if (!python) return failed(`no Python interpreter found (tried python3 and python); install Python ${MINIMUM.join('.')}+`, windows);
     if (!atLeast(python.version)) return failed(`${python.command} is ${python.version}; the validators need ${MINIMUM.join('.')}+`, windows);

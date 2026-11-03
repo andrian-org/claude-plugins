@@ -12,6 +12,7 @@ case-insensitively, so such keys silently overwrite each other. Stdlib only.
 """
 
 import json
+import sys
 
 from . import report
 
@@ -116,6 +117,9 @@ def parse_text(text):
         raise JsonParseError(exc.msg, exc.lineno, exc.colno) from exc
     except ValueError as exc:
         raise JsonParseError(str(exc)) from exc
+    except RecursionError as exc:  # the decoder recurses once per level: arrays or objects nested thousands deep
+        raise JsonParseError("nested too deeply to read: the arrays and objects go deeper than "
+                             f"Python's recursion limit ({sys.getrecursionlimit()})") from exc
 
 
 def decode(data):

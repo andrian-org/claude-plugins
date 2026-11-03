@@ -190,6 +190,15 @@ def installed_paths(root):
         report.fail(report.EXIT_USAGE, f"ERROR INSTALL_RECEIPT_UNREADABLE {exc}")
 
 
+def report_ignored_entries(root, rep):
+    """A receipt entry setup could not have written hides nothing: it is left out of the
+    footprint, and named here, so a hand-edited receipt is visible (ADR 0029 §2)."""
+    for where, rel, why in install_receipt.ignored(root):
+        rep.add("INSTALL_RECEIPT_ENTRY_IGNORED", f"`{where}` lists `{rel}`, which {why} — setup never installs "
+                                                 f"there, so its changes are checked as the estate's",
+                file=install_receipt.RECEIPT.as_posix())
+
+
 def _not_estate(rel, installed):
     if plan.is_pipeline(rel):
         return True
@@ -411,6 +420,7 @@ def change_checks(parsed, root, base, changed, rep, outcome, saved=None):
     if changes is None:
         return base_sha
     changes = own_changes(changes, root)
+    report_ignored_entries(root, rep)
     outcome.changes = changes
     known = outcome.known = known_workspaces(root, changes)
     outcome.lines.append(f"CHANGED: {len(changes)}")

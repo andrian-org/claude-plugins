@@ -280,6 +280,11 @@ def _form_xml(rows, hidden):
             f'  <hidden>{"".join(_hidden_cell(*cell) for cell in hidden)}\n\t</hidden>\n</form>')
 
 
+def _refuse_dtd(*_):
+    """No DTD is read: expat would expand its entities, and nested ones grow without bound."""
+    raise ValueError("a DTD is not read")
+
+
 def _check_space(_, attributes):
     space = _space(attributes)
     if space is not None and space not in ("preserve", "default"):
@@ -296,6 +301,7 @@ def _parse_error(xml):
     LoadXml joins into one character (a follow-up).
     """
     parser = expat.ParserCreate(namespace_separator=" ")
+    parser.StartDoctypeDeclHandler = _refuse_dtd
     parser.StartElementHandler = _check_space
     try:
         parser.Parse(xml.encode("utf-8"), True)

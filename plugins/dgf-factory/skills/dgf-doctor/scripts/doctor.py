@@ -48,7 +48,9 @@ the working directory.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — no findings
-  1  BLOCKED   — an installed file is missing, a harness lacks a skill, a slice
+  1  BLOCKED   — an installed file is missing, a harness lacks a skill, the
+                 receipt lists a file setup never installs, the runtime's .venv
+                 is committed (it is never run), a slice
                  will not register or has frontmatter YAML reads differently,
                  a shipped file names a DGF repository path, a runtime path
                  that does not exist or a link out of the shipped set, the
@@ -83,9 +85,10 @@ else:
     RED = YELLOW = GREEN = BOLD = NC = ""
 
 # The npm package payload (ADR 0030 §1). `.claude/`, `tools/`, `provenance/`, `tests/`
-# and `docs/` are maintainer material and never ship. An installed runtime holds the
-# last three; bin/ and cli/ stay in the global package.
-SHIPPED_DIRS = ("bin", "cli", "skills", "scripts", "knowledge")
+# and `docs/` are maintainer material and never ship. An installed runtime holds
+# skills/, scripts/ and knowledge/; bin/ and cli/ stay in the global package, and
+# agents/ installs into a harness's agents folder, never the runtime (ADR 0033 §5).
+SHIPPED_DIRS = ("bin", "cli", "skills", "scripts", "knowledge", "agents")
 
 # Where an installed runtime sits in a project, beside the receipt (ADR 0029 §2).
 PIPELINE_DIR = ".dgf-factory"
@@ -138,7 +141,8 @@ SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
 # Slices the roadmap calls for, in roadmap order. Absent ones are progress, not faults.
 EXPECTED_SLICES = ("dgf-doctor", "dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit",
                    "dgf-fix", "dgf-evolve", "dgf-component", "dgf-process", "dgf-audit", "dgf-model",
-                   "dgf-scaffold")
+                   "dgf-scaffold", "dgf-review", "dgf-rules", "dgf-rules-check", "dgf-qa",
+                   "dgf-docs", "dgf-explore", "dgf-grounded", "dgf-archive", "dgf-security")
 
 # A path into the runtime in shipped Markdown: `{{dgf_runtime}}/<path>` in the source,
 # `.dgf-factory/runtime/<path>` once setup has rendered it (ADR 0029 §3). The path ends
@@ -244,7 +248,7 @@ def is_ignored(path):
 
 
 def harness_files(root):
-    """In a project: the rendered SKILL.md files the receipt lists outside the runtime, project-relative."""
+    """In a project: the rendered SKILL.md and agent files the receipt lists outside the runtime, project-relative."""
     project = project_of(root)
     if project is None:
         return []
@@ -372,7 +376,15 @@ def check_receipt(root, project):
     if data is None:
         return
     files = data.get("files") if isinstance(data.get("files"), dict) else {}
+    check_committed_venv(project)
     for rel, entry in sorted(files.items()):
+        why = module.misplaced(rel, entry.get("owner") if isinstance(entry, dict) else None) \
+            if hasattr(module, "misplaced") else None
+        if why:
+            error("INSTALL_RECEIPT_ENTRY_MISPLACED", f"{PIPELINE_DIR}{_SEP}{RECEIPT_NAME}",
+                  f"the receipt lists {rel}, which {why} — setup never installs there; "
+                  f"fix or delete the receipt, then re-run `dgf-factory setup`")
+            continue
         path = project / rel
         if not path.is_file():
             error("INSTALL_FILE_MISSING", rel, f"{rel} is in the receipt but not on disk — re-run `dgf-factory setup`")
@@ -384,6 +396,39 @@ def check_receipt(root, project):
     check_harness_skills(root, data, files)
     check_version(data)
     info(f"installed in {project} — {len(files)} file(s) recorded")
+
+
+_COMMITTED = {}
+
+
+def committed_venv(project):
+    """The files git tracks under the runtime's `.venv/`: an interpreter someone else committed.
+    Empty when git is absent or the project is not a repository. Asked once per project."""
+    if project in _COMMITTED:
+        return _COMMITTED[project]
+    venv = f"{PIPELINE_DIR}/{RUNTIME_NAME}/.venv"
+    tracked = []
+    git = shutil.which("git")
+    if git:
+        try:
+            done = subprocess.run([git, "-c", "core.fsmonitor=false", "ls-files", "-z", "--", venv],
+                                  cwd=project, capture_output=True, timeout=30)
+            if done.returncode == 0:
+                tracked = [name for name in done.stdout.decode("utf-8", "replace").split("\0") if name]
+        except (OSError, subprocess.SubprocessError) as exc:
+            trace(f"[install] git ls-files did not answer ({exc})")
+    _COMMITTED[project] = tracked
+    trace(f"[install] committed files under {venv}: {len(tracked)}")
+    return tracked
+
+
+def check_committed_venv(project):
+    tracked = committed_venv(project)
+    if tracked:
+        venv = f"{PIPELINE_DIR}{_SEP}{RUNTIME_NAME}{_SEP}.venv"
+        error("INSTALL_VENV_COMMITTED", venv,
+              f"{venv} is committed ({len(tracked)} file(s)) — a committed interpreter is never run; "
+              f"remove it from git (`git rm -r --cached {venv}`), then re-run `dgf-factory setup`")
 
 
 def check_harness_skills(root, data, files):
@@ -631,8 +676,13 @@ def venv_python(root):
 
 def missing_dependencies(root):
     """The packages that do not import — in the project's .venv when it has one, since every
-    script switches to it (ADR 0031 §7), else in this interpreter."""
+    script switches to it (ADR 0031 §7), else in this interpreter. A committed .venv is never
+    run: its packages count as missing (section 1 reports it)."""
     python = venv_python(root)
+    project = project_of(root)
+    if python is not None and project is not None and committed_venv(project):
+        trace(f"dependency probe: {python} is committed — not run")
+        return list(VALIDATOR_DEPENDENCIES), str(python)
     if python is None:
         return [name for name in VALIDATOR_DEPENDENCIES if importlib.util.find_spec(name) is None], sys.executable
     absent = []

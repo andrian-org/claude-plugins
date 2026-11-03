@@ -9,10 +9,12 @@ learns your stack at setup time; `dgf-factory` arrives already knowing DGF — i
 catalogue, its composition specs, its two schema families (modern JSON config and legacy XML
 grammar) — and then learns the *system you build with it*.
 
-> **Status: the spine, the learning loop and the DGF-specific skills landed.** The five spine
+> **Status: the spine, the learning loop, the DGF-specific and the quality skills landed.** The five spine
 > skills — `/dgf`, `/dgf-plan`, `/dgf-implement`, `/dgf-verify`, `/dgf-commit` — the learning loop's
-> two — `/dgf-fix`, `/dgf-evolve` — and `/dgf-component`, `/dgf-process`, `/dgf-model`, `/dgf-audit`
-> and `/dgf-scaffold` exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
+> two — `/dgf-fix`, `/dgf-evolve` — `/dgf-component`, `/dgf-process`, `/dgf-model`, `/dgf-audit`
+> and `/dgf-scaffold`, and the quality and authoring skills — `/dgf-review`, `/dgf-rules`,
+> `/dgf-rules-check`, `/dgf-qa`, `/dgf-docs`, `/dgf-explore`, `/dgf-grounded`, `/dgf-archive`,
+> `/dgf-security` — exist beside `/dgf-doctor`, on top of the stamped **DGF knowledge base** (with its
 > vendored JSON and legacy XSD schema set) and the **validators**. Plans, scope, routes,
 > change-relative gates, the data model, blast radius, patches and overrides are decided by scripts,
 > checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` creates a new application
@@ -52,8 +54,8 @@ Claude Code (`$dgf` in Codex).
   the ignored `.dgf-factory/runtime/.venv` is missing — `dgf-factory setup`, or the command the doctor
   prints, builds it.
 - **Harnesses** setup knows: Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, Junie, Qwen Code,
-  Windsurf, Warp, Zencoder, Roo Code, Kilo Code, Antigravity, OpenCode and `.agents/`. For Kilo Code,
-  Windsurf and Zencoder it prints the dgf-mcp registration as a manual step. Codex reads its project
+  Devin Desktop (formerly Windsurf), Warp, Zencoder, Roo Code, Kilo Code, Antigravity 2.0, OpenCode and
+  `.agents/`. For Kilo Code, Devin Desktop and Zencoder it prints the dgf-mcp registration as a manual step. Codex reads its project
   `.codex/config.toml` only once you trust the project.
 - **Non-interactive:** `dgf-factory setup --harness claude,codex --yes`; `--dry-run` previews only;
   `--no-python` skips the virtual environment.
@@ -138,6 +140,26 @@ any skill reads it. See [The learning loop](docs/pipeline.md#the-learning-loop).
 Inspect and validate run anywhere; every write stays inside the active plan's scope, and each kind
 of file has one writing skill. See [The DGF-specific skills](docs/pipeline.md#the-dgf-specific-skills).
 
+### Reviewing, testing and tidying
+
+```bash
+/dgf-review                                     # a DGF reviewer's read of the branch: checks, diff, rules, seams
+/dgf-rules init                                 # the six shipped team rules, in .dgf-factory/RULES.md
+/dgf-rules-check                                # the change against the rules — scripted, gated, judged
+/dgf-qa                                         # a manual test plan for every process the change reaches
+/dgf-docs                                       # the estate's inventory pages; /dgf-docs --check in CI
+/dgf-explore "how does a DataFetcher refresh a grid?"   # cited research, saved to RESEARCH.md
+/dgf-grounded "is paging honoured on an eager TreeTable?"  # an answer only from what it can cite
+/dgf-archive                                    # move finished plans into the archive
+/dgf-security                                   # the application's security scan (Docker or the scanners)
+```
+
+None of these is a gate — the gate stays `/dgf-verify` — and none pre-approves git. In Claude Code, a plan whose
+tasks are independent can also run them at once: `claude --agent dgf-implement-coordinator` dispatches one
+worktree-isolated worker per task and merges each back through a script that refuses an undeclared file
+([Parallel execution](docs/pipeline.md#parallel-execution)). See
+[The quality and authoring skills](docs/pipeline.md#the-quality-and-authoring-skills).
+
 ---
 
 ## Documentation
@@ -145,6 +167,7 @@ of file has one writing skill. See [The DGF-specific skills](docs/pipeline.md#th
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.md) | Prerequisites, installing, repo layout, working on dgf-factory, trying the spine and the loop |
+| [Usage Guides](docs/guides/README.md) | Five scenarios, step by step — start a new project, add functionality, check the system, upgrade the DGF version, migrate to DGF |
 | [Pipeline Spine](docs/pipeline.md) | The five skills, `.dgf-factory/`, the plan format, the change gate, the learning loop, the DGF-specific skills and blast radius |
 | [Architecture](docs/architecture.md) | Slice structure, dependency rules, communication |
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |

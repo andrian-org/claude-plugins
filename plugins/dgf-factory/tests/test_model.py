@@ -577,5 +577,15 @@ class Traces(Base):
         self.assertTrue(any(line.startswith("DEBUG [model.resolve_lookup_dialog] empty") for line in lines), lines)
 
 
+class NoDtd(unittest.TestCase):
+    """No expat reader of an estate file expands a DTD's entities (the billion laughs)."""
+
+    def test_a_dtd_in_xml_to_be_saved_is_a_parse_error(self):
+        problem = model._parse_error('<!DOCTYPE form [<!ENTITY a "b">]><form title="&a;"/>')
+        self.assertIsNotNone(problem)
+        self.assertIn("DTD", problem)
+        self.assertIsNone(model._parse_error('<form title="b"/>'))
+
+
 if __name__ == "__main__":
     unittest.main()

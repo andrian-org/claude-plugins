@@ -7,11 +7,15 @@
 //
 // scripts/lib/install_receipt.py reads the same file for the estate checks. Keys are project-relative
 // POSIX paths; an absolute path or a `..` segment is refused, as is any key this schema does not name.
+// A `files` key must also be somewhere setup installs for its owner — under the runtime for `runtime`,
+// under the owning harness's skills or agents folder otherwise — and never inside a `.git` folder: setup
+// and uninstall remove what the receipt lists, so a committed receipt may not name a project file.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { usageError } from './exit.mjs';
 import { writeAtomic } from './fsops.mjs';
+import { HARNESSES } from './harnesses.mjs';
 import * as log from './log.mjs';
 
 export const RECEIPT = '.dgf-factory/install.json';
@@ -30,6 +34,19 @@ export function checkRelative(rel, where) {
     || /^[A-Za-z]:/.test(rel) || rel.split('/').some((part) => part === '..' || part === '' || part === '.');
   if (bad) throw usageError(`${RECEIPT} ${where}: \`${rel}\` is not a project-relative POSIX path`);
   return rel;
+}
+
+const RUNTIME_PREFIX = '.dgf-factory/runtime/';
+// A harness's former folders count too: an older receipt names them, and setup removes what it installed there.
+const HARNESS_FOLDERS = new Map(HARNESSES.map((h) => [h.id, [h.skillsDir, h.agentsDir, ...(h.formerDirs ?? [])].filter(Boolean)]));
+
+/** Why setup would never have installed `rel` for `owner`, or null when it could have. */
+export function misplaced(rel, owner) {
+  if (rel.split('/').some((part) => part.toLowerCase() === '.git')) return 'is inside a `.git` folder';
+  if (owner === 'runtime') return rel.startsWith(RUNTIME_PREFIX) ? null : `is not under ${RUNTIME_PREFIX}`;
+  const folders = HARNESS_FOLDERS.get(owner);
+  if (!folders) return `has an unknown owner \`${owner}\``;
+  return folders.some((dir) => rel.startsWith(`${dir}/`)) ? null : `is not under ${owner}'s ${folders.map((dir) => `${dir}/`).join(' or ')}`;
 }
 
 function fail(message) {
@@ -63,6 +80,8 @@ export function validate(data) {
     checkRelative(rel, 'files');
     keysOnly(entry, FILE_KEYS, `files.${rel}`);
     strings(entry, FILE_KEYS, `files.${rel}`);
+    const why = misplaced(rel, entry.owner);
+    if (why) fail(`files: \`${rel}\` ${why} — setup never installs there; fix or delete the receipt, then re-run setup`);
   }
   keysOnly(data.mcp, Object.keys(data.mcp ?? {}), 'mcp');
   for (const [id, entry] of Object.entries(data.mcp)) {

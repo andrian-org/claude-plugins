@@ -52,19 +52,26 @@ def _split(value, separator):
 
 
 def _xml_values(path, element, attribute, separator):
-    """(name, line) for every `element` at any depth — read with expat, which knows each element's line."""
+    """(name, line) for every `element` at any depth — read with expat, which knows each element's line.
+
+    A DTD is refused, as model.read_entity refuses one: expat would expand its entities, and a few
+    nested ones grow to gigabytes (the billion laughs). Such a file reads as unparsable."""
     found = []
     parser = expat.ParserCreate()
+
+    def refuse_dtd(*_):
+        raise ValueError("a DTD is not read")
 
     def start(tag, attributes):
         if tag == element:
             for name in _split(attributes.get(attribute), separator):
                 found.append((name, parser.CurrentLineNumber))
 
+    parser.StartDoctypeDeclHandler = refuse_dtd
     parser.StartElementHandler = start
     try:
         parser.Parse(Path(path).read_bytes(), True)
-    except (expat.ExpatError, OSError, RecursionError) as exc:
+    except (expat.ExpatError, OSError, RecursionError, ValueError) as exc:
         report.debug("roles.inventory", "unparsable", file=path, error=str(exc).splitlines()[0])
         return []
     return found

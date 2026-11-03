@@ -86,10 +86,11 @@ class DoctorOnACopy(unittest.TestCase):
 
     def test_a_section_that_cannot_run_is_a_warning_not_a_pass(self):
         # The real doctor checks a copy with no scripts/: its own builder is still there (ADR 0022 §1).
-        # Only dgf-doctor is kept, because the other skills cite scripts/ and would dangle.
+        # Only dgf-doctor is kept, because the other skills and the agents cite scripts/ and would dangle.
         for path in (self.root / "skills").iterdir():
             if path.name != "dgf-doctor":
                 shutil.rmtree(path)
+        shutil.rmtree(self.root / "agents", ignore_errors=True)
         shutil.rmtree(self.root / "scripts")
         code, out, _ = helpers.run_cli(helpers.PLUGIN_ROOT / DOCTOR, self.root)
         self.assertEqual(code, 2, out)
@@ -174,7 +175,8 @@ class DoctorOnACopy(unittest.TestCase):
     def test_expected_slices_report_present_or_not_yet_built(self):
         code, out, _ = self.run_doctor()
         for name in ("dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit", "dgf-fix", "dgf-evolve",
-                     "dgf-component", "dgf-process", "dgf-audit", "dgf-model", "dgf-scaffold"):
+                     "dgf-component", "dgf-process", "dgf-audit", "dgf-model", "dgf-scaffold",
+                     "dgf-review", "dgf-rules", "dgf-rules-check", "dgf-qa", "dgf-docs", "dgf-explore", "dgf-grounded", "dgf-archive", "dgf-security"):
             self.assertRegex(out, rf"INFO  skills/{name}/ — (present|not yet built)")
         self.write_skill("dgf-plan", self.FRONTMATTER)
         _, out, _ = self.run_doctor()
@@ -270,7 +272,8 @@ class DoctorInAProject(unittest.TestCase):
         if code == 2:
             self.assertEqual(set(gate_entries(out, "warnings")), {"VALIDATOR_DEPS_MISSING"}, out)
         self.assertEqual(gate(out)["checks_run"], SECTIONS)
-        self.assertIn("claude — all 13 skills installed", out)
+        shipped = sum(1 for path in (helpers.PLUGIN_ROOT / "skills").iterdir() if (path / "SKILL.md").is_file())
+        self.assertIn(f"claude — all {shipped} skills installed", out)
 
     def test_an_edited_skill_warns(self):
         skill = self.project / ".claude" / "skills" / "dgf-plan" / "SKILL.md"
@@ -301,6 +304,33 @@ class DoctorInAProject(unittest.TestCase):
         code, out, _ = self.run_doctor()
         self.assertEqual(code, 1, out)
         self.assertIn("RUNTIME_PATH_DANGLING", gate_entries(out, "blockers"))
+
+    @unittest.skipUnless(shutil.which("git"), "git is not installed")
+    def test_a_committed_venv_blocks_and_is_never_run(self):
+        marker = Path(self.tmp) / "ran"
+        python = self.runtime / ".venv" / "bin" / "python"
+        python.parent.mkdir(parents=True)
+        python.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 0\n", encoding="utf-8")
+        python.chmod(0o755)
+        subprocess.run(["git", "init", "-q"], cwd=self.project, check=True)
+        subprocess.run(["git", "-c", "core.autocrlf=false", "add", "-f", ".dgf-factory/runtime/.venv/bin/python"], cwd=self.project, check=True)
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("INSTALL_VENV_COMMITTED", gate_entries(out, "blockers"), out)
+        self.assertFalse(marker.exists(), "the committed interpreter ran")
+
+    def test_a_receipt_entry_setup_never_writes_blocks(self):
+        receipt = self.project / ".dgf-factory" / "install.json"
+        data = json.loads(receipt.read_text(encoding="utf-8"))
+        (self.project / "src").mkdir()
+        (self.project / "src" / "Program.cs").write_text("class P {}\n", encoding="utf-8")
+        data["files"]["src/Program.cs"] = {"source": "scripts/x.py", "owner": "runtime", "sourceHash": "a",
+                                           "installedHash": "b"}
+        receipt.write_text(json.dumps(data), encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("INSTALL_RECEIPT_ENTRY_MISPLACED", gate_entries(out, "blockers"), out)
+        self.assertNotIn("INSTALL_FILE_EDITED", every_id(out), out)
 
 
 if __name__ == "__main__":

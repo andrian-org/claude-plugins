@@ -1,0 +1,13 @@
+{
+  "cli": "check_rules.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--rules",
+    ".dgf-factory/RULES.md"
+  ],
+  "exit": 1,
+  "codes": [
+    "RULES_FORBIDDEN"
+  ]
+}

@@ -28,7 +28,7 @@ The frontmatter of `skills/dgf-component/SKILL.md`, the skill this example once 
 name: dgf-component
 description: Inspect, validate or scaffold a DGF component — modern JSON under FM/_COMPONENTS or a legacy form, view, grid or options file — in both schema families and parity-aware, writing only inside the active plan's scope. Use for "add a component", "check this component", "is this component valid", "scaffold a DataTable", "what uses this component".
 argument-hint: "[inspect | validate | scaffold] <file, Type/name or Type>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__build_form_xml
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/audit_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/resolve_components.py"*) Bash(python3 "{{dgf_runtime}}/scripts/route_means.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_config.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_model.py"*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__build_form_xml
 disable-model-invocation: false
 version: 0.1.0
 ---
@@ -39,7 +39,7 @@ version: 0.1.0
 | `name` | Matches the directory name. kebab-case. |
 | `description` | **Carries the trigger phrases.** It is the only thing deciding whether the skill fires — write it for matching, not for elegance. Include the literal phrases a user would type. |
 | `argument-hint` | Present whenever the skill takes arguments |
-| `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `{{dgf_runtime}}` is rendered to `.dgf-factory/runtime` when `dgf-factory setup` installs the skill, so a skill that runs the shipped scripts lists `Bash(python3 "{{dgf_runtime}}/scripts/*)`, never `Bash(python3 *)`, which also pre-approves `python3 -c …`. The dgf-mcp tools are granted as `mcp__dgf-mcp__<tool>`, the name a project-level server has in Claude Code. A skill that runs no git command lists no git rule. `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`: a rule with `*` before the subcommand draws a startup warning. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
+| `allowed-tools` | What the skill may run **without a prompt** — it pre-approves, it never restricts: a command no rule matches still runs after the user approves it. So list only what the skill runs. `{{dgf_runtime}}` is rendered to `.dgf-factory/runtime` when `dgf-factory setup` installs the skill, so a skill lists one rule per shipped script it runs — `Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*)` — never `Bash(python3 "{{dgf_runtime}}/scripts/*)`, which also matches `scripts/../../FM/x.py`, and never `Bash(python3 *)`, which also pre-approves `python3 -c …`. The dgf-mcp tools are granted as `mcp__dgf-mcp__<tool>`, the name a project-level server has in Claude Code. **No skill pre-approves git** ([ADR 0035](adr/0035-no-skill-pre-approves-git.md)): `git -C "<root>" <subcommand>` cannot be narrowed below `Bash(git *)`, and that rule also pre-approves `git -c alias.x="!sh" x` — any command. Each git command a skill runs is shown to the user and approved there. `tests/test_skill_contracts.py` holds every skill's script calls to its own rules. |
 | `disable-model-invocation` | `false`, so the skill fires on its description — except a skill that rewrites what other skills do (`/dgf-evolve`, which writes their overrides): `true`, so it runs only when the user asks for it. |
 | `version` | Semver. Bump when behaviour changes. |
 
@@ -112,8 +112,9 @@ message — text that can come from a workspace or another branch — print esca
 The pipeline spine's five scripts read plans and roots, the learning loop's two read patches
 and overrides, and `audit_root.py` reads a whole root, rather than configuration files, so they
 print their own lines in place of 2. `check_plan.py`, `check_change.py`, `verify_gate.py`,
-`check_patches.py`, `check_override.py` and `audit_root.py` then print the same `CHECKS RUN:` and
-`NOT RUN:` lines; all eight print findings and a verdict. `validate_model.py` reads configuration
+`check_patches.py`, `check_override.py`, `audit_root.py` and the quality skills' four — `check_rules.py`,
+`show_change.py`, `estate_docs.py`, `archive_plans.py` — then print the same `CHECKS RUN:` and `NOT RUN:` lines;
+all twelve print findings and a verdict. `validate_model.py` reads configuration
 files and prints `FAMILY:` lines like the other validators:
 
 | Script | Lines in place of `FAMILY:` |
@@ -122,9 +123,15 @@ files and prints `FAMILY:` lines like the other validators:
 | `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
 | `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)` — `BASE: <file> (saved before the write, --baseline)` with a saved baseline; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file; with `--save-baseline`, `BASELINE: saved <n> finding(s) — <e> error(s), <w> warning(s) — to <file>` |
-| `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor` |
+| `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor`; with `--next-name <slug>` only `NEXT: <name> date="<date>"`, the name a new patch takes now, from the script's clock |
 | `check_override.py` | `OVERRIDE: <file> skill=<skill> rules=<n>` (`rules=?` when its shape fails), or `OVERRIDE: none — no <file>`; one `RULE: <N> line=<l> sources=<n> name="<name>"` per rule |
 | `audit_root.py` | `ROOT:`; `APPLICATIONS: <app> … (base webasm)`. The whole root: one `GRAPH: <app> nodes= edges= resolved= unresolved= case-only= dynamic=` per application, one `EDGE: <app> <kind> …` per edge kind, one `VALIDATOR: <cli> files=<n> <LABEL> <CODE>=<n> …` per validator, one `ROLE: "<name>" <source>=<n> …` per role name. Reach: per file `REACH: <path> artifact= name= [change=]`, then per application `APP: <app> processes=<n>`, `PROCESS: <app> <reference> via <file>:<line> > … > <path>`, `REFERRER: <app> <kind> <file>:<line>` or `NONE: <app> — …`; `NOT AUDITED: <ws> — …` in their place when `--app` left the file's own application out; `SKIP: <path> — …` for a changed file that is no configuration. Always a final `LIMIT: static reach only — …` |
+| `check_rules.py` | `ROOT:`; `RULES: <file> rules=<n> defaults=<d> estate=<e>`, or `RULES: none — no <file>`; one `RULE: R<n> enforcement=<e> check=<id\|-> source=<default\|estate>[ demoted] title="<title>"` per rule; one `ENFORCED: R<n> by <who>` per script or gate rule; with `--layout`, one `LAYOUT: <workspace> folders=<n>` per workspace |
+| `show_change.py` | `ROOT:`; `BASE: <sha> (<ref>)`; `CHANGED: <n>`; per file `CHANGE: <A\|M\|D\|R> <path>[ from=<old>]`, then its unified diff, every line prefixed `\| ` so no content can read as a report line |
+| `estate_docs.py` | `ROOT:`; one `PAGE: <path> wrote\|unchanged\|stale\|removed\|kept` per page |
+| `archive_plans.py` | `ROOT:`; one `ARCHIVE: <src> -> <dest> progress=<d>/<t>` per complete plan, one `KEEP: <src> progress=<d>/<t>[ — <why>]` per other; with `--apply`, one `MOVED: <src> -> <dest>` per move |
+| `plan_layers.py` | `PLAN: <path> progress=<d>/<t>`; `READY: <n>,…` or `READY: none`; `PARALLEL: <n>,…`; one `SERIAL: <n> — <why>` per held task; `PHASE: <n> <path>` per ready ultra task; `REMAINING: <n>` |
+| `worktree_task.py` | `--sync`: `MAIN:`, `WORKTREE:`, `HEAD: <sha>[ (moved from <sha>)]`, `WORKTREE ROOT: <path>`, `SYNCED: <n> file(s), <d> deletion(s)`; `--merge`: one `MERGED: <A\|M\|D> <path>` per file, then with `--cleanup` `REMOVED: <path> (<branch>)` or `REMOVED: none — <why>` |
 | `verify_gate.py` | `ROOT:`; `check_plan.py`'s lines; `check_change.py`'s lines after its `PLAN:`; one `CODE TASK: <N> reason="<reason>"` per `kind: code` task. Its summary adds `Shown: 20 of <n> PRE_EXISTING — …` when it cuts them, and `STATUS: pass\|warn\|fail`; then the verdict, a blank line, and the gate block |
 
 `check_change.py` compares the validators' findings with the merge-base
@@ -201,7 +208,7 @@ Rules:
   checked and the scope is clean. `doctor`: `null` only — a broken install is fixed by hand, never
   by `/dgf-fix` ([ADR 0022](adr/0022-gate-block-contract-revised.md) §8).
 - **The doctor's block** is gate `doctor`: errors in `blockers`, warnings and each section that
-  could not run (`not-run-<section>`) in `warnings`, and `checks_run` naming its six sections.
+  could not run (`not-run-<section>`) in `warnings`, and `checks_run` naming its five sections.
 - **Last block wins.** Callers parse only the final such block, never the prose above it. **A
   missing block is a gate that did not run** — a script prints none for a usage error, or when its
   builder cannot load.

@@ -2,7 +2,7 @@
 name: dgf-model
 description: Inspect, validate, add or modify a DGF entity — FM/_DATA/<entity>/settings.xml, its fields and its extract, relation and slavegrid references — checking every reference the way its loader resolves it, and naming the database work a change needs without writing SQL. Writes only inside the active plan's scope. Use for "add an entity", "add a field", "change this entity", "check the data model", "which forms use this entity", "what does this table need in the database".
 argument-hint: "[inspect | validate | add | modify] <entity or settings.xml>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__search_docs
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/audit_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/route_means.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_config.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_model.py"*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__search_docs
 disable-model-invocation: false
 version: 0.2.0
 ---

@@ -394,6 +394,18 @@ class Golden(Base):
         self.compare("single-mount", doc)
 
 
+class LocalOnlyPorts(unittest.TestCase):
+    """The database of a generated local stack is published on the loopback interface, never on every one."""
+
+    def test_the_database_port_binds_127_0_0_1_in_every_golden_stack(self):
+        composes = sorted(sh.GOLDEN.glob("*/docker/docker-compose.yml"))
+        self.assertTrue(composes)
+        for compose in composes:
+            service = compose.read_text(encoding="utf-8").split("\n  sqlserver:\n", 1)[1].split("\n\n", 1)[0]
+            published = re.findall(r'^\s+- "([^"]+:1433)"$', service, re.M)
+            self.assertEqual(published, ["127.0.0.1:${MSSQL_PORT}:1433"], compose)
+
+
 class Refusals(Base):
     def test_the_generator_runs_without_lxml_and_jsonschema(self):
         # nothing generate.py, render.py, context.py or design.py imports needs a third-party package

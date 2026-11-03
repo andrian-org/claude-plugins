@@ -56,7 +56,8 @@ class SpineCodes(unittest.TestCase):
         report.EXIT_WARNINGS: (
             "PLAN_FALLBACK", "BASE_WORKSPACE_ABSENT", "VALIDATOR_DEPS_MISSING", "PLAN_NOT_AUTHORED",
             "PLAN_OVERLAP", "PLAN_COMMITS_MISSING", "CHANGE_OUTSIDE_WORKSPACE", "CHANGE_UNPLANNED_FILE", "CHANGE_TASK_FILE_UNCHANGED",
-            "CHANGE_NOT_AUTHORED", "GATE_CHECK_NOT_RUN"),
+            "CHANGE_NOT_AUTHORED", "GATE_CHECK_NOT_RUN",
+            "INSTALL_RECEIPT_ENTRY_IGNORED"),  # a receipt entry setup never writes hides no change
         report.EXIT_CLEAN: ("PLAN_OVERLAP_UNREADABLE", "PRE_EXISTING", "FIXED"),
     }
 
@@ -194,3 +195,32 @@ class Rendering(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QualityAndParallelCodes(unittest.TestCase):
+    """The quality skills' and the parallel run's codes (ADR 0032 §3–§4, ADR 0033 §3): a refused rules file, a layout
+    error, a page or plan it may not touch, and an unsafe merge block; a rule to judge, a stale page or nothing to
+    archive warns."""
+
+    EXPECTED = {
+        report.EXIT_BLOCKED: (
+            "RULES_UNREADABLE", "RULES_FORMAT_INVALID", "RULES_ID_DUPLICATE", "RULES_ID_RESERVED",
+            "RULES_CHECK_UNKNOWN", "RULES_FORBIDDEN", "RULES_LAYOUT_CASE", "DOCS_PAGE_NOT_GENERATED",
+            "ARCHIVE_PLAN_INCOMPLETE", "ARCHIVE_DEST_EXISTS", "LAYERS_CYCLE", "WORKTREE_HEAD_MISMATCH",
+            "WORKTREE_SYNC_MISSING", "WORKTREE_UNDECLARED_FILE", "WORKTREE_MAIN_CHANGED",
+        ),
+        report.EXIT_WARNINGS: ("RULES_TOUCHES_LIMIT", "RULES_DEFAULT_EDITED", "RULES_DEFAULT_MISSING", "DOCS_STALE",
+                               "DOCS_SOURCE_UNREADABLE", "ARCHIVE_PLAN_SKIPPED", "ARCHIVE_NOTHING"),
+        report.EXIT_CLEAN: ("RULES_DEFAULT_DEMOTED", "SHOW_DIFF_TRUNCATED", "SHOW_BINARY", "LAYERS_SERIAL"),
+        report.EXIT_USAGE: ("WORKTREE_NOT_LINKED",),
+    }
+    PREFIXES = ("RULES_", "SHOW_", "DOCS_", "ARCHIVE_", "LAYERS_", "WORKTREE_")
+
+    def test_every_code_has_its_exit(self):
+        for exit_code, codes in self.EXPECTED.items():
+            for code in codes:
+                self.assertEqual(report.CODES.get(code), exit_code, code)
+
+    def test_no_code_of_theirs_is_unlisted(self):
+        listed = {code for codes in self.EXPECTED.values() for code in codes}
+        self.assertEqual({c for c in report.CODES if c.startswith(self.PREFIXES)}, listed)

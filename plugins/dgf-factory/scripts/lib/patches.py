@@ -133,6 +133,23 @@ def name_timestamp(name):
     return _timestamp(match.groups()[:5]) if match else None
 
 
+def next_name(patches_dir, slug, now=None):
+    """(file name, `date` value) for a new patch with `slug` at `now` (default: this machine's clock, to the
+    minute), or (None, why) when the slug cannot make a valid name. A name already taken in `patches_dir` takes
+    the slug `<slug>-2`, `-3`, …, so a patch is never overwritten."""
+    now = (now or datetime.datetime.now()).replace(second=0, microsecond=0)
+    stamp = now.strftime("%Y-%m-%d-%H.%M")
+    for n in range(1, 100):
+        candidate_slug = slug if n == 1 else f"{slug}-{n}"
+        name = f"{stamp}-{candidate_slug}.md"
+        why = name_problem(name)
+        if why:
+            return None, f"`{name}` {why}"
+        if not (Path(patches_dir) / name).exists():
+            return name, now.strftime("%Y-%m-%d %H:%M")
+    return None, f"every name from `{stamp}-{slug}.md` to `{stamp}-{slug}-99.md` is taken"
+
+
 # --- reading one patch ------------------------------------------------------------
 
 def parse(path, rel, rep):

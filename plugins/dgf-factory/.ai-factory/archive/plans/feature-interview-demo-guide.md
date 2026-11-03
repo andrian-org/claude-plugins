@@ -1,3 +1,7 @@
+---
+archived: 2026-11-03
+incomplete: "Archived at the user's request with 9/10 tasks done — Task 9 (the timed rehearsal) was never ticked."
+---
 # Implementation Plan: Interview Demo Guide — Split Bill on DGF, built live with dgf-factory
 
 Branch: feature/hackathon-demo-guide

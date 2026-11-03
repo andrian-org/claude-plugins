@@ -1,14 +1,14 @@
 // The planner: every row of ADR 0029 §5's table, an unmanaged file, a dropped harness, a stable preview.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { getHarness } from '../../cli/harnesses.mjs';
 import { hashBytes } from '../../cli/hash.mjs';
-import { RUNTIME_GITIGNORE, decide, desiredFiles, payloadFiles, planInstall } from '../../cli/plan.mjs';
+import { RUNTIME_GITIGNORE, agentNames, decide, desiredFiles, payloadFiles, planInstall, skillNames } from '../../cli/plan.mjs';
 import { isNoop, renderPreview } from '../../cli/preview.mjs';
 
 const REPO = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -78,6 +78,31 @@ test('a re-run with nothing changed is all unchanged, and a no-op', (t) => {
   const second = planInstall({ projectRoot: project, harnesses, receipt: receiptFrom(first, ['claude']), packageRoot: pkg });
   assert.ok(second.every((a) => a.kind === 'unchanged'), JSON.stringify(second.map((a) => a.kind)));
   assert.ok(isNoop(second));
+});
+
+test('a symlink at an install target is a conflict: never read, never diffed, never replaced', (t) => {
+  const pkg = fakePackage(t);
+  const project = tmp(t, 'dgf-proj-');
+  const secret = path.join(tmp(t, 'dgf-outside-'), 'id_rsa');
+  writeFileSync(secret, 'PRIVATE KEY MATERIAL\n');
+  mkdirSync(path.join(project, '.claude/skills/dgf-x'), { recursive: true });
+  symlinkSync(secret, path.join(project, '.claude/skills/dgf-x/SKILL.md'));
+  const harnesses = [getHarness('claude')];
+  const actions = planInstall({ projectRoot: project, harnesses, receipt: null, packageRoot: pkg });
+  const link = byRel(actions).get('.claude/skills/dgf-x/SKILL.md');
+  assert.equal(link.kind, 'conflict-unmanaged');
+  assert.equal(link.reason, 'is a symbolic link');
+  assert.equal(link.diff, undefined);
+  const preview = renderPreview({ projectRoot: project, harnesses, actions });
+  assert.doesNotMatch(preview, /PRIVATE KEY MATERIAL/);
+  assert.match(preview, /\.claude\/skills\/dgf-x\/SKILL\.md — is a symbolic link/);
+  // recorded by an earlier setup: still a conflict, and the receipt entry is carried over
+  const previous = { source: 'skills/dgf-x/SKILL.md', owner: 'claude', sourceHash: 'a', installedHash: 'b' };
+  const receipt = { tool: 'dgf-factory', version: '0.2.0', harnesses: [{ id: 'claude', selected: true }], files: { '.claude/skills/dgf-x/SKILL.md': previous }, mcp: {} };
+  const again = byRel(planInstall({ projectRoot: project, harnesses, receipt, packageRoot: pkg })).get('.claude/skills/dgf-x/SKILL.md');
+  assert.equal(again.kind, 'conflict');
+  assert.equal(again.previous, previous);
+  assert.equal(again.diff, undefined);
 });
 
 test('every row of the update table', () => {
@@ -150,6 +175,51 @@ test('the preview puts what needs the user first, lists every write, and is stab
 test('the real package renders: every shipped skill, for Claude Code', () => {
   const desired = desiredFiles(REPO, [getHarness('claude')]);
   const skills = [...desired.keys()].filter((rel) => rel.startsWith('.claude/skills/'));
-  assert.equal(skills.length, 13);
+  assert.equal(skills.length, skillNames(REPO).length);
+  assert.ok(skills.length >= 13);
   for (const rel of skills) assert.ok(!desired.get(rel).content.toString().includes('{{dgf_runtime}}'), rel);
+});
+
+test('an agent installs for a harness with an agentsDir and a package folder of its own, rendered like a skill', (t) => {
+  const pkg = fakePackage(t);
+  write(pkg, 'agents/claude/dgf-a.md', '---\nname: dgf-a\n---\nRun `python3 "<main project>/{{dgf_runtime}}/scripts/a.py"`, then /dgf-y.\n');
+  write(pkg, 'agents/claude/notes.txt', 'not an agent');
+  const project = tmp(t, 'dgf-proj-');
+  const harnesses = [getHarness('claude'), getHarness('codex'), getHarness('gemini')];
+  const rels = byRel(planInstall({ projectRoot: project, harnesses, receipt: null, packageRoot: pkg }));
+  const agent = rels.get('.claude/agents/dgf-a.md');
+  assert.equal(agent?.kind, 'create');
+  assert.equal(agent.owner, 'claude');
+  assert.equal(agent.source, 'agents/claude/dgf-a.md');
+  assert.match(agent.content.toString(), /"<main project>\/\.dgf-factory\/runtime\/scripts\/a\.py"/);
+  // codex has an agentsDir but the package ships it no agents; gemini has no agentsDir
+  assert.deepEqual([...rels.keys()].filter((rel) => rel.includes('/agents/')), ['.claude/agents/dgf-a.md']);
+  assert.ok(![...rels.keys()].some((rel) => rel.includes('notes.txt') || rel.startsWith('.dgf-factory/runtime/agents')));
+  assert.deepEqual(agentNames(pkg, 'claude'), ['dgf-a']);
+  assert.deepEqual(agentNames(pkg, 'gemini'), []);
+});
+
+test('a re-run with an agent installed is unchanged, and an agent dropped from the package is removed', (t) => {
+  const pkg = fakePackage(t);
+  write(pkg, 'agents/claude/dgf-a.md', '---\nname: dgf-a\n---\nbody\n');
+  const project = tmp(t, 'dgf-proj-');
+  const harnesses = [getHarness('claude')];
+  const first = planInstall({ projectRoot: project, harnesses, receipt: null, packageRoot: pkg });
+  install(project, first);
+  const receipt = receiptFrom(first, ['claude']);
+  assert.ok(planInstall({ projectRoot: project, harnesses, receipt, packageRoot: pkg }).every((a) => a.kind === 'unchanged'));
+  rmSync(path.join(pkg, 'agents'), { recursive: true });
+  assert.equal(byRel(planInstall({ projectRoot: project, harnesses, receipt, packageRoot: pkg })).get('.claude/agents/dgf-a.md').kind, 'remove');
+});
+
+test('the real package ships the two implement agents for Claude Code only', () => {
+  assert.deepEqual(agentNames(REPO, 'claude'), ['dgf-implement-coordinator', 'dgf-implement-worker']);
+  const desired = desiredFiles(REPO, [getHarness('claude'), getHarness('codex'), getHarness('antigravity')]);
+  const agents = [...desired.keys()].filter((rel) => rel.includes('/agents/'));
+  assert.deepEqual(agents, ['.claude/agents/dgf-implement-coordinator.md', '.claude/agents/dgf-implement-worker.md']);
+  for (const rel of agents) {
+    const text = desired.get(rel).content.toString();
+    assert.ok(!text.includes('{{dgf_runtime}}'), rel);
+    assert.match(text, /\.dgf-factory\/runtime\/scripts\//, rel);
+  }
 });

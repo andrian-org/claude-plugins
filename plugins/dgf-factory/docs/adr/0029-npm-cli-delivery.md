@@ -318,3 +318,12 @@ Corrections of fact that do not change what this ADR decides. See [the ADR contr
   Corrections: AI Factory's registry gives `codex` no settings file, `kilocode` `.kilocode/mcp.json`, and
   `gemini`, `junie`, `warp` and `antigravity` none; the table above is what each harness reads today.
   Source: the documentation pages named in the table; `cli/harnesses.mjs` and `cli/mcp.mjs` follow it.
+
+- **2026-11-03** — §3's harness list follows AI Factory, which 2.21.0 changed for two of the 16 entries:
+  `windsurf` is now *Devin Desktop (formerly Windsurf)* and installs into `.devin/skills`, and `antigravity` is
+  *Antigravity 2.0* and installs into `.agents/skills`, with `.agents/agents` for agents and `.agents/mcp_config.json`
+  as its settings file — the MCP file this ADR's table already named. `antigravity` therefore shares `.agents/skills`
+  with `universal` (same rendering, allowed together) and `codex-app` (different rendering, refused together, as
+  `codex-app` with `universal` already was). Re-running setup moves an existing install: the unedited files in the
+  old folder are removed and the new folder is created, by §5's table. The decision is unchanged. Source: AI Factory
+  2.21.0, `dist/core/agents.js`; `cli/harnesses.mjs` follows it, and `tests/cli/harnesses.test.mjs` compares the two.

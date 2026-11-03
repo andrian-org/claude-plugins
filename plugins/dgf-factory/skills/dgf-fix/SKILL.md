@@ -2,9 +2,9 @@
 name: dgf-fix
 description: Fix a problem in a DGF estate inside the active plan's scope — reproduce it with the validators, make the smallest configuration fix, confirm it with the same check, and record a patch that teaches the next run; or record a gotcha as a patch without changing anything. Use for "fix this", "dgf fix", "the gate found a new error", "fix the dead transition", "record this gotcha", "write a patch".
 argument-hint: "[--record] [<symptom, finding code or file>]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__search_docs mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_xml_property_reference
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_patches.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/route_means.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_config.py"*) AskUserQuestion mcp__dgf-mcp__search_docs mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_xml_property_reference
 disable-model-invocation: false
-version: 0.2.0
+version: 0.3.0
 ---
 
 # DGF Fix — Fix Inside the Plan, and Record What It Taught
@@ -188,12 +188,23 @@ confirmed.
 
 ### Step 6: The patch
 
-Write `<root>/<paths.patches>/<YYYY-MM-DD-HH.mm>-<slug>.md` exactly as
+Choose the slug — a few lowercase words from the title, hyphenated, at most 50 characters — and
+let the script name the patch from its own clock:
+
+```bash
+python3 "{{dgf_runtime}}/scripts/check_patches.py" --workspaces-root "<root>" --patches-dir "<paths.patches>" --next-name <slug>
+```
+
+| Exit | Action |
+|---|---|
+| `0` | The `NEXT: <name> date="<date>"` line is the file name and the `date` field. Use both exactly. |
+| `3` | The slug makes no valid name: shorten or correct it and run it again; any other message → **STOP** and relay it. |
+
+Write `<root>/<paths.patches>/<name>` exactly as
 `{{dgf_runtime}}/skills/dgf-fix/references/PATCH-FORMAT.md` specifies:
 
-- the timestamp is now, to the minute, and the `date` field says the same;
-- the slug is a few lowercase words from the title, hyphenated, at most 50 characters. If a patch
-  of that name exists, choose another slug — never overwrite a patch;
+- the name and the `date` field are the `NEXT:` line's — never a time you supply. A taken name has
+  already been given `-2`, `-3`, … by the script, so a patch is never overwritten;
 - the keys and headings stay in English; the title and the prose are in `language.artifacts`;
 - `plan` is the plan's root-relative path (`none` in record mode, unless the user names one);
   `workspaces` and `files` are the files touched (in record mode, the files the problem names, or

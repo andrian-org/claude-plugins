@@ -12,6 +12,7 @@
     "skills",
     "scripts",
     "knowledge",
+    "agents",
     "!**/__pycache__",
     "!**/*.pyc",
     "!skills/dgf-scaffold/templates/solution/obj",

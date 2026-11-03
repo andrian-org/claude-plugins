@@ -2,7 +2,7 @@
 name: dgf-evolve
 description: Distil the estate's patches into skill-context overrides that tighten the dgf-* skills — rules and checks added, never a STOP, an exit code or a gate's status relaxed — each checked by a script before any skill applies it. Use for "evolve", "dgf evolve", "learn from the patches", "update the skill rules", "distil the patches".
 argument-hint: "[<skill> | all]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_patches.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) AskUserQuestion
 disable-model-invocation: true
 version: 0.2.0
 ---

@@ -2,9 +2,9 @@
 name: dgf-verify
 description: Verify a branch's DGF change against its plan and the merge-base — every task done, every changed file inside the declared workspaces and means, and no new validator finding across the whole workspaces root — then relay the dgf-gate-result block the verify gate script computes. Use for "verify the change", "dgf verify", "check my work", "did we miss anything", "is this ready to commit".
 argument-hint: "[--strict]"
-allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/inventory_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/verify_gate.py"*) AskUserQuestion
 disable-model-invocation: false
-version: 0.4.0
+version: 0.5.0
 ---
 
 # DGF Verify — The Change Gate
@@ -144,7 +144,11 @@ the block stays last.
 
    Override: <the skill-context file read, `refused (<codes>)`, or none>; refused: <each rule not applied, or none>
    Base workspace: <reason; applications covered — or "not in the plan">
+   Also on a pass: /dgf-review for a read of the change, /dgf-qa for its test plan
    ```
+
+   The `Also on a pass:` line only on exit `0` (`pass`), and only here, in the header. It is never a
+   `suggested_next` — the script fixes that field's allowlist — and never written after the block.
 
 2. Then the script's output, **verbatim**, ending with its `dgf-gate-result` block.
 3. **Nothing after the block** — not a question, not a summary. A caller parses the last block;

@@ -45,6 +45,17 @@ class Inventory(unittest.TestCase):
         self.assertIn(" Supervisor", self.found)
         self.assertNotIn("Supervisor", self.found)
 
+    def test_a_dtd_is_refused_so_its_entities_are_never_expanded(self):
+        # the billion laughs, kept small enough that an unguarded reader still finishes: 10^5 expansions
+        laughs = "".join(f'<!ENTITY l{i} "{"&l%d;" % (i - 1) * 10}">' for i in range(1, 6))
+        bomb = (f'<?xml version="1.0"?><!DOCTYPE map [<!ENTITY l0 "lol">{laughs}<!ENTITY r "Smuggled">]>'
+                '<map><mapNode name="x" roles="&r;"/><mapNode name="y" roles="&l5;"/></map>\n')
+        root = helpers.make_root(os.path.join(self.tmp, "dtd"), {"a/_application.sitemap": bomb,
+                                                                 "a/FM/_PROCESS/Case/process.xml": "<Process/>"})
+        found = roles.inventory(root)
+        self.assertNotIn("Smuggled", found)
+        self.assertFalse(any("lol" in name for name in found), sorted(found)[:3])
+
     def test_an_empty_roles_value_names_no_role(self):
         self.assertNotIn("", self.found)
 

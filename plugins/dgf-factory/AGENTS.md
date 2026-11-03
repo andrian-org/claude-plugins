@@ -21,7 +21,10 @@ distils patches into skill-context overrides that `check_override.py` checks bef
 reads one. Five DGF-specific skills exist too — `/dgf-component`, `/dgf-process`, `/dgf-model`
 write one kind of configuration each, only inside a plan's scope, and `/dgf-audit` reports the
 root's health and a file's blast radius from a reference graph resolved per application;
-`/dgf-scaffold` creates a new application from an empty folder, generated from shipped templates. See
+`/dgf-scaffold` creates a new application from an empty folder, generated from shipped templates. Nine quality
+and authoring skills — `/dgf-review`, `/dgf-rules`, `/dgf-rules-check`, `/dgf-qa`, `/dgf-docs`, `/dgf-explore`,
+`/dgf-grounded`, `/dgf-archive`, `/dgf-security` — review, test, document, research and tidy the work; none is a
+gate ([ADR 0032](docs/adr/0032-quality-and-authoring-skills.md)). See
 [.ai-factory/DESCRIPTION.md](.ai-factory/DESCRIPTION.md) for scope and verified framework facts,
 [docs/pipeline.md](docs/pipeline.md) for how a change flows, and [docs/adr/](docs/adr/README.md)
 for the decisions that shape it.
@@ -46,6 +49,8 @@ plugins/dgf-factory/
 ├── AGENTS.md                   # This file — navigation index
 ├── package.json                # The npm package — name, version, bin, and `files`: what ships (ADR 0030)
 ├── bin/dgf-factory.mjs         # SHIPPED — the CLI's entry
+├── agents/claude/              # SHIPPED — dgf-implement-coordinator (top level) and dgf-implement-worker
+│                               #   (one task per worktree), installed into .claude/agents/ (ADR 0033)
 ├── cli/                        # SHIPPED — the installer: harnesses, transform, hash, receipt, fsops,
 │                               #   plan, preview, prompt, mcp, python, commands/{setup,status,uninstall}.mjs;
 │                               #   no dependencies
@@ -64,8 +69,17 @@ plugins/dgf-factory/
 │   ├── dgf-process/            #   inspect, validate, author or modify a process or workflow; templates/
 │   ├── dgf-model/              #   inspect, validate, add or modify an entity's settings.xml; templates/
 │   ├── dgf-audit/              #   read-only: the root's health, and a file's blast radius
-│   └── dgf-scaffold/           #   a new application from an empty folder; scripts/ design, generate, check;
-│                               #     templates/ solution, workspace, patterns + manifest.json; references/DESIGN-FORMAT.md
+│   ├── dgf-scaffold/           #   a new application from an empty folder; scripts/ design, generate, check;
+│   │                           #     templates/ solution, workspace, patterns + manifest.json; references/DESIGN-FORMAT.md
+│   ├── dgf-review/             #   read-only: a DGF reviewer's read of a change — checks, diff, rules, seams
+│   ├── dgf-rules/              #   writes RULES.md; references/default-rules.md (ADR 0028's six), RULES-FORMAT.md
+│   ├── dgf-rules-check/        #   read-only: the change against the rules
+│   ├── dgf-qa/                 #   a manual test plan per reached process; references/TEST-PLAN-FORMAT.md
+│   ├── dgf-docs/               #   the estate's generated inventory pages, and an overview
+│   ├── dgf-explore/            #   cited research into RESEARCH.md
+│   ├── dgf-grounded/           #   read-only: answers only what it can cite
+│   ├── dgf-archive/            #   finished plans into the archive, through archive_plans.py
+│   └── dgf-security/           #   the application's security scan, through scripts/security-scan.sh
 ├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0030)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
 │   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
@@ -93,10 +107,18 @@ plugins/dgf-factory/
 │   ├── check_patches.py        #   the patches' format, and which are new against the cursor (ADR 0024)
 │   ├── check_override.py       #   may a skill read its override: shape, sources, forbidden, limit (ADR 0024)
 │   ├── audit_root.py           #   the whole-root audit, or a file's reach per application (ADR 0027 §5)
+│   ├── plan_layers.py          #   the next layer of a plan: ready, parallel, serial and why (ADR 0033 §3)
+│   ├── worktree_task.py        #   --sync a worker's worktree from the main tree; --merge it back, refusing
+│   │                           #     an undeclared file or a changed main tree (ADR 0033 §3)
+│   ├── check_rules.py          #   the estate's RULES.md before any skill reads it; layout-case (ADR 0032 §4)
+│   ├── show_change.py          #   the change's diff, for the skills that pre-approve no git (ADR 0032 §3)
+│   ├── estate_docs.py          #   the estate's inventory pages, written or --check'ed (ADR 0032 §3)
+│   ├── archive_plans.py        #   finished plans listed, and with --apply archived (ADR 0032 §3)
+│   ├── security-scan.sh        #   the application's security scan: Trivy, Gitleaks, Semgrep, ZAP (ADR 0034)
 │   ├── requirements.txt        #   lxml + jsonschema, exact pins with hashes (Python 3.9+)
 │   └── lib/                    #   report, deps, knowledge, cli, family, json_*, prepass, xsd, parity, workspace,
 │                               #   process_checks, plan, git, runner, baseline, gate_result, patches, overrides,
-│                               #   model, edges, graph, roles
+│                               #   model, edges, graph, roles, worktree (the only module that changes a repository)
 ├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
 │   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
@@ -107,6 +129,7 @@ plugins/dgf-factory/
 │   ├── check_knowledge_stamps.py  # stamps, ledgers and vendored digests; section 7 invokes it
 │   ├── vendor_schemas.py          # re-vendors DGF's schema set, rewriting DGF paths on the way in
 │   ├── derive_sql_types.py        # the SQL type of each dbtype, tallied from DGF's settings/table pairs (data-model.md §6)
+│   ├── build_papers.sh            # renders docs/papers/*.md to PDF with pandoc and headless Chrome
 │   ├── run_known_good.py          # every validator over DGF's samples (via scripts/lib/runner.py); each error excused
 │   ├── known-good-exceptions.txt  # the evidenced excuses, and the warning baseline
 │   ├── check_drift.py             # the provenance ledgers' digests against a DGF checkout
@@ -135,7 +158,7 @@ plugins/dgf-factory/
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
-Not yet created: `agents/`. npm delivery — `package.json`, `bin/`, `cli/`, the receipt and the install-aware
+npm delivery — `package.json`, `bin/`, `cli/`, the receipt and the install-aware
 doctor — replaced the Claude Code plugin manifest on 2026-10-26 (ADR 0029). The manifest and the `/dgf-doctor`
 walking skeleton had landed with roadmap milestone 6,
 the `knowledge/` base with milestone 7, the validators, both corpora and the drift check with
@@ -152,7 +175,7 @@ and the field-type tables, closed it.
 |---|---|
 | [package.json](package.json) | The npm package: `@andrian-org/dgf-factory`, the `dgf-factory` bin, and `files` — the shipped payload |
 | [cli/commands/setup.mjs](cli/commands/setup.mjs) | `dgf-factory setup`: choose harnesses, plan every file against the receipt, preview, write atomically, receipt last |
-| [cli/harnesses.mjs](cli/harnesses.mjs) | The 16 harnesses (AI Factory 2.19.0's folders) with this tool's transform and verified MCP target each |
+| [cli/harnesses.mjs](cli/harnesses.mjs) | The 16 harnesses (AI Factory 2.21.0's folders) with this tool's transform and verified MCP target each |
 | [cli/plan.mjs](cli/plan.mjs) | Each installed file decided by ADR 0029 §5's table: create, update, keep-edited, conflict, missing, remove |
 | [scripts/lib/install_receipt.py](scripts/lib/install_receipt.py) | The receipt read from Python: the install footprint the change checks and the scaffold ignore, and the hash |
 | [scripts/lib/runtime.py](scripts/lib/runtime.py) | Every entry script switches to the project's `.dgf-factory/runtime/.venv` first (ADR 0031) |
@@ -178,6 +201,12 @@ and the field-type tables, closed it.
 | [skills/dgf-scaffold/scripts/design.py](skills/dgf-scaffold/scripts/design.py) | The scaffold's design check: the folder is empty, names, references, data model, SQL types, what is open, every default |
 | [skills/dgf-scaffold/scripts/generate.py](skills/dgf-scaffold/scripts/generate.py) | Renders a new application from the design and `templates/manifest.json`; `--check` is the post-generation check (`check.py`) |
 | [skills/dgf-scaffold/references/DESIGN-FORMAT.md](skills/dgf-scaffold/references/DESIGN-FORMAT.md) | The design file, `docs/application.json`: every key, its rule and its default |
+| [agents/claude/dgf-implement-coordinator.md](agents/claude/dgf-implement-coordinator.md) | The parallel run: `claude --agent dgf-implement-coordinator` — layers from `plan_layers.py`, one worker per task, merges through `worktree_task.py` (ADR 0033) |
+| [scripts/worktree_task.py](scripts/worktree_task.py) | Sync a worker's worktree from the main tree, and merge it back only within the task's declared files |
+| [scripts/check_rules.py](scripts/check_rules.py) | The estate's rules file checked before any skill reads it — format, the override limit, the defaults, and `layout-case` (ADR 0032 §4) |
+| [skills/dgf-rules/references/RULES-FORMAT.md](skills/dgf-rules/references/RULES-FORMAT.md) | The rules format, the check table, the limit — what `check_rules.py` enforces |
+| [scripts/estate_docs.py](scripts/estate_docs.py) | The estate's inventory pages from the validators' own readers; `--check` reports staleness |
+| [docs/adr/0032-quality-and-authoring-skills.md](docs/adr/0032-quality-and-authoring-skills.md) | The quality and authoring skills: artifacts, no new gate, the four scripts, the rules file |
 | [knowledge/application-layout.md](knowledge/application-layout.md) | What a new DGF application is made of — the framework facts the scaffold's templates rest on |
 | [knowledge/README.md](knowledge/README.md) | The stamping convention every DGF fact follows — read before writing or citing a fact |
 | [knowledge/schemas/MANIFEST.md](knowledge/schemas/MANIFEST.md) | What the vendored schema set holds: directories, dialects, membership |

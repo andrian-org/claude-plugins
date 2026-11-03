@@ -53,6 +53,9 @@ edited is kept and reported, and one that changed on both sides is shown as a di
 outside the project is written, and the project's own `.gitignore` is never edited. `/dgf-doctor` checks
 the install against the receipt.
 
+To use it on your estate from here, follow the [Usage Guides](guides/README.md): one step-by-step route per
+scenario — a new project, a change, a health check, a DGF upgrade, a migration.
+
 ## Clone and open
 
 ```bash
@@ -318,9 +321,11 @@ skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
 
 ## What is not here yet
 
-- `agents/` — coordinators and workers
-- A published package: `@andrian-org/dgf-factory` installs today from a tarball (`npm pack`), and
-  publishing to GitHub Packages is a follow-up of ADR 0029
+- An install from the registry checked end to end: the tag-triggered workflow published 0.2.0 to GitHub Packages
+  on 2026-10-27, but the README's `.npmrc` route has been checked only with a tarball (`npm pack`)
+- Agents for any harness but Claude Code: the parallel run (`claude --agent dgf-implement-coordinator`, see
+  [Parallel execution](pipeline.md#parallel-execution)) is Claude Code only, and every other harness implements a
+  plan with `/dgf-implement`, one task at a time (ADR 0033)
 
 ## Build order
 
@@ -374,6 +379,7 @@ Confirm the DGF docs MCP is reachable in your Claude Code session — `.mcp.json
 
 ## See Also
 
+- [Usage Guides](guides/README.md) — the five scenarios, step by step, for a team using dgf-factory on its estate
 - [Pipeline Spine](pipeline.md) — the five skills, the plan format, the change gate, and the learning loop
 - [Architecture](architecture.md) — where new skills, knowledge and scripts belong
 - [Skill Authoring](skill-authoring.md) — the contract every `dgf-*` skill must follow

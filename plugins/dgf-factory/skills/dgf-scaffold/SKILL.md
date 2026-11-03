@@ -2,7 +2,7 @@
 name: dgf-scaffold
 description: Create a new DGF application from scratch in an empty folder — the solution, the API hosts, Docker, the database with its SQL, the workspaces, authentication and the documentation, plus the register, service and page artefacts the request describes. Use for "new DGF application", "scaffold an app", "start a DGF project from scratch", "empty folder", "multi-tenant application", "bootstrap a DGF system".
 argument-hint: "<what the application is>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/design.py"*) Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/generate.py"*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details
 disable-model-invocation: false
 version: 0.2.0
 ---

@@ -2,7 +2,7 @@
 name: dgf-process
 description: Inspect, validate, author or modify a DGF process or workflow — process.xml and _workflow.xml, checked against process.xsd and the engine's own resolution rules — and show which processes a shared workflow reaches in each application before it changes. Writes XML only, and only inside the active plan's scope. Use for "add a process", "new workflow", "change this workflow", "check this process", "what calls this workflow", "blast radius of this workflow".
 argument-hint: "[inspect | validate | author | modify] <process, workflow or file>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__search_docs mcp__dgf-mcp__get_recipes_for mcp__dgf-mcp__get_doc_page
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/audit_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/route_means.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_process.py"*) AskUserQuestion mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__search_docs mcp__dgf-mcp__get_recipes_for mcp__dgf-mcp__get_doc_page
 disable-model-invocation: false
 version: 0.2.0
 ---

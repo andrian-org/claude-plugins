@@ -5,6 +5,12 @@ estate checks need: the install footprint — every managed file, and every MCP 
 setup merged a `dgf-mcp` entry into (ADR 0029 §2). The change checks and the scaffold's
 empty-folder rule ignore it, because none of it is the estate's configuration.
 
+Only what setup could have written counts: a `files` entry under `.dgf-factory/runtime/` owned
+by `runtime`, or under its owning harness's skills or agents folder, never inside a `.git`
+folder; an `mcp` entry naming its harness's own MCP file. A receipt is committed, so anyone can
+edit it — an entry anywhere else would hide an estate file from the change checks. It is left
+out of the footprint, and `ignored()` names it for the caller to report.
+
 Stdlib only, and nothing from `lib/`, so the stdlib-only scripts (doctor.py, the scaffold's
 design.py) can load it by path. A receipt that cannot be read raises ReceiptError; the
 caller reports it as INSTALL_RECEIPT_UNREADABLE (exit 3).
@@ -17,6 +23,36 @@ from pathlib import Path
 
 PIPELINE_DIR = ".dgf-factory"
 RECEIPT = Path(PIPELINE_DIR) / "install.json"
+RUNTIME_OWNER = "runtime"
+RUNTIME_PREFIX = f"{PIPELINE_DIR}/runtime/"
+
+# Where setup installs for each harness: (skillsDir, agentsDir, mcp.file) from cli/harnesses.mjs,
+# restated because this module is stdlib-only. tests/test_install_receipt.py holds the two in step.
+HARNESS_PLACES = {
+    "claude": (".claude/skills", ".claude/agents", ".mcp.json"),
+    "cursor": (".cursor/skills", None, ".cursor/mcp.json"),
+    "codex": (".codex/skills", ".codex/agents", ".codex/config.toml"),
+    "codex-app": (".agents/skills", None, ".codex/config.toml"),
+    "copilot": (".github/skills", None, ".vscode/mcp.json"),
+    "gemini": (".gemini/skills", None, ".gemini/settings.json"),
+    "junie": (".junie/skills", None, ".junie/mcp/mcp.json"),
+    "qwen": (".qwen/skills", None, ".qwen/settings.json"),
+    "windsurf": (".devin/skills", None, None),
+    "warp": (".warp/skills", None, ".warp/.mcp.json"),
+    "zencoder": (".zencoder/skills", None, None),
+    "roocode": (".roo/skills", None, ".roo/mcp.json"),
+    "kilocode": (".kilocode/skills", None, None),
+    "antigravity": (".agents/skills", ".agents/agents", ".agents/mcp_config.json"),
+    "opencode": (".opencode/skills", None, "opencode.json"),
+    "universal": (".agents/skills", None, ".mcp.json"),
+}
+
+# Folders an earlier AI Factory registry installed into — cli/harnesses.mjs `formerDirs`. An older receipt may name
+# them; their files still belong to the install until setup removes them.
+FORMER_PLACES = {
+    "windsurf": (".windsurf/skills",),
+    "antigravity": (".agent/skills",),
+}
 
 
 class ReceiptError(Exception):
@@ -53,22 +89,70 @@ def _paths(value, where):
     return value
 
 
-def footprint(root):
-    """The root-relative POSIX paths setup manages: an empty set when there is no receipt."""
+def misplaced(rel, owner):
+    """Why setup would never have installed `rel` for `owner`, or None when it could have —
+    cli/receipt.mjs's misplaced(), restated."""
+    if any(part.lower() == ".git" for part in rel.split("/")):
+        return "is inside a `.git` folder"
+    if owner == RUNTIME_OWNER:
+        return None if rel.startswith(RUNTIME_PREFIX) else f"is not under {RUNTIME_PREFIX}"
+    places = HARNESS_PLACES.get(owner) if isinstance(owner, str) else None
+    if places is None:
+        return f"has an unknown owner `{owner}`"
+    folders = [folder for folder in places[:2] if folder] + list(FORMER_PLACES.get(owner, ()))
+    if any(rel.startswith(folder + "/") for folder in folders):
+        return None
+    return f"is not under {owner}'s " + " or ".join(folder + "/" for folder in folders)
+
+
+def _mcp_misplaced(harness, file):
+    places = HARNESS_PLACES.get(harness)
+    if places is None:
+        return f"has an unknown harness `{harness}`"
+    return None if places[2] == file else f"is not {harness}'s MCP file"
+
+
+def _entries(root):
+    """(managed paths, [(where, path, why)] ignored) — both empty when there is no receipt."""
     data = load(root)
     if data is None:
-        return frozenset()
+        return frozenset(), []
     files = data.get("files", {})
     mcp = data.get("mcp", {})
     if not isinstance(files, dict) or not isinstance(mcp, dict):
         raise ReceiptError(f"{RECEIPT.as_posix()} `files` and `mcp` must be objects")
-    found = {_paths(rel, "files") for rel in files}
+    found, ignored = set(), []
+    for rel, entry in files.items():
+        _paths(rel, "files")
+        why = misplaced(rel, entry.get("owner") if isinstance(entry, dict) else None)
+        if why:
+            ignored.append(("files", rel, why))
+        else:
+            found.add(rel)
     for harness, entry in mcp.items():
         if not isinstance(entry, dict):
             raise ReceiptError(f"{RECEIPT.as_posix()} `mcp.{harness}` is not an object")
-        found.add(_paths(entry.get("file"), f"mcp.{harness}.file"))
-    _trace(f"{len(found)} managed path(s) in {receipt_path(root)}")
-    return frozenset(found)
+        file = _paths(entry.get("file"), f"mcp.{harness}.file")
+        why = _mcp_misplaced(harness, file)
+        if why:
+            ignored.append((f"mcp.{harness}.file", file, why))
+        else:
+            found.add(file)
+    for where, rel, why in ignored:
+        _trace(f"ignored {where} `{rel}`: {why}")
+    _trace(f"{len(found)} managed path(s) in {receipt_path(root)}, {len(ignored)} ignored")
+    return frozenset(found), ignored
+
+
+def footprint(root):
+    """The root-relative POSIX paths setup manages: an empty set when there is no receipt.
+    An entry setup could not have written is left out (see `ignored`)."""
+    return _entries(root)[0]
+
+
+def ignored(root):
+    """The receipt's entries left out of the footprint: [(where, path, why)], for the caller to report."""
+    return _entries(root)[1]
 
 
 # --- the receipt's hash: cli/hash.mjs restated, held to tests/fixtures/hash/expected.json ---------

@@ -100,3 +100,28 @@ test('pruning stops at the first non-empty folder', (t) => {
   assert.equal(existsSync(path.join(root, 'a/b')), false);
   assert.equal(existsSync(path.join(root, 'a/keep.txt')), true);
 });
+
+test('a files key outside where setup installs for its owner is refused', () => {
+  const entry = (owner) => ({ source: 's', owner, sourceHash: 'a', installedHash: 'b' });
+  const cases = [
+    ['src/Program.cs', 'runtime'],
+    ['src/Program.cs', 'claude'],
+    ['.git/hooks/pre-commit', 'runtime'],
+    ['.dgf-factory/runtime/.git/config', 'runtime'],
+    ['.claude/skills/x/.GIT/hooks/pre-commit', 'claude'],
+    ['.cursor/skills/dgf/SKILL.md', 'claude'],
+    ['.claude/skills/dgf/SKILL.md', 'nobody'],
+    ['.dgf-factory/config.yaml', 'runtime'],
+    ['.claude/skillsX/dgf/SKILL.md', 'claude'],
+  ];
+  for (const [rel, owner] of cases) {
+    const data = { ...sample(), files: { [rel]: entry(owner) } };
+    assert.throws(() => validate(data), (err) => err.code === 3 && err.message.includes(rel) && /setup never installs there/.test(err.message), `${owner} ${rel}`);
+  }
+  const fine = { ...sample(), files: {
+    '.dgf-factory/runtime/.gitignore': entry('runtime'),
+    '.claude/agents/dgf-implement-worker.md': entry('claude'),
+    '.agents/skills/dgf/SKILL.md': entry('universal'),
+  } };
+  assert.equal(validate(fine), fine);
+});

@@ -13,6 +13,12 @@ paths:
   patches: .dgf-factory/patches/      # read if present
   skill_context: .dgf-factory/skill-context/
   evolutions: .dgf-factory/evolutions/  # /dgf-evolve's logs and patch cursor
+  rules_file: .dgf-factory/RULES.md   # /dgf-rules
+  research: .dgf-factory/RESEARCH.md  # /dgf-explore
+  qa: .dgf-factory/qa/                # /dgf-qa's test plans, one folder per plan
+  docs: .dgf-factory/docs/            # /dgf-docs's generated estate pages
+  archive: .dgf-factory/archive/      # /dgf-archive's finished plans
+  security: .dgf-factory/security/    # /dgf-security's scan reports (never committed)
 git:
   enabled: {{GIT_ENABLED}}
   base_branch: {{BASE_BRANCH}}

@@ -2,7 +2,7 @@
 name: dgf
 description: Set up dgf-factory for a DGF workspaces root — inventory the workspaces, record the estate's DGF version, and write .dgf-factory/config.yaml and DESCRIPTION.md. Use for "set up dgf-factory", "dgf setup", "initialise the workspaces root", "configure dgf", "start using dgf-factory".
 argument-hint: "[workspaces-root]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) Bash(git *) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_release_notes
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/inventory_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_release_notes
 disable-model-invocation: false
 version: 0.3.0
 ---

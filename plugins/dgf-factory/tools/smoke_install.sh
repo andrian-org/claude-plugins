@@ -6,7 +6,8 @@
 #
 #   1. npm pack
 #   2. npm install -g --prefix <tmp>/npm <tarball>
-#   3. dgf-factory setup --harness claude,codex,gemini --yes, in an empty project
+#   3. dgf-factory setup --harness claude,codex,gemini --yes, in an empty project; the two implement
+#      agents land in .claude/agents/ and nowhere else (ADR 0033 §5)
 #   4. a second setup: exit 0, nothing written
 #   5. edit one installed skill, set up again: the edit is kept, and reported
 #   6. the installed doctor: exit 0, or 2 with only INSTALL_FILE_EDITED (from step 5)
@@ -65,6 +66,13 @@ for dir in .claude/skills .codex/skills .gemini/skills .dgf-factory/runtime/scri
     [ -d "${PROJECT}/${dir}" ] || fail 1 "${dir} was not installed"
 done
 [ -f "${PROJECT}/.dgf-factory/install.json" ] || fail 1 'no receipt'
+for agent in dgf-implement-coordinator dgf-implement-worker; do
+    [ -f "${PROJECT}/.claude/agents/${agent}.md" ] || fail 1 "the ${agent} agent was not installed for claude"
+    grep -qF "\".claude/agents/${agent}.md\"" "${PROJECT}/.dgf-factory/install.json" || fail 1 "the receipt does not record ${agent}"
+done
+for dir in .codex/agents .gemini/agents .dgf-factory/runtime/agents; do
+    [ ! -e "${PROJECT}/${dir}" ] || fail 1 "${dir} was installed; agents ship for Claude Code only"
+done
 
 step '4. a second setup changes nothing'
 before="$(cd "${PROJECT}" && find . -type f -not -path './.dgf-factory/runtime/.venv/*' -exec shasum {} + | sort)"

@@ -2,8 +2,8 @@
 
 import unittest
 
-from tests import helpers  # noqa: F401 — puts scripts/ on sys.path
-from lib import json_reader
+from tests import helpers
+from lib import deps, json_reader
 
 
 class Comments(unittest.TestCase):
@@ -52,6 +52,25 @@ class Strictness(unittest.TestCase):
         with self.assertRaises(json_reader.JsonParseError):
             json_reader.parse_bytes('{"a": 1}'.encode("utf-16"))
 
+
+    def test_nesting_too_deep_to_read_is_a_parse_error_not_a_traceback(self):
+        deep = '{"a":' + "[" * 200_000 + "]" * 200_000 + "}"
+        with self.assertRaises(json_reader.JsonParseError) as caught:
+            json_reader.parse_text(deep)
+        self.assertIn("nested too deeply", caught.exception.message)
+
+    @unittest.skipIf(deps.missing(), "lxml and jsonschema are not installed")
+    def test_a_validator_reports_200k_deep_nesting_as_a_finding(self):
+        import shutil
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        root = helpers.make_root(tmp, {"a/FM/_COMPONENTS/deep.json": '{"a":' + "[" * 200_000 + "]" * 200_000 + "}"})
+        code, out, err = helpers.run_cli("validate_config.py", root / "a/FM/_COMPONENTS/deep.json")
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(code, 3, out + err)
+        self.assertIn("FAMILY_UNRESOLVED", out)
+        self.assertIn("nested too deeply", out)
 
 class CaseDuplicates(unittest.TestCase):
     def test_keys_differing_only_in_case_are_recorded(self):

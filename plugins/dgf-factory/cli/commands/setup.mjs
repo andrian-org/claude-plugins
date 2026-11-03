@@ -15,7 +15,7 @@ import { HARNESSES, harnessIds, selectHarnesses } from '../harnesses.mjs';
 import * as log from '../log.mjs';
 import { applyMcp, planMcp, previewMcp } from '../mcp.mjs';
 import { packageRoot, packageVersion } from '../paths.mjs';
-import { countKinds, planInstall } from '../plan.mjs';
+import { agentNames, countKinds, planInstall } from '../plan.mjs';
 import { isNoop, renderPreview } from '../preview.mjs';
 import { ask } from '../prompt.mjs';
 import { previewPython, setupPython } from '../python.mjs';
@@ -159,12 +159,17 @@ function writeReceiptIfChanged(projectRoot, receipt, journal) {
   return true;
 }
 
-function nextSteps(harnesses) {
+function nextSteps(harnesses, pkgRoot) {
   const lines = ['', 'Next:'];
+  const withAgents = harnesses.filter((h) => h.agentsDir && agentNames(pkgRoot, h.id).length);
+  const folders = [...new Set([...harnesses.map((h) => `${h.skillsDir}/`), ...withAgents.map((h) => `${h.agentsDir}/`)])];
   if (harnesses.some((h) => h.id === 'claude')) lines.push('  - in Claude Code: /dgf to set up the estate, then /dgf-doctor');
   if (harnesses.some((h) => h.transform === 'codex')) lines.push('  - in Codex: trust this project (it reads .codex/config.toml only then), then $dgf and $dgf-doctor');
   if (harnesses.some((h) => h.id !== 'claude' && h.transform !== 'codex')) lines.push('  - in the other harnesses: run the dgf skill, then dgf-doctor');
-  lines.push(`  - commit .dgf-factory/ and the harness folders (${harnesses.map((h) => `${h.skillsDir}/`).join(', ')}); .dgf-factory/runtime/.venv stays ignored`);
+  lines.push(`  - commit .dgf-factory/ and the harness folders (${folders.join(', ')}); .dgf-factory/runtime/.venv stays ignored`);
+  if (withAgents.some((h) => h.id === 'claude')) {
+    lines.push('  - to implement a plan in parallel: add .claude/worktrees/ to .gitignore, then run `claude --agent dgf-implement-coordinator`');
+  }
   return lines;
 }
 
@@ -181,7 +186,7 @@ function report(out, { actions, mcpActions, python, journal, receiptWritten }) {
 }
 
 function exitCodeOf(actions, mcpActions, python) {
-  if (mcpActions.some((a) => a.kind === 'invalid')) return EXIT_BLOCKED;
+  if (mcpActions.some((a) => a.kind === 'invalid') || python.status === 'refused') return EXIT_BLOCKED;
   const attention = actions.some((a) => ['keep-edited', 'conflict', 'conflict-unmanaged'].includes(a.kind))
     || mcpActions.some((a) => a.kind === 'conflict' || a.kind === 'manual')
     || python.status === 'failed';
@@ -254,6 +259,6 @@ async function setup(options, { io, out, pkgRoot, spawn }) {
   const python = setupPython(projectRoot, { skip: options['no-python'], ...(spawn ? { spawn } : {}) });
   const receiptWritten = writeReceiptIfChanged(projectRoot, buildReceipt(receipt, packageVersion(pkgRoot), harnesses, files, mcp), journal);
   report(out, { actions, mcpActions, python, journal, receiptWritten });
-  out.write(`${nextSteps(harnesses).join('\n')}\n`);
+  out.write(`${nextSteps(harnesses, pkgRoot).join('\n')}\n`);
   return exitCodeOf(actions, mcpActions, python);
 }
