@@ -15,6 +15,18 @@ metadata:
 
 # Reference Creator
 
+## Shared project skill-context
+
+Before mode routing or work, read existing files relative to the current project root in this order (reuse them if already loaded):
+
+1. `.ai-factory/skill-context/global-skill-context.md` — all bundled skills.
+2. `.ai-factory/skill-context/aif-reference/SKILL.md` — this skill.
+
+Missing files are skipped; an existing unreadable file stops dependent work with its path.
+Precedence: individual > build (when applicable) > global > skill defaults; retain non-conflicting instructions and check all outputs against the effective rules.
+These layers customize workflow; they do not replace the project's rules/architecture hierarchy or relax explicit requirements, ownership, scope, safety/privacy, validation, or approval boundaries. Report conflicts with those boundaries instead of overriding them.
+`global` is a project-local layer, not home-directory configuration. Custom/extension skills do not automatically use it.
+
 Create structured knowledge references from external sources and store them in the configured references directory so other AI Factory skills can reuse them later.
 
 ## Step 0: Load Config
@@ -254,6 +266,14 @@ To make a skill aware of a specific reference, mention it in the resolved RULES.
 ## References
 - For <topic> details, see `<resolved references dir>/<name>.md`
 ```
+
+## Optional project application handoff
+
+When a user wants to test a source idea in their project, suggest `/aif-explore`
+for an opt-in hypothesis card. Preserve the actual source revision, conditions,
+and disclosure restrictions; distinguish source claims from project inference.
+This command continues to write only its configured references and index, not
+research or plans, and the handoff does not authorize running an experiment.
 
 ## Artifact Ownership
 

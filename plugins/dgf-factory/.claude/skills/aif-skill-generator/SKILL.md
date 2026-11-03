@@ -12,6 +12,18 @@ metadata:
 
 # Skill Generator
 
+## Shared project skill-context
+
+Before mode routing or work, read existing files relative to the current project root in this order (reuse them if already loaded):
+
+1. `.ai-factory/skill-context/global-skill-context.md` — all bundled skills.
+2. `.ai-factory/skill-context/aif-skill-generator/SKILL.md` — this skill.
+
+Missing files are skipped; an existing unreadable file stops dependent work with its path.
+Precedence: individual > build (when applicable) > global > skill defaults; retain non-conflicting instructions and check all outputs against the effective rules.
+These layers customize workflow; they do not replace the project's rules/architecture hierarchy or relax explicit requirements, ownership, scope, safety/privacy, validation, or approval boundaries. Report conflicts with those boundaries instead of overriding them.
+`global` is a project-local layer, not home-directory configuration. Custom/extension skills do not automatically use it.
+
 You are an expert Agent Skills architect. You help users create professional, production-ready skills that follow the [Agent Skills](https://agentskills.io/specification) open standard.
 
 ### Project Context
@@ -103,7 +115,15 @@ py --version
 ```
 Use the first command that exits successfully and reports `Python 3.x`: `python3`, `python`, `py -3`, or `py`. Do not use Python `-c` one-liners for this detection path; the pre-approved tool contract only covers version probes, `security-scan.py`, and `cleanup-blocked-skill.py` execution.
 
-If not found — ask user for path, offer to skip scan (at their risk), or suggest installing Python. If skipping, do not invoke the Python scanner and still perform Level 2 (manual review). See `/aif` skill for full detection flow.
+If none works, STOP external-skill installation and Learn Mode before any download or generation. Ask the user to install Python 3 or make it available through one of the four supported launchers, then retry. Do not execute an arbitrary user-provided interpreter path: it is outside the default tool allowlist and requires a separately authorized tool contract.
+
+### Install Preflight
+
+Before every external install or Learn Mode, require a supported Python 3 command and use `Read` to verify that `~/.claude/skills/aif-skill-generator/scripts/security-scan.py` and `cleanup-blocked-skill.py` are readable. If either helper is missing, STOP acquisition and report how to restore it. Do not run `npx skills install` or generate a Learn Mode skill until scanner and verified cleanup are available; manual Level 2 review does not replace this preflight.
+
+When BLOCKED, require cleanup exit 0 and verified removal of both the scanned directory and its known lock identities before reporting successful cleanup. If cleanup fails, report incomplete cleanup and STOP; never use the blocked skill.
+
+Scan-only/validate of an already-existing local path is separate: if Python is unavailable, the user may explicitly accept Level 2-only review. Report Level 1 as skipped, never as passed. This does not authorize installation or Learn Mode.
 
 ### Scan Workflow
 
@@ -148,6 +168,10 @@ For threat categories, severity levels, and user communication templates → rea
 - `/aif-skill-generator validate <path>` - **Full validation**: structure check + two-level security scan
 - `/aif-skill-generator template <type>` - Get a template (basic, task, reference, visual)
 
+## Questions and Interactive Output (All Modes)
+
+Before routing arguments to any mode, read and follow the Runtime-Aware Questions contract in `references/BEST-PRACTICES.md`. It applies to standard generation, URL-based Learn Mode, and any follow-up questions. Include that self-contained section in every generated interactive skill's `SKILL.md`, regardless of generation mode.
+
 ## Argument Detection
 
 **IMPORTANT**: Before starting the standard workflow, detect the mode from `$ARGUMENTS`:
@@ -170,8 +194,8 @@ When `$ARGUMENTS` starts with `scan`:
 
 1. Extract the path (everything after "scan ")
 2. Before Level 1, check `PYTHON_CMD`:
-   - If `PYTHON_CMD` is empty, ask the user to provide a Python 3 path, skip automated Level 1, or stop and install Python.
-   - If the user provides a path, verify it reports Python major version 3 and use it as `PYTHON_CMD`.
+   - If `PYTHON_CMD` is empty, ask the user to skip automated Level 1 for this existing local path, or stop and install Python 3 through a supported launcher.
+   - Do not run an arbitrary interpreter path under the default tool allowlist.
    - If the user skips, do not invoke `security-scan.py`; report "Level 1 skipped: Python 3 unavailable" and continue to Level 2 only after the user accepts that risk.
    - If the user stops, end the mode without scanning.
 3. **LEVEL 1** — Run automated scanner only when `PYTHON_CMD` is set:
@@ -242,8 +266,8 @@ When `$ARGUMENTS` starts with `validate`:
    If this check fails, report it as `[FAIL]` with the fix suggestion.
 
 3. Before Security scan — Level 1, check `PYTHON_CMD`:
-   - If `PYTHON_CMD` is empty, ask the user to provide a Python 3 path, skip automated Level 1, or stop and install Python.
-   - If the user provides a path, verify it reports Python major version 3 and use it as `PYTHON_CMD`.
+   - If `PYTHON_CMD` is empty, ask the user to skip automated Level 1 for this existing local path, or stop and install Python 3 through a supported launcher.
+   - Do not run an arbitrary interpreter path under the default tool allowlist.
    - If the user skips, do not invoke `security-scan.py`; report "Level 1 skipped: Python 3 unavailable" and continue to Level 2 only after the user accepts that risk.
    - If the user stops, end the mode after reporting structure results.
 4. **Security scan — Level 1** (automated, only when `PYTHON_CMD` is set):
