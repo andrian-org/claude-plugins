@@ -1,0 +1,47 @@
+/* The decision-maker papers' print style (tools/build_papers.sh). A4, one column, print-first. */
+:root {
+  --ink: #1c2430;
+  --muted: #5b6676;
+  --rule: #d6dbe3;
+  --accent: #1f5fa8;
+  --wash: #f3f6fa;
+}
+@page { size: A4; margin: 22mm 20mm 22mm 20mm; }
+html { font-size: 10.5pt; }
+body {
+  font-family: "Charter", "Georgia", "Times New Roman", serif;
+  color: var(--ink);
+  background: #fff;
+  line-height: 1.5;
+  max-width: 170mm;
+  margin: 0 auto;
+}
+header#title-block-header { margin: 0 0 10mm 0; padding-bottom: 6mm; border-bottom: 2px solid var(--accent); }
+h1.title { font-family: "Helvetica Neue", "Arial", sans-serif; font-size: 22pt; line-height: 1.15; margin: 0 0 3mm 0; }
+p.subtitle { font-family: "Helvetica Neue", "Arial", sans-serif; font-size: 12pt; color: var(--muted); margin: 0 0 3mm 0; }
+p.author, p.date { font-family: "Helvetica Neue", "Arial", sans-serif; font-size: 9pt; color: var(--muted); margin: 0; }
+nav#TOC { font-family: "Helvetica Neue", "Arial", sans-serif; font-size: 9pt; background: var(--wash); padding: 4mm 6mm; margin: 0 0 8mm 0; break-inside: avoid; }
+nav#TOC ul { margin: 0; padding-left: 5mm; }
+nav#TOC > ul { padding-left: 0; list-style: none; }
+nav#TOC a { color: var(--ink); text-decoration: none; }
+h1, h2, h3 { font-family: "Helvetica Neue", "Arial", sans-serif; line-height: 1.25; break-after: avoid; }
+h1 { font-size: 16pt; margin: 9mm 0 3mm; }
+h2 { font-size: 13pt; margin: 7mm 0 2.5mm; color: var(--accent); }
+h3 { font-size: 11pt; margin: 5mm 0 2mm; }
+p, li { orphans: 3; widows: 3; }
+a { color: var(--accent); }
+code { font-family: "SF Mono", "Menlo", "Consolas", monospace; font-size: 0.88em; background: var(--wash); padding: 0 0.25em; border-radius: 2px; }
+pre { background: var(--wash); padding: 3mm 4mm; border-left: 3px solid var(--accent); white-space: pre-wrap; overflow-wrap: anywhere; break-inside: avoid; font-size: 8.5pt; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 3mm 0 5mm; font-size: 9pt; break-inside: auto; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th, td { border-bottom: 1px solid var(--rule); padding: 1.6mm 2mm; text-align: left; vertical-align: top; }
+th { font-family: "Helvetica Neue", "Arial", sans-serif; background: var(--wash); font-weight: 600; }
+blockquote { margin: 4mm 0; padding: 2mm 5mm; border-left: 3px solid var(--rule); color: var(--muted); }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 6mm 0; }
+.footnotes { font-size: 8.5pt; color: var(--muted); }
+/* An appendix block (<div class="appendix">): set apart by a rule, and tighter than the body. */
+.appendix { border-top: 1px solid var(--rule); margin-top: 8mm; }
+.appendix p, .appendix table { font-size: 8.5pt; }
+.appendix th, .appendix td { padding: 1mm 2mm; }
