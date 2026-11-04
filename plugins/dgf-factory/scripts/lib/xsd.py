@@ -26,7 +26,6 @@ from lxml import etree
 
 from . import knowledge, report
 
-XSD_DIR = Path(__file__).resolve().parents[2] / "knowledge" / "schemas" / "xsd"
 XS = "http://www.w3.org/2001/XMLSchema"
 PROCESS = "process.xsd"
 VIEW_KINDS = {"table": "table-view.xsd", "lookup": "lookup-view.xsd", "grid": "grid-form.xsd"}
@@ -37,13 +36,37 @@ _ROOTS = None
 _EXTENDED = None
 
 
+def xsd_dir():
+    """The vendored XSD set of the pack in use (knowledge.use_dir moves it)."""
+    return knowledge.schemas_dir() / "xsd"
+
+
+def __getattr__(name):
+    """`XSD_DIR` stays readable, and always names the pack in use."""
+    if name == "XSD_DIR":
+        return xsd_dir()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _reset():
+    global _ROOTS, _EXTENDED
+    _COMPILED.clear()
+    _UNCOMPILABLE.clear()
+    _ROOTS = None
+    _EXTENDED = None
+    report.debug("xsd.reset", "cleared", xsd=xsd_dir())
+
+
+knowledge.register_reset(_reset)
+
+
 def _q(tag):
     return f"{{{XS}}}{tag}"
 
 
 def root_of(xsd_file):
     """The first top-level xs:element's name — the grammar's root."""
-    tree = etree.parse(str(XSD_DIR / xsd_file))
+    tree = etree.parse(str(xsd_dir() / xsd_file))
     element = tree.getroot().find(_q("element"))
     return element.get("name") if element is not None else None
 
@@ -53,7 +76,7 @@ def roots():
     global _ROOTS
     if _ROOTS is None:
         _ROOTS = {}
-        for path in sorted(XSD_DIR.glob("*.xsd")):
+        for path in sorted(xsd_dir().glob("*.xsd")):
             _ROOTS.setdefault(root_of(path.name), []).append(path.name)
         report.debug("xsd.roots", "read", roots=",".join(sorted(_ROOTS)))
     return _ROOTS
@@ -64,7 +87,7 @@ def schema(xsd_file):
     if xsd_file in _COMPILED:
         return _COMPILED[xsd_file]
     try:
-        compiled = etree.XMLSchema(etree.parse(str(XSD_DIR / xsd_file)))
+        compiled = etree.XMLSchema(etree.parse(str(xsd_dir() / xsd_file)))
     except etree.XMLSchemaParseError as exc:
         _UNCOMPILABLE[xsd_file] = str(exc).split("\n")[0]
         compiled = None
@@ -80,7 +103,7 @@ def uncompilable_reason(xsd_file):
 
 def enumeration(xsd_file, simple_type):
     """The xs:enumeration values of a named top-level xs:simpleType, in order."""
-    tree = etree.parse(str(XSD_DIR / xsd_file))
+    tree = etree.parse(str(xsd_dir() / xsd_file))
     for declared in tree.getroot().iterfind(_q("simpleType")):
         if declared.get("name") == simple_type:
             return [e.get("value") for e in declared.iter(_q("enumeration"))]
@@ -140,7 +163,7 @@ def extended_process_schema():
     global _EXTENDED
     if _EXTENDED is not None:
         return _EXTENDED
-    tree = copy.deepcopy(etree.parse(str(XSD_DIR / PROCESS)))
+    tree = copy.deepcopy(etree.parse(str(xsd_dir() / PROCESS)))
     types = {ct.get("name"): ct for ct in tree.getroot().iter(_q("complexType")) if ct.get("name")}
     unordered = []
     for row in knowledge.load("process-divergence"):

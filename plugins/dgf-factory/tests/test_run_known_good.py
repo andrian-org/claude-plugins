@@ -90,6 +90,35 @@ class Arguments(unittest.TestCase):
         self.assertEqual(code, 3, err)
         self.assertIn("Not a DGF repository root", err)
 
+    def test_an_unregistered_pack_is_exit_3(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = helpers.make_root(Path(tmp), {"src/Directory.Build.props": "<Project/>\n",
+                                                 "src/samples/workspaces/.keep": ""})
+            code, _, err = helpers.run_cli(helpers.TOOLS / "run_known_good.py", root, "--pack", "9.9")
+        self.assertEqual(code, 3, err)
+        self.assertIn("no knowledge pack for DGF line 9.9", err)
+
+
+class Packs(unittest.TestCase):
+    """--pack picks the pack's directory, exceptions file and schema ledger (ADR 0036 §2)."""
+
+    def test_the_current_line_uses_the_tools_exceptions_file(self):
+        packs = helpers.load_tool("packs")
+        line, entry, knowledge_dir, exceptions, ledger = TOOL.resolve_pack(None)
+        self.assertEqual(line, packs.current())
+        self.assertEqual(knowledge_dir, helpers.PLUGIN_ROOT / "knowledge")
+        self.assertEqual(exceptions, helpers.PLUGIN_ROOT / "tools" / "known-good-exceptions.txt")
+        self.assertEqual(ledger, helpers.PLUGIN_ROOT / "provenance" / "knowledge" / "schemas" / "MANIFEST.md")
+        self.assertEqual(entry["line"], line)
+
+    def test_every_registered_pack_resolves_with_its_own_exceptions(self):
+        packs = helpers.load_tool("packs")
+        for line in packs.lines():
+            with self.subTest(line=line):
+                _line, _entry, knowledge_dir, exceptions, _ledger = TOOL.resolve_pack(line)
+                self.assertEqual(knowledge_dir, packs.pack_dir(line))
+                self.assertTrue(exceptions.is_file(), exceptions)
+
 
 if __name__ == "__main__":
     unittest.main()

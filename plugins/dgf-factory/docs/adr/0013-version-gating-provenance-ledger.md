@@ -1,8 +1,8 @@
 ---
 id: 0013
 title: Stamp every fact, gate only behavioural ones — provenance in a maintainer ledger
-status: accepted
-date: 2026-09-23
+status: superseded-by-0036
+date: 2026-11-04
 deciders: [Andrian Mamei]
 supersedes: [0008]
 tags: [knowledge, versioning, drift, portability]

@@ -8,8 +8,22 @@ key; the table ends at a blank line, and any other non-row line is malformed. An
 a KnowledgeTableError, which a validator turns into exit 3 and doctor.py into the
 error KNOWLEDGE_TABLE.
 
+Where the knowledge lives (ADR 0036 §2–§3). In a project the runtime holds one
+pack at `.dgf-factory/runtime/knowledge`; in the package source the current line
+is `knowledge/` and each older line is `packs/<X.Y>/`. Two attributes are the
+seam every reader goes through:
+
+  KNOWLEDGE_DIR   the machine-read tables (this module)
+  SCHEMAS_DIR     the vendored schema set (json_resolve.py, xsd.py)
+
+Both start at `$DGF_KNOWLEDGE_DIR` when it is set, else beside this package.
+`use_dir(path)` moves both and clears every resolver's cache, so a maintainer tool
+can run the validators in-process against another pack. A test that sets
+KNOWLEDGE_DIR alone moves the tables only, as it always did.
+
 Stdlib only, and it imports nothing from its own package: doctor.py loads this
-file by path with importlib, where a relative import cannot resolve.
+file by path with importlib, where a relative import cannot resolve. The schema
+resolvers register their cache resets here instead (register_reset).
 """
 
 import os
@@ -17,7 +31,18 @@ import re
 import sys
 from pathlib import Path
 
-KNOWLEDGE_DIR = Path(__file__).resolve().parents[2] / "knowledge"
+DEFAULT_DIR = Path(__file__).resolve().parents[2] / "knowledge"
+ENV_DIR = "DGF_KNOWLEDGE_DIR"
+
+
+def _initial_dir():
+    configured = os.environ.get(ENV_DIR, "").strip()
+    return Path(configured) if configured else DEFAULT_DIR
+
+
+KNOWLEDGE_DIR = _initial_dir()
+SCHEMAS_DIR = KNOWLEDGE_DIR / "schemas"
+_RESETS = []
 
 # table id -> (knowledge file, exact header cells, {column: allowed values})
 TABLES = {
@@ -242,6 +267,42 @@ def _parse(table_id, lines, headers, allowed):
     return rows
 
 
+def knowledge_dir():
+    """The directory the machine-read tables are read from."""
+    return KNOWLEDGE_DIR
+
+
+def schemas_dir():
+    """The directory of the vendored schema set: `json/`, `xsd/`, `standalone/`."""
+    return SCHEMAS_DIR
+
+
+def register_reset(callback):
+    """A resolver's cache-clearing callback, run by use_dir()."""
+    if callback not in _RESETS:
+        _RESETS.append(callback)
+
+
+def use_dir(path):
+    """Read every table and schema from `path` from now on, and forget what was cached."""
+    global KNOWLEDGE_DIR, SCHEMAS_DIR
+    previous = KNOWLEDGE_DIR
+    KNOWLEDGE_DIR = Path(path)
+    SCHEMAS_DIR = KNOWLEDGE_DIR / "schemas"
+    _CACHE.clear()
+    for callback in _RESETS:
+        callback()
+    _debug_dir("use_dir", previous=previous, path=KNOWLEDGE_DIR, resets=len(_RESETS))
+    return KNOWLEDGE_DIR
+
+
+def _debug_dir(event, **kv):
+    if not (os.environ.get("DEBUG") or os.environ.get("LOG_LEVEL") == "debug"):
+        return
+    pairs = " ".join(f"{k}={v}" for k, v in kv.items())
+    print(f"DEBUG [knowledge.{event}] {pairs}", file=sys.stderr)
+
+
 def load(table_id, knowledge_dir=None):
     """The rows of one machine-read table, as a list of dicts keyed by header."""
     if table_id not in TABLES:
@@ -304,3 +365,6 @@ _ROW_CHECKS = {"reference-edges": _check_arity}
 def edges(knowledge_dir=None):
     """The reference-edges rows. load() has already checked each row's arity (_check_arity)."""
     return load("reference-edges", knowledge_dir)
+
+
+_debug_dir("dir", source="env" if os.environ.get(ENV_DIR, "").strip() else "default", path=KNOWLEDGE_DIR)

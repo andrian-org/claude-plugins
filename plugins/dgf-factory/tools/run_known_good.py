@@ -11,15 +11,22 @@ directly and runs, over `<dgf-root>/src/samples/workspaces`:
      walk collects: component JSON and the legacy artifact files;
   3. validate_model.py on every entity settings.xml and _form.xml among them.
 
+It runs against one knowledge pack — the current line's by default, another with
+--pack X.Y (ADR 0036 §2). The validators run in this process, so the pack is
+switched with knowledge.use_dir(), never an environment variable; the pack's
+own exceptions file settles the run (tools/known-good-exceptions.txt for the
+current line, provenance/packs/<X.Y>/known-good-exceptions.txt otherwise).
+
 It passes only when all of these hold:
-  - every error is excused by tools/known-good-exceptions.txt — an `EXCEPTION`
+  - every error is excused by the pack's exceptions file — an `EXCEPTION`
     line, or an unresolved CHANGE_STATE process listed as `EXPECTED_EXTERNAL`;
   - the unresolved CHANGE_STATE processes, computed by resolution, are exactly
     the `EXPECTED_EXTERNAL` names;
   - every `EXCEPTION` line still matches a finding — a stale one fails.
 
-When the checkout's HEAD is not the `dgf_commit` the vendored schemas were read
-at, the last two downgrade to warnings: the samples may have moved. Warnings are
+When the checkout's HEAD is not the `dgf_commit` the pack's vendored schemas were
+read at, the last two downgrade to warnings: the samples may have moved. The
+checkout's release tag is printed beside the pack's `dgf_version`. Warnings are
 counted per code, as the baseline.
 
 Exceptions file, one entry per line (`#` starts a comment):
@@ -28,7 +35,7 @@ Exceptions file, one entry per line (`#` starts a comment):
 A key is `L<line>` (the finding's line), `*` (every finding of that code in that
 file), or text the finding's message contains, with no spaces.
 
-Usage:  run_known_good.py <dgf-root> [--verbose]
+Usage:  run_known_good.py <dgf-root> [--pack <X.Y>] [--verbose]
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — every error excused, every expectation met
@@ -38,6 +45,7 @@ Exit codes (contract, see .ai-factory/rules/base.md):
 """
 
 import argparse
+import importlib.util
 import os
 import re
 import subprocess
@@ -86,6 +94,7 @@ def fail(message):
 def parse_args(argv):
     parser = argparse.ArgumentParser(prog="run_known_good.py", description="Run the validators over DGF's samples.")
     parser.add_argument("dgf_root")
+    parser.add_argument("--pack", metavar="X.Y", help="the knowledge pack's line (default: the current line)")
     parser.add_argument("--verbose", action="store_true", help="trace to stderr (same as DEBUG=1)")
     try:
         args = parser.parse_args(argv)
@@ -96,7 +105,42 @@ def parse_args(argv):
         fail(f"Not a DGF repository root (no {VERSION_SOURCE.as_posix()}): {root}")
     if not (root / SAMPLES).is_dir():
         fail(f"No samples at {root / SAMPLES}")
-    return root, args.verbose
+    return root, args.verbose, args.pack
+
+
+def load_packs():
+    spec = importlib.util.spec_from_file_location("packs_for_known_good", PLUGIN_ROOT / "tools" / "packs.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def resolve_pack(line):
+    """(line, entry, knowledge dir, exceptions file, schema ledger) of the pack to run against."""
+    packs = load_packs()
+    try:
+        shipped, current = packs.load_shipped(PLUGIN_ROOT)
+        chosen = line or current
+        knowledge_dir = packs.pack_dir(chosen, PLUGIN_ROOT)
+        exceptions = packs.exceptions_file(chosen, PLUGIN_ROOT)
+        ledger = packs.ledger_dir(chosen, PLUGIN_ROOT) / "schemas" / "MANIFEST.md"
+    except packs.RegistryError as exc:
+        fail(f"line registry: {exc}")
+    if not exceptions.is_file():
+        fail(f"No exceptions file for pack {chosen}: {exceptions.relative_to(PLUGIN_ROOT)}")
+    report.debug("run_known_good.pack", "resolved", line=chosen, knowledge=knowledge_dir, exceptions=exceptions)
+    return chosen, shipped[chosen], knowledge_dir, exceptions, ledger
+
+
+def release_tag(root):
+    try:
+        out = subprocess.run(["git", "-C", str(root), "tag", "--points-at", "HEAD"], capture_output=True,
+                             text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    tags = sorted((t.strip() for t in out.splitlines() if re.match(r"^\d+\.\d+\.\d+$", t.strip())),
+                  key=lambda tag: tuple(int(part) for part in tag.split(".")))
+    return tags[-1] if tags else None
 
 
 def load_exceptions(path=EXCEPTIONS_FILE):
@@ -132,8 +176,8 @@ def git_head(root):
         return None
 
 
-def ledger_commit():
-    for line in SCHEMA_LEDGER.read_text(encoding="utf-8").splitlines():
+def ledger_commit(ledger=SCHEMA_LEDGER):
+    for line in ledger.read_text(encoding="utf-8").splitlines():
         if line.startswith("dgf_commit:"):
             return line.split(":", 1)[1].strip().strip('"')
     return None
@@ -189,21 +233,27 @@ def print_summary(runs, counts):
 
 
 def main(argv):
-    root, verbose = parse_args(argv)
+    root, verbose, line = parse_args(argv)
     if verbose:
         report.set_verbose()
     deps.require()
     from lxml import etree
     from lib import knowledge
+    line, pack_entry, knowledge_dir, exceptions_path, ledger = resolve_pack(line)
+    knowledge.use_dir(knowledge_dir)
     samples = root / SAMPLES
-    exceptions, external = load_exceptions()
-    head, recorded = git_head(root), ledger_commit()
+    exceptions, external = load_exceptions(exceptions_path)
+    head, recorded = git_head(root), ledger_commit(ledger)
     drift = not (head and recorded and (head.startswith(recorded) or recorded.startswith(head)))
+    tag = release_tag(root)
     libxml = ".".join(map(str, etree.LIBXML_VERSION))
 
     print(f"{report.BOLD}Known-good run{report.NC}")
-    print(f"DGF:      {root} @ {head or 'unknown'}")
+    print(f"DGF:      {root} @ {head or 'unknown'} (tag {tag or 'none'})")
+    print(f"Pack:     {line} — {knowledge_dir.relative_to(PLUGIN_ROOT).as_posix()}/ "
+          f"(dgf_version {pack_entry['dgf_version']}{', legacy' if pack_entry.get('legacy') else ''})")
     print(f"Ledger:   dgf_commit {recorded or 'unknown'} — {'DRIFT' if drift else 'match'}")
+    print(f"Exceptions: {exceptions_path.relative_to(PLUGIN_ROOT).as_posix()}")
     print(f"libxml2:  {libxml} (lxml)")
     try:
         runs, unresolved = run_validators(samples)
@@ -232,7 +282,7 @@ def main(argv):
 
     for entry in exceptions:
         if not entry.used:
-            expectation(f"STALE_EXCEPTION {EXCEPTIONS_FILE.name}:{entry.source_line} {entry.code} {entry.path} "
+            expectation(f"STALE_EXCEPTION {exceptions_path.name}:{entry.source_line} {entry.code} {entry.path} "
                         f"{entry.key} matches no finding")
     if unresolved != external:
         expectation(f"EXPECTED_EXTERNAL mismatch — unresolved but not listed: {sorted(unresolved - external)}; "

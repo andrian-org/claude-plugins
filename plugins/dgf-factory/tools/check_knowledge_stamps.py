@@ -5,12 +5,21 @@ A repo-maintenance check, not a runtime validator: contributors run it (via
 tools/check-dual-schema-docs.sh section 7), skills do not. It reads and
 reports; it never edits.
 
-The contract is knowledge/README.md §1 and ADR 0013:
+The contract is knowledge/README.md §1 and §8, and ADR 0036. It holds for every
+knowledge pack — the current line's in knowledge/, each older line's in
+packs/<X.Y>/ (tools/packs.py says where):
+  - the two line registries (packs/lines.json, provenance/lines.json) parse and
+    name the same lines; each pack's stamps all carry its registry
+    `dgf_version`, its registry `read_date` is the pack's newest, and its schema
+    ledger's `dgf_commit` is the maintainer registry's commit;
   - every knowledge file carries its stamp (`dgf_version`, `read_date`, and an
     `applies` range or `review_date` where its fact class needs one), and never
-    a `sources` key — a shipped file carries no DGF paths (ADR 0012);
+    a `sources` key — a shipped file carries no DGF paths (ADR 0030);
+  - only knowledge/ holds README.md; a pack under packs/ shares it;
   - every knowledge file has exactly one provenance ledger at the same relative
-    path under provenance/, and every ledger has its knowledge file;
+    path under provenance/ (knowledge/x.md -> provenance/knowledge/x.md,
+    packs/1.2/x.md -> provenance/packs/1.2/x.md), and every ledger has its
+    knowledge file;
   - each ledger lists its DGF sources, each with a 64-hex `sha256`;
   - the vendored schema set's ledger also names each shipped file (`vendored`)
     and its digest (`shipped_sha256`), and every shipped schema must match it —
@@ -21,17 +30,19 @@ It exists because the frontmatter is nested — `sources` is a list of maps,
 one flat key. Asserting "every source has a digest" in awk is fragile in
 exactly the way this check is meant to prevent.
 
-Usage:  check_knowledge_stamps.py [<plugin-root>]
+Usage:  check_knowledge_stamps.py [<plugin-root>] [--pack <X.Y>]
         DEBUG=1 check_knowledge_stamps.py          # per-file trace
         LOG_LEVEL=debug check_knowledge_stamps.py  # same trace
 
-With no argument the plugin root is resolved from this file's location.
+With no root the plugin root is resolved from this file's location. Every pack
+is checked unless --pack narrows the run to one.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — every stamped file and ledger conforms
   1  BLOCKED   — a stamp or ledger field is missing or malformed, a ledger is
-                 missing or orphaned, or a vendored schema was edited by hand
-  2  WARNINGS  — stamps conform but disagree with each other
+                 missing or orphaned, a vendored schema was edited by hand, a
+                 registry is malformed, or a stamp disagrees with its registry
+  2  WARNINGS  — no stamped file was found
   3  usage error
 
 No dgf-gate-result block is emitted: this is not a skill-facing gate, and
@@ -39,6 +50,7 @@ milestone 10 owns the plugin-wide gate contract.
 """
 
 import hashlib
+import importlib.util
 import os
 import re
 import sys
@@ -57,7 +69,8 @@ else:
 
 EXEMPT = {"README.md"}  # describes the convention; is not itself a DGF fact
 PROVENANCE = "provenance"  # maintainer-only ledgers, outside the shipped tree
-SCHEMA_MANIFEST = "knowledge/schemas/MANIFEST.md"  # the vendored set's stamp
+NOT_LEDGERS = ("sync-log/",)  # maintainer notes under provenance/ that are not ledgers
+SCHEMA_MANIFEST = "knowledge/schemas/MANIFEST.md"  # the current pack's vendored set's stamp
 
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
@@ -169,11 +182,29 @@ def valid_date(value):
         return False
 
 
-def knowledge_files(root):
-    base = root / "knowledge"
+def load_packs():
+    """tools/packs.py, beside this file, by path — the one place pack directories are decided."""
+    spec = importlib.util.spec_from_file_location("packs_for_stamps", Path(__file__).resolve().parent / "packs.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def pack_rel(line, current):
+    return "knowledge" if line == current else f"packs/{line}"
+
+
+def knowledge_files(root, base_rel="knowledge"):
+    """A pack's stamped files. README.md is exempt in knowledge/ and is an error in any other pack."""
+    base = root / base_rel
     for path in sorted(base.rglob("*.md")):
-        if path.relative_to(base).as_posix() not in EXEMPT:
-            yield path
+        rel = path.relative_to(base).as_posix()
+        if rel in EXEMPT and base_rel == "knowledge":
+            continue
+        if rel in EXEMPT:
+            error(f"{base_rel}/{rel}: a pack shares knowledge/README.md and holds no copy of it")
+            continue
+        yield path
 
 
 def check_required(rel, fm):
@@ -239,14 +270,22 @@ def check_ledger(root, knowledge_rel):
     return fm
 
 
-def check_orphan_ledgers(root, knowledge_rels):
-    """A ledger with no knowledge file records the provenance of nothing."""
+def check_orphan_ledgers(root, knowledge_rels, pack_rels):
+    """A ledger with no knowledge file records the provenance of nothing.
+
+    Only the ledgers of the packs checked are scanned; with every pack checked, a
+    ledger directory under provenance/packs/ for an unregistered line is an orphan too.
+    """
     base = root / PROVENANCE
     if not base.is_dir():
         return
     for path in sorted(base.rglob("*.md")):
         rel = path.relative_to(base).as_posix()
-        if rel not in knowledge_rels:
+        if rel.startswith(NOT_LEDGERS):
+            continue
+        in_checked = any(rel.startswith(f"{pack}/") for pack in pack_rels)
+        unregistered = rel.startswith("packs/") and not any(rel.startswith(f"{p}/") for p in pack_rels)
+        if (in_checked or (unregistered and ALL_PACKS)) and rel not in knowledge_rels:
             error(f"{PROVENANCE}/{rel}: ledger has no knowledge file at {rel}")
 
 
@@ -254,10 +293,11 @@ def sha256_of(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def check_vendored(root, fm):
+def check_vendored(root, fm, manifest=SCHEMA_MANIFEST):
     """Every shipped schema is listed in the schema ledger, and matches its shipped digest."""
-    rel = f"{PROVENANCE}/{SCHEMA_MANIFEST}"
-    base = (root / SCHEMA_MANIFEST).parent
+    rel = f"{PROVENANCE}/{manifest}"
+    base = (root / manifest).parent
+    shown = base.relative_to(root).as_posix()
     if not fm["scalars"].get("dgf_commit"):
         error(f"{rel}: no `dgf_commit` — the vendored set's position in DGF is unrecorded")
     listed = set()
@@ -269,14 +309,14 @@ def check_vendored(root, fm):
         listed.add(vendored)
         path = base / vendored
         if not path.is_file():
-            error(f"{rel}: sources[{index}] names knowledge/schemas/{vendored}, which does not exist")
+            error(f"{rel}: sources[{index}] names {shown}/{vendored}, which does not exist")
         elif entry.get("shipped_sha256") and sha256_of(path) != entry["shipped_sha256"]:
-            error(f"knowledge/schemas/{vendored}: does not match its recorded `shipped_sha256` — "
+            error(f"{shown}/{vendored}: does not match its recorded `shipped_sha256` — "
                   "a vendored file was edited by hand; re-vendor with tools/vendor_schemas.py")
     for path in sorted(base.rglob("*")):
         vendored = path.relative_to(base).as_posix()
-        if path.is_file() and path != root / SCHEMA_MANIFEST and vendored not in listed:
-            error(f"knowledge/schemas/{vendored}: vendored file has no entry in {rel}")
+        if path.is_file() and path != root / manifest and vendored not in listed:
+            error(f"{shown}/{vendored}: vendored file has no entry in {rel}")
     trace(f"{rel}: {len(listed)} vendored file(s) checked against their shipped digests")
 
 
@@ -296,38 +336,59 @@ def check_applies(rel, fm):
             error(f"{rel}: `applies.{key}` must be a quoted version or null, got {value}")
 
 
-def check_version_agreement(versions):
-    """One `dgf_version` across the tree; divergence is a re-vendor in progress."""
-    distinct = sorted(set(versions.values()))
-    if len(distinct) <= 1:
-        trace(f"dgf_version agrees across {len(versions)} file(s): {distinct[0] if distinct else '—'}")
-        return
-    warn(f"`dgf_version` diverges across the tree: {', '.join(distinct)}")
-    for rel, version in sorted(versions.items()):
-        print(f"      {version}  {rel}")
+def check_registry_agreement(pack, entry, maintainer_entry, versions, read_dates, schema_fm):
+    """ADR 0036 §2: a pack's stamps are its registry's, and its schema ledger's commit is the registry's."""
+    expected = f'"{entry["dgf_version"]}"'
+    off = sorted(rel for rel, version in versions.items() if version != expected)
+    for rel in off:
+        error(f"{rel}: `dgf_version` {versions[rel]} is not the registry's {expected} for line {entry['line']}")
+    if not off:
+        trace(f"{pack}: every stamp is {expected}, the registry's")
+    if read_dates and entry["read_date"] != max(read_dates.values()):
+        error(f"packs/lines.json line {entry['line']}: `read_date` {entry['read_date']} is not the pack's newest "
+              f"`read_date`, {max(read_dates.values())}")
+    commit = (schema_fm or {}).get("scalars", {}).get("dgf_commit")
+    if schema_fm is not None and commit != maintainer_entry.get("commit"):
+        error(f"{PROVENANCE}/{pack}/schemas/MANIFEST.md: `dgf_commit` {commit} is not provenance/lines.json's "
+              f"commit {maintainer_entry.get('commit')} for line {entry['line']}")
+    tag = maintainer_entry.get("tag")
+    ledger_tag = (schema_fm or {}).get("scalars", {}).get("dgf_tag")
+    if schema_fm is not None and tag is not None and ledger_tag != tag:
+        error(f"{PROVENANCE}/{pack}/schemas/MANIFEST.md: `dgf_tag` {ledger_tag} is not the registry's tag {tag}")
 
 
 # --- main --------------------------------------------------------------------
 
+ALL_PACKS = True
+
+
 def resolve_root(argv):
-    if len(argv) > 1:
-        fail(3, f"Usage: {Path(argv[0]).name} [<plugin-root>]   (DEBUG=1 for a per-file trace)")
-    if argv:
-        root = Path(argv[0]).expanduser().resolve()
+    """(plugin root, --pack line or None)."""
+    global ALL_PACKS
+    usage = f"Usage: {Path(__file__).name} [<plugin-root>] [--pack <X.Y>]   (DEBUG=1 for a per-file trace)"
+    args, line = list(argv), None
+    if "--pack" in args:
+        at = args.index("--pack")
+        if at + 1 >= len(args):
+            fail(3, usage)
+        line = args[at + 1]
+        del args[at:at + 2]
+        ALL_PACKS = False
+    if len(args) > 1 or any(arg.startswith("-") for arg in args):
+        fail(3, usage)
+    if args:
+        root = Path(args[0]).expanduser().resolve()
     else:
-        try:
-            root = Path(__file__).resolve().parents[1]  # tools/ -> plugin root
-        except IndexError:
-            fail(3, "Cannot resolve the plugin root from this file's location; pass it explicitly")
+        root = Path(__file__).resolve().parents[1]  # tools/ -> plugin root
     if not (root / "knowledge").is_dir():
         fail(3, f"No knowledge directory under {root}")
-    return root
+    return root, line
 
 
-def check_files(root):
-    """Runs the per-file rules; returns ({rel: dgf_version}, {rel: ledger}, files checked)."""
-    versions, ledgers, checked = {}, {}, 0
-    for path in knowledge_files(root):
+def check_files(root, base_rel="knowledge"):
+    """Runs the per-file rules; returns ({rel: dgf_version}, {rel: read_date}, {rel: ledger}, files checked)."""
+    versions, read_dates, ledgers, checked = {}, {}, {}, 0
+    for path in knowledge_files(root, base_rel):
         rel, fm = read_frontmatter(root, path)
         checked += 1
         if fm is None:
@@ -337,35 +398,70 @@ def check_files(root):
         check_applies(rel, fm)
         if fm["scalars"].get("dgf_version"):
             versions[rel] = fm["scalars"]["dgf_version"]
+        if valid_date(fm["scalars"].get("read_date", "")):
+            read_dates[rel] = fm["scalars"]["read_date"]
         ledgers[rel] = None
-    return versions, ledgers, checked
+    return versions, read_dates, ledgers, checked
+
+
+def selected_packs(root, line):
+    """[(line, pack rel, shipped entry, maintainer entry)] — or [] after reporting a registry error."""
+    packs = load_packs()
+    try:
+        shipped, maintainer, current = packs.load_registry(root)
+    except packs.RegistryError as exc:
+        error(f"line registry: {exc}")
+        return []
+    names = sorted(shipped, key=packs.parse_line)
+    if line is not None and line not in shipped:
+        fail(3, f"--pack {line}: no such line in packs/lines.json ({', '.join(names)})")
+    chosen = [line] if line else names
+    found = []
+    for name in chosen:
+        rel = pack_rel(name, current)
+        if not (root / rel).is_dir():
+            error(f"packs/lines.json names line {name} at {rel}/, which does not exist")
+            continue
+        found.append((name, rel, shipped[name], maintainer[name]))
+    trace(f"packs: {', '.join(f'{n}={r}' for n, r, _s, _m in found)}")
+    return found
+
+
+def check_pack(root, name, rel, entry, maintainer_entry):
+    """Every rule for one pack; returns (files checked, {knowledge rel})."""
+    section(f"Pack {name} — {rel}/ (dgf_version {entry['dgf_version']}{', legacy' if entry.get('legacy') else ''})")
+    versions, read_dates, ledgers, checked = check_files(root, rel)
+    for knowledge_rel in ledgers:
+        ledgers[knowledge_rel] = check_ledger(root, knowledge_rel)
+    manifest = f"{rel}/schemas/MANIFEST.md"
+    schema_fm = ledgers.get(manifest)
+    if schema_fm:
+        check_vendored(root, schema_fm, manifest)
+    else:
+        trace(f"skipped — no usable ledger for {manifest}")
+    check_registry_agreement(rel, entry, maintainer_entry, versions, read_dates, schema_fm)
+    return checked, set(ledgers)
 
 
 def main(argv):
-    root = resolve_root(argv[1:])
+    root, line = resolve_root(argv[1:])
     print(f"{BOLD}Knowledge stamp check{NC}")
     print(f"Root: {root}")
 
-    section("1. Stamp contract per file")
-    versions, ledgers, checked = check_files(root)
-    if checked == 0:
-        warn("no stamped files found under knowledge/ — a clean tree and a broken glob look the same")
+    checked, knowledge_rels, pack_rels = 0, set(), []
+    for name, rel, entry, maintainer_entry in selected_packs(root, line):
+        count, rels = check_pack(root, name, rel, entry, maintainer_entry)
+        checked += count
+        knowledge_rels |= rels
+        pack_rels.append(rel)
+    if checked == 0 and not ERRORS:
+        warn("no stamped files found — a clean tree and a broken glob look the same")
 
-    section("2. Provenance ledgers")
-    for rel in ledgers:
-        ledgers[rel] = check_ledger(root, rel)
-    check_orphan_ledgers(root, set(ledgers))
-
-    section("3. Vendored schema digests")
-    if ledgers.get(SCHEMA_MANIFEST):
-        check_vendored(root, ledgers[SCHEMA_MANIFEST])
-    else:
-        trace(f"skipped — no usable ledger for {SCHEMA_MANIFEST}")
-
-    section("4. Version agreement")
-    check_version_agreement(versions)
+    section("Provenance ledgers without a knowledge file")
+    check_orphan_ledgers(root, knowledge_rels, pack_rels)
 
     section("Summary")
+    print(f"Packs checked: {len(pack_rels)}")
     print(f"Files checked: {checked}")
     print(f"Errors:        {ERRORS}")
     print(f"Warnings:      {WARNINGS}")
