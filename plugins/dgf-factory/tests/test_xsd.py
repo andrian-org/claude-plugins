@@ -79,10 +79,10 @@ class Grammars(unittest.TestCase):
     def test_form_component_type_enumeration(self):
         from lib import xsd
         listed = xsd.enumeration("form.xsd", "componentTypeValue")
-        self.assertEqual(len(listed), 17)  # DGF 1.1.16 adds button, dataFetcher, listBox and textBox
+        self.assertEqual(len(listed), 19)  # 1.1.16 added button, dataFetcher, listBox, textBox; 1.2.0 codeViewer, comboBox
         self.assertIn("query", listed)
-        self.assertIn("dataFetcher", listed)
-        self.assertNotIn("comboBox", listed)  # a form.xsd cell type from DGF 1.2.0
+        self.assertIn("comboBox", listed)
+        self.assertNotIn("toggle", listed)
         with self.assertRaises(LookupError):
             xsd.enumeration("form.xsd", "noSuchType")
 

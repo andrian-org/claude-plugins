@@ -1,0 +1,274 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "ApiDataSource",
+  "type": "object",
+  "description": "REST API data source for querying external services via HTTP endpoints.\nImplements IParametrizedDataSource<ApiDataSourceParameter>.\nEnables integration with OpenAPI/Swagger-documented endpoints, supports path/query/header parameters,\nJSON response mapping, and request body transformation. Parameters can be populated from component state,\nuser claims, or pagination settings.",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets the unique name identifier for this API data source. Used in component bindings."
+    },
+    "endpoint": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the OpenAPI endpoint identifier that defines the REST service location.\nExample: \"https://api.example.gov/v1/services\"."
+    },
+    "operation": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "Gets or sets the operation name within the OpenAPI definition (e.g., \"GetUsers\", \"CreateSubmission\").\nThis identifies which API operation to invoke."
+    },
+    "outputMapping": {
+      "description": "Gets or sets the JSON schema that defines how the API response is mapped to component fields.\nUsed for transforming the API response structure into the expected data format.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/JsonSchema"
+        }
+      ]
+    },
+    "inputBodyConverter": {
+      "description": "Gets or sets the converter for transforming component input into the API request body.\nUsed when the API expects a custom JSON structure derived from component state.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/JsonSchemaValueConverter"
+        }
+      ]
+    },
+    "type": {
+      "description": "Gets the data source type. Always DataSourceType.Api.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DataSourceType"
+        }
+      ]
+    },
+    "singleResult": {
+      "type": "boolean",
+      "description": "Gets or sets whether this API returns a single object rather than a collection.\nWhen true, array responses are unwrapped to a single object."
+    },
+    "allowUnauthorizedAccess": {
+      "type": "boolean",
+      "description": "Gets or sets whether this API allows unauthenticated requests.\nWhen true, the request is sent without authorization headers."
+    },
+    "parameters": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "description": "Gets or sets the list of API parameters (path, query, header) to be sent with the request.\nEach parameter maps component state or user claims to OpenAPI parameter definitions.",
+      "items": {
+        "$ref": "#/definitions/ApiDataSourceParameter"
+      }
+    },
+    "forwardPaginationParameters": {
+      "type": "boolean",
+      "description": "Gets or sets whether pagination parameters (page, pageSize, skip, take) should be forwarded to the API.\nWhen true, component pagination settings are appended as query parameters."
+    }
+  },
+  "definitions": {
+    "JsonSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "name": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "type": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "path": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "convertor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/JsonSchemaValueConverter"
+            }
+          ]
+        },
+        "from": {
+          "$ref": "#/definitions/ApiParameterOutputType"
+        },
+        "properties": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "additionalProperties": {
+            "$ref": "#/definitions/JsonSchema"
+          }
+        },
+        "items": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/JsonSchema"
+            }
+          ]
+        }
+      }
+    },
+    "JsonSchemaValueConverter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {}
+        }
+      }
+    },
+    "ApiParameterOutputType": {
+      "type": "string",
+      "description": "Specifies how an API parameter is included in the request body or form data.\nJSON serialized as string values. Used for POST/PUT/PATCH requests to specify request format.",
+      "x-enumNames": [
+        "None",
+        "Body",
+        "Form",
+        "Header"
+      ],
+      "enum": [
+        "none",
+        "body",
+        "form",
+        "header"
+      ]
+    },
+    "DataSourceType": {
+      "type": "string",
+      "description": "Specifies the type of data source, determining how data is fetched and processed.\nJSON serialized as string values. Used to classify data sources and route to appropriate executors.",
+      "x-enumNames": [
+        "None",
+        "Table",
+        "LookupTable",
+        "EditableGrid",
+        "Api",
+        "Static",
+        "Document",
+        "RawSql",
+        "StoredProcedure",
+        "Code"
+      ],
+      "enum": [
+        "none",
+        "table",
+        "lookupTable",
+        "editableGrid",
+        "api",
+        "static",
+        "document",
+        "rawSql",
+        "storedProcedure",
+        "code"
+      ]
+    },
+    "ApiDataSourceParameter": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DataSourceParameterBase"
+        },
+        {
+          "type": "object",
+          "description": "Defines an API parameter for REST endpoint integration.\nExtends DataSourceParameterBase with API-specific configuration for where the parameter is sent (path, query, header)\nand whether it is required by the API operation.",
+          "additionalProperties": false,
+          "properties": {
+            "isRequired": {
+              "type": "boolean",
+              "description": "Gets or sets whether this parameter is required by the API operation.\nWhen true, the parameter value must be provided or the API call will fail.\nWhen false, the parameter can be omitted if not available in the component state."
+            },
+            "in": {
+              "description": "Gets or sets where this parameter is sent in the API request.\nValues: Path (URL path segment), Query (URL query string), Header (HTTP header), or None.\nExample: Path for ID in \"/users/{id}\", Query for filters, Header for authorization tokens.",
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/ApiParameterDestinationType"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ApiParameterDestinationType": {
+      "type": "string",
+      "description": "Specifies where an API parameter is placed in the HTTP request.\nJSON serialized as string values. Determines how parameter values are included when calling API endpoints.",
+      "x-enumNames": [
+        "None",
+        "Path",
+        "Query",
+        "Header"
+      ],
+      "enum": [
+        "none",
+        "path",
+        "query",
+        "header"
+      ]
+    },
+    "DataSourceParameterBase": {
+      "type": "object",
+      "description": "Base class for all data source parameter definitions.\nParameters define how external values (component state, user claims, pagination info) map to data source inputs.\nSupports token substitution: ${componentName}, ${item.field}, ${User.attribute}, ~UserID, ~NOW.",
+      "additionalProperties": false,
+      "required": [
+        "sourceName"
+      ],
+      "properties": {
+        "sourceName": {
+          "type": "string",
+          "description": "Gets or sets the source location of the parameter value. Required.\nExamples: component name, nested path (item.field), claim name.\nSupports token syntax like \"${itemValue}\", \"${User.Id}\", \"~UserID\", \"~NOW\".",
+          "minLength": 1
+        },
+        "destinationName": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Gets or sets the destination name for this parameter in the data source.\nFor API parameters: the OpenAPI parameter name.\nFor SQL parameters: the SQL parameter name (with or without @ prefix).\nFor Table parameters: the filter/search/query field name.\nIf not specified, defaults to the SourceName."
+        }
+      }
+    }
+  }
+}

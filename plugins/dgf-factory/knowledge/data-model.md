@@ -1,5 +1,5 @@
 ---
-dgf_version: "1.1.16"
+dgf_version: "1.2.0"
 read_date: 2026-11-04
 ---
 
@@ -46,7 +46,10 @@ An entity is the folder `FM/_DATA/<Entity>/`. Its `settings.xml` is read by `Xml
 - **Other children:** `header`, `description`, `watermark`, `audittrail`, `wfevents`, `attachment`,
   and `fields`, a list of `field`. The root's `version` attribute is the generator's version.
 - **`sqlquery="[SQLCODE]"`** reads `sqlcode.sql` beside `settings.xml`, and throws when it is
-  missing.
+  missing. The SQL the engine builds over such a table — a view's rows, a lookup's join and its display
+  name — selects from the resolved query in place of the table (`SqlQueryBuilder`). Before DGF 1.2.0
+  some of those statements pasted the query unresolved, so a lookup over such a table failed with
+  invalid SQL.
 
 In DGF's samples: `webasm` has 194 entities and 3255 fields, `zims` 223 and 5044, `dgf` 12 and 103.
 400 datasources are `DB` and 29 `Provider`.
@@ -72,6 +75,12 @@ are `extract`, `relation`, `slavegrid`, any number of `binding`, and `binaryfiel
   for grid, valid for form, allow create, valid for report. A `1` sets the flag. The positions count
   UTF-16 code units, as a .NET string does, so a character outside the Basic Multilingual Plane takes
   two.
+- **`pattern` and `patternValidationMessage`** reach the page through the legacy form mapper
+  (`FormCellMapper`): a `Text` field's default control — a TextBox, or a TextArea when `format` is
+  `textarea` — takes the cell's own `pattern` first and the field's otherwise, and `email`, in any case,
+  stands for the shared e-mail expression and its message. Since DGF 1.2.0 the TextArea takes it too;
+  before, `format="textarea"` dropped it. `.` does not match a line break, so a multi-line pattern
+  spells any character `[\s\S]`.
 
 ## 3. Relations, and how each reference resolves
 
@@ -201,6 +210,10 @@ reference to anything in the workspaces root. 231 in the samples.
 - **A bound cell must name a field.** For every such cell that has a `name` and no `content` element,
   `Form.AddFields` looks the name up in the table's fields — exactly, case-sensitive — and **throws**
   `The form cell "…" does not exist in the form "…"` when it is not one. The form then fails to load.
+- **A hidden tab's cells are bound all the same.** A `tab` binds a `visible` attribute — exactly
+  `false` hides its header, any other value shows it — and a `propertyConvertor` that hides or disables
+  it at run time (`FormTab`, since DGF 1.2.0). Both act on the page only: `Form.InitFields` walks every
+  tab, so a hidden tab's cells must still name fields.
 - **A cell with no `name` is an empty cell** (`FormCell.IsEmptyCell`), and **a cell with a `content`
   element is custom** (`FormCell.IsCustom`). The runtime skips both.
 

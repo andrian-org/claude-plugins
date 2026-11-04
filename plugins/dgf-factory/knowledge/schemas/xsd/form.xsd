@@ -15,9 +15,19 @@
             <xs:element name="handlers" type="handlersType" minOccurs="0"/>
             <xs:element name="triggers" type="triggersType" minOccurs="0"/>
             <xs:element name="parameters" type="parametersType" minOccurs="0"/>
+            <!-- Form.Messages: form-level messages surfaced above the fields (same shape as a cell's). -->
+            <xs:element name="messages" type="messagesType" minOccurs="0"/>
+            <!-- Form.ComponentValidators: cross-component invariants authored on the form root (a banner that
+                 gates SAVE/NEXT), same shape as a cell's. -->
+            <xs:element name="componentValidators" type="componentValidatorsType" minOccurs="0"/>
         </xs:all>
         <xs:attribute name="padding" type="xs:string"/>
         <xs:attribute name="labelwidth" type="xs:integer"/>
+        <!-- Read by the form mapper (Form.cs: [XmlAttribute("toolbar")] / [XmlAttribute("checkChanges")]) and
+             written by build_form_xml from FormSpec.showToolbar / checkChanges. Undeclared here, the builder's
+             own output failed validate_form_xml. toolbar is "true" | "false" | "compact". -->
+        <xs:attribute name="toolbar" type="xs:string"/>
+        <xs:attribute name="checkChanges" type="xs:boolean"/>
     </xs:complexType>
 
     <!-- Header Type -->
@@ -56,9 +66,10 @@
 
     <!-- Tab Type -->
     <xs:complexType name="tabType">
-        <xs:sequence>
+        <xs:all>
             <xs:element name="sections" type="sectionsType" minOccurs="0"/>
-        </xs:sequence>
+            <xs:element name="propertyConvertor" type="propertyConvertorType" minOccurs="0"/>
+        </xs:all>
         <xs:attribute name="title" type="xs:string" use="required"/>
         <xs:attribute name="name" type="xs:string" use="required"/>
         <xs:attribute name="visible" type="xs:boolean" default="true"/>
@@ -189,11 +200,20 @@
         <!-- FormCellProperties.InputGroupSkipDisableAndReadOnlyForAddons: an InputGroup's add-ons stay active
              when the field is readonly or disabled. -->
         <xs:attribute name="inputGroupSkipDisableAndReadOnlyForAddons" type="xs:boolean"/>
-        <!-- FormCellProperties.EmptyOptionName / EmptyOptionValue: the "no selection" item of a Picklist or
-             Lookup ComboBox. It applies only when BOTH are non-empty. -->
+        <!-- FormCellProperties.EmptyOptionName / EmptyOptionValue / EmptyOptionPosition: the "no selection" item
+             of a Picklist or Lookup ComboBox. It applies only when name and value are both non-empty. -->
         <xs:attribute name="emptyOptionName" type="xs:string"/>
         <xs:attribute name="emptyOptionValue" type="xs:string"/>
+        <xs:attribute name="emptyOptionPosition" type="emptyOptionPositionType"/>
     </xs:complexType>
+
+    <!-- A "last" item appears only once every page of the lookup has loaded. -->
+    <xs:simpleType name="emptyOptionPositionType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="first"/>
+            <xs:enumeration value="last"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- Readonly Type -->
     <xs:simpleType name="readonlyType">
@@ -243,15 +263,15 @@
     </xs:complexType>
 
     <!-- Component Type Value
-         FormCellMapper builds a component from type= only for a custom (<content/>) cell or a Text-like field:
-         text, query, referenceComponent, iframe, image, listBox, pdfViewer, eligibilityCriteria,
-         signaturePadSig100, booking (any case) and Icon, dataFetcher (exact case). Lookup, Picklist,
-         EditableGrid and Image fields pick their own control. Any other type builds nothing, and on a
-         field-bound cell the field disappears. ⛔ codeViewer is not buildable: use referenceComponent
-         (componentType + componentName → FM/_COMPONENTS/<Type>/<name>.json). -->
+         Lookup, Picklist, EditableGrid and Image fields pick their own control. On another field, a type the
+         mapper cannot build is ignored and the field shows its default control; on a custom cell nothing renders. -->
     <xs:simpleType name="componentTypeValue">
         <xs:restriction base="xs:string">
             <xs:enumeration value="button"/>
+            <!-- codeViewer: exact case. Read-only: it shows the field's value, and the field is not saved from it. -->
+            <xs:enumeration value="codeViewer"/>
+            <!-- comboBox: only on a Lookup or Picklist cell, to carry componentEvents; the field type picks the control. -->
+            <xs:enumeration value="comboBox"/>
             <xs:enumeration value="dataFetcher"/>
             <!-- Icon: exact case. The mapper's switch is case-sensitive, so "icon" builds nothing. -->
             <xs:enumeration value="Icon"/>
@@ -393,7 +413,17 @@
         <xs:attribute name="message" type="xs:string" use="required"/>
         <xs:attribute name="hidden" type="xs:boolean" use="optional"/>
         <xs:attribute name="type" type="messageTypeEnum" use="optional"/>
+        <!-- ComponentMessagePosition; the mapper parses it case-insensitively and defaults to bottom. -->
+        <xs:attribute name="position" type="messagePositionEnum" use="optional"/>
     </xs:complexType>
+
+    <!-- Message Position Enum -->
+    <xs:simpleType name="messagePositionEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="top"/>
+            <xs:enumeration value="bottom"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- Message Type Enum -->
     <xs:simpleType name="messageTypeEnum">
@@ -401,6 +431,7 @@
             <xs:enumeration value="warning"/>
             <xs:enumeration value="info"/>
             <xs:enumeration value="error"/>
+            <xs:enumeration value="success"/>
         </xs:restriction>
     </xs:simpleType>
 

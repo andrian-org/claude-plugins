@@ -859,12 +859,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "backgroundColor": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
         "align": {
           "oneOf": [
             {
@@ -898,7 +892,8 @@
           "type": [
             "null",
             "string"
-          ]
+          ],
+          "description": "Background colour: a design-system colour token, which maps to a theme class, or any CSS colour\n(hex, rgb(), hsl(), or a named colour that is not a token name), applied as background-color."
         },
         "backgroundImage": {
           "type": [

@@ -197,6 +197,175 @@
         "list"
       ]
     },
+    "CalendarData": {
+      "type": "object",
+      "description": "Static calendar content rendered as configured, without a data source round-trip.",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Panel layers shown in the calendar sidebar tree. The first layer is selected on first render.",
+          "items": {
+            "$ref": "#/definitions/CalendarDataItem"
+          }
+        },
+        "events": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Events placed on the calendar grid.",
+          "items": {
+            "$ref": "#/definitions/CalendarDataEvent"
+          }
+        },
+        "eventTypes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Event types offered in the create menu. Read-only types are left out of the menu.",
+          "items": {
+            "$ref": "#/definitions/CalendarDataEventType"
+          }
+        }
+      }
+    },
+    "CalendarDataItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uid": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Unique identifier of the panel layer."
+        },
+        "title": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Display name of the panel layer in the calendar sidebar."
+        },
+        "color": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Color of the panel layer as a CSS color value."
+        },
+        "randomColor": {
+          "type": "boolean",
+          "description": "When true, the layer takes the next color of the predefined palette instead of its color."
+        },
+        "expanded": {
+          "type": "boolean",
+          "description": "When true, the layer's child layers are shown expanded in the sidebar tree."
+        },
+        "items": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Nested child layers of this panel layer.",
+          "items": {
+            "$ref": "#/definitions/CalendarDataItem"
+          }
+        }
+      }
+    },
+    "CalendarDataEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Unique identifier of the event."
+        },
+        "title": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Text shown on the event."
+        },
+        "start": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "ISO 8601 start, e.g. \"2026-07-01T09:00:00\", or a date such as \"2026-07-04\" for an all-day event."
+        },
+        "end": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "ISO 8601 exclusive end, in the same format as the start."
+        },
+        "allDay": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the event spans whole days. When omitted, it is inferred from the format of the start."
+        },
+        "color": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Background and border color of the event as a CSS color value."
+        },
+        "extendedProps": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Custom properties kept on the event, e.g. eventTypeId and readOnly.",
+          "additionalProperties": {}
+        }
+      }
+    },
+    "CalendarDataEventType": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Unique identifier of the event type."
+        },
+        "name": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Display name of the event type in the create menu."
+        },
+        "color": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Color of the event type's glyph in the create menu as a CSS color value."
+        },
+        "readOnly": {
+          "type": "boolean",
+          "description": "When true, the event type is left out of the create menu."
+        }
+      }
+    },
     "ComponentConfigurationBase": {
       "type": "object",
       "x-abstract": true,
@@ -833,7 +1002,7 @@
             "array",
             "null"
           ],
-          "description": "List of calendar panel items, each representing a distinct event layer or data source displayed on the calendar. At least one item is required.",
+          "description": "List of calendar panel items, each representing a distinct event layer or data source displayed on the calendar. Required unless Data is set; cannot be combined with Data.",
           "items": {
             "$ref": "#/definitions/CalendarPanelItem"
           }
@@ -849,6 +1018,17 @@
         "preloaded": {
           "type": "boolean",
           "description": "When true (default), calendar event data is fetched and cached during the initial page load. When false, data is loaded on demand as the user navigates between time ranges."
+        },
+        "data": {
+          "description": "Static layers, events and event types for a display-only calendar. Used in place of Items; cannot be combined with them.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/CalendarData"
+            }
+          ]
         }
       }
     }

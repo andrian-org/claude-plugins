@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/Core/DGF.Infrastructure/Persistence/Seed/ApplicationDbContextSeed.cs
-    sha256: d0b8f980682d6fd180f4202a8b895fa77042d3395c253031ddc97d96f1d2984a
+    sha256: d3ae04f38afdb771d0880df9f1fbfeb22bcaec48a2ce128f402e32cd8833b57d
   - path: src/Core/DGF.Kernel/Constants/UserRoleConstants.cs
     sha256: 11dc32eef52095dbcda8a82cc6eb197671d9dc21d79d2449559ce785fb326c21
   - path: src/Core/DGF.Domain/Application/Map/ApplicationMap.cs

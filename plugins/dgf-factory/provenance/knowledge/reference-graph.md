@@ -51,11 +51,15 @@ sources:
   - path: src/Components/DGF.Components.Shared/ComponentFileLoadService.cs
     sha256: 5d5ca13b8dd3f5b2192535776c2d5c0245c361677dc168247478733f17ad3b1d
   - path: src/Components/Extensions/DGF.FlowComponents/ProcessFlow/ProcessFlowComponentService.cs
-    sha256: 025fb3751ebfef8bcd1e1a0b67b0b61908ada5aae63672fe527dd544a60f79b9
+    sha256: 5033c86b9e4bb746e0adabae19f1661ea8c4de86444bb6b84b571d2c8ca68b03
   - path: src/Core/DGF.Domain/Data/Lookup/LookUpViewManager.cs
     sha256: f47230cb79a77e3cad802c066ec597bcb4900463a1e670a4ce0be091c44f5d23
   - path: src/samples/Database/dbo/Stored Procedures/prc_WF_StartProcess.sql
     sha256: 4c04606f9ede9df1594c430284618af6b648fa443cab721ce28763fcde955426
+  - path: src/Components/Extensions/DGF.ComboBox/Services/ComboBoxComponentServiceInternal.cs
+    sha256: aa8b51d9b87577fbcfbacea91c77bc2820af83a745b22f943c5ddcd06bb8e6a4
+  - path: docs/wiki/Release-notes/.next/feature-inputgroup-view-opens-profile.md
+    sha256: b813fe5dee852ee7d09faa65d25db2d4a57006358e036034563cd58774c538ed
 ---
 # Provenance — `knowledge/reference-graph.md`
 

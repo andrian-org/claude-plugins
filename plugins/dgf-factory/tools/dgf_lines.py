@@ -17,7 +17,7 @@ A repo-maintenance tool, not shipped. Four subcommands:
       support branch, are INFO. Changes no knowledge file: safe to schedule.
   diff     <dgf-root> <line> --to <X.Y.Z> [--path <dgf-path>]… [--stat]
       Read-only. For each source the pack's ledgers cite that changed between the
-      pack's pinned commit and <X.Y.Z> (the vendored schema set's excepted — that
+      commit the pack's facts were last read at (the tag their stamps name) and <X.Y.Z> (the vendored schema set's excepted — that
       is vendor_schemas.py's), the knowledge file it feeds and its `git diff`, so
       the maintainer skill needs no git grant (ADR 0035). --path narrows it to the
       named sources; --stat prints the per-file summary only.
@@ -369,6 +369,37 @@ def drifted_sources(cache, line):
     return [(feeds, path) for _code, _ledger, path, feeds, _e, _a in found if not feeds.endswith("schemas/MANIFEST.md")]
 
 
+def read_position(dgf, line):
+    """The commit the pack's facts were last read at.
+
+    The facts' own stamp decides: every fact file but the vendored set's manifest carries the release
+    tag it was read at, and that tag names the commit. During a sync the registry already names the
+    target (freeze, fork), and the schema ledger moves as soon as vendor_schemas.py runs, so neither
+    can say where the facts were read; the schema ledger's `dgf_commit` is only the fallback for a
+    pack whose facts carry several stamps.
+    """
+    import re as _re
+    stamps = set()
+    pack_dir = packs.pack_dir(line)
+    for path in pack_dir.rglob("*.md"):
+        if path.name == "README.md" or path.relative_to(pack_dir).as_posix() == "schemas/MANIFEST.md":
+            continue
+        match = _re.search(r'(?m)^dgf_version: "([^"]+)"$', path.read_text(encoding="utf-8"))
+        if match:
+            stamps.add(match.group(1))
+    if len(stamps) == 1 and RELEASE_TAG.match(next(iter(stamps))):
+        commit = commit_of(dgf, next(iter(stamps)))
+        if commit:
+            debug("read_position", line=line, source="fact stamps", tag=next(iter(stamps)), commit=commit[:12])
+            return commit
+    tool = load_tool("check_knowledge_stamps")
+    ledger = packs.ledger_dir(line) / "schemas" / "MANIFEST.md"
+    lines = tool.frontmatter_lines(ledger.read_text(encoding="utf-8")) if ledger.is_file() else None
+    commit = tool.parse_frontmatter(lines)["scalars"].get("dgf_commit") if lines else None
+    debug("read_position", line=line, source="schema ledger", stamps=",".join(sorted(stamps)), commit=(commit or "-")[:12])
+    return commit
+
+
 def cmd_diff(args):
     try:
         shipped, maintainer, _current = packs.load_registry()
@@ -378,7 +409,7 @@ def cmd_diff(args):
         fail(EXIT_USAGE, f"line {args.line} has no pack")
     if not RELEASE_TAG.match(args.to) or packs.line_of(args.to) != args.line or commit_of(args.dgf_root, args.to) is None:
         fail(EXIT_USAGE, f"--to {args.to}: not a release tag on line {args.line} in {args.dgf_root}")
-    pinned = maintainer[args.line]["commit"]
+    pinned = read_position(args.dgf_root, args.line) or maintainer[args.line]["commit"]
     cache = materialise(args.dgf_root, args.line, args.to)
     sources = drifted_sources(cache, args.line)
     if args.path:

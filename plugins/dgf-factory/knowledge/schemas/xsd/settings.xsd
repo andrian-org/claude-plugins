@@ -98,6 +98,7 @@
         <xs:attribute name="required" type="xs:boolean" use="optional" default="false"/>
         <xs:attribute name="readonly" type="xs:boolean" use="optional" default="false"/>
         <xs:attribute name="uimask" type="xs:string" use="optional"/>
+        <!-- Applied by FormCellMapper to both Text renderings (TextBox and format="textarea"); "." excludes newlines, use [\s\S] for multi-line. -->
         <xs:attribute name="pattern" type="xs:string" use="optional"/>
         <xs:attribute name="patternValidationMessage" type="xs:string" use="optional"/>
         <xs:attribute name="pageSize" type="xs:integer" use="optional"/>

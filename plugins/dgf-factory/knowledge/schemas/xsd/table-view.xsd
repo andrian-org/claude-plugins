@@ -29,6 +29,16 @@
         <!-- mode="Hierarchy": a tree view (paging off; TreeTable). A GRID node is routed to the TreeTable by the
              sitemap's <set name="RenderMode" value="Hierarchy"/>. -->
         <xs:attribute name="mode" type="xs:string"/>
+        <!-- separate: page, then COUNT_BIG(*) in the same batch, run only when the page is full.
+             window: a COUNT(*) OVER() column on the page — for a view that counts faster in one pass. -->
+        <xs:attribute name="totalCount" default="separate">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="separate"/>
+                    <xs:enumeration value="window"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
     </xs:complexType>
 
     <!-- Header Type -->
@@ -122,7 +132,7 @@
 
     <xs:complexType name="rowStyleType">
         <xs:sequence>
-            <xs:element name="condition" type="conditionType" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="condition" type="rowStyleConditionType" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="value" type="xs:string"/>
         <xs:attribute name="valueNew" type="xs:string"/>
@@ -155,6 +165,42 @@
         <xs:attribute name="value" type="xs:string"/>
         <xs:attribute name="value2" type="xs:string"/>
     </xs:complexType>
+
+    <!-- Row Style Condition Type
+         Same shape as conditionType, but its own operator set: a row style is NOT a fetch filter. -->
+    <xs:complexType name="rowStyleConditionType">
+        <xs:attribute name="attribute" type="xs:string" use="required"/>
+        <xs:attribute name="operator" type="rowStyleOperatorType" use="required"/>
+        <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="value2" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Row Style Operator Type
+         Exactly the operators the UI evaluates for a row style: ConditionOperator
+         (condition-operator.ts), looked up by RowStylePipe.operationMap
+         (row-style.pipe.ts). The pipe skips an unknown operator without an error,
+         so the style would never apply. That is why gt, ge, lt, le, like, contains, between and the other
+         fetch-filter operators are NOT listed: a numeric or range rowstyle does nothing today. -->
+    <xs:simpleType name="rowStyleOperatorType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="eq"/>
+            <xs:enumeration value="ne"/>
+            <xs:enumeration value="not-null"/>
+            <xs:enumeration value="null"/>
+            <xs:enumeration value="eq-true"/>
+            <xs:enumeration value="eq-false"/>
+            <xs:enumeration value="today"/>
+            <xs:enumeration value="past"/>
+            <xs:enumeration value="future"/>
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="after"/>
+            <xs:enumeration value="before"/>
+            <xs:enumeration value="on-or-after"/>
+            <xs:enumeration value="on-or-before"/>
+            <xs:enumeration value="next-seven-days"/>
+            <xs:enumeration value="last-seven-days"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- Operator Type -->
     <xs:simpleType name="operatorType">

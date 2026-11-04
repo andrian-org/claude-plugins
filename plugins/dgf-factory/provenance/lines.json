@@ -1,6 +1,11 @@
 {
   "format": 1,
   "lines": {
+    "1.2": {
+      "tag": "1.2.0",
+      "commit": "2db737c64a0828cd3e4cc89246a02d73d19527fb",
+      "support_branch": "1.2.x"
+    },
     "1.1": {
       "tag": "1.1.16",
       "commit": "8534230d467f96356007f3605614df10de60a6d2",

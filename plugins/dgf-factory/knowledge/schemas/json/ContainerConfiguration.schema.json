@@ -839,7 +839,7 @@
             "null",
             "string"
           ],
-          "description": "Background color applied to the container. Use design system color tokens."
+          "description": "Background colour: a design-system colour token, which maps to a theme class, or any CSS colour\n(hex, rgb(), hsl(), or a named colour that is not a token name), applied as background-color."
         },
         "backgroundImage": {
           "type": [

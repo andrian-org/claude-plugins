@@ -43,14 +43,14 @@ sources:
   - path: src/samples/DGF.Compose/docker-compose.zims.yml
     sha256: 1d371e0eae65c91755a251606492a531e37a616c239835068a0cdebae8f1c2b9
   - path: src/samples/DGF.Compose/docker-compose.ecouncil.yml
-    sha256: 9bd0a62cd055f6d15cd05691b54940bd4ff10a57eb9ae0d0d3eae9bcfb135537
+    sha256: 3dfef1f50a12e949b8c64c684a75b1854a18d5f37b765bed7496713896f6b80c
   # §5 — the UI shell's three custom files, their defaults and how they are served
   - path: src/DGF.UI/src/app/components/app/app.component.ts
-    sha256: 11f7bb00e06264662f9d594ed4ed67d081854b3b268d1bf0cf0bed3d307bde4d
+    sha256: 2a231e0692b683b6d33f5bcdb4e26f1d268e3ae99df351aa42c6a96f95d91d99
   - path: src/DGF.UI/angular.json
-    sha256: 4ac23ceec2d5c3af9e3d367dec97e0e6338a71200e8912ff181829c7f6f42ddd
+    sha256: 53cfbd09744983f409eea28eec5c986f19c2e5cc7ca07673f102c189f0560c7e
   - path: src/DGF.UI/nginx-ng.conf
-    sha256: b85033b82705cf2b61b35c09d870343a2b78cf1a4e167b7ef31aa72bdcea40f6
+    sha256: 310c00cbe781524898827cc255d6ad3beadf5fe183eadb69220f689e91b204fc
   - path: src/DGF.UI/src/assets/js/formhelper.js
     sha256: 4884a131c72113cf4dc8d3926cd36093f5ac1d59ae7bcfb26b58c850fcb309c5
   - path: src/DGF.UI/src/assets/js/formshared.js
@@ -59,7 +59,15 @@ sources:
     sha256: 77bab74088530734c42b312a38865fd5b818fa807b126b0ea6e733637c7a3e5f
   # §5 — the /application and /webasm static-file mounts
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: 4ef87693825d6c334880d537700b7aab465d43b9966e1da5150e8baff4fe9cc8
+    sha256: da6b8856d99d6a527a8d081ec98beb96bd8422870297540e7a1f7abd227f8865
+  - path: src/DGF.UI/src/index.html
+    sha256: c492af0365ca05b5fc0007b9164c2c9b85ff80d4810ad4caf3ee869b89749458
+  - path: src/DGF.UI/src/app/services/theme.service.ts
+    sha256: 6688dbc54c5e785859f805ae94390632ed7429724952b783072f4f55e932a3ac
+  - path: docs/wiki/Release-notes/.next/breaking-theme-design-token-links.md
+    sha256: 4a36c3db471ab87b1713d4224ad1eff7c8776c791a17c0986337504f73141a23
+  - path: docs/wiki/Release-notes/.next/bugfix-theme-stylesheet-browser-cache.md
+    sha256: 6037f9c2b202723f753adca31976152913c06f1ad3ba8bed579eb459caa70e83
 ---
 # Provenance — `knowledge/composition-specs.md`
 

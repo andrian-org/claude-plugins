@@ -156,6 +156,17 @@ class Diff(Base):
         self.assertNotIn("AConfiguration", out, "the vendored schema set is vendor_schemas.py's")
         self.assertEqual(self.dgf_state(), before)
 
+    def test_diff_runs_from_the_facts_stamp_even_after_a_re_vendor_or_a_freeze(self):
+        ledger = self.plugin / "provenance/knowledge/schemas/MANIFEST.md"
+        ledger.write_text(ledger.read_text().replace(f"dgf_commit: {self.a}", f"dgf_commit: {self.b}"))
+        ship, maint = self.registries()
+        maint["lines"]["1.3"]["commit"] = self.b
+        (self.plugin / "provenance/lines.json").write_text(json.dumps(maint))
+        code, out, err = self.lines("diff", self.dgf, "1.3", "--to", "1.3.1")
+        self.assertEqual(code, 0, out + err)
+        self.assertIn(f"Drifted sources of pack 1.3: {self.a[:12]} → 1.3.1", out)
+        self.assertIn("+v2", out)
+
     def test_stat_and_path_narrow_it(self):
         code, out, _ = self.lines("diff", self.dgf, "1.3", "--to", "1.3.1", "--stat", "--path", "src/Elsewhere.cs")
         self.assertEqual(code, 0, out)

@@ -32,7 +32,11 @@
     <xs:complexType name="FolderType">
         <xs:sequence>
             <xs:element name="Folders" type="FoldersType" minOccurs="1" maxOccurs="1"/>
-            <xs:element name="AutoItems" type="AutoItemsType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="AutoItems" type="AutoItemsType" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Passes this schema but creates no folders: the router builds routes from Folders only, and the code that reads AutoItems is registered but never used. Declare one Folder per item instead.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
         </xs:sequence>
         <xs:attribute name="title" type="xs:string" use="required"/>
         <xs:attribute name="name" type="xs:string" use="required"/>

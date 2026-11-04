@@ -874,6 +874,11 @@
         "summary": "Value bound to the \u0022no selection\u0022 item. Usually empty string or null; set when a sentinel value is needed for downstream binding (e.g., \u00220\u0022 for an integer foreign key that should default to a known \u0022all\u0022 row)."
       },
       {
+        "name": "emptyOptionPosition",
+        "clrType": "string",
+        "summary": "Where the \u0022no selection\u0022 item sits: first (default) or last. A last item appears only once every page of the lookup has loaded."
+      },
+      {
         "name": "pattern",
         "clrType": "string",
         "summary": "Regular-expression validation applied at the UI layer. Failing the regex blocks form submission and shows . Cell-side validation runs in addition to settings.xml field-side validation; both must pass."
@@ -1062,6 +1067,11 @@
         "summary": "Tab identifier. Convention: tab_\u003Cpurpose\u003E (e.g., tab_general, tab_attachments). The runtime uses this for tab-selection state across reloads and for cross-tab references in PropertyConvertors."
       },
       {
+        "name": "visible",
+        "clrType": "string",
+        "summary": "Visibility override. The literal \u0022false\u0022 hides the tab header; any other value shows it."
+      },
+      {
         "name": "title",
         "clrType": "string",
         "summary": null
@@ -1079,6 +1089,13 @@
         "repeated": true,
         "wrapper": "sections",
         "summary": "Sections contained in this tab. Sections render in order, stacked vertically within the tab body."
+      },
+      {
+        "name": "propertyConvertor",
+        "clrType": "PropertyConvertor",
+        "repeated": false,
+        "wrapper": null,
+        "summary": "Runtime overrides for this tab (hidden, disabled) evaluated against the current form state."
       }
     ]
   },

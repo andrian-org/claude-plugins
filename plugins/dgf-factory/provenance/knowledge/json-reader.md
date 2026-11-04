@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: 4ef87693825d6c334880d537700b7aab465d43b9966e1da5150e8baff4fe9cc8
+    sha256: da6b8856d99d6a527a8d081ec98beb96bd8422870297540e7a1f7abd227f8865
   - path: src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs
     sha256: f57d38b06a3c40d73926e0c479a576f04a7f46b146a15d3e9b7b1799e00daff7
   - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
@@ -87,11 +87,11 @@ sources:
   - path: src/Components/Extensions/DGF.Form/Models/Configuration/FormConfiguration.cs
     sha256: 964a5e94c40f05cc21b536cabbfabed53af48e32f9c9bc6155e4efaa71cbf18a
   - path: src/Components/Extensions/DGF.LayoutComponents/ContainerComponent/Models/Configuration/ContainerConfiguration.cs
-    sha256: ec68d7ce26ac0e9e954ba5fc0be6bbb547673552fef19e8a870c7a7bd89dab08
+    sha256: f10b579e0798f4e2ce30f6949a976975123b116d104ce55118baa8fcda5af1c7
   - path: src/Components/Extensions/DGF.LayoutComponents/RowComponent/Models/Configuration/RowConfig.cs
-    sha256: a03ffe385b19cc170a697a46308580fecfa9a6c156dae476b00e0762c12d2f63
+    sha256: debf7f067162e25674f2f598ee70d044ab6e9896c0a3a67539cbfcd2c79562d9
   - path: src/Components/Extensions/DGF.LayoutComponents/SectionComponent/Models/Configuration/SectionConfig.cs
-    sha256: 21edbf1ffb078f44c4a9aefa521de11fa1216d1966920470925c3f27edfd11ce
+    sha256: 727403e691746b3c415dea04d0d84388a3b8989e961e2f26fe1fd4e4f4349968
   - path: src/Components/Extensions/DGF.Router/Models/Configuration/RouteConfiguration.cs
     sha256: 2cd68f32ce545b8a9d40b8584dfefe1ec4426099057c2943eed8791b5ddf60f1
   - path: src/Components/Extensions/DGF.Sitemap/Models/Configuration/FooterConfiguration.cs

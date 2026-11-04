@@ -1333,6 +1333,24 @@
           "type": "boolean",
           "description": "When true, hides the default empty-state message shown when the list has no items."
         },
+        "emptyDataMessage": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Text shown in place of the list when it has no items. Only shown when HideDefaultMessage is false."
+        },
+        "emptyDataMessageTemplate": {
+          "description": "Component configuration rendered in place of the list when it has no items. Replaces EmptyDataMessage. Only shown when HideDefaultMessage is false.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/IComponentConfiguration"
+            }
+          ]
+        },
         "defaultSelectedIndex": {
           "type": [
             "integer",

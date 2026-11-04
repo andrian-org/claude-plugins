@@ -23,6 +23,15 @@
         <xs:attribute name="check" type="xs:boolean"/>
         <xs:attribute name="icon" type="xs:boolean"/>
         <xs:attribute name="mode" type="xs:string"/>
+        <!-- As in table-view.xsd: how a paged ComboBox gets its total. -->
+        <xs:attribute name="totalCount" default="separate">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="separate"/>
+                    <xs:enumeration value="window"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
     </xs:complexType>
 
     <xs:complexType name="lookupHiddenType">

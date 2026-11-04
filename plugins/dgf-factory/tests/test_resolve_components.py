@@ -156,7 +156,8 @@ class ResolveComponents(unittest.TestCase):
         self.assertIn("_form.xml:4 ", result[1])
 
     def test_form_with_a_member_the_xsd_omits_warns(self):
-        result = self.run_on({APP + "_DATA/T/_forms/F/_form.xml": form("comboBox")})
+        # comboBox joined form.xsd's cell types in DGF 1.2.0; toggle is still a member the grammar omits.
+        result = self.run_on({APP + "_DATA/T/_forms/F/_form.xml": form("toggle")})
         self.assert_result(result, 2, "XSD_LAGS_RUNTIME")
 
     def test_form_with_a_listed_type_passes(self):

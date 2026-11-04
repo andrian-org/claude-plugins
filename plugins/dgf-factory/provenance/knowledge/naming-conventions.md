@@ -5,7 +5,7 @@ sources:
   - path: docs/wiki/AI-Authoring/format-coverage.md
     sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Tools/dgf-mcp/Services/SchemaIndexService.cs
-    sha256: 61002f0c313cf63aa3a24e7a7ed3f373b4864dc5be1a381bf2cdd8b07826d8c3
+    sha256: f421f5e81d77eddfcc8f2f59dbab187049a41e2b6bff031a07ff8f06387306de
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
     sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Core/DGF.Domain/Process/StateProcess/ProcessManager.cs

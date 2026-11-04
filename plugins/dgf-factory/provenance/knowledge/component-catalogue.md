@@ -11,7 +11,7 @@ sources:
   - path: src/Tools/dgf-mcp/Data/lifecycle/components.json
     sha256: 8e5c62ae2152bbfb8190f85e89515dc5c3a2461eea1b7e33aed9b6ef6d09676b
   - path: src/Tools/dgf-mcp/Data/examples/components.json
-    sha256: 073ce9bc7b7efa88783ff50ce14ea4b4e34dec250967aa2fe28e01cb53ec2087
+    sha256: 23cb7456f8234c656ee52bec05c125cf121867446d0b87c54925731972e0ed82
   - path: docs/wiki/AI-Authoring/format-coverage.md
     sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Components/Extensions/DGF.Calendar/ConfigureServices.cs

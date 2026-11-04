@@ -709,7 +709,7 @@
     },
     {
       "type": "object",
-      "description": "Multi-line text input for long-form text entry. Use for descriptions, comments, and larger text content with length constraints.\nSupports custom row height, placeholder text, and character limits.",
+      "description": "Multi-line text input for long-form text entry. Use for descriptions, comments, and larger text content with length constraints.\nSupports custom row height, placeholder text, character limits and pattern (regex) validation.",
       "additionalProperties": false,
       "properties": {
         "value": {
@@ -725,6 +725,20 @@
             "string"
           ],
           "description": "Placeholder text displayed inside the textarea when it is empty."
+        },
+        "pattern": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Regular expression pattern the textarea value must match. Validation fails if the value does not satisfy this pattern.\nUse a character class such as [\\s\\S] instead of \".\" when line breaks are allowed."
+        },
+        "patternValidationMessage": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Validation message displayed when the value does not match the Pattern regular expression."
         },
         "minLength": {
           "type": [

@@ -688,7 +688,7 @@
       "properties": {
         "sortIndex": {
           "type": "integer",
-          "description": "Numeric index controlling the display order of this action relative to other actions in the same action list. Lower values appear first.",
+          "description": "Numeric index controlling the display order of this action relative to other actions in the same action list. Row actions show lower values first; table (toolbar) actions show higher values first, and the built-in add (0) and refresh (-1) buttons come last.",
           "format": "int32"
         },
         "isSelectedRowRequired": {
@@ -1505,6 +1505,22 @@
         "showHeaders": {
           "type": "boolean",
           "description": "When true (default), renders the column header row. Set to false to hide headers in template-driven layouts."
+        },
+        "maxVisibleRowActions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Number of row action buttons shown inline before the remaining ones move into the more-actions menu. Allowed range is 0 to 5, larger values are treated as 5; when omitted, 3 is used. 0 puts every row action in the menu.",
+          "format": "int32"
+        },
+        "maxVisibleTableActions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Number of table (toolbar) action buttons shown above the grid before the remaining ones move into a more-actions menu. Any whole number from 0 is accepted and there is no upper cap; when omitted or invalid, there is no limit. 0 puts every table action in the menu.",
+          "format": "int32"
         },
         "allowMultiSelect": {
           "type": "boolean",

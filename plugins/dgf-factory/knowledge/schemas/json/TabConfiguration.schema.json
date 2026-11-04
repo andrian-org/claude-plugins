@@ -696,6 +696,13 @@
             }
           ]
         },
+        "hidden": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the tab header is not rendered and the tab cannot be selected. Use\nPropertyConverters with the \"hidden\" key to make this conditional."
+        },
         "content": {
           "type": [
             "array",
@@ -704,6 +711,17 @@
           "description": "List of component configurations rendered inside this tab panel when it is the active tab.",
           "items": {
             "$ref": "#/definitions/IComponentConfiguration"
+          }
+        },
+        "propertyConverters": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "description": "Conditional overrides for this tab, evaluated client-side: outer key \"hidden\" or \"disabled\",\ninner key a JavaScript expression, inner value the value applied when the expression is truthy.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {}
           }
         }
       }

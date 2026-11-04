@@ -690,6 +690,27 @@
             "string"
           ],
           "description": "Width of the iframe element as a CSS value (e.g., \"100%\", \"800px\")."
+        },
+        "title": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Accessible name of the iframe, announced by screen readers. Set it on every iframe that is not purely decorative."
+        },
+        "loading": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Browser loading strategy for the iframe: \"lazy\" defers loading until the iframe is near the viewport, \"eager\" loads it immediately."
+        },
+        "allowFullScreen": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When false, the full-screen toggle is not shown. When omitted the toggle is shown."
         }
       }
     }

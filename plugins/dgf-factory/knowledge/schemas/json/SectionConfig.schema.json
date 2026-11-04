@@ -927,7 +927,8 @@
           "type": [
             "null",
             "string"
-          ]
+          ],
+          "description": "Background: a design-system colour token, which maps to a theme class; any CSS colour (hex, rgb(), hsl(),\nor a named colour that is not a token name), applied as background-color; or else CSS classes, applied as-is."
         },
         "backgroundImage": {
           "type": [

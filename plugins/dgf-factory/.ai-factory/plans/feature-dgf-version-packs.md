@@ -544,7 +544,8 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
     scripts/validate_process.py, tools/known-good-exceptions.txt, tests/test_json_validate.py, tests/test_xsd.py,
     tests/test_validate_process.py, tests/test_knowledge.py, provenance/sync-log/*
 
-- [ ] **Task 10: Sync `knowledge/` to tag `1.2.0`, then freeze it as `packs/1.2`.** (depends: 9)
+- [x] **Task 10: Sync `knowledge/` to tag `1.2.0`, then freeze it as `packs/1.2`.** (depends: 9)
+  (Done 2026-11-04. The 1.2 freeze ran as the first step of Task 11's `new-line 1.3`.)
   - **Deliverable:** `/dgf-sync new-line 1.2`.
     - Expected: Row `backgroundColor` removed; tab `hidden`/`disabled`/`propertyConverters`; ComboBox
       `emptyOption.position`; DataTable `maxVisible*`/`stickyColumns`; legacy GRID `MaxVisible*`; unknown

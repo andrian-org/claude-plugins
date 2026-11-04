@@ -4,7 +4,7 @@
   "definitions": {
     "EmptyOption": {
       "type": "object",
-      "description": "Defines a special \"empty\" / \"no selection\" entry rendered at the top of a ComboBox dropdown.\nWhen the parent EmptyOption property is null, no empty entry is rendered.",
+      "description": "Defines a special \"empty\" / \"no selection\" entry rendered first or last in a ComboBox dropdown (see Position).\nWhen the parent EmptyOption property is null, no empty entry is rendered.",
       "additionalProperties": false,
       "properties": {
         "label": {
@@ -22,8 +22,28 @@
               "type": "null"
             }
           ]
+        },
+        "position": {
+          "description": "Where the entry sits: first (default) or last. With paging, a last\nentry appears only once every page has loaded, so the user has seen every option first.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/EmptyOptionPosition"
+            }
+          ]
         }
       }
+    },
+    "EmptyOptionPosition": {
+      "type": "string",
+      "description": "Where the EmptyOption row sits in the dropdown.",
+      "x-enumNames": [
+        "First",
+        "Last"
+      ],
+      "enum": [
+        "first",
+        "last"
+      ]
     },
     "IComponentConfiguration": {
       "type": "object",
@@ -1298,7 +1318,7 @@
           "description": "Hint text displayed when no item is selected."
         },
         "emptyOption": {
-          "description": "Optional empty entry rendered at the top of the dropdown. Lets the user explicitly select a \"no value\" row\nwith a designer-controlled label and underlying value (null, 0, \"\", etc.).\nWhen null, no empty entry is rendered.",
+          "description": "Optional empty entry rendered first or last in the dropdown. Lets the user explicitly select a \"no value\" row\nwith a designer-controlled label and underlying value (null, 0, \"\", etc.).\nWhen null, no empty entry is rendered.",
           "oneOf": [
             {
               "type": "null"

@@ -1,5 +1,5 @@
 ---
-dgf_version: "1.1.16"
+dgf_version: "1.2.0"
 read_date: 2026-11-04
 review_date: 2026-11-04
 ---
@@ -209,6 +209,20 @@ So a file under a workspace's `js/`, `FM/js/` or `css/` reaches the UI only when
 deployment mounts it. Editing a mounted file changes what the UI loads. A **new** file there is
 loaded by nothing until a deployment is changed to mount it, and that change is outside the
 workspaces root.
+
+**Only the style is revalidated.** The shell requests all three files with its settings'
+`version` as the query string (a timestamp when none is set). The shell's web server
+configuration (`nginx-ng.conf`) serves everything under `assets/styles/`, `custom.css` included,
+with `Cache-Control: no-cache`, so a browser checks for an edited `custom.css` on every load. The
+two scripts fall under its one-year `immutable` rule for static files, so a browser that already
+holds them picks up an edit only once the `version` changes.
+
+**A replaced `index.html` must link the design tokens.** The shell's own `index.html` carries five
+stylesheet links, by `id` and in this order: `app-core`, `app-semantic`, `app-density`,
+`app-custom`, `app-theme`. At start-up the shell's theme service sets `app-semantic`,
+`app-density` and `app-theme`, creating any that is missing; it never creates `app-core` or
+`app-custom`. A deployment that mounts its own `index.html` over the shell's carries all five
+links itself, or components fall back to browser-default colours, sizes and spacing.
 
 **Static mounts are for linked content, not for these files.** The API also serves the
 selected workspace's root at `/application` and the base workspace's root at `/webasm` as
