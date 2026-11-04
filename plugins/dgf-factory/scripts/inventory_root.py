@@ -31,7 +31,7 @@ import re
 import sys
 from pathlib import Path
 
-from lib import cli, deps, git, knowledge, plan, report, workspace
+from lib import cli, deps, dgf_version, git, knowledge, plan, report, workspace
 
 HEADER = "Workspaces root inventory"
 BASE = workspace.BASE_WORKSPACE
@@ -126,13 +126,21 @@ def git_line(root):
 
 
 def knowledge_line():
-    """The `dgf_version` the shipped knowledge was read from (every stamped file, deduplicated)."""
+    """The `dgf_version` the installed knowledge pack was read at, and its DGF line (ADR 0036 §2).
+
+    Every stamped file is read and the versions deduplicated; a pack carries one, so two
+    mean a sync in progress. The line is the version's `X.Y`, or `unknown` when the
+    versions disagree or none is a release version.
+    """
     versions = set()
     for path in sorted(knowledge.KNOWLEDGE_DIR.rglob("*.md")):
         match = _STAMP.search(path.read_text(encoding="utf-8"))
         if match and path.name != "README.md":
             versions.add(match.group(1))
-    return f"KNOWLEDGE: dgf_version={','.join(sorted(versions)) or 'unknown'}"
+    lines = {dgf_version.line_of(v) for v in versions if dgf_version.is_version(v)}
+    line = lines.pop() if len(lines) == 1 else "unknown"
+    report.debug("inventory_root.knowledge", "stamps", versions=",".join(sorted(versions)) or "-", line=line)
+    return f"KNOWLEDGE: dgf_version={','.join(sorted(versions)) or 'unknown'} line={line}"
 
 
 def missing_dependencies():

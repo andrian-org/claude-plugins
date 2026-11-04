@@ -43,9 +43,21 @@ function summary(counts) {
 }
 
 /** The preview text. `mcp` and `python` are the MCP and Python steps' own preview lines. */
-export function renderPreview({ projectRoot, harnesses, actions, mcp = [], python = [] }) {
+function lineSummary(dgfLine) {
+  if (!dgfLine) return [];
+  const lines = [`DGF line: ${dgfLine.line} (knowledge read at DGF ${dgfLine.entry.dgf_version}; from ${SOURCE[dgfLine.source] ?? dgfLine.source})`];
+  if (dgfLine.note) lines.push(`  note: ${dgfLine.note}`);
+  return lines;
+}
+
+const SOURCE = {
+  'flag-line': '--dgf-line', 'flag-version': '--dgf-version', receipt: 'the previous install',
+  config: 'the estate\'s dgf.version', current: 'the newest line',
+};
+
+export function renderPreview({ projectRoot, harnesses, actions, dgfLine = null, mcp = [], python = [] }) {
   const harnessesById = new Map(harnesses.map((h) => [h.id, h]));
-  const lines = [`dgf-factory setup — ${projectRoot}`, `Harnesses: ${harnesses.map((h) => h.id).join(', ') || '(none)'}`, ''];
+  const lines = [`dgf-factory setup — ${projectRoot}`, `Harnesses: ${harnesses.map((h) => h.id).join(', ') || '(none)'}`, ...lineSummary(dgfLine), ''];
   const attention = sortActions(actions.filter((a) => WHY[a.kind]));
   if (attention.length) {
     lines.push('Needs you:');

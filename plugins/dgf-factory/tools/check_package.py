@@ -6,7 +6,7 @@ tools/check-dual-schema-docs.sh section 6), skills do not. It runs
 `npm pack --dry-run --json`, which reads package.json `files` exactly as a
 publish would, and holds the file list to the shipped set:
 
-  - every file is under bin/, cli/, skills/, scripts/, knowledge/ or agents/, or is
+  - every file is under bin/, cli/, skills/, scripts/, knowledge/, packs/ or agents/, or is
     one npm always adds (package.json, README.md, LICENSE);
   - no maintainer material (tests/, tools/, provenance/, docs/, .ai-factory/,
     .claude/), no environment or bytecode (.venv/, __pycache__/, *.pyc), and no
@@ -37,7 +37,7 @@ if sys.stdout.isatty():
 else:
     RED = GREEN = BOLD = NC = ""
 
-PAYLOAD = ("bin/", "cli/", "skills/", "scripts/", "knowledge/", "agents/")
+PAYLOAD = ("bin/", "cli/", "skills/", "scripts/", "knowledge/", "packs/", "agents/")
 ALWAYS_PACKED = ("package.json", "README.md")
 FORBIDDEN_PARTS = ("tests", "tools", "provenance", "docs", ".ai-factory", ".claude", ".claude-plugin", ".venv",
                    "__pycache__", "node_modules")

@@ -12,6 +12,7 @@
     "skills",
     "scripts",
     "knowledge",
+    "packs",
     "agents",
     "!**/__pycache__",
     "!**/*.pyc",

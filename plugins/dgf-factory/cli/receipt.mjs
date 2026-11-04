@@ -1,10 +1,13 @@
 // The receipt, `.dgf-factory/install.json`: what setup wrote, with two hashes per file (ADR 0029 §4).
 //
-//   { tool, version,
+//   { tool, version, dgfLine,
 //     harnesses: [{ id, selected }],
 //     files: { <rel>: { source, owner, sourceHash, installedHash } },   owner: "runtime" or a harness id
 //     mcp:   { <harness id>: { file, key, entryHash } } }
 //
+// dgfLine is the DGF release line whose knowledge pack the runtime holds (ADR 0036 §3), `X.Y`; a
+// receipt written before it existed has none, and still loads. Unknown keys are refused, so a CLI
+// older than dgfLine refuses a receipt that has it: update the CLI before re-running setup.
 // scripts/lib/install_receipt.py reads the same file for the estate checks. Keys are project-relative
 // POSIX paths; an absolute path or a `..` segment is refused, as is any key this schema does not name.
 // A `files` key must also be somewhere setup installs for its owner — under the runtime for `runtime`,
@@ -21,12 +24,15 @@ import * as log from './log.mjs';
 export const RECEIPT = '.dgf-factory/install.json';
 export const TOOL = 'dgf-factory';
 
-const TOP = ['tool', 'version', 'harnesses', 'files', 'mcp'];
+const TOP = ['tool', 'version', 'dgfLine', 'harnesses', 'files', 'mcp'];
+const LINE = /^\d+\.\d+$/;
 const FILE_KEYS = ['source', 'owner', 'sourceHash', 'installedHash'];
 const MCP_KEYS = ['file', 'key', 'entryHash'];
 
-export function emptyReceipt(version) {
-  return { tool: TOOL, version, harnesses: [], files: {}, mcp: {} };
+export function emptyReceipt(version, dgfLine) {
+  const receipt = { tool: TOOL, version, harnesses: [], files: {}, mcp: {} };
+  if (dgfLine) receipt.dgfLine = dgfLine;
+  return receipt;
 }
 
 export function checkRelative(rel, where) {
@@ -69,6 +75,9 @@ export function validate(data) {
   keysOnly(data, TOP, 'the receipt');
   if (data.tool !== TOOL) fail(`tool is \`${data.tool}\`, not \`${TOOL}\``);
   strings(data, ['version'], 'the receipt');
+  if (data.dgfLine !== undefined && (typeof data.dgfLine !== 'string' || !LINE.test(data.dgfLine))) {
+    fail(`dgfLine must be a DGF release line such as "1.3", not ${JSON.stringify(data.dgfLine)}`);
+  }
   if (!Array.isArray(data.harnesses)) fail('harnesses must be an array');
   data.harnesses.forEach((entry, index) => {
     keysOnly(entry, ['id', 'selected'], `harnesses[${index}]`);
@@ -116,6 +125,7 @@ export function serialise(data) {
   const ordered = {
     tool: data.tool,
     version: data.version,
+    ...(data.dgfLine ? { dgfLine: data.dgfLine } : {}),
     harnesses: [...data.harnesses].sort((a, b) => a.id.localeCompare(b.id)),
     files: sortObject(data.files),
     mcp: sortObject(data.mcp),

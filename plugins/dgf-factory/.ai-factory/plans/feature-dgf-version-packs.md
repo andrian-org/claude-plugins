@@ -397,7 +397,7 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
 
 ### Phase 3 — Install one pack per project
 
-- [ ] **Task 5: Setup selects a line; the receipt records it.** (depends: 2)
+- [x] **Task 5: Setup selects a line; the receipt records it.** (depends: 2)
   - **Deliverable:** per the Installer interface and the setup combination table, every row.
     - Usage text documents both flags.
     - The `Next:` lines say which line was installed and how to switch (`dgf-factory setup --dgf-version <v>`).
@@ -421,7 +421,7 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
     tests/cli/lines.test.mjs, tests/cli/setup.test.mjs, tests/cli/plan.test.mjs, tests/cli/receipt.test.mjs,
     tests/cli/status.test.mjs, tests/test_install_receipt.py
 
-- [ ] **Task 6: The doctor checks the line and gates ranged facts; skills say which pack they read.** (depends: 5)
+- [x] **Task 6: The doctor checks the line and gates ranged facts; skills say which pack they read.** (depends: 5)
   - **`doctor.py`:**
     - `SHIPPED_DIRS` + `packs`.
     - **Package mode:** the registry is valid; every pack dir exists and loads every machine-read table

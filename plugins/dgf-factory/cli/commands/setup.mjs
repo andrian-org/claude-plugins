@@ -1,7 +1,7 @@
 // dgf-factory setup — install, or update, the pipeline in a project (ADR 0029).
 //
-// Resolve the project, choose the harnesses, plan every file against the receipt, preview it, ask,
-// then write: the runtime, each harness's skills, the MCP entries, the Python environment, and the
+// Resolve the project, choose the harnesses and the DGF line (ADR 0036 §3), plan every file against
+// the receipt, preview it, ask, then write: the runtime, each harness's skills, the MCP entries, the Python environment, and the
 // receipt last. Re-running it is the update. It never runs the /dgf interview, never edits the
 // project's .gitignore, and never writes outside the project.
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -13,6 +13,7 @@ import { CliError, EXIT_BLOCKED, EXIT_CLEAN, EXIT_USAGE, EXIT_WARNINGS, usageErr
 import { Journal, ensureWithinRoot, pruneEmptyDirs, removeFile, writeAtomic } from '../fsops.mjs';
 import { HARNESSES, harnessIds, selectHarnesses } from '../harnesses.mjs';
 import * as log from '../log.mjs';
+import { entryOf as lineEntry, loadLines, readConfigVersion, selectLine } from '../lines.mjs';
 import { applyMcp, planMcp, previewMcp } from '../mcp.mjs';
 import { packageRoot, packageVersion } from '../paths.mjs';
 import { agentNames, countKinds, planInstall } from '../plan.mjs';
@@ -25,6 +26,8 @@ export const SUMMARY = 'install or update dgf-factory in this project, for the h
 
 const OPTIONS = {
   harness: { type: 'string' },
+  'dgf-line': { type: 'string' },
+  'dgf-version': { type: 'string' },
   root: { type: 'string' },
   yes: { type: 'boolean', default: false },
   'dry-run': { type: 'boolean', default: false },
@@ -32,10 +35,15 @@ const OPTIONS = {
   help: { type: 'boolean', default: false },
 };
 
-export const USAGE = `Usage: dgf-factory setup [--harness <id,id,…>] [--root <dir>] [--yes] [--dry-run] [--no-python]
+export const USAGE = `Usage: dgf-factory setup [--harness <id,id,…>] [--dgf-line <X.Y> | --dgf-version <X.Y.Z>]
+                         [--root <dir>] [--yes] [--dry-run] [--no-python]
 
-  --harness    the harnesses to install for: ${harnessIds().join(', ')}
-               (asked for when omitted, on a terminal; required otherwise)
+  --harness      the harnesses to install for: ${harnessIds().join(', ')}
+                 (asked for when omitted, on a terminal; required otherwise)
+  --dgf-line     the DGF release line whose knowledge to install, such as 1.3
+  --dgf-version  the DGF version the estate runs, such as 1.3.0; its line's knowledge is installed
+                 Without either: the line installed before, else the estate's dgf.version in
+                 .dgf-factory/config.yaml, else the newest line — asked for on a terminal.
   --root       the project folder (default: the current folder)
   --yes        apply without asking: creates, updates, recreating missing files and removing
                unedited files no longer shipped. Never a conflict: an edited file is always kept.
@@ -82,7 +90,51 @@ async function chooseHarnesses(options, receipt, io) {
   return selectHarnesses(await askHarnesses(receipt, io));
 }
 
-// --- 3. applying ------------------------------------------------------------------------------
+// --- 3. the DGF line ---------------------------------------------------------------------------
+
+function describeLine(registry, line) {
+  const entry = lineEntry(registry, line);
+  return `${line} — knowledge read at DGF ${entry.dgf_version}${line === registry.current ? ' (newest)' : ''}`;
+}
+
+async function askLine(registry, fallback, io) {
+  const ordered = registry.lines.map((entry) => entry.line);
+  io.output.write(`Which DGF line does this estate run?\n${ordered.map((line, i) => `  ${String(i + 1).padStart(2)}. ${describeLine(registry, line)}`).join('\n')}\n`);
+  if (fallback.note) io.output.write(`  (${fallback.note})\n`);
+  const hint = fallback.line ? ` [Enter keeps ${fallback.line}]` : '';
+  const answer = (await ask(io, `Number or line${hint}: `)).trim();
+  if (!answer && fallback.line) return fallback;
+  const line = /^\d+$/.test(answer) ? ordered[Number(answer) - 1] ?? answer : answer;
+  return selectLine({ lines: ordered, current: registry.current, flagLine: line });
+}
+
+/** { line, source, note, entry } — from the flags, else the receipt and the config, asked on a terminal. */
+async function chooseLine(options, receipt, projectRoot, pkgRoot, io) {
+  const registry = loadLines(pkgRoot);
+  const inputs = {
+    lines: registry.lines.map((entry) => entry.line), current: registry.current,
+    flagLine: options['dgf-line'], flagVersion: options['dgf-version'],
+    receiptLine: receipt?.dgfLine, configVersion: readConfigVersion(projectRoot),
+  };
+  let chosen;
+  if (inputs.flagLine || inputs.flagVersion || !io) {
+    chosen = selectLine(inputs);
+  } else {
+    let fallback;
+    try {
+      fallback = selectLine(inputs);
+    } catch (err) {
+      if (!(err instanceof CliError) || err.code !== EXIT_BLOCKED) throw err;
+      fallback = { line: null, note: err.message };
+    }
+    chosen = fallback.source === 'receipt' ? fallback : await askLine(registry, fallback, io);
+  }
+  const entry = lineEntry(registry, chosen.line);
+  log.info('setup.line', 'chosen', { line: chosen.line, source: chosen.source, dir: entry.dir });
+  return { ...chosen, entry };
+}
+
+// --- 4. applying ------------------------------------------------------------------------------
 
 async function confirm(io, question) {
   const answer = (await ask(io, `${question} [y/N] `)).trim().toLowerCase();
@@ -134,8 +186,8 @@ function applyFiles(projectRoot, actions, accepted, journal) {
   return files;
 }
 
-function buildReceipt(previous, version, harnesses, files, mcp) {
-  const receipt = emptyReceipt(version);
+function buildReceipt(previous, version, harnesses, files, mcp, dgfLine) {
+  const receipt = emptyReceipt(version, dgfLine);
   const chosen = new Set(harnesses.map((h) => h.id));
   const ids = new Set([...chosen, ...(previous?.harnesses ?? []).map((h) => h.id)]);
   receipt.harnesses = [...ids].map((id) => ({ id, selected: chosen.has(id) }));
@@ -159,8 +211,10 @@ function writeReceiptIfChanged(projectRoot, receipt, journal) {
   return true;
 }
 
-function nextSteps(harnesses, pkgRoot) {
+function nextSteps(harnesses, pkgRoot, dgfLine) {
   const lines = ['', 'Next:'];
+  lines.push(`  - DGF line ${dgfLine.line} installed (knowledge read at DGF ${dgfLine.entry.dgf_version}); `
+    + 'to switch: dgf-factory setup --dgf-version <X.Y.Z>, then /dgf-doctor');
   const withAgents = harnesses.filter((h) => h.agentsDir && agentNames(pkgRoot, h.id).length);
   const folders = [...new Set([...harnesses.map((h) => `${h.skillsDir}/`), ...withAgents.map((h) => `${h.agentsDir}/`)])];
   if (harnesses.some((h) => h.id === 'claude')) lines.push('  - in Claude Code: /dgf to set up the estate, then /dgf-doctor');
@@ -223,11 +277,12 @@ async function setup(options, { io, out, pkgRoot, spawn }) {
   const projectRoot = resolveProject(options.root);
   const receipt = readReceipt(projectRoot);
   const harnesses = await chooseHarnesses(options, receipt, io);
-  log.info('setup.plan', 'planning', { project: projectRoot, harnesses: harnesses.map((h) => h.id).join(',') });
+  const dgfLine = await chooseLine(options, receipt, projectRoot, pkgRoot, io);
+  log.info('setup.plan', 'planning', { project: projectRoot, harnesses: harnesses.map((h) => h.id).join(','), line: dgfLine.line });
 
-  const actions = planInstall({ projectRoot, harnesses, receipt, packageRoot: pkgRoot });
+  const actions = planInstall({ projectRoot, harnesses, receipt, packageRoot: pkgRoot, packDir: dgfLine.entry.dir });
   const mcpActions = planMcp(projectRoot, harnesses);
-  out.write(renderPreview({ projectRoot, harnesses, actions, mcp: previewMcp(mcpActions), python: previewPython(projectRoot, { skip: options['no-python'] }) }));
+  out.write(renderPreview({ projectRoot, harnesses, actions, dgfLine, mcp: previewMcp(mcpActions), python: previewPython(projectRoot, { skip: options['no-python'] }) }));
   log.info('setup.preview', 'shown', countKinds(actions));
   if (options['dry-run']) return EXIT_CLEAN;
 
@@ -257,8 +312,8 @@ async function setup(options, { io, out, pkgRoot, spawn }) {
   }
   log.info('setup.python', 'environment');
   const python = setupPython(projectRoot, { skip: options['no-python'], ...(spawn ? { spawn } : {}) });
-  const receiptWritten = writeReceiptIfChanged(projectRoot, buildReceipt(receipt, packageVersion(pkgRoot), harnesses, files, mcp), journal);
+  const receiptWritten = writeReceiptIfChanged(projectRoot, buildReceipt(receipt, packageVersion(pkgRoot), harnesses, files, mcp, dgfLine.line), journal);
   report(out, { actions, mcpActions, python, journal, receiptWritten });
-  out.write(`${nextSteps(harnesses, pkgRoot).join('\n')}\n`);
+  out.write(`${nextSteps(harnesses, pkgRoot, dgfLine).join('\n')}\n`);
   return exitCodeOf(actions, mcpActions, python);
 }

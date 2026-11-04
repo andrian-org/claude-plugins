@@ -55,7 +55,7 @@ python3 "{{dgf_runtime}}/scripts/inventory_root.py" --workspaces-root "<root>"
 
 | Exit | Action |
 |---|---|
-| `0`, `2` | Take the `KNOWLEDGE: dgf_version=<stamp>` line. |
+| `0`, `2` | Take the `KNOWLEDGE: dgf_version=<stamp> line=<X.Y>` line: the installed knowledge's stamp and DGF line. |
 | `3` | `ROOT_NO_WORKSPACE`, or a usage error: do not read the root's files; answer from the knowledge base and the docs MCP alone, and say why. Read the stamp from the `dgf_version` in a knowledge file's frontmatter instead. |
 
 Compare `dgf.version` with the stamp:
@@ -63,7 +63,8 @@ Compare `dgf.version` with the stamp:
 | `dgf.version` | Say, before the answer |
 |---|---|
 | the stamp | nothing to warn about: "Knowledge read at DGF <stamp>; the estate runs <stamp>." |
-| another release | **Warning:** the knowledge was read at DGF `<stamp>`, and this estate declares `<v>`. A fact may have moved between them. Read `get_release_notes("since:<older>")` for each claim the answer rests on, and cite the note when it bears on one. |
+| another line than `line=` | **Warning:** the installed knowledge describes DGF line `<line>`, and this estate declares `<v>`, another line. Every fact may differ; say that `dgf-factory setup --dgf-version <v>` installs the estate's line, and answer only with that caveat on every claim. |
+| another release of the same line | **Warning:** the knowledge was read at DGF `<stamp>`, and this estate declares `<v>`. A fact may have moved between them. Read `get_release_notes("since:<older>")` for each claim the answer rests on, and cite the note when it bears on one. |
 | `unknown`, absent, or no root | **Warning:** the estate's DGF version cannot be determined, so no fact can be checked against it. Say so plainly — never proceed as if it matched. |
 | several stamps (`<a>,<b>`) | **Warning:** the knowledge files were read at different releases; name the stamp of each file the answer cites. |
 

@@ -196,6 +196,36 @@ class Open(Base):
         self.assertEqual(self.check(doc).exit_code, 1)
 
 
+
+class Line(Base):
+    """ADR 0036 §3: the DGF.API version targeted against the DGF line whose knowledge setup installed here."""
+
+    def installed(self, path, line):
+        (path / ".dgf-factory" / "runtime").mkdir(parents=True)
+        (path / ".dgf-factory" / "runtime" / "x.txt").write_text("x", encoding="utf-8")
+        entry = {"source": "x.txt", "owner": "runtime", "sourceHash": "a", "installedHash": "a"}
+        receipt = {"tool": "dgf-factory", "version": "0.3.0", "files": {".dgf-factory/runtime/x.txt": entry}, "mcp": {}}
+        if line:
+            receipt["dgfLine"] = line
+        (path / ".dgf-factory" / "install.json").write_text(json.dumps(receipt), encoding="utf-8")
+        return path
+
+    def target_line(self):
+        return ".".join(example()["dgf_version"].split(".")[:2])
+
+    def test_another_line_warns_with_the_setup_command(self):
+        path = self.installed(self.folder(example()), "9.9")
+        result = design.check(path)
+        self.assertEqual(self.codes(result), ["SCAFFOLD_LINE_MISMATCH"], [f.render() for f in result.rep.findings])
+        self.assertEqual(result.exit_code, report.EXIT_WARNINGS)
+        self.assertIn(f"dgf-factory setup --dgf-version {example()['dgf_version']}", self.messages(result, "SCAFFOLD_LINE_MISMATCH")[0])
+
+    def test_the_installed_line_and_no_receipt_line_are_clean(self):
+        for line in (self.target_line(), None):
+            with self.subTest(line=line):
+                path = self.installed(self.folder(example(), name=f"app-{line}"), line)
+                self.assertNotIn("SCAFFOLD_LINE_MISMATCH", self.codes(design.check(path)))
+
 class Conflicts(Base):
     """Each exit-1 code is hit once, with the exit the registry gives it."""
 

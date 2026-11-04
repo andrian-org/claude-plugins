@@ -70,6 +70,21 @@ findings:
 - **`INSTALL_VERSION_DRIFT`** (warning, exit `2`) — the `dgf-factory` CLI on PATH is a different
   version from the one that installed this project; `dgf-factory setup` updates it.
 
+The DGF line — which DGF release line's knowledge the runtime holds, against the version the estate
+declares in `.dgf-factory/config.yaml` (`{{dgf_runtime}}/knowledge/README.md` §4 and §8):
+
+- **`DGF_LINE_UNRECORDED`** (warning, exit `2`) — the receipt names no line: installed before lines existed.
+  `dgf-factory setup` records it.
+- **`DGF_VERSION_UNKNOWN`** (warning, exit `2`) — `dgf.version` is `unknown`, so no fact can be compared
+  with the estate. `/dgf` records a version.
+- **`DGF_LINE_MISMATCH`** (warning, exit `2`) — the estate runs another line than the installed knowledge
+  describes. Relay the `dgf-factory setup --dgf-version <v>` command the finding names; never edit the knowledge.
+- **`DGF_VERSION_BEHIND_PACK`** (warning, exit `2`) — the knowledge was read at a later patch of the same line
+  than the estate runs; relay the `get_release_notes("since:<v>")` call it names.
+- **`VERSION_BELOW_SINCE`** (error, exit `1` — a warning when the fact says `out_of_range: warn`) — an
+  installed fact is true only from a later DGF release than the estate runs.
+- **`VERSION_ABOVE_UNTIL`** (warning, exit `2`) — an installed fact is known true only up to an earlier release.
+
 Two more blocking findings mean a skill will misbehave once loaded:
 
 - **`RUNTIME_PATH_DANGLING`** (error, exit `1`) — a shipped Markdown file cites a runtime

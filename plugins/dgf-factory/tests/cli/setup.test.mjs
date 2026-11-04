@@ -89,7 +89,7 @@ test('a second run reports everything unchanged and changes no byte', (t) => {
 test('a hand-edited skill survives an update of the package, and is reported', async (t) => {
   const project = tmp(t);
   const pkg = tmp(t, 'dgf-pkg-');
-  for (const entry of ['package.json', 'skills', 'scripts', 'knowledge']) cpSync(path.join(REPO, entry), path.join(pkg, entry), { recursive: true });
+  for (const entry of ['package.json', 'skills', 'scripts', 'knowledge', 'packs']) cpSync(path.join(REPO, entry), path.join(pkg, entry), { recursive: true });
   const out = sink();
   assert.equal(await run(['--root', project, '--harness', 'claude', '--yes', '--no-python'], { parseArgs }, { io: null, out, pkgRoot: pkg }), 0, out.text());
   const mine = path.join(project, '.claude/skills/dgf-plan/SKILL.md');

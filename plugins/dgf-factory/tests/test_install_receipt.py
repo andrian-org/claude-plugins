@@ -4,6 +4,7 @@ table of where setup installs, held to cli/harnesses.mjs."""
 import json
 import re
 import unittest
+from pathlib import Path
 
 from tests import helpers
 from lib import install_receipt
@@ -67,3 +68,33 @@ class Places(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Line(unittest.TestCase):
+    """The receipt's dgfLine (ADR 0036 §3): read as cli/receipt.mjs writes and refuses it."""
+
+    def write(self, data):
+        import json
+        import shutil
+        import tempfile
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        (root / ".dgf-factory").mkdir()
+        (root / ".dgf-factory" / "install.json").write_text(json.dumps(data), encoding="utf-8")
+        return root
+
+    def test_a_recorded_line_is_read(self):
+        root = self.write({"tool": "dgf-factory", "version": "0.3.0", "dgfLine": "1.2", "files": {}, "mcp": {}})
+        self.assertEqual(install_receipt.line(root), "1.2")
+
+    def test_an_older_receipt_and_no_receipt_have_no_line(self):
+        root = self.write({"tool": "dgf-factory", "version": "0.2.0", "files": {}, "mcp": {}})
+        self.assertIsNone(install_receipt.line(root))
+        self.assertIsNone(install_receipt.line(root / "elsewhere"))
+
+    def test_a_malformed_line_is_refused(self):
+        for bad in ("1.2.0", "latest", 12):
+            with self.subTest(bad=bad):
+                root = self.write({"tool": "dgf-factory", "version": "0.3.0", "dgfLine": bad, "files": {}, "mcp": {}})
+                with self.assertRaises(install_receipt.ReceiptError):
+                    install_receipt.line(root)

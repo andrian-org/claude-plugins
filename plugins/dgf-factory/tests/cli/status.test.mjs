@@ -77,3 +77,16 @@ test('no receipt is exit 3', (t) => {
   assert.equal(result.status, 3);
   assert.match(result.stderr, /not installed here/);
 });
+
+test('status names the installed DGF line, or says an older receipt recorded none', (t) => {
+  const project = installed(t);
+  const file = path.join(project, '.dgf-factory/install.json');
+  const receipt = JSON.parse(readFileSync(file, 'utf8'));
+  assert.match(cli('status', '--root', project).stdout, new RegExp(`DGF line: ${receipt.dgfLine.replace('.', '\\.')}\\n`));
+  const { dgfLine, ...older } = receipt;
+  assert.ok(dgfLine);
+  writeFileSync(file, `${JSON.stringify(older, null, 2)}\n`);
+  const result = cli('status', '--root', project, '--json');
+  assert.equal(JSON.parse(result.stdout).dgfLine, null);
+  assert.match(cli('status', '--root', project).stdout, /DGF line: unrecorded — installed before DGF lines/);
+});

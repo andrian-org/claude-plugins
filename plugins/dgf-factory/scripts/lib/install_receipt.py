@@ -144,6 +144,24 @@ def _entries(root):
     return frozenset(found), ignored
 
 
+LINE_FORM = __import__("re").compile(r"^\d+\.\d+$")
+
+
+def line(root):
+    """The DGF release line whose knowledge pack the runtime holds — the receipt's `dgfLine`
+    (ADR 0036 §3) — or None when there is no receipt, or it predates DGF lines.
+    A `dgfLine` that is not `X.Y` raises ReceiptError, as cli/receipt.mjs refuses it."""
+    data = load(root)
+    if data is None or "dgfLine" not in data:
+        _trace(f"no dgfLine in {receipt_path(root)}")
+        return None
+    value = data["dgfLine"]
+    if not isinstance(value, str) or not LINE_FORM.match(value):
+        raise ReceiptError(f"{RECEIPT.as_posix()} `dgfLine` holds `{value!r}`, which is not a DGF line such as 1.3")
+    _trace(f"dgfLine {value}")
+    return value
+
+
 def footprint(root):
     """The root-relative POSIX paths setup manages: an empty set when there is no receipt.
     An entry setup could not have written is left out (see `ignored`)."""

@@ -57,8 +57,10 @@ For each claim, in order, until a source answers it:
 
 1. **The knowledge base.** Search `{{dgf_runtime}}/knowledge/` with Grep, and read the section that holds
    the fact. Cite it as `<file>.md §N`. The knowledge was read at the DGF version in its stamp — the
-   `dgf_version` in the file's frontmatter; when `dgf.version` differs, say the fact may have moved, and
-   offer `get_release_notes("since:<stamp>")`. `dgf.version` `unknown`, or no root, is a version that
+   `dgf_version` in the file's frontmatter, one DGF line's pack (`{{dgf_runtime}}/knowledge/README.md`
+   §8); when `dgf.version` is on another line, say the installed knowledge describes another line and
+   that `dgf-factory setup --dgf-version <v>` installs the estate's; when it is another release of the same
+   line, say the fact may have moved, and offer `get_release_notes("since:<stamp>")`. `dgf.version` `unknown`, or no root, is a version that
    cannot be compared: say so (`{{dgf_runtime}}/knowledge/README.md` §4).
 2. **The root.** Glob and Grep the workspaces under `<root>`; read the file. Cite it as `<path>:<line>`,
    root-relative. For "what uses this" or "what reaches this", run the reach:

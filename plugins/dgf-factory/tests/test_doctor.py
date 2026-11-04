@@ -1,6 +1,7 @@
 """doctor.py against temporary copies of the package source, and against installed projects."""
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -331,6 +332,129 @@ class DoctorInAProject(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("INSTALL_RECEIPT_ENTRY_MISPLACED", gate_entries(out, "blockers"), out)
         self.assertNotIn("INSTALL_FILE_EDITED", every_id(out), out)
+
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class DoctorLine(unittest.TestCase):
+    """The installed DGF line against the estate's declared version, and the version gate (ADR 0036 §6)."""
+
+    setUp_install = DoctorInAProject.setUp
+    run_doctor = DoctorInAProject.run_doctor
+
+    def setUp(self):
+        self.setUp_install()
+        receipt = json.loads((self.project / ".dgf-factory" / "install.json").read_text(encoding="utf-8"))
+        self.line = receipt["dgfLine"]
+        self.knowledge = self.runtime / "knowledge"
+
+    def declare(self, version):
+        (self.project / ".dgf-factory" / "config.yaml").write_text(f'dgf:\n  version: "{version}"\n', encoding="utf-8")
+
+    def restamp(self, version, extra=""):
+        """Every installed fact stamped `version` (an edit the doctor also warns about); `extra` joins one fact's frontmatter."""
+        import re
+        for path in self.knowledge.rglob("*.md"):
+            if path.name == "README.md":
+                continue
+            text = re.sub(r'(?m)^dgf_version: .*$', f'dgf_version: "{version}"', path.read_text(encoding="utf-8"), count=1)
+            if extra and path.name == "permissions.md":
+                text = text.replace("\n---\n", f"\n{extra}---\n", 1)
+            path.write_text(text, encoding="utf-8")
+
+    def test_no_declared_version_is_information_only(self):
+        _code, out, _ = self.run_doctor()
+        self.assertIn("no declared DGF version yet", out)
+        self.assertFalse({"DGF_LINE_MISMATCH", "DGF_VERSION_UNKNOWN"} & set(every_id(out)), out)
+
+    def test_unknown_warns(self):
+        (self.project / ".dgf-factory" / "config.yaml").write_text("dgf:\n  version: unknown\n", encoding="utf-8")
+        _code, out, _ = self.run_doctor()
+        self.assertIn("DGF_VERSION_UNKNOWN", gate_entries(out, "warnings"), out)
+
+    def test_another_line_warns_with_the_setup_command(self):
+        self.declare("9.9.0")
+        _code, out, _ = self.run_doctor()
+        self.assertIn("DGF_LINE_MISMATCH", gate_entries(out, "warnings"), out)
+        self.assertIn("run `dgf-factory setup --dgf-version 9.9.0`", out)
+
+    def test_an_older_patch_than_the_pack_warns(self):
+        self.restamp(f"{self.line}.5")
+        self.declare(f"{self.line}.1")
+        _code, out, _ = self.run_doctor()
+        self.assertIn("DGF_VERSION_BEHIND_PACK", gate_entries(out, "warnings"), out)
+        self.assertIn(f'get_release_notes("since:{self.line}.1")', out)
+
+    def test_a_receipt_without_a_line_warns(self):
+        file = self.project / ".dgf-factory" / "install.json"
+        receipt = json.loads(file.read_text(encoding="utf-8"))
+        del receipt["dgfLine"]
+        file.write_text(json.dumps(receipt), encoding="utf-8")
+        _code, out, _ = self.run_doctor()
+        self.assertIn("DGF_LINE_UNRECORDED", gate_entries(out, "warnings"), out)
+
+    def test_below_since_blocks_and_above_until_warns(self):
+        self.restamp(f"{self.line}.5", f'applies:\n  since: "{self.line}.9"\n  until: "{self.line}.7"\n')
+        self.declare(f"{self.line}.8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("VERSION_BELOW_SINCE", gate_entries(out, "blockers"), out)
+        self.assertIn("VERSION_ABOVE_UNTIL", gate_entries(out, "warnings"), out)
+
+    def test_a_restriction_may_opt_out_to_a_warning(self):
+        self.restamp(f"{self.line}.5", f'applies:\n  since: "{self.line}.9"\n  until: null\nout_of_range: warn\n')
+        self.declare(f"{self.line}.5")
+        _code, out, _ = self.run_doctor()
+        self.assertNotIn("VERSION_BELOW_SINCE", gate_entries(out, "blockers"), out)
+        self.assertIn("VERSION_BELOW_SINCE", gate_entries(out, "warnings"), out)
+
+
+class DoctorPacks(unittest.TestCase):
+    """Package mode: the pack registry, and every pack's machine-read tables (ADR 0036 §2)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.root = Path(self.tmp) / "dgf-factory"
+        shutil.copytree(helpers.PLUGIN_ROOT, self.root,
+                        ignore=shutil.ignore_patterns(".venv", "__pycache__", ".claude", ".claude-plugin", "tests",
+                                                      "node_modules", "obj"))
+        self.registry = self.root / "packs" / "lines.json"
+        self.data = json.loads(self.registry.read_text(encoding="utf-8"))
+
+    def add_pack(self, line="0.9"):
+        shutil.copytree(self.root / "knowledge", self.root / "packs" / line, ignore=shutil.ignore_patterns("README.md"))
+        self.data["lines"].append({"line": line, "dir": f"packs/{line}", "dgf_version": f"{line}.1",
+                                   "read_date": "2026-11-04"})
+        self.registry.write_text(json.dumps(self.data), encoding="utf-8")
+
+    def run_doctor(self):
+        return helpers.run_cli(self.root / DOCTOR, self.root)
+
+    def test_a_second_pack_is_checked_table_by_table(self):
+        self.add_pack()
+        facts = self.root / "packs" / "0.9" / "json-reader.md"
+        facts.write_text(facts.read_text(encoding="utf-8").replace("<!-- machine-read: component-classes -->",
+                                                                   "<!-- machine-read: component-classes -->\nbroken"),
+                         encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("KNOWLEDGE_TABLE", gate_entries(out, "blockers"), out)
+        self.assertIn(f"packs{os.sep}0.9{os.sep}json-reader.md", out)
+
+    def test_a_registered_pack_that_is_missing_blocks(self):
+        self.data["lines"].append({"line": "0.8", "dir": "packs/0.8", "dgf_version": "0.8.1", "read_date": "2026-11-04"})
+        self.registry.write_text(json.dumps(self.data), encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("PACK_MISSING", gate_entries(out, "blockers"), out)
+
+    def test_a_malformed_registry_blocks(self):
+        self.data["current"] = "7.7"
+        self.registry.write_text(json.dumps(self.data), encoding="utf-8")
+        code, out, _ = self.run_doctor()
+        self.assertEqual(code, 1, out)
+        self.assertIn("PACK_REGISTRY", gate_entries(out, "blockers"), out)
 
 
 if __name__ == "__main__":

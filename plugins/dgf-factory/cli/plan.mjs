@@ -2,7 +2,9 @@
 //
 // Two kinds of file are installed:
 //   runtime   every payload file under skills/, scripts/ and knowledge/, at .dgf-factory/runtime/<same
-//             path>, plus a managed .gitignore for the runtime's .venv/ and __pycache__/
+//             path>, plus a managed .gitignore for the runtime's .venv/ and __pycache__/. The knowledge
+//             files are one DGF line's pack (ADR 0036 §3): knowledge/ for the current line, or
+//             packs/<X.Y>/ installed at knowledge/ — knowledge/README.md, the shared convention, always
 //   harness   each skill's SKILL.md at <skillsDir>/<skill>/SKILL.md, rendered for that harness; and, for a
 //             harness with an agentsDir and a package folder agents/<harness id>/, each agent's <name>.md at
 //             <agentsDir>/<name>.md, rendered the same way (ADR 0033 §5) — agents are never runtime files
@@ -18,6 +20,8 @@ import * as log from './log.mjs';
 import { RUNTIME_DIR, renderRuntimeFile, renderSkill } from './transform.mjs';
 
 export const PAYLOAD_DIRS = ['skills', 'scripts', 'knowledge'];
+export const CURRENT_PACK = 'knowledge';
+const SHARED_KNOWLEDGE = new Set(['knowledge/README.md']);
 // The same exclusions as package.json `files`, so a source checkout installs what the tarball holds.
 const EXCLUDED_NAMES = new Set(['__pycache__', '.DS_Store']);
 const EXCLUDED_PATHS = ['skills/dgf-scaffold/templates/solution/obj', 'skills/dgf-scaffold/templates/solution/bin'];
@@ -31,8 +35,8 @@ function excluded(rel, name) {
   return EXCLUDED_NAMES.has(name) || name.endsWith('.pyc') || EXCLUDED_PATHS.some((p) => rel === p || rel.startsWith(`${p}/`));
 }
 
-/** Every payload file in the package, as package-relative POSIX paths, sorted. */
-export function payloadFiles(packageRoot) {
+/** Every file under `dir` in the package, as package-relative POSIX paths, sorted. */
+function listFiles(packageRoot, dir) {
   const found = [];
   const walk = (rel) => {
     for (const name of readdirSync(path.join(packageRoot, rel)).sort()) {
@@ -42,9 +46,30 @@ export function payloadFiles(packageRoot) {
       else found.push(child);
     }
   };
-  for (const dir of PAYLOAD_DIRS) walk(dir);
+  walk(dir);
+  return found;
+}
+
+/** Every payload file in the package, as package-relative POSIX paths, sorted. */
+export function payloadFiles(packageRoot) {
+  const found = PAYLOAD_DIRS.flatMap((dir) => listFiles(packageRoot, dir));
   log.debug('plan.payloadFiles', 'listed', { files: found.length });
   return found;
+}
+
+/**
+ * The knowledge the runtime gets for one pack, as [source in the package, path under knowledge/].
+ * The current line's pack is knowledge/ itself; another line's replaces every file but the README.
+ */
+export function packFiles(packageRoot, packDir = CURRENT_PACK) {
+  if (packDir === CURRENT_PACK) return listFiles(packageRoot, CURRENT_PACK).map((rel) => [rel, rel]);
+  if (!existsSync(path.join(packageRoot, packDir))) throw new Error(`the package has no ${packDir}/ — its registry names it`);
+  const files = listFiles(packageRoot, packDir)
+    .filter((rel) => !rel.endsWith('/README.md'))
+    .map((rel) => [rel, `${CURRENT_PACK}/${rel.slice(packDir.length + 1)}`]);
+  for (const shared of SHARED_KNOWLEDGE) files.push([shared, shared]);
+  log.debug('plan.pack', 'files', { dir: packDir, files: files.length });
+  return files.sort((a, b) => a[1].localeCompare(b[1]));
 }
 
 export function skillNames(packageRoot) {
@@ -65,13 +90,19 @@ function addRendered(desired, harness, packageRoot, source, target) {
   desired.set(target, { source, owner: harness.id, sourceBytes, content: Buffer.from(renderSkill(harness, sourceBytes.toString('utf8'), source), 'utf8') });
 }
 
-/** What the install should hold: target → { source, owner, sourceBytes, content }. */
-export function desiredFiles(packageRoot, harnesses) {
+function addRuntime(desired, packageRoot, source, rel) {
+  const sourceBytes = readFileSync(path.join(packageRoot, source));
+  desired.set(`${RUNTIME_DIR}/${rel}`, { source, owner: 'runtime', sourceBytes, content: renderRuntimeFile(source, sourceBytes) });
+}
+
+/** What the install should hold: target → { source, owner, sourceBytes, content }. `packDir` is the line's pack. */
+export function desiredFiles(packageRoot, harnesses, packDir = CURRENT_PACK) {
   const desired = new Map();
   for (const rel of payloadFiles(packageRoot)) {
-    const sourceBytes = readFileSync(path.join(packageRoot, rel));
-    desired.set(`${RUNTIME_DIR}/${rel}`, { source: rel, owner: 'runtime', sourceBytes, content: renderRuntimeFile(rel, sourceBytes) });
+    if (rel.startsWith(`${CURRENT_PACK}/`)) continue;
+    addRuntime(desired, packageRoot, rel, rel);
   }
+  for (const [source, rel] of packFiles(packageRoot, packDir)) addRuntime(desired, packageRoot, source, rel);
   const gitignore = Buffer.from(GITIGNORE_TEXT, 'utf8');
   desired.set(RUNTIME_GITIGNORE, { source: '(generated)', owner: 'runtime', sourceBytes: gitignore, content: gitignore });
   for (const harness of harnesses) {
@@ -131,8 +162,8 @@ function symlinkConflict(action, previous) {
  * Every action setup would take. A harness dropped from the selection is left alone — `uninstall`
  * removes it — and its receipt entries are carried over untouched.
  */
-export function planInstall({ projectRoot, harnesses, receipt, packageRoot }) {
-  const desired = desiredFiles(packageRoot, harnesses);
+export function planInstall({ projectRoot, harnesses, receipt, packageRoot, packDir = CURRENT_PACK }) {
+  const desired = desiredFiles(packageRoot, harnesses, packDir);
   const previousFiles = receipt?.files ?? {};
   const selected = new Set(harnesses.map((h) => h.id));
   const actions = [];

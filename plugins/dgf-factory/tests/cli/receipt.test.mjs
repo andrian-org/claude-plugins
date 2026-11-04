@@ -125,3 +125,20 @@ test('a files key outside where setup installs for its owner is refused', () => 
   } };
   assert.equal(validate(fine), fine);
 });
+
+test('dgfLine round-trips after version, an older receipt without it loads, and a malformed one is refused', (t) => {
+  const root = project(t);
+  const data = sample();
+  data.dgfLine = '1.3';
+  writeReceipt(root, data);
+  const text = readFileSync(path.join(root, RECEIPT), 'utf8');
+  assert.deepEqual(Object.keys(JSON.parse(text)).slice(0, 3), ['tool', 'version', 'dgfLine']);
+  assert.equal(readReceipt(root).dgfLine, '1.3');
+  assert.equal(emptyReceipt('0.3.0', '1.2').dgfLine, '1.2');
+  assert.equal('dgfLine' in emptyReceipt('0.3.0'), false);
+  const old = sample();
+  assert.equal(validate(old).dgfLine, undefined, 'a 0.2.0 receipt has no line and is valid');
+  for (const bad of ['1.3.0', 'latest', 13, '']) {
+    assert.throws(() => validate({ ...sample(), dgfLine: bad }), /dgfLine must be a DGF release line/, String(bad));
+  }
+});
