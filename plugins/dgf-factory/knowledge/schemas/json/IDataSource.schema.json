@@ -6,14 +6,14 @@
   "x-abstract": true,
   "additionalProperties": false,
   "properties": {
-    "Name": {
+    "name": {
       "type": [
         "null",
         "string"
       ],
       "description": "Gets the unique name identifier for this data source. Used for references in component bindings (e.g., \"ref\": \"pageName.dataSourceName\")."
     },
-    "Type": {
+    "type": {
       "description": "Gets the type classification of this data source (Table, Api, RawSql, Code, Static, Document, etc.).\nDetermines the execution strategy and parameter handling behavior.",
       "oneOf": [
         {
@@ -21,15 +21,15 @@
         }
       ]
     },
-    "SingleResult": {
+    "singleResult": {
       "type": "boolean",
       "description": "Gets or sets whether this data source returns a single result object rather than a collection.\nWhen true, the result is unwrapped from array form. When false, results are returned as a list."
     },
-    "ForwardPaginationParameters": {
+    "forwardPaginationParameters": {
       "type": "boolean",
-      "description": "Gets or sets whether the component's current pagination state (page, pageSize) should be forwarded to this data source on every request.\nWhen true, the Angular component automatically injects \"page\" and \"pageSize\" into the request — you do NOT add them to the component's Parameters list.\nIMPORTANT for RawSql/StoredProcedure: when enabling this, you must also add \"page\" and \"pageSize\" entries to the data source's Parameters list\nwith DbType = Int32, and ensure the SQL query or stored procedure implements pagination (e.g., OFFSET (@page-1)*@pageSize ROWS FETCH NEXT @pageSize ROWS ONLY)."
+      "description": "Gets or sets whether the component's current pagination state (page, pageSize) should be forwarded to this data source on every request.\nWhen true, the Angular component automatically injects \"page\" and \"pageSize\" into the request — you do NOT add them to the component's Parameters list.\nIMPORTANT for RawSql/StoredProcedure: when enabling this, you must also add \"page\" and \"pageSize\" entries to the data source's Parameters list\nwith DbType = Int32, and ensure the SQL query or stored procedure implements pagination (e.g., OFFSET (CAST(@page AS BIGINT)-1)*@pageSize ROWS FETCH NEXT @pageSize ROWS ONLY)."
     },
-    "AllowUnauthorizedAccess": {
+    "allowUnauthorizedAccess": {
       "type": "boolean",
       "description": "Gets or sets whether this data source allows unauthenticated/unauthorized access.\nWhen true, the data source executes without requiring authentication claims."
     }
@@ -51,16 +51,16 @@
         "Code"
       ],
       "enum": [
-        "None",
-        "Table",
-        "LookupTable",
-        "EditableGrid",
-        "Api",
-        "Static",
-        "Document",
-        "RawSql",
-        "StoredProcedure",
-        "Code"
+        "none",
+        "table",
+        "lookupTable",
+        "editableGrid",
+        "api",
+        "static",
+        "document",
+        "rawSql",
+        "storedProcedure",
+        "code"
       ]
     }
   }

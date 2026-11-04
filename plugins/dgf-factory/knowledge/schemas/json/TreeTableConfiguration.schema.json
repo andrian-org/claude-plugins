@@ -8,36 +8,36 @@
       "x-abstract": true,
       "additionalProperties": false,
       "properties": {
-        "StorageKey": {
+        "storageKey": {
           "type": [
             "null",
             "string"
           ],
           "description": "Key used to persist component state (data, value, selection) in browser session/local storage. When set, the component restores its last state on page reload."
         },
-        "Type": {
-          "description": "Discriminator that determines which Angular component is rendered. Must match a ComponentType enum value verbatim — values are PascalCase: \"Form\", \"DataTable\", \"ComboBox\", \"Text\", \"Button\", \"Calendar\", etc. (lowercase or camelCase will fail validation). The UI factory uses this to instantiate the correct Angular component class.",
+        "type": {
+          "description": "Discriminator that determines which Angular component is rendered. Must name a ComponentType member. Values are camelCase: \"form\", \"dataTable\", \"comboBox\", \"text\", \"button\", \"calendar\". The runtime reads this case-insensitively (JsonStringEnumConverter), and the exported JSON schema declares the camelCase spellings, so camelCase is what validates AND what every workspace uses. The UI factory uses this to instantiate the correct Angular component class.",
           "oneOf": [
             {
               "$ref": "#/definitions/ComponentType"
             }
           ]
         },
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "Unique identifier for this component instance within the application. Used to reference this component from events (as ComponentName target), parameters (as ${Name} token), button ComponentAction targets, and the ref binding system. Must be unique per page/form context."
         },
-        "Path": {
+        "path": {
           "type": [
             "null",
             "string"
           ],
           "description": "File system path used to load this component's configuration from an external JSON file. When set, the SiteMapManager replaces this component with the fully resolved content loaded from the specified path. Enables reusable component definitions stored as separate files."
         },
-        "Cols": {
+        "cols": {
           "type": [
             "integer",
             "null"
@@ -45,28 +45,28 @@
           "description": "Width of this component in Bootstrap grid columns (1–12). Components are arranged in 12-column rows; use Cols=6 for half-width, Cols=12 for full-width. Omit to use the component's default width.",
           "format": "int32"
         },
-        "Ref": {
+        "ref": {
           "type": [
             "null",
             "string"
           ],
           "description": "Binds this component to a named data source declared on a parent Page or container, using dot-notation: \"pageName.dataSourceName\". The UI resolves the bound data source from the component store and uses it as this component's display data. IMPORTANT: if the component also has its own DataSource property configured, the component's own DataSource takes precedence over Ref. Use Ref to share an already-loaded page-level data source; use an explicit DataSource when the component needs its own parameters, pagination, or filtering. Example: a ListBox with Ref=\"servicePassportPage.whoCanApply\" displays data from that page-level data source."
         },
-        "Compact": {
+        "compact": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, applies compact/dense styling to reduce vertical spacing. Useful inside data-dense layouts such as DataTable row templates or sidebar panels."
         },
-        "Description": {
+        "description": {
           "type": [
             "null",
             "string"
           ],
           "description": "Human-readable description of this component's purpose. Used for accessibility annotations and documentation; not displayed in the UI by default."
         },
-        "MetaData": {
+        "metaData": {
           "type": [
             "null",
             "object"
@@ -74,7 +74,7 @@
           "description": "Arbitrary key-value metadata attached to this component. Special keys recognized by the framework: \"requireUser\" (\"authenticated\" or \"guest\") controls visibility based on auth state; \"requireClaims\" (array of claim filter objects) applies claim-based access control. The SiteMapManager strips nodes that fail these checks before serving to the client.",
           "additionalProperties": {}
         },
-        "PropertyConverters": {
+        "propertyConverters": {
           "type": [
             "null",
             "object"
@@ -85,7 +85,7 @@
             "additionalProperties": {}
           }
         },
-        "Parameters": {
+        "parameters": {
           "type": [
             "array",
             "null"
@@ -95,7 +95,7 @@
             "$ref": "#/definitions/ComponentParameter"
           }
         },
-        "Events": {
+        "events": {
           "type": [
             "null",
             "object"
@@ -108,7 +108,7 @@
             }
           }
         },
-        "Validators": {
+        "validators": {
           "type": [
             "array",
             "null"
@@ -118,7 +118,7 @@
             "$ref": "#/definitions/ValidatorBase"
           }
         },
-        "ComponentScript": {
+        "componentScript": {
           "description": "Script hooks executed in the Angular browser context for this component. Currently supports OnValueChange (JavaScript executed each time component value changes). Use to implement client-side logic without server round-trips.",
           "oneOf": [
             {
@@ -129,7 +129,7 @@
             }
           ]
         },
-        "Messages": {
+        "messages": {
           "type": [
             "array",
             "null"
@@ -139,21 +139,21 @@
             "$ref": "#/definitions/ComponentMessage"
           }
         },
-        "Uid": {
+        "uid": {
           "type": [
             "null",
             "string"
           ],
           "description": "Optional secondary unique identifier. Used internally for tracking and correlation when Name alone is insufficient."
         },
-        "CssClass": {
+        "cssClass": {
           "type": [
             "null",
             "string"
           ],
           "description": "One or more CSS class names (space-separated) applied to the component's root element. Supports both Bootstrap utility classes and application-specific design system classes."
         },
-        "Hidden": {
+        "hidden": {
           "type": [
             "boolean",
             "null"
@@ -233,92 +233,96 @@
         "Accordion",
         "DataFetcher",
         "SignaturePadSig100",
-        "Carousel"
+        "Carousel",
+        "AutoComplete",
+        "Chart"
       ],
       "enum": [
-        "None",
-        "Login",
-        "Search",
-        "Toggle",
-        "ComboBox",
-        "RadioButton",
-        "RadioGroup",
-        "Checkbox",
-        "Text",
-        "Button",
-        "Image",
-        "Date",
-        "Time",
-        "DateTime",
-        "Uploader",
-        "Page",
-        "ListBox",
-        "Form",
-        "Breadcrumb",
-        "PdfViewer",
-        "TreeView",
-        "Tab",
-        "Row",
-        "Section",
-        "DataTable",
-        "Link",
-        "Number",
-        "TextBox",
-        "Container",
-        "ProcessFlow",
-        "Workflow",
-        "WorkflowNew",
-        "Router",
-        "Route",
-        "Icon",
-        "Query",
-        "Pay",
-        "Separator",
-        "ReferenceComponent",
-        "DropdownTree",
-        "Option",
-        "Internal",
-        "Textarea",
-        "Booking",
-        "Range",
-        "EligibilityCriteria",
-        "CorporateAccount",
-        "RoleSwitcher",
-        "TeamSwitcher",
-        "Iframe",
-        "CodeViewer",
-        "SelectButton",
-        "Template",
-        "PowerBi",
-        "Calendar",
-        "ProcessMonitor",
-        "Header",
-        "Footer",
-        "ProfileMenu",
-        "InputGroup",
-        "PhoneNumber",
-        "TreeTable",
-        "Badge",
-        "Card",
-        "Accordion",
-        "DataFetcher",
-        "SignaturePadSig100",
-        "Carousel"
+        "none",
+        "login",
+        "search",
+        "toggle",
+        "comboBox",
+        "radioButton",
+        "radioGroup",
+        "checkbox",
+        "text",
+        "button",
+        "image",
+        "date",
+        "time",
+        "dateTime",
+        "uploader",
+        "page",
+        "listBox",
+        "form",
+        "breadcrumb",
+        "pdfViewer",
+        "treeView",
+        "tab",
+        "row",
+        "section",
+        "dataTable",
+        "link",
+        "number",
+        "textBox",
+        "container",
+        "processFlow",
+        "workflow",
+        "workflowNew",
+        "router",
+        "route",
+        "icon",
+        "query",
+        "pay",
+        "separator",
+        "referenceComponent",
+        "dropdownTree",
+        "option",
+        "internal",
+        "textarea",
+        "booking",
+        "range",
+        "eligibilityCriteria",
+        "corporateAccount",
+        "roleSwitcher",
+        "teamSwitcher",
+        "iframe",
+        "codeViewer",
+        "selectButton",
+        "template",
+        "powerBi",
+        "calendar",
+        "processMonitor",
+        "header",
+        "footer",
+        "profileMenu",
+        "inputGroup",
+        "phoneNumber",
+        "treeTable",
+        "badge",
+        "card",
+        "accordion",
+        "dataFetcher",
+        "signaturePadSig100",
+        "carousel",
+        "autoComplete",
+        "chart"
       ]
     },
     "ComponentParameter": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "Name"
+        "name"
       ],
       "properties": {
-        "Name": {
+        "name": {
           "type": "string",
           "description": "Parameter key name sent to the data source. Must match the parameter name declared in the DataSource's Parameters list and the server-side handler.",
           "minLength": 1
         },
-        "Value": {
+        "value": {
           "description": "Value or binding expression for this parameter. Can be a literal string or any of the following token types:\n            \nCOMPONENT TOKENS (reactive — re-fetches when source changes):\n  ${componentName}                        — primary bound value of a named component (input, combo, etc.)\n  ${componentName.@properties.propName}   — a schema property of another component\n  ${componentName.@parameters.paramName}  — a parameter value of another component\n  ${componentName.@data.field.subField}   — nested data field loaded by another component\n            \nROW CONTEXT TOKENS (only valid inside DataTable column templates / row actions):\n  ${item.ColumnName}                      — field from the current DataTable row\n  ${item.Nested.Field}                    — nested field from the current row\n            \nGLOBAL / USER TOKENS:\n  ${@user.currentEntityId}                — authenticated user's entity ID\n  ${@user.currentRoleName}                — authenticated user's role\n  ${@user.fullName}                       — user display name\n  ${@request.path.parameters.id}          — current route path parameter\n  ${@request.query.parameters.search}     — current URL query parameter\n  ${@settings.apiUrl}                     — application setting value\n  ${@i18n('key', 'default')}              — translated string\n  ${formName.@form.valid}                 — Angular form validity boolean\n            \nSYSTEM TOKENS (resolved server-side):\n  ~UserID          — current authenticated user ID\n  ~NOW             — current server timestamp\n  ~APPLICATIONID   — current application ID\n            \nLiteral values (no token) are sent as-is: \"value\": \"1\", \"value\": \"Active\"",
           "oneOf": [
             {},
@@ -327,14 +331,14 @@
             }
           ]
         },
-        "Required": {
+        "required": {
           "type": [
             "boolean",
             "null"
           ],
-          "description": "When true, the component's data request is blocked (not sent) until this parameter resolves to a non-null, non-empty value.\nThis is the primary mechanism for two patterns:\n            \nREQUEST GATING: Prevent a fetch from firing with incomplete data.\n  Example: a DataTable that must not load until a case is selected in a ComboBox.\n  [{ \"name\": \"CaseId\", \"value\": \"${caseCombo}\", \"required\": true }]\n            \nCASCADE GUARD: Combined with a ${componentName} binding, required=true ensures a dependent\n  component (e.g., District dropdown) does not fetch until its parent (e.g., Country) has a value.\n  When the parent value clears, the child's request is blocked again automatically.\n            \nWhen false or omitted, missing/empty parameter values are forwarded as-is and the request fires regardless."
+          "description": "When true, the component's data request is blocked (not sent) until this parameter resolves to a non-null, non-empty value.\nThis is the primary mechanism for two patterns:\n            \nREQUEST GATING: Prevent a fetch from firing with incomplete data.\n  Example: a DataTable that must not load until a case is selected in a ComboBox.\n  [{ \"name\": \"CaseId\", \"value\": \"${caseCombo}\", \"required\": true }]\n            \nCASCADE GUARD: Combined with a ${componentName} binding, required=true ensures a dependent\n  component (e.g., District dropdown) does not fetch until its parent (e.g., Country) has a value.\n  When the parent value clears, the child's request is blocked again automatically.\n            \nWhen omitted, this is TRUE: ToModelParameter() sends Required ?? true. Set it to false explicitly\nto forward a missing/empty value as-is and let the request fire regardless."
         },
-        "RequiredMessage": {
+        "requiredMessage": {
           "type": [
             "null",
             "string"
@@ -348,28 +352,28 @@
       "description": "Defines a single declarative event handler that one component dispatches to another when a named event fires\n(e.g. onChange, onClick, onValueChange, onDataLoaded).\nUse as an entry inside a component's events dictionary to wire cross-component communication\nwithout writing JavaScript — populating fields from a fetched record, toggling section visibility,\nlocking inputs, raising toasts, chaining DataFetchers, or forwarding to another component's pass-through action.\nWhen to use this vs. alternatives:\nReacting to another component's event (value change, data load, click) → Events / EventBase.\nComputing a property from this component's own state (no fetch, reactive) →\n      PropertyConverters.\nLoading server data on a field change and mutating other fields →\n      DataFetcher + its onValueChange events (still EventBase entries).\nCustom AJAX or complex timing the declarative DSL can't express → ComponentScript escape hatch.\nTwo action families — see Action for the full verb list and semantics:\nPass-through verbs (data, validate, schema, schemaAndData,\n      save, saveAndClose) forward to the target's ActionService.triggerComponentAction.\nMutation verbs (setValue, clearValue, setReadonly, setRequired,\n      toggleVisible, notify, setProperty) imperatively update target state via the\n      FormSharedService bridge, the same channel that backs the legacy frm.* JS API.\nExpression DSL — ValueExpression and When run in a sandboxed JS evaluator\nwith { result, source, form } in scope plus ${...} token interpolation\n(${componentName.@data.field}, ${@user.role}, ${@form.valid},\n${@request.path.parameters.id}, bare ${FieldName} for parent-form FormControl values).\nStandard JS operators, ternaries, optional chaining, array methods, and parseInt/.includes\nare supported; window, document, fetch, eval, and storage APIs are blocked.\nConstraints:\nEmitter must be mounted inside a DGF FormComponent; cross-form dispatch is not supported.\nTargets must be real DGF components (matched by ComponentName) — non-DGF DOM nodes\n      cannot be targeted. Exception: notify is global and ignores ComponentName.\nMultiple handlers in one event array execute in declared order; sequence mutations before\n      pass-through reloads (setValue then data) to avoid clobbering.\nHandlers are skipped silently when When is falsy.\nSee Events.md\nfor the full handler reference, action-verb matrix, and copy-paste recipes.\nAuto-populate a name input and lock a section after a fetch:\n{\n  \"events\": {\n    \"onValueChange\": [\n      { \"componentName\": \"fullNameInput\",  \"action\": \"setValue\",      \"valueExpression\": \"result.FirstName + ' ' + result.LastName\" },\n      { \"componentName\": \"appealsSection\", \"action\": \"toggleVisible\", \"valueExpression\": \"result.IsEligible === true\" },\n      { \"componentName\": \"structureCombo\", \"action\": \"setReadonly\",   \"valueExpression\": \"result.total === 1\" }\n    ]\n  }\n}",
       "additionalProperties": false,
       "properties": {
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "The name of this event handler entry. Typically identifies the handler within the list for debugging purposes."
         },
-        "ComponentName": {
+        "componentName": {
           "type": [
             "null",
             "string"
           ],
           "description": "Name of the target component to trigger when this event fires. Must match the Name property of an existing component on the current page or form context."
         },
-        "Action": {
+        "action": {
           "type": [
             "null",
             "string"
           ],
           "description": "Action to invoke on the target component when this event fires.\nExisting actions: data (reload data), validate, schema,\nschemaAndData, save, saveAndClose.\nNew mutation verbs (used with DataFetcher onValueChange events,\nButton onClick events, and any component event that needs to imperatively update the UI):\nVerbEffect on target\nsetValue\n      Sets the target component's value to the result of ValueExpression\n      evaluated against { result, source, form }. Works on any input component.\nclearValue\n      Forces the target component's value to null/empty. Equivalent to\n      setValue with ValueExpression = \"null\" but more explicit and readable.\nsetReadonly\n      Toggles the readonly flag on the target component.\n      ValueExpression must evaluate to a boolean.\nsetRequired\n      Toggles the required flag on the target component.\n      ValueExpression must evaluate to a boolean.\ntoggleVisible\n      Sets the hidden flag on the target component to\n      !ValueExpression (i.e., the component is visible when\n      ValueExpression is truthy). Works on any component including sections.\nnotify\n      Shows a toast/inline notification. Uses Message and\n      Severity. ComponentName is ignored for this verb —\n      notification is global.\nsetProperty\n      Sets an arbitrary named property on the target component. Use\n      PropertyName to specify which property and ValueExpression\n      for its value. Useful for updating labels, colors, CSS classes, and other display\n      properties that are not covered by the other verbs.\nExpression context for ValueExpression and When:\n{ result, source, form } where result is the raw dataSource response,\nsource is the component that emitted the event, and form is the parent\nform model (if applicable). The existing PropertyConverters expression evaluator\n(execSecureEval in utils.ts) is reused — supported operators:\n===, !==, ==, !=, &&, ||,\n.includes(), parseInt(), array literals.\nToken interpolation — the same ${...} syntax that PropertyConverters\nsupport is also resolved before evaluation, so expressions can reference other\ncomponents and global accessors without going through result:\n${componentName.@data.value}, ${@user.role}, ${@form.valid},\n${@request.path.parameters.id}, ${@i18n('key', 'fallback')}.\nMix freely with the event-context variables — e.g.,\n\"when\": \"result.total > 0 && ${@user.role} === 'Admin'\".\nAuto-select and lock a child dropdown when parent yields exactly one match:\n{ \"componentName\": \"structureCombo\", \"action\": \"setValue\",\n  \"valueExpression\": \"result.total === 1 ? result.items[0].key : null\",\n  \"when\": \"result.total !== undefined\" }\nShow a warning notification when a duplicate record is detected:\n{ \"action\": \"notify\", \"when\": \"result.total > 0\",\n  \"message\": \"This combination already exists.\", \"severity\": \"warning\" }"
         },
-        "Parameters": {
+        "parameters": {
           "type": [
             "array",
             "null"
@@ -379,35 +383,35 @@
             "$ref": "#/definitions/ComponentModelParameter"
           }
         },
-        "ValueExpression": {
+        "valueExpression": {
           "type": [
             "null",
             "string"
           ],
           "description": "JavaScript expression evaluated in the Angular browser context against { result, source, form }.\nThe resolved value is applied as follows depending on Action:\nsetValue / setProperty — the expression result becomes the new property value.\nsetReadonly / setRequired — the expression result is coerced to boolean.\ntoggleVisible — component is shown when truthy, hidden when falsy.\nclearValue / notify — this field is ignored.\nSupports token syntax: result.FieldName, result.total === 1,\nresult.items[0].key, parseInt(result.count) > 0.\nOptional — when omitted for setValue, the raw result object is used as-is."
         },
-        "When": {
+        "when": {
           "type": [
             "null",
             "string"
           ],
           "description": "Optional JavaScript gate expression evaluated against { result, source, form } before\nthe action is dispatched. When set, the action is skipped if this expression evaluates\nto falsy. Supports the same syntax as ValueExpression.\nExample — only clear when the check returns results:\n\"when\": \"result.total > 0\""
         },
-        "Message": {
+        "message": {
           "type": [
             "null",
             "string"
           ],
           "description": "Notification text displayed to the user when Action is notify.\nSupports inline HTML for formatted messages. Ignored for all other action verbs."
         },
-        "Severity": {
+        "severity": {
           "type": [
             "null",
             "string"
           ],
           "description": "Severity level for notify action. Controls toast styling.\nAccepted values: info (default), success, warning, error.\nIgnored for all other action verbs."
         },
-        "PropertyName": {
+        "propertyName": {
           "type": [
             "null",
             "string"
@@ -420,14 +424,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "Name"
+        "name"
       ],
       "properties": {
-        "Name": {
+        "name": {
           "type": "string",
           "minLength": 1
         },
-        "Value": {
+        "value": {
           "oneOf": [
             {},
             {
@@ -435,13 +439,13 @@
             }
           ]
         },
-        "Required": {
+        "required": {
           "type": [
             "boolean",
             "null"
           ]
         },
-        "RequiredMessage": {
+        "requiredMessage": {
           "type": [
             "null",
             "string"
@@ -454,49 +458,49 @@
       "description": "Defines a declarative custom validator attached to a DGF component. Used to express\nbusiness validity rules that participate in the same FormGroup.valid channel\nthat already gates NEXT and SAVE — including rules on aggregating components\n(DataTable, DocumentGrid, RichSection) that have no real FormControl.\n            \nWhen to use this vs. alternatives:\n\"All rows of a DataTable must satisfy a row predicate\" → ValidatorBase.\n\"Sum of allocations must equal 100%\" → ValidatorBase on the parent or aggregating component.\n\"Field must match a regex\" → built-in Pattern / Angular validator, NOT this.\n\"Toggle a field's visibility based on another field\" → PropertyConverters.\n            \nExpression DSL — Expression, When, Message, and\nSeverity run in a sandboxed JS evaluator with { value, source, form } in scope\n(Phase 2 adds result / fetcher-key context for backend validators) plus ${...} token\ninterpolation. Standard JS operators, ternaries, optional chaining, array methods, and\nparseInt/.includes are supported. window, document, fetch,\neval, and storage APIs are blocked.\n            \nForm gating contract:\nFor a component with a real FormControl, a failing validator sets control.errors[key],\n      which makes FormGroup.valid false and gates NEXT/SAVE.\nFor an aggregating component (DataTable, …) without a FormControl, the framework registers a\n      shadow FormControl named <componentName>__validity on the parent FormGroup that\n      carries the validator's errors. The shadow is hidden from ${...} token resolution.\nValidators with Severity = Warning or Info never mark the form invalid; they\n      render as advisories in the UI only.\n            \nSee get_doc_page('Components/Behavior/Validators.md')\nfor the full reference and copy-paste recipes.\n            \nBlock NEXT until every DataTable row is signed:\n{\n  \"type\": \"dataTable\",\n  \"name\": \"applicationsTable\",\n  \"validators\": [\n    {\n      \"key\": \"allFormsSigned\",\n      \"expression\": \"value.items.every(r => r.IsSigned === true)\",\n      \"message\": \"All application forms must be signed before continuing.\"\n    }\n  ]\n}",
       "additionalProperties": false,
       "properties": {
-        "Key": {
+        "key": {
           "type": [
             "null",
             "string"
           ],
           "description": "Stable identifier for this validator. Surfaces in FormControl.errors[key] and is the address\nauthors use when programmatically clearing the error (e.g. frm.clearCustomErrors(name)).\nRequired. Must be unique within a single component's validators[] array."
         },
-        "Expression": {
+        "expression": {
           "type": [
             "null",
             "string"
           ],
           "description": "JavaScript expression. Returns true / truthy when the rule is satisfied (valid),\nor false / falsy / a string when the rule fails (invalid). When the expression\nreturns a string, that string is used as the error message — overriding Message.\nRequired. Evaluated in the sandboxed evaluator with { value, source, form } in scope."
         },
-        "Message": {
+        "message": {
           "type": [
             "null",
             "string"
           ],
           "description": "Error text rendered when Expression evaluates to falsy.\nSupports ${...} token interpolation against the same evaluation context as Expression\n— e.g. \"Only ${value.signedCount} of ${value.totalCount} items are signed.\".\nMissing tokens render as empty strings; the validator still applies."
         },
-        "When": {
+        "when": {
           "type": [
             "null",
             "string"
           ],
           "description": "Optional gate. When set and evaluates to falsy, the validator is SKIPPED (treated as valid) for the\ncurrent render. Use to conditionally apply rules — e.g. \"passport docs required only when applicant is foreign\".\nSame expression DSL as Expression."
         },
-        "ValidateOn": {
+        "validateOn": {
           "type": [
             "null",
             "string"
           ],
           "description": "Determines when the validator runs. Defaults to onChange.\nonChange — re-evaluates reactively whenever the component value or any referenced token changes.\n      The engine caches fetcher results by parameter snapshot, so expensive backend probes only re-fire when their inputs change.\nonSave — deferred to save time. Use for backend probes that are too expensive to fire reactively\n      (duplicate lookups, rate-limited external services). The submit flow awaits any pending probe through\n      the save-time barrier before reading form.valid.\nFor explicit-only firing (polling, \"Re-check\" buttons), compose onChange with a sibling DataFetcher's\nmanualTrigger flag and the revalidate event verb. A separate manual trigger value was\nconsidered and rejected as gratuitous complexity."
         },
-        "Severity": {
+        "severity": {
           "type": [
             "null",
             "string"
           ],
           "description": "Severity of the failure. Accepts the literal values \"error\", \"warning\", or \"info\",\nOR a ${...} token expression that resolves to one of those at evaluation time\n(e.g. \"${result.data.severity}\" in a backend-driven validator). Invalid resolution\nfalls back to \"error\" with a one-time warning in the browser console.\nDefaults to \"error\". Only \"error\" contributes to FormGroup.invalid;\n\"warning\" and \"info\" are advisory-only."
         },
-        "DataFetcher": {
+        "dataFetcher": {
           "description": "Inline single-fetcher sugar (Phase 2). The probe result is exposed to Expression\nand Message as the local variable result — equivalent to\nDataFetchers = { [\"result\"] = value }. Mutually exclusive with DataFetchers\nand Fetcher. When more than one is set the mapper applies priority order:\nFetcher → DataFetcher → DataFetchers.",
           "oneOf": [
             {
@@ -507,7 +511,7 @@
             }
           ]
         },
-        "DataFetchers": {
+        "dataFetchers": {
           "type": [
             "null",
             "object"
@@ -517,7 +521,7 @@
             "$ref": "#/definitions/InlineDataFetcherDefinition"
           }
         },
-        "Fetcher": {
+        "fetcher": {
           "type": [
             "null",
             "string"
@@ -531,21 +535,21 @@
       "description": "Inline, validator-private data-fetcher definition. Narrow projection of DataFetcher\n(the full headless DataFetcher component) carrying only the fields a validator needs to issue\nan HTTP probe against a backend dataSource and expose the response to its expression.\n            \nUsed by DataFetcher (singular sugar) and\nDataFetchers (plural map). Differs from a fully-fledged\nDataFetcher component in three deliberate ways:\nNo name — fetcher results are addressed by validator-map key, never by\n      a global registry name. Validator-scoped only.\nNo manualTrigger — validators fire reactively when their context changes;\n      there is no Button → ComponentAction handoff for inline probes.\nNo events — fetcher output flows into the validator's expression context\n      ({ dup, bl, fund, ... }), not into the form-wide event dispatcher.\n            \nAuthors needing the full DataFetcher surface (events, manualTrigger, NGXS-addressable\nresult) should declare a sibling <dataFetcher> component on the form and reference it\nfrom the validator via Fetcher.\n            \nDuplicate-applicant check on an NRC field:\n{\n  \"dataSourcePath\": \"validators/CheckDuplicateApplicant\",\n  \"parameters\": [\n    { \"name\": \"NRC\", \"value\": \"${value}\", \"required\": true }\n  ]\n}",
       "additionalProperties": false,
       "properties": {
-        "DataSourcePath": {
+        "dataSourcePath": {
           "type": [
             "null",
             "string"
           ],
           "description": "Relative path to the backend dataSource the validator probes. Server-only —\nstripped from the client payload at UI-mapping time and replaced by Uid\n(see IValidatorFetcherSanitizer), so the backend dataSource path never reaches the\nbrowser. Resolved by the runtime fetcher service the same way as the full DataFetcher\ncomponent. Required on the authored/server-side definition."
         },
-        "Uid": {
+        "uid": {
           "type": [
             "null",
             "string"
           ],
           "description": "Opaque, per-session handle the client uses to invoke this probe without ever seeing the\nbackend dataSource path. Populated at UI-mapping time by IValidatorFetcherSanitizer,\nwhich caches the path server-side and nulls DataSourcePath on the client copy.\nNull on the server-side configuration. When set, the probe is resolved server-side from the\ncached configuration keyed by this uid (the same uid → config → dataSourcePath path the\nDataFetcher component uses)."
         },
-        "Parameters": {
+        "parameters": {
           "type": [
             "array",
             "null"
@@ -555,14 +559,14 @@
             "$ref": "#/definitions/ComponentParameter"
           }
         },
-        "ValueExpression": {
+        "valueExpression": {
           "type": [
             "null",
             "string"
           ],
           "description": "Optional post-processing expression evaluated against the raw backend response.\nWhen present, the validator's expression sees the expression result as data\ninstead of the raw payload. Same DSL as Expression."
         },
-        "TimeoutMs": {
+        "timeoutMs": {
           "type": [
             "integer",
             "null"
@@ -576,7 +580,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "OnValueChange": {
+        "onValueChange": {
           "type": [
             "null",
             "string"
@@ -589,14 +593,14 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Message": {
+        "message": {
           "type": [
             "null",
             "string"
           ],
           "description": "The message text displayed to the user in the component's message area."
         },
-        "Type": {
+        "type": {
           "description": "Severity level of this message. Info = informational note, Warning = non-blocking issue, Error = blocking validation failure, Success = positive feedback.",
           "oneOf": [
             {
@@ -604,7 +608,7 @@
             }
           ]
         },
-        "Position": {
+        "position": {
           "description": "Controls where the message is rendered relative to the component. Defaults to Bottom.",
           "oneOf": [
             {
@@ -612,11 +616,11 @@
             }
           ]
         },
-        "Hidden": {
+        "hidden": {
           "type": "boolean",
           "description": "When true, this message is not rendered in the UI regardless of its Type. Use to suppress messages programmatically without removing them from the collection."
         },
-        "PropertyConverters": {
+        "propertyConverters": {
           "type": [
             "null",
             "object"
@@ -630,7 +634,7 @@
       }
     },
     "ComponentMessageType": {
-      "type": "integer",
+      "type": "string",
       "description": "",
       "x-enumNames": [
         "Info",
@@ -639,29 +643,29 @@
         "Success"
       ],
       "enum": [
-        0,
-        1,
-        2,
-        3
+        "info",
+        "warning",
+        "error",
+        "success"
       ]
     },
     "ComponentMessagePosition": {
-      "type": "integer",
+      "type": "string",
       "description": "",
       "x-enumNames": [
         "Bottom",
         "Top"
       ],
       "enum": [
-        0,
-        1
+        "bottom",
+        "top"
       ]
     },
     "TableFilter": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Template": {
+        "template": {
           "description": "Component configuration rendered as the filter panel UI. Receives the current filter state as its context and typically contains form fields bound to filter parameters.",
           "oneOf": [
             {
@@ -672,7 +676,7 @@
             }
           ]
         },
-        "IsCollapsed": {
+        "isCollapsed": {
           "type": "boolean",
           "description": "When true, the filter panel is initially rendered in a collapsed state. Users must expand it to interact with the filter controls."
         }
@@ -682,51 +686,51 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "SortIndex": {
+        "sortIndex": {
           "type": "integer",
           "description": "Numeric index controlling the display order of this action relative to other actions in the same action list. Lower values appear first.",
           "format": "int32"
         },
-        "IsSelectedRowRequired": {
+        "isSelectedRowRequired": {
           "type": "boolean",
           "description": "When true, the action button is disabled unless the user has selected a row. Use for actions that operate on a specific row."
         },
-        "Tooltip": {
+        "tooltip": {
           "type": [
             "null",
             "string"
           ],
           "description": "Tooltip text displayed on hover over the action button."
         },
-        "Title": {
+        "title": {
           "type": [
             "null",
             "string"
           ],
           "description": "Label text rendered on the action button."
         },
-        "Href": {
+        "href": {
           "type": [
             "null",
             "string"
           ],
           "description": "URL to navigate to when the action is triggered. Takes priority over ActionName. When set, the browser navigates to this URL."
         },
-        "ActionName": {
+        "actionName": {
           "type": [
             "null",
             "string"
           ],
           "description": "Name of the component action to invoke when the action is triggered. The result is opened in a modal popup. Takes priority over Command. Applied when Href is not set."
         },
-        "Icon": {
+        "icon": {
           "type": [
             "null",
             "string"
           ],
           "description": "Icon class or identifier rendered on the action button alongside or instead of the Title label."
         },
-        "ButtonStyle": {
+        "buttonStyle": {
           "description": "Visual accent style (color variant) applied to the action button.",
           "oneOf": [
             {
@@ -737,7 +741,7 @@
             }
           ]
         },
-        "Type": {
+        "type": {
           "description": "Categorizes the action as a standard clickable button or as a visual separator between groups of actions.",
           "oneOf": [
             {
@@ -745,7 +749,7 @@
             }
           ]
         },
-        "Parameters": {
+        "parameters": {
           "type": [
             "array",
             "null"
@@ -755,7 +759,7 @@
             "$ref": "#/definitions/ComponentParameter"
           }
         },
-        "ActionView": {
+        "actionView": {
           "description": "Component configuration rendered inside the action's popup or modal view when the action is triggered.",
           "oneOf": [
             {
@@ -766,21 +770,21 @@
             }
           ]
         },
-        "Command": {
+        "command": {
           "type": [
             "null",
             "string"
           ],
-          "description": "High-level command type that determines how the action is executed. Accepted values: FORM, WORKFLOW, PROCESS, ROUTER, COMPONENT."
+          "description": "High-level command type that determines how the action is executed. Accepted values: FORM (or EDIT, CREATE),\nPROFILE, WORKFLOW, PROCESS (or STATEPROCESS), COMPONENT. There is no ROUTER command: any other value opens a\nmodal showing the command word. To navigate to a URL, set Href."
         },
-        "CommandValue": {
+        "commandValue": {
           "type": [
             "null",
             "string"
           ],
-          "description": "Argument passed to the Command. Interpretation depends on the Command type (e.g., form name, workflow id, router path, component name with optional parameters)."
+          "description": "Argument passed to the Command. Interpretation depends on the Command type (e.g., form name, profile name, workflow name, component name with optional parameters)."
         },
-        "Hidden": {
+        "hidden": {
           "description": "Controls visibility of the action. Supports static boolean values or token expressions that resolve at runtime.",
           "oneOf": [
             {},
@@ -789,7 +793,7 @@
             }
           ]
         },
-        "Disabled": {
+        "disabled": {
           "description": "Controls whether the action is disabled. Supports static boolean values or token expressions that resolve at runtime.",
           "oneOf": [
             {},
@@ -801,7 +805,7 @@
       }
     },
     "ButtonAccentStyle": {
-      "type": "integer",
+      "type": "string",
       "description": "",
       "x-enumNames": [
         "Primary",
@@ -823,35 +827,35 @@
         "Link"
       ],
       "enum": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16
+        "primary",
+        "outlinePrimary",
+        "secondary",
+        "outlineSecondary",
+        "success",
+        "outlineSuccess",
+        "danger",
+        "outlineDanger",
+        "warning",
+        "outlineWarning",
+        "info",
+        "outlineInfo",
+        "light",
+        "outlineLight",
+        "dark",
+        "outlineDark",
+        "link"
       ]
     },
     "TableActionType": {
-      "type": "integer",
+      "type": "string",
       "description": "",
       "x-enumNames": [
         "Default",
         "Separator"
       ],
       "enum": [
-        0,
-        1
+        "default",
+        "separator"
       ]
     },
     "RowStyle": {
@@ -864,14 +868,14 @@
       "x-abstract": true,
       "additionalProperties": false,
       "properties": {
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "Gets the unique name identifier for this data source. Used for references in component bindings (e.g., \"ref\": \"pageName.dataSourceName\")."
         },
-        "Type": {
+        "type": {
           "description": "Gets the type classification of this data source (Table, Api, RawSql, Code, Static, Document, etc.).\nDetermines the execution strategy and parameter handling behavior.",
           "oneOf": [
             {
@@ -879,15 +883,15 @@
             }
           ]
         },
-        "SingleResult": {
+        "singleResult": {
           "type": "boolean",
           "description": "Gets or sets whether this data source returns a single result object rather than a collection.\nWhen true, the result is unwrapped from array form. When false, results are returned as a list."
         },
-        "ForwardPaginationParameters": {
+        "forwardPaginationParameters": {
           "type": "boolean",
-          "description": "Gets or sets whether the component's current pagination state (page, pageSize) should be forwarded to this data source on every request.\nWhen true, the Angular component automatically injects \"page\" and \"pageSize\" into the request — you do NOT add them to the component's Parameters list.\nIMPORTANT for RawSql/StoredProcedure: when enabling this, you must also add \"page\" and \"pageSize\" entries to the data source's Parameters list\nwith DbType = Int32, and ensure the SQL query or stored procedure implements pagination (e.g., OFFSET (@page-1)*@pageSize ROWS FETCH NEXT @pageSize ROWS ONLY)."
+          "description": "Gets or sets whether the component's current pagination state (page, pageSize) should be forwarded to this data source on every request.\nWhen true, the Angular component automatically injects \"page\" and \"pageSize\" into the request — you do NOT add them to the component's Parameters list.\nIMPORTANT for RawSql/StoredProcedure: when enabling this, you must also add \"page\" and \"pageSize\" entries to the data source's Parameters list\nwith DbType = Int32, and ensure the SQL query or stored procedure implements pagination (e.g., OFFSET (CAST(@page AS BIGINT)-1)*@pageSize ROWS FETCH NEXT @pageSize ROWS ONLY)."
         },
-        "AllowUnauthorizedAccess": {
+        "allowUnauthorizedAccess": {
           "type": "boolean",
           "description": "Gets or sets whether this data source allows unauthenticated/unauthorized access.\nWhen true, the data source executes without requiring authentication claims."
         }
@@ -909,16 +913,16 @@
         "Code"
       ],
       "enum": [
-        "None",
-        "Table",
-        "LookupTable",
-        "EditableGrid",
-        "Api",
-        "Static",
-        "Document",
-        "RawSql",
-        "StoredProcedure",
-        "Code"
+        "none",
+        "table",
+        "lookupTable",
+        "editableGrid",
+        "api",
+        "static",
+        "document",
+        "rawSql",
+        "storedProcedure",
+        "code"
       ]
     },
     "ListDataComponentConfigOfTableColumn": {
@@ -932,7 +936,7 @@
           "x-abstract": true,
           "additionalProperties": false,
           "properties": {
-            "Columns": {
+            "columns": {
               "type": [
                 "array",
                 "null"
@@ -941,7 +945,7 @@
                 "$ref": "#/definitions/TableColumn"
               }
             },
-            "Sorting": {
+            "sorting": {
               "type": [
                 "array",
                 "null"
@@ -950,7 +954,7 @@
                 "$ref": "#/definitions/Sort"
               }
             },
-            "Paging": {
+            "paging": {
               "oneOf": [
                 {
                   "type": "null"
@@ -960,7 +964,7 @@
                 }
               ]
             },
-            "Grouping": {
+            "grouping": {
               "oneOf": [
                 {
                   "type": "null"
@@ -970,7 +974,7 @@
                 }
               ]
             },
-            "Data": {
+            "data": {
               "oneOf": [
                 {
                   "type": "null"
@@ -993,11 +997,11 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "AllowSort": {
+            "allowSort": {
               "type": "boolean",
               "description": "When true, renders a sort control in the column header allowing users to sort table rows by this column."
             },
-            "MaxDisplayChars": {
+            "maxDisplayChars": {
               "type": [
                 "integer",
                 "null"
@@ -1005,14 +1009,14 @@
               "description": "Maximum number of characters displayed in the cell before the value is truncated. When null, the full value is rendered.",
               "format": "int32"
             },
-            "WordWrap": {
+            "wordWrap": {
               "type": [
                 "boolean",
                 "null"
               ],
               "description": "When true, long cell content wraps to multiple lines instead of being truncated with an ellipsis."
             },
-            "ColumnTemplate": {
+            "columnTemplate": {
               "description": "Component configuration rendered inside each cell of this column. Receives the cell's row data as its context. When set, overrides the default text rendering.",
               "oneOf": [
                 {
@@ -1032,7 +1036,7 @@
       "description": "Server-side configuration for a list-data column (DataTable, ComboBox, TreeTable, …).\nMapped at projection time to ColumnBaseModel for the frontend.",
       "additionalProperties": false,
       "properties": {
-        "DisplayType": {
+        "displayType": {
           "description": "Controls how the cell value is rendered. Defaults to Text. Other values (e.g., Date, Boolean, Currency) apply format-specific renderers.",
           "oneOf": [
             {
@@ -1043,42 +1047,42 @@
             }
           ]
         },
-        "Hidden": {
+        "hidden": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, the column is not rendered in the UI. Use to carry data values without displaying them."
         },
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "Property name on the row data object whose value is read for this column. Used as the data binding key."
         },
-        "Title": {
+        "title": {
           "type": [
             "null",
             "string"
           ],
           "description": "Column header label displayed in the header row."
         },
-        "DisplayProperty": {
+        "displayProperty": {
           "type": [
             "null",
             "string"
           ],
           "description": "Alternate property name used to resolve the display value. When set, the renderer reads this property instead of Name for the visible cell content."
         },
-        "Format": {
+        "format": {
           "type": [
             "null",
             "string"
           ],
           "description": "Format string applied to the cell value before display. Interpretation depends on DisplayType (e.g., date format pattern, numeric format string)."
         },
-        "Cols": {
+        "cols": {
           "type": [
             "integer",
             "null"
@@ -1086,14 +1090,14 @@
           "description": "Bootstrap grid column span (1-12) controlling this column's width relative to other columns.",
           "format": "int32"
         },
-        "Width": {
+        "width": {
           "type": [
             "null",
             "string"
           ],
           "description": "Explicit CSS width for this column (e.g. \"150px\", \"20%\"). When set, takes precedence over Cols."
         },
-        "FilterConfigurations": {
+        "filterConfigurations": {
           "type": [
             "array",
             "null"
@@ -1106,7 +1110,7 @@
       }
     },
     "FieldDisplayType": {
-      "type": "integer",
+      "type": "string",
       "description": "",
       "x-enumNames": [
         "Text",
@@ -1117,26 +1121,26 @@
         "Boolean"
       ],
       "enum": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5
+        "text",
+        "number",
+        "dateTime",
+        "date",
+        "time",
+        "boolean"
       ]
     },
     "Sort": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "Property name on the data object to sort by."
         },
-        "Ascending": {
+        "ascending": {
           "type": "boolean",
           "description": "When true, items are sorted in ascending order by this property. When false, descending order is used."
         }
@@ -1146,27 +1150,27 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Type": {
+        "type": {
           "type": [
             "null",
             "string"
           ],
           "description": "Pagination style variant. Accepted values depend on the component renderer (e.g., \"scroll\" for virtual scrolling, \"pages\" for page-number navigation)."
         },
-        "PageSize": {
+        "pageSize": {
           "type": "integer",
           "description": "Number of items loaded and displayed per page.",
           "format": "int32"
         },
-        "HideFirstLastIcon": {
+        "hideFirstLastIcon": {
           "type": "boolean",
           "description": "When true, the first-page and last-page navigation icons are hidden from the pagination control."
         },
-        "ShowCurrentPageReport": {
+        "showCurrentPageReport": {
           "type": "boolean",
           "description": "When true, a summary report of the current page position (e.g., \"Showing 1-10 of 50\") is displayed alongside the pagination control."
         },
-        "CurrentPageReportTemplate": {
+        "currentPageReportTemplate": {
           "type": [
             "null",
             "string"
@@ -1179,7 +1183,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "GroupDisplayType": {
+        "groupDisplayType": {
           "description": "Visual style used to render group boundaries. Controls whether groups appear as sub-headers, expandable sections, or row spans.",
           "oneOf": [
             {
@@ -1187,11 +1191,11 @@
             }
           ]
         },
-        "IsExpanded": {
+        "isExpanded": {
           "type": "boolean",
           "description": "When true (default), all groups are rendered in an expanded state when the component first loads."
         },
-        "Groups": {
+        "groups": {
           "type": [
             "array",
             "null"
@@ -1204,7 +1208,7 @@
       }
     },
     "GroupDisplayType": {
-      "type": "integer",
+      "type": "string",
       "description": "",
       "x-enumNames": [
         "SubHeader",
@@ -1212,27 +1216,27 @@
         "RowSpan"
       ],
       "enum": [
-        0,
-        1,
-        2
+        "subHeader",
+        "expandable",
+        "rowSpan"
       ]
     },
     "Group": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "Property name on the data object used to group items. Items sharing the same value for this property are placed in the same group."
         },
-        "Ascending": {
+        "ascending": {
           "type": "boolean",
           "description": "When true (default), items within the group are sorted in ascending order by the group property. When false, descending order is used."
         },
-        "Header": {
+        "header": {
           "description": "Configuration for the group header row rendered above each group's items.",
           "oneOf": [
             {
@@ -1249,14 +1253,14 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Label": {
+        "label": {
           "type": [
             "null",
             "string"
           ],
           "description": "Static label text displayed in the group header row. Used when the header text does not depend on the group's data values."
         },
-        "ValuePath": {
+        "valuePath": {
           "type": [
             "null",
             "string"
@@ -1269,22 +1273,22 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Total": {
+        "total": {
           "type": [
             "integer",
             "null"
           ],
           "format": "int32"
         },
-        "Page": {
+        "page": {
           "type": "integer",
           "format": "int32"
         },
-        "PageSize": {
+        "pageSize": {
           "type": "integer",
           "format": "int32"
         },
-        "Items": {
+        "items": {
           "type": [
             "array",
             "null"
@@ -1298,57 +1302,57 @@
       "x-abstract": true,
       "additionalProperties": false,
       "properties": {
-        "StorageKey": {
+        "storageKey": {
           "type": [
             "null",
             "string"
           ],
           "description": "Key used to persist component state (data, value, selection) in browser session/local storage. When set, the component restores its last state on page reload."
         },
-        "Hidden": {
+        "hidden": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, the component is not rendered in the UI. Use propertyConverters.hidden to make this conditional at runtime based on data values."
         },
-        "Type": {
-          "description": "Discriminator that determines which Angular component is rendered. Must match a ComponentType enum value verbatim — values are PascalCase: \"Form\", \"DataTable\", \"ComboBox\", \"Text\", \"Button\", \"Calendar\", etc. (lowercase or camelCase will fail validation). The UI factory uses this to instantiate the correct Angular component class.",
+        "type": {
+          "description": "Discriminator that determines which Angular component is rendered. Must name a ComponentType member. Values are camelCase: \"form\", \"dataTable\", \"comboBox\", \"text\", \"button\", \"calendar\". The runtime reads this case-insensitively (JsonStringEnumConverter), and the exported JSON schema declares the camelCase spellings, so camelCase is what validates AND what every workspace uses. The UI factory uses this to instantiate the correct Angular component class.",
           "oneOf": [
             {
               "$ref": "#/definitions/ComponentType"
             }
           ]
         },
-        "Uid": {
+        "uid": {
           "type": [
             "null",
             "string"
           ],
           "description": "Optional secondary unique identifier. Used internally for tracking and correlation when Name alone is insufficient."
         },
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ],
           "description": "Unique identifier for this component instance within the application. Used to reference this component from events (as ComponentName target), parameters (as ${Name} token), button ComponentAction targets, and the ref binding system. Must be unique per page/form context."
         },
-        "Path": {
+        "path": {
           "type": [
             "null",
             "string"
           ],
           "description": "File system path used to load this component's configuration from an external JSON file. When set, the SiteMapManager replaces this component with the fully resolved content loaded from the specified path. Enables reusable component definitions stored as separate files."
         },
-        "Description": {
+        "description": {
           "type": [
             "null",
             "string"
           ],
           "description": "Human-readable description of this component's purpose. Used for accessibility annotations and documentation; not displayed in the UI by default."
         },
-        "Cols": {
+        "cols": {
           "type": [
             "integer",
             "null"
@@ -1356,21 +1360,21 @@
           "description": "Width of this component in Bootstrap grid columns (1–12). Components are arranged in 12-column rows; use Cols=6 for half-width, Cols=12 for full-width. Omit to use the component's default width.",
           "format": "int32"
         },
-        "Ref": {
+        "ref": {
           "type": [
             "null",
             "string"
           ],
           "description": "Binds this component to a named data source declared on a parent Page or container, using dot-notation: \"pageName.dataSourceName\".\nThe UI resolves the bound data source from the component store and uses it as this component's display data.\nIMPORTANT: If the component also has its own DataSource property configured, the component's own DataSource takes precedence over Ref.\nUse Ref when this component shares an already-loaded page-level data source and does not need its own independent fetch.\nUse an explicit DataSource instead when the component needs its own parameters, pagination, or filtering logic.\nExample: a ListBox with Ref=\"servicePassportPage.whoCanApply\" displays data from that page-level data source."
         },
-        "Compact": {
+        "compact": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, applies compact/dense styling to reduce vertical spacing. Useful inside data-dense layouts such as DataTable row templates or sidebar panels."
         },
-        "MetaData": {
+        "metaData": {
           "type": [
             "null",
             "object"
@@ -1378,7 +1382,7 @@
           "description": "Arbitrary key-value metadata attached to this component. Special keys recognized by the framework: \"requireUser\" (\"authenticated\" or \"guest\") controls visibility based on auth state; \"requireClaims\" (array of claim filter objects) applies claim-based access control. The SiteMapManager strips nodes that fail these checks before serving to the client.",
           "additionalProperties": {}
         },
-        "PropertyConverters": {
+        "propertyConverters": {
           "type": [
             "null",
             "object"
@@ -1389,7 +1393,7 @@
             "additionalProperties": {}
           }
         },
-        "Parameters": {
+        "parameters": {
           "type": [
             "array",
             "null"
@@ -1399,7 +1403,7 @@
             "$ref": "#/definitions/ComponentParameter"
           }
         },
-        "ComponentScript": {
+        "componentScript": {
           "description": "Script hooks executed in the Angular browser context for this component. Use to implement client-side logic that reacts to component lifecycle events without server round-trips.",
           "oneOf": [
             {
@@ -1410,7 +1414,7 @@
             }
           ]
         },
-        "Events": {
+        "events": {
           "type": [
             "null",
             "object"
@@ -1423,7 +1427,7 @@
             }
           }
         },
-        "Validators": {
+        "validators": {
           "type": [
             "array",
             "null"
@@ -1433,7 +1437,7 @@
             "$ref": "#/definitions/ValidatorBase"
           }
         },
-        "Messages": {
+        "messages": {
           "type": [
             "array",
             "null"
@@ -1443,7 +1447,7 @@
             "$ref": "#/definitions/ComponentMessage"
           }
         },
-        "CssClass": {
+        "cssClass": {
           "type": [
             "null",
             "string"
@@ -1462,58 +1466,58 @@
       "description": "Hierarchical tabular data display with expand/collapse rows and sorting/filtering.\nUse for tree-structured data, nested records, and hierarchical information with row actions and selection.\nSupports parent-child relationships via node keys and custom row styling.\nBased on PrimeNG TreeTable component.",
       "additionalProperties": false,
       "properties": {
-        "Title": {
+        "title": {
           "type": [
             "null",
             "string"
           ],
           "description": "Optional header text displayed above the tree table."
         },
-        "Required": {
+        "required": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, the table is required in its containing form context and validation will fail if no row is selected."
         },
-        "Readonly": {
+        "readonly": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, the table is rendered in read-only mode and row selection or inline editing is disabled."
         },
-        "Disabled": {
+        "disabled": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true, the table is rendered as disabled and cannot receive user interaction."
         },
-        "AllowFilter": {
+        "allowFilter": {
           "type": "boolean",
           "description": "When true, renders a filter input row above the table columns allowing users to filter displayed rows client-side or server-side."
         },
-        "AllowRefresh": {
+        "allowRefresh": {
           "type": "boolean",
           "description": "When true, displays a refresh button allowing users to manually reload the table data from the data source."
         },
-        "ShowHeaders": {
+        "showHeaders": {
           "type": "boolean",
           "description": "When true (default), renders the column header row. Set to false to hide headers in template-driven layouts."
         },
-        "AllowMultiSelect": {
+        "allowMultiSelect": {
           "type": "boolean",
           "description": "When true, users can select multiple rows simultaneously.\nSelection reaches the component's data store as selectedItems — always an array, so a\nconsumer token has one shape to read — but only for SelectionMode\n\"single\". \"multiple\" and \"checkbox\" are accepted by the configuration and\nnot yet bound: the template binds one node, while PrimeNG hands those modes an array. So this\nproperty has no rendered effect today, and bulk actions cannot rely on it yet."
         },
-        "RowSelectOnClick": {
+        "rowSelectOnClick": {
           "type": [
             "boolean",
             "null"
           ],
           "description": "When true (default), clicking anywhere on a row selects it. When false, selection requires clicking a dedicated selection control."
         },
-        "DetailTemplate": {
+        "detailTemplate": {
           "description": "Component configuration rendered below a selected or expanded row to show additional detail. Receives the row's data as its item context.",
           "oneOf": [
             {
@@ -1524,46 +1528,46 @@
             }
           ]
         },
-        "ParentKeyPath": {
+        "parentKeyPath": {
           "type": [
             "null",
             "string"
           ],
           "description": "Name of the property in each flat data row that holds the parent identifier.\nThe backend uses this to build the tree from flat rows."
         },
-        "NodeKeyPath": {
+        "nodeKeyPath": {
           "type": [
             "null",
             "string"
           ],
           "description": "Name of the property used as the unique node key (id column)."
         },
-        "ExpandAll": {
+        "expandAll": {
           "type": "boolean",
           "description": "Whether every node starts expanded. Defaults to true: a hierarchy is worth rendering\nas a tree because its shape is the point, and one that opens showing only its roots has told\nthe reader nothing a flat list could not. Set it false for a tree too large to show\nwhole.\n            \nHonoured in LoadMode eager only. A lazy tree has fetched nothing below\nits roots at render time, so pre-expanding a node would draw an open toggler over nothing;\nthe client therefore ignores this setting in that mode and expands on request, as lazy\nloading requires."
         },
-        "LoadMode": {
+        "loadMode": {
           "type": [
             "null",
             "string"
           ],
           "description": "How the tree is fetched: eager (default) or lazy.\n            \neager builds the whole tree server-side and ships it in one response. That is correct\nand cheap for a small hierarchy, and it is the only behaviour that existed before lazy mode,\nso it stays the default — changing it would alter what already-authored configurations mean.\nlazy returns one level per request: roots first, then a node's immediate children when\nthe client expands it. It needs a flat data source (a non-Hierarchy table or a\nrawsql) and a ChildCountPath, and unlike eager mode it can be paged."
         },
-        "ChildCountPath": {
+        "childCountPath": {
           "type": [
             "null",
             "string"
           ],
           "description": "Name of the row column carrying each node's child count, projected into\nTreeNode.ChildCount.\n            \nRequired by LoadMode lazy and ignored by eager. Nothing in the\nframework can count children per parent, so the column has to come from the source itself:\neither a denormalised count maintained by the UPDATE … LEFT JOIN (… GROUP BY …) recipe\nin DataTable-Hierarchy.md, or an authored rawsql source doing its own\nGROUP BY.\nWithout it every node reports an unknown child count, which in lazy mode means no node is\nexpandable and the tree renders as a flat list of roots — hence the validation failure rather\nthan a silent degradation."
         },
-        "SelectionMode": {
+        "selectionMode": {
           "type": [
             "null",
             "string"
           ],
           "description": "Selection mode sent to PrimeNG p-treeTable: none | single | multiple | checkbox.\nOnly \"none\" and \"single\" are wired end to end. The other two are passed through\nto PrimeNG but the template binds a single node, so they do not work — see\nAllowMultiSelect."
         },
-        "Filter": {
+        "filter": {
           "description": "Server-side filter configuration defining which columns are filterable and the filter UI.",
           "oneOf": [
             {
@@ -1574,7 +1578,7 @@
             }
           ]
         },
-        "Actions": {
+        "actions": {
           "type": [
             "array",
             "null"
@@ -1584,7 +1588,7 @@
             "$ref": "#/definitions/TableAction"
           }
         },
-        "TableActions": {
+        "tableActions": {
           "type": [
             "array",
             "null"
@@ -1594,7 +1598,7 @@
             "$ref": "#/definitions/TableAction"
           }
         },
-        "RowStyles": {
+        "rowStyles": {
           "type": [
             "array",
             "null"
@@ -1604,7 +1608,7 @@
             "$ref": "#/definitions/RowStyle"
           }
         },
-        "AddAction": {
+        "addAction": {
           "description": "Configuration for the \"Add new record\" action button, typically rendered above the table. Opens a form in a modal for creating a new record.",
           "oneOf": [
             {
@@ -1615,7 +1619,7 @@
             }
           ]
         },
-        "EditAction": {
+        "editAction": {
           "description": "Configuration for the \"Edit row\" action. Typically opens the selected row's data in a form modal for editing.",
           "oneOf": [
             {
@@ -1626,7 +1630,7 @@
             }
           ]
         },
-        "DetailsAction": {
+        "detailsAction": {
           "description": "Configuration for the \"View details\" action. Opens a read-only detail view for the selected row.",
           "oneOf": [
             {
@@ -1637,7 +1641,7 @@
             }
           ]
         },
-        "DeleteAction": {
+        "deleteAction": {
           "description": "Configuration for the \"Delete row\" action. Triggers a delete request to the data source for the selected row.",
           "oneOf": [
             {
@@ -1648,7 +1652,7 @@
             }
           ]
         },
-        "DoubleClickAction": {
+        "doubleClickAction": {
           "description": "Action triggered when a user double-clicks a table row. Typically same as DetailsAction or EditAction.",
           "oneOf": [
             {
@@ -1659,7 +1663,7 @@
             }
           ]
         },
-        "DataSource": {
+        "dataSource": {
           "description": "Data source definition specifying where and how to fetch table rows. Supports database view references, REST API endpoints, and raw SQL.",
           "oneOf": [
             {
@@ -1670,7 +1674,7 @@
             }
           ]
         },
-        "DataSourcePath": {
+        "dataSourcePath": {
           "type": [
             "null",
             "string"

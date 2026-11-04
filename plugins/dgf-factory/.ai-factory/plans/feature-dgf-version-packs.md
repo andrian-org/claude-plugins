@@ -508,7 +508,8 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
 
 ### Phase 5 — Align the content with DGF (runs the new flow three times)
 
-- [ ] **Task 9: Bring `knowledge/` to tag `1.1.16`, then freeze it as `packs/1.1`.** (depends: 3, 4, 7)
+- [x] **Task 9: Bring `knowledge/` to tag `1.1.16`, then freeze it as `packs/1.1`.** (depends: 3, 4, 7)
+  (Done 2026-11-04. The freeze takes `--next`, so it ran as the first step of Task 10's `new-line 1.2`.)
   - **Deliverable:** run `/dgf-sync sync 1.1 --to 1.1.16` against the real checkout. The triage above is the
     expected result; verify every row, do not copy it:
     - **re-read:** schema-families, component-catalogue, json-reader, application-layout;

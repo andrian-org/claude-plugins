@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: 2b9414f21ee3e8817bad0e53da83a42e12de93edadf84312638106ded7337d8a
+    sha256: 4ef87693825d6c334880d537700b7aab465d43b9966e1da5150e8baff4fe9cc8
   - path: src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs
     sha256: f57d38b06a3c40d73926e0c479a576f04a7f46b146a15d3e9b7b1799e00daff7
   - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
@@ -9,7 +9,7 @@ sources:
   - path: src/Components/DGF.Components.Shared/ComponentAssignableTypesCache.cs
     sha256: 08a111d859832060a4b3a41efb70abb31ce2c785136cc5adeb345a88d5e45967
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+    sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Core/DGF.DataSources/JsonConverters/DataSourceConverter.cs
     sha256: fc5204bd8799da796b7dade09c8c3ffe9b77d1cbaf64f7ff3fbe35c8500628a1
   - path: src/Components/DGF.Components.Shared/DataSources/DataSourceType.cs
@@ -55,13 +55,13 @@ sources:
   - path: src/Components/Extensions/DGF.AccordionComponent/Models/Configuration/AccordionConfiguration.cs
     sha256: 0fd1d3194aeeaaecd8c87e55d0ef0556b7efc364c061eb16adceff40139eb862
   - path: src/Components/DGF.Components.Shared/ComponentsBase/Configuration/ComponentConfigurationBase.cs
-    sha256: ec8df91ac1c040a3b6f364af5d74b99b55b55c4c719a49e50a96b6ea68114075
+    sha256: c1354ba985974b211a98ea110abb91a6513f2fdbb2500c38bf7e32c9a60b7676
   - path: src/Tools/SchemaExporter/Program.cs
-    sha256: 8aebe862098764ab0429376a613c554518170e6445507e6b9eb7433ab0d16815
+    sha256: 6d8c7bbe6cbb2ad1f20debd534b6079c56e0ce29dda6d6617298f3158c9c03e5
   - path: src/DGF.API/DGF.API.csproj
-    sha256: 20110b272c9ee5cdfee28c1ad53be68c42744a7fa21217d0c80e27402c612501
+    sha256: 892e7094abee829888d05b49482c1c69c734bc0529b77d1f33325976bef07eb3
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Components/DGF.Components.Shared/Enums/LinkTarget.cs
     sha256: 772eb6bea7081b4acd01c1f5642cd9bb2b9e8565ee3e0a26dca6a9fad690e748
   - path: src/Components/DGF.Components.Shared/ListData/Paging.cs

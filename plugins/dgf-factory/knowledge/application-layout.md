@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-30
+dgf_version: "1.1.16"
+read_date: 2026-11-04
 ---
 
 # Application layout — what a new DGF application is made of
@@ -52,10 +52,13 @@ Facts behind the rows:
   without an error, and the application root then redirects to `routes[0].path`, which no longer
   exists. So the landing route is listed first with a real path. The `dgf` sample's is `/home`, with
   `requireAuthorization: false` and a `page` content named `SiteMap/home`.
-- **`sitemap.json`'s shape.** Top-level keys are `theme`, `title`, `version`, `logo`, `favicon`,
+- **`sitemap.json`'s shape.** Top-level keys are `theme`, `title`, `logo`, `favicon`,
   `localization` (`languages`, `default`), `routes`, `header` and `footer`. A route has `path`, `name`,
   `requireAuthorization`, `fluid`, `hideHeader`, `hideFooter` and `content`; a router is referenced from
   a route's `content` by `{"type": "router", "name": …}`, not nested in `routes`.
+- **There is no `version` key to write.** The sitemap configuration binds none and its schema allows no
+  property it does not declare; the `version` the served sitemap carries is the host's, filled from the
+  framework's and the entry assembly's versions. The `dgf` sample has none.
 - **`/login` is hard-coded in the shell and the host.** The auth guard, the route guard and the error
   interceptor navigate to `/login`, and the host's cookie `LoginPath` is `/login`. A workspace therefore
   declares a route whose `path` is `/login`, with `hideHeader` and `hideFooter`, and content a local page.
@@ -67,6 +70,14 @@ Facts behind the rows:
   navigates to `/login` when it lists more than one. A profile-menu item with the id `signIn` therefore
   starts a DGPass login whatever the single method is; a header for an application that lists only
   `basic` must not use that id.
+- **A sitemap node can be gated by `metaData`, and the host strips it before serving.** A node whose
+  `metaData.requireUser` is set reaches only the callers it names: `authenticated` or `guest`. A node
+  with `metaData.requireClaims`, a list of `{name, value, hasNoValue}`, is removed for an anonymous
+  caller — unless it is a route with `requireAuthorization`, kept as a login-redirect stub — and for a
+  signed-in one unless every named claim exists and, where a `value` is given, equals it ignoring case;
+  with `hasNoValue` it is kept only while the claim is absent or empty. The `dgf` sample's header gates
+  an `Admin Tools` item on `requireUser: authenticated` and the claim `CurrentRoleName` (the user's
+  current role, set at sign-in) being `Administrators`.
 - **`_application.sitemap`** is read by `ApplicationMapService` from the application workspace root
   alone: `ApplicationMap` binds the root `map` and `ApplicationInfo` its attributes `name`, `page`,
   `type`, `visible` and elements `theme`, `dgf-theme`, `createdInfo`, `basedOn`, `dbprefix`, `title`,
@@ -255,8 +266,10 @@ Facts behind the rows:
   optional actions. `BuildEServicesApi` reads `appsettings.json` (required), `appsettings.<Environment>.json`
   (optional) and the environment, in that order, and ends by mapping controllers and running.
 - **The API library is a project reference in the framework's repository, and no package id is pinned.**
-  It sets no `PackageId`, no description and no version of its own; the only version is the props file's
-  `1.1.11`. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
+  It sets no `PackageId`, no description and no version of its own. The props file's `<Version>`, set
+  for the `ClientDebug` configuration only, reads `1.1.15`, and the sample host's Dockerfile passes the
+  build a `VersionPrefix` of `1.1.15`; both read so at the release tagged `1.1.16`, so neither is the
+  release version — the git tag is. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
   framework: the id is by default the assembly name, `DGF.API`, which is not confirmed by any pack
   configuration.
 - **Startup requires** `ConnectionStrings:LocalSqlServer` (the host throws when it is absent), the

@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-27
+dgf_version: "1.1.16"
+read_date: 2026-11-04
 ---
 
 # Reference graph — every reference a configuration file makes, as the engine resolves it

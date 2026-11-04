@@ -1,7 +1,7 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-25
-review_date: 2026-09-22
+dgf_version: "1.1.16"
+read_date: 2026-11-04
+review_date: 2026-11-04
 ---
 
 # Composition specs — how a consumer application is assembled from DGF
@@ -122,9 +122,10 @@ share the root element `view` and are told apart only by the folder their file s
 | `options` | `_options.xml` | `FM/_DATA/<table>/` | `options.xsd` |
 
 A workflow may also be process-local, at `FM/_PROCESS/<process>/<workflow>/_workflow.xml`. A form
-name may contain `/`, so a `_form.xml` can sit more than one folder below `_forms/`. `profile.xsd`
-has no row: it declares attributes named `xmlns:xsi` and `xmlns:xsd`, which are not valid XSD
-names, so it does not compile, and no loader for its files was read.
+name may contain `/`, so a `_form.xml` can sit more than one folder below `_forms/`. Two vendored
+grammars have no row, because no loader for their files was read: `profile.xsd`, and
+`application-sitemap.xsd` (root `<map>`), new in the vendored set at 1.1.16, whose own header
+describes it as the grammar of `_application*.sitemap` files. Both compile.
 
 Note the asymmetry with `schema-families.md` §6: `Workflow` and `ProcessFlow` *do* have
 generated JSON schemas (`WorkflowConfiguration`, `ProcessFlowConfiguration`), yet the
@@ -162,13 +163,13 @@ Required: `type`, `name`. Notable optional properties: `dataSource`, `dataSource
 `debounceMs`, `manualTrigger`, `silentOnError`, `parameters`, `events`, `hidden`,
 `metaData`.
 
-`DataFetcher` is one of the 34 dispatchable components in `component-catalogue.md`, so it
+`DataFetcher` is one of the 36 dispatchable components in `component-catalogue.md`, so it
 has a runtime service; its contract is a hand-authored standalone
 file, not part of the generated set, and it is **not** synced into the MCP.
 
 ## 4. Current generation policy — XML for all five, regardless of parity
 
-*Policy fact. Source: `format-coverage.md`, hand-maintained, `last_updated: 2026-09-09`.
+*Policy fact. Source: `format-coverage.md`, hand-maintained, `last_updated: 2026-09-30`.
 Changes by decision, not by release. Re-read on every re-vendor and update `review_date`.*
 
 Verbatim: **"Wave 1 policy: AI generates XML for all five legacy artifact types, regardless
@@ -234,4 +235,4 @@ static files, for content a form links to. The shell's three files are not read 
 - [`README.md`](README.md) — the stamping convention this file follows
 - [`schema-families.md`](schema-families.md) — the parity table this policy overrides
 - [`naming-conventions.md`](naming-conventions.md) — the file and folder names above, as rules
-- [`component-catalogue.md`](component-catalogue.md) — `DataFetcher` among the 34
+- [`component-catalogue.md`](component-catalogue.md) — `DataFetcher` among the 36

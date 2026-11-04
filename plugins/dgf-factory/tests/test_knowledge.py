@@ -16,15 +16,15 @@ EXPECTED_ROWS = {
     "1.1": {
         "legacy-artifacts": 8,
         "code-places": 4,
-        "component-classes": 67,
+        "component-classes": 69,
         "datasource-discriminators": 9,
         "component-folders": 6,
         "enum-member-names": 4,
         "layout-components": 8,
-        "dispatchable": 34,
-        "correspondence": 7,
-        "parity": 67,
-        "process-divergence": 26,
+        "dispatchable": 36,
+        "correspondence": 8,
+        "parity": 69,
+        "process-divergence": 25,
         "reference-edges": 21,
         "run-time-names": 3,
         "role-sources": 6,
@@ -174,7 +174,7 @@ class MalformedTables(unittest.TestCase):
     def test_a_row_missing_its_closing_pipe_is_malformed_not_the_end(self):
         path = self.dir / "schema-families.md"
         lines = path.read_text(encoding="utf-8").splitlines()
-        index = next(i for i, line in enumerate(lines) if line.startswith("| 19 | Form"))
+        index = next(i for i, line in enumerate(lines) if line.startswith("| 21 | Form"))
         lines[index] = lines[index].rstrip().rstrip("|")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         self.assert_malformed("parity", "is not a `| … |` row")

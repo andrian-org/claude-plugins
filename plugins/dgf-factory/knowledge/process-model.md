@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-24
+dgf_version: "1.1.16"
+read_date: 2026-11-04
 ---
 
 # Process model — what the runtime binds, and how a process reference resolves
@@ -46,7 +46,6 @@ reads, and that `process.xsd` does not allow. The classes read are `Process`, `S
 | `Transition/@icon` | attribute | `TransitionType` | `Transition.icon` |
 | `OnInit/ModuleActivity` | element | `OnInitType` | `AbstractStateEvent.Activities` |
 | `OnInit/SendMailActivity` | element | `OnInitType` | `AbstractStateEvent.Activities` |
-| `OnInit/StoredProcedureActivity` | element | `OnInitType` | `AbstractStateEvent.Activities` |
 | `OnInit/MultiTask` | element | `OnInitType` | `AbstractStateEvent.Activities` |
 | `OnFinalize/ModuleActivity` | element | `OnFinalizeType` | `AbstractStateEvent.Activities` |
 | `OnFinalize/SendMailActivity` | element | `OnFinalizeType` | `AbstractStateEvent.Activities` |
@@ -64,7 +63,8 @@ Notes on the rows:
   `OnStartType` declares only `Transitions` and four attributes.
 - **A state event's activities are one list.** `AbstractStateEvent.Activities` binds six element
   names — `UpdateRecord`, `ModuleActivity`, `SendMailActivity`, `StoredProcedureActivity`, `Task`
-  and `MultiTask` — named after their types. `process.xsd` allows only `UpdateRecord` and `Task`.
+  and `MultiTask` — named after their types. `process.xsd` allows `UpdateRecord`, `Task` and
+  `StoredProcedureActivity` in `OnInit`, and only `UpdateRecord` and `Task` in `OnFinalize`.
 - **`OnTimeout`** is a `TimeoutStateEvent`: `@interval` (a `TimeSpan` string), `@state` (the
   state to move to) and the same activity list.
 - **`State/@type` and `Task/@state`** are plain strings in the model. `StoredProcedure` is a state
@@ -73,14 +73,16 @@ Notes on the rows:
 What the list does **not** cover, stated as facts about the serializer:
 
 - `XmlSerializer` reads a class's child elements **in any order**, and a list member in any
-  number. `process.xsd` fixes the order and count inside `OnInit` (`UpdateRecord`, then `Task`, at
-  most one each) and `OnFinalize` (`Task`, then `UpdateRecord`). An event whose activities are out
-  of that order is read by the runtime and rejected by the XSD.
+  number. `process.xsd` declares `OnInit`'s children the same way, as a choice in any order and
+  number, but fixes the order and count inside `OnFinalize` (`Task`, then `UpdateRecord`, at most
+  one each). An `OnFinalize` whose activities are out of that order, or repeat, is read by the
+  runtime and rejected by the XSD.
 - `XmlSerializer` **skips** an attribute or element that no member binds. Such a construct is not
   read, so it is not in the list: to the runtime it does not exist.
 - `XmlSerializer` requires no attribute. `process.xsd` requires several (`Process/@title`,
   `@table`, `@keyName`, `@allowBack`, `@allowHistory`, `@assignTasks`; `OnStart/@action`;
-  `State/@name`; `Transition/@state`). A missing one is bound as its default.
+  `State/@name`; `Transition/@state`; `StoredProcedureActivity/@method`). A missing one is bound as
+  its default.
 - `Process/@regardingType` is an `int` in the model and `xs:string` in the XSD: the XSD accepts
   values the runtime cannot parse.
 

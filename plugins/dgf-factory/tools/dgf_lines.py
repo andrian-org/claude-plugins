@@ -185,6 +185,13 @@ def materialise(dgf, line, tag):
     # The ledgers digest the bytes a DGF working copy holds with core.autocrlf=input: the blob
     # content, LF. A maintainer's global core.autocrlf=true would write CRLF here and turn every
     # source into drift, so the cache pins its own end-of-line settings and rewrites every file.
+    head = (git(cache, "rev-parse", "HEAD", check=False) or "").strip()
+    eol_set = all((git(cache, "config", "--get", key, check=False) or "").strip() == value for key, value in EOL_CONFIG)
+    if head == sha and eol_set and not (git(cache, "status", "--porcelain", check=False) or "").strip():
+        # Already there and clean: reading it again needs no checkout, so readers of the same cache never collide.
+        git(cache, "fetch", "--quiet", "--force", "--tags", str(dgf))
+        debug("checkout", line=line, tag=tag, sha=sha[:12], cache=cache, state="already checked out")
+        return cache
     for key, value in EOL_CONFIG:
         git(cache, "config", key, value)
     git(cache, "fetch", "--quiet", "--force", "--tags", str(dgf))

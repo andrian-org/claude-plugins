@@ -17,7 +17,7 @@ sources:
   - path: src/Components/DGF.Components.Shared/ComponentFileLoadService.cs
     sha256: 5d5ca13b8dd3f5b2192535776c2d5c0245c361677dc168247478733f17ad3b1d
   - path: src/Core/DGF.Domain/Profile/TreeManager.cs
-    sha256: d62ccce401c7e81934ac1d76ead770217b78611f42b0d1f979b93719be293467
+    sha256: 8988472034b9950e9fca312e1ee5cd678e4f136dd7f7f898ece1f789a60419b7
   - path: src/Core/DGF.DataViewer/ProfileHelper.cs
     sha256: 15f3eacc71e4776313cb5c531ebeaee0a4bf95e4c125fc01140dfacf644c7ec4
   - path: src/Core/DGF.Domain/Process/StateProcess/Task.cs

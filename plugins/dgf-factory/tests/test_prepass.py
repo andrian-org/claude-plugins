@@ -87,7 +87,7 @@ class MergedSchemaValidates(unittest.TestCase):
 class VendoredSet(unittest.TestCase):
     def test_every_vendored_schema_merges(self):
         files = sorted(VENDORED.glob("*.json"))
-        self.assertEqual(len(files), 69)
+        self.assertEqual(len(files), 71)  # DGF 1.1.16 adds AutoComplete and Chart
         inheriting = 0
         for path in files:
             schema = json.loads(path.read_text(encoding="utf-8"))

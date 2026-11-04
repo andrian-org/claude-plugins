@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/Tools/dgf-mcp/Schemas/XSD/process.xsd
-    sha256: 7adf1ea3f94f10e0606112d78e5dc49c528cd93bdfe41e7dc4251cc3546de121
+    sha256: f46988a29f38bd71fbb1d8fb771a8d3aa16fef543cadc8bf56ea05fd2ca86187
   - path: src/Core/DGF.Domain/Process/StateProcess/Process.cs
     sha256: ac395a608a432d20caa57f7936f96d155aaa5eeafd477b41924cbc6001142f66
   - path: src/Core/DGF.Domain/Process/StateProcess/State.cs

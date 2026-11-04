@@ -3,7 +3,7 @@ sources:
   - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
     sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   # hand-authored standalone contract, not the generated set
   - path: docs/schemas/eventBase.schema.json
     sha256: ecbfecefe9c3ab22b6eb0af104c62f8ccbd1d96dc4a741f145440f1c6734caeb
@@ -48,7 +48,7 @@ sources:
   - path: src/DGF.UI/src/app/components/app/app.component.ts
     sha256: 11f7bb00e06264662f9d594ed4ed67d081854b3b268d1bf0cf0bed3d307bde4d
   - path: src/DGF.UI/angular.json
-    sha256: e36da92c9b0ae83bc7bd9863540f5773c7e19a056d08f73404077660d49971c1
+    sha256: 4ac23ceec2d5c3af9e3d367dec97e0e6338a71200e8912ff181829c7f6f42ddd
   - path: src/DGF.UI/nginx-ng.conf
     sha256: b85033b82705cf2b61b35c09d870343a2b78cf1a4e167b7ef31aa72bdcea40f6
   - path: src/DGF.UI/src/assets/js/formhelper.js
@@ -59,7 +59,7 @@ sources:
     sha256: 77bab74088530734c42b312a38865fd5b818fa807b126b0ea6e733637c7a3e5f
   # §5 — the /application and /webasm static-file mounts
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: 2b9414f21ee3e8817bad0e53da83a42e12de93edadf84312638106ded7337d8a
+    sha256: 4ef87693825d6c334880d537700b7aab465d43b9966e1da5150e8baff4fe9cc8
 ---
 # Provenance — `knowledge/composition-specs.md`
 

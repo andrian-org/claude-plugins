@@ -1,8 +1,9 @@
 """xsd.py — the legacy XML family: grammar selection and XSD validation (DD9).
 
-- Each vendored XSD is compiled once with lxml. `profile.xsd` does not compile
-  (it declares attributes named `xmlns:xsi`), so a `Tree` document is reported
-  and not validated (ADR 0015 §9).
+- Each vendored XSD is compiled once with lxml. One that does not compile is
+  reported, and a document of its grammar is not validated (ADR 0015 §9);
+  `profile.xsd` did not until DGF 1.1.16, which dropped its `xmlns:*`
+  attribute declarations.
 - A root element selects its grammar. The three view grammars share the root
   `view` and are told apart by the folder the file sits in — `_views`,
   `_lookupviews` or `_gridforms`, from the `legacy-artifacts` table — or by
@@ -192,15 +193,30 @@ def _apply(owner, name, kind, types):
             if attribute.get("name") == name:
                 attribute.set("type", "xs:string")
         return
-    sequence = owner.find(_q("sequence"))
-    if sequence is None:
-        sequence = etree.Element(_q("sequence"))
-        owner.insert(0, sequence)
-    element = etree.SubElement(sequence, _q("element"))
+    model = _content_model(owner)
+    if any(child.get("name") == name for child in model.findall(_q("element"))):
+        report.debug("xsd.extended_process_schema", "already declared", owner=owner.get("name"), element=name)
+        return
+    element = etree.SubElement(model, _q("element"))
     element.set("name", name)
     # Reuse the grammar's own type for the element where it has one (`OnInit` →
     # `OnInitType`), so the added element's contents are still checked.
     element.set("type", f"{name}Type" if f"{name}Type" in types else "xs:anyType")
+
+
+def _content_model(owner):
+    """The owner's top-level xs:sequence or xs:choice; an empty sequence is added when it has neither.
+
+    Since DGF 1.1.16 some grammars declare a child list as an unbounded xs:choice (process.xsd's
+    `OnInitType`); a second content model beside it would not compile.
+    """
+    for tag in ("sequence", "choice"):
+        model = owner.find(_q(tag))
+        if model is not None:
+            return model
+    model = etree.Element(_q("sequence"))
+    owner.insert(0, model)
+    return model
 
 
 def _any_order(owner):
@@ -209,8 +225,11 @@ def _any_order(owner):
     XmlSerializer reads a class's child elements in any order, and a list member
     in any number (knowledge/process-model.md §1), so pass 2 must not reject a
     placement the runtime accepts. An element that no row adds is still unknown.
+    An owner whose grammar already reads its children as an unbounded choice is left as it is.
     """
     sequence = owner.find(_q("sequence"))
+    if sequence is None:
+        return
     choice = etree.Element(_q("choice"))
     choice.set("minOccurs", "0")
     choice.set("maxOccurs", "unbounded")

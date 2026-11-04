@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/Tools/dgf-mcp/Schemas/XSD/settings.xsd
-    sha256: 6c8265271620860ac3a607d2936266811b277b78fe069856214f46360e972bb9
+    sha256: 153b064884d2419d6ba5ca63b00a72fcc794d96f1fb396eca828520b022ca638
   - path: src/Core/DGF.Domain/Data/Table/Table.cs
     sha256: 0df2bc142b45b51cf5f48e0e7eb5690c2a13ce2a39b689bb75c28dc10c4061ce
   - path: src/Core/DGF.Domain/Data/Table/TableDataSource.cs

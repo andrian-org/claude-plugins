@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-30
+dgf_version: "1.1.16"
+read_date: 2026-11-04
 ---
 
 # Data model — entities, fields, relations, and what the loaders do with a reference
@@ -229,9 +229,9 @@ tally of the entities that DGF's own samples pair with a table script, not a rul
 
 ### 6.1 The field types
 
-`type` is a `FieldTypeEnum` member (§2); the counts below are §2's, over three workspaces. The vendored `settings.xsd` declares eleven of the thirteen,
-plus two names the runtime does not have, `Decimal` and `Memo`; it lacks `PrimaryKey` and `Checkboxlist`,
-so every file using either warns `XSD_LAGS_RUNTIME`.
+`type` is a `FieldTypeEnum` member (§2); the counts below are §2's, over three workspaces. The vendored `settings.xsd` declares eleven of the thirteen
+and no other name — `Decimal` and `Memo`, which the runtime does not have, are not in it; it lacks
+`PrimaryKey` and `Checkboxlist`, so every file using either warns `XSD_LAGS_RUNTIME`.
 
 <!-- machine-read: field-types -->
 | Type | In settings.xsd | Fact |

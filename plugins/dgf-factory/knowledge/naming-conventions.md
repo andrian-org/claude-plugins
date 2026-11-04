@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-24
+dgf_version: "1.1.16"
+read_date: 2026-11-04
 ---
 
 # Naming conventions — the names DGF expects, as rules a generator must honour
@@ -63,7 +63,7 @@ loader wins.
 
 The `type` value in a component configuration names a `ComponentType` enum member. The
 members are spelled in PascalCase — `ComboBox`, `DataFetcher`, `EligibilityCriteria`, `PowerBi`,
-`SignaturePadSig100`. The full set of 67 is in `component-catalogue.md`; a name outside it
+`SignaturePadSig100`. The full set of 69 is in `component-catalogue.md`; a name outside it
 is not a component.
 
 The runtime reads the value **in any case**, surrounding whitespace ignored: the converter
@@ -71,6 +71,11 @@ parses it with `Enum.TryParse(..., ignoreCase: true)` (`json-reader.md` §2), an
 services are registered under the lower-cased member name. `SchemaIndexService` also
 lowercases its index key. So `comboBox`, `combobox` and `ComboBox` all select the same member.
 The **key** is the exception: it must be exactly `type`.
+
+The generated JSON schemas are stricter than the runtime. Their `ComponentType` definition
+enumerates the members in **camelCase** — `comboBox`, `dataFetcher`, `signaturePadSig100` — so
+only the camelCase spelling validates against a schema. A generator that wants its output to
+pass both the schema and the runtime writes the `type` value in camelCase.
 
 Case does matter wherever the member name becomes a path. A component file is read from
 `_COMPONENTS/<ComponentType>/`, spelled as the member, so the folder must be exactly `ComboBox`
@@ -82,6 +87,12 @@ From the MCP's `SchemaIndexService`: a component's schema is `<ComponentType>Con
 and the index key is that filename with the `Configuration.schema.json` suffix stripped.
 The one allow-listed exception is `componentValidator.schema.json`, which has no
 `Configuration` infix because it is a cross-cutting contract, not a per-component config.
+
+The DataSource schemas break the pattern: they are named `<Kind>DataSource.schema.json`, and
+`SchemaIndexService` indexes them not by filename but by the `type` discriminator an authored
+DataSource carries (`table`, `rawSql`, …, looked up in any case), from a hand-kept table that
+mirrors the engine's own switch — nine discriminators onto six schema files (`json-reader.md` §3).
+A name derived from a DataSource schema's filename is not a name anyone writes.
 
 One generated filename is shell-hazardous: ``NumberConfiguration`1.schema.json`` contains a
 backtick. Quote every schema path in every script.
@@ -103,4 +114,4 @@ the *file* naming inside those directories, so it is not asserted.
 
 - [`README.md`](README.md) — the stamping convention this file follows
 - [`composition-specs.md`](composition-specs.md) — what lives in each directory named above
-- [`component-catalogue.md`](component-catalogue.md) — the 67 type names
+- [`component-catalogue.md`](component-catalogue.md) — the 69 type names

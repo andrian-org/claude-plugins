@@ -105,8 +105,9 @@ def narrowed(rep, app):
 def run_validators(root, apps, narrow, rep):
     """{cli: [Report]} over the root's configuration, or over the audited applications' and webasm's.
 
-    A walk collects a JSON file outside every FM/ as a draft, for a validator's own call. No loader reads one, so for
-    the root it is no configuration: it is left out, and the report says so.
+    A walk collects a JSON file outside every workspace as a draft, for a validator's own call (one inside a workspace
+    but outside its FM/ is a file the API serves, and is never collected). No loader reads a draft, so for the root
+    it is no configuration: it is left out, and the report says so.
     """
     from lib import runner
     processes, workflows, configs = runner.targets(root)

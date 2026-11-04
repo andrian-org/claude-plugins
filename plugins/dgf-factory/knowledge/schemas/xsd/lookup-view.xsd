@@ -4,18 +4,31 @@
     <xs:element name="view" type="lookupViewType"/>
 
     <!-- Main Lookup View Type -->
+    <!-- Children in any order (XmlSerializer). Declared additions are only what the ComboBox mapping reads
+         (ComboBoxComponentServiceInternal keeps the columns; TableDataQueryService reads the rest). -->
     <xs:complexType name="lookupViewType">
-        <xs:sequence>
-            <xs:element name="header" type="headerType" minOccurs="0"/>
-            <xs:element name="description" type="descriptionType" minOccurs="0"/>
-            <xs:element name="row" type="lookupRowType" minOccurs="0"/>
-            <xs:element name="fetch" type="lookupFetchType" minOccurs="0"/>
-            <xs:element name="handlers" type="lookupHandlersType" minOccurs="0"/>
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="header" type="headerType"/>
+            <xs:element name="description" type="descriptionType"/>
+            <xs:element name="row" type="lookupRowType"/>
+            <xs:element name="fetch" type="lookupFetchType"/>
+            <xs:element name="handlers" type="lookupHandlersType"/>
+            <!-- Columns fetched with each item but not shown. -->
+            <xs:element name="hidden" type="lookupHiddenType"/>
+            <!-- With mode="Hierarchy": a tree lookup. -->
+            <xs:element name="parentFieldName" type="xs:string"/>
+        </xs:choice>
         <xs:attribute name="select" type="xs:boolean"/>
         <xs:attribute name="preview" type="xs:boolean"/>
         <xs:attribute name="check" type="xs:boolean"/>
         <xs:attribute name="icon" type="xs:boolean"/>
+        <xs:attribute name="mode" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="lookupHiddenType">
+        <xs:sequence>
+            <xs:element name="cell" type="lookupCellType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
     </xs:complexType>
 
     <!-- Header Type -->
@@ -42,6 +55,7 @@
             <xs:element name="cell" type="lookupCellType" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="keyfield" type="xs:string" use="required"/>
+        <xs:attribute name="displayfield" type="xs:string"/>
     </xs:complexType>
 
     <!-- Lookup Cell Type -->
@@ -51,16 +65,32 @@
                 <xs:attribute name="name" type="xs:string" use="required"/>
                 <xs:attribute name="title" type="xs:string" use="required"/>
                 <xs:attribute name="width" type="xs:integer"/>
+                <xs:attribute name="hidden" type="xs:boolean"/>
+                <xs:attribute name="reskey" type="xs:string"/>
             </xs:extension>
         </xs:simpleContent>
     </xs:complexType>
 
     <!-- Lookup Fetch Type -->
     <xs:complexType name="lookupFetchType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="sort" type="lookupSortType"/>
+            <xs:element name="filter" type="lookupFilterType"/>
+            <xs:element name="groups" type="lookupGroupsType"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:complexType name="lookupGroupsType">
         <xs:sequence>
-            <xs:element name="sort" type="lookupSortType" minOccurs="0"/>
-            <xs:element name="filter" type="lookupFilterType" minOccurs="0"/>
+            <xs:element name="group" type="lookupGroupType" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="lookupGroupType">
+        <xs:attribute name="name" type="xs:string"/>
+        <xs:attribute name="ascending" type="xs:boolean"/>
+        <xs:attribute name="headerFormat" type="xs:string"/>
+        <xs:attribute name="value" type="xs:string"/>
     </xs:complexType>
 
     <!-- Lookup Sort Type -->
@@ -88,25 +118,54 @@
         <xs:attribute name="attribute" type="xs:string" use="required"/>
         <xs:attribute name="operator" type="lookupOperatorType" use="required"/>
         <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="value2" type="xs:string"/>
     </xs:complexType>
 
     <!-- Lookup Operator Type -->
     <xs:simpleType name="lookupOperatorType">
         <xs:restriction base="xs:string">
+            <!-- Every operator FetchFilterConditionFormatter implements (same list as table-view.xsd). -->
             <xs:enumeration value="eq"/>
+            <xs:enumeration value="eq_n"/>
             <xs:enumeration value="ne"/>
-            <xs:enumeration value="lt"/>
-            <xs:enumeration value="le"/>
-            <xs:enumeration value="gt"/>
-            <xs:enumeration value="ge"/>
+            <xs:enumeration value="not-null"/>
+            <xs:enumeration value="null"/>
+            <xs:enumeration value="contains"/>
+            <xs:enumeration value="difference"/>
             <xs:enumeration value="like"/>
             <xs:enumeration value="not-like"/>
-            <xs:enumeration value="in"/>
-            <xs:enumeration value="not-in"/>
-            <xs:enumeration value="empty"/>
-            <xs:enumeration value="not-empty"/>
+            <xs:enumeration value="gt"/>
+            <xs:enumeration value="ge"/>
+            <xs:enumeration value="lt"/>
+            <xs:enumeration value="le"/>
+            <xs:enumeration value="eq-userid"/>
+            <xs:enumeration value="ne-userid"/>
+            <xs:enumeration value="eq-appid"/>
+            <xs:enumeration value="ne-appid"/>
+            <xs:enumeration value="eq-teams"/>
+            <xs:enumeration value="ne-teams"/>
+            <xs:enumeration value="eq-role"/>
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="after"/>
+            <xs:enumeration value="before"/>
+            <xs:enumeration value="on-or-after"/>
+            <xs:enumeration value="on-or-before"/>
+            <xs:enumeration value="after-and-before"/>
+            <xs:enumeration value="today"/>
+            <xs:enumeration value="future"/>
+            <xs:enumeration value="past"/>
+            <xs:enumeration value="future-or-today"/>
+            <xs:enumeration value="past-or-today"/>
+            <xs:enumeration value="next-seven-days"/>
+            <xs:enumeration value="last-seven-days"/>
             <xs:enumeration value="eq-true"/>
             <xs:enumeration value="eq-false"/>
+            <xs:enumeration value="empty"/>
+            <xs:enumeration value="not-empty"/>
+            <xs:enumeration value="in"/>
+            <xs:enumeration value="not-in"/>
+            <xs:enumeration value="eq-variable"/>
+            <xs:enumeration value="ne-variable"/>
         </xs:restriction>
     </xs:simpleType>
 

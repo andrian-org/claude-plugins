@@ -3,11 +3,11 @@ sources:
   - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
     sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Tools/dgf-mcp/Services/SchemaIndexService.cs
-    sha256: 2558a66391ef4fbc8d5d7918ce9d66a4cf8aeb37dd8553a45807a11eb23df8c9
+    sha256: 61002f0c313cf63aa3a24e7a7ed3f373b4864dc5be1a381bf2cdd8b07826d8c3
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+    sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Core/DGF.Domain/Process/StateProcess/ProcessManager.cs
     sha256: c99435834fd8d306c833eef6f5cd09dc13fad8c0a02da8786c61bba1c99e3df0
   - path: src/Core/DGF.OM/Workflow/WorkflowManager.cs

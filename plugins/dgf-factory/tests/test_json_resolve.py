@@ -15,7 +15,7 @@ def codes(selection):
 class Tables(unittest.TestCase):
     def test_index_mirrors_schema_index_service(self):
         found = json_resolve.index()
-        self.assertEqual(len(found), 58)
+        self.assertEqual(len(found), 60)  # DGF 1.1.16 adds AutoComplete and Chart
         self.assertEqual(found["page"], "PageConfiguration.schema.json")
         self.assertEqual(found["componentvalidator"], "componentValidator.schema.json")
         self.assertNotIn("tabledatasource", found)
@@ -32,7 +32,7 @@ class Tables(unittest.TestCase):
     def test_members_are_the_vendored_enum(self):
         from lib import knowledge
         members = json_resolve.component_types()
-        self.assertEqual(len(members), 68)
+        self.assertEqual(len(members), 70)  # 69 ComponentType members since DGF 1.1.16, and None
         self.assertEqual(set(members) - {"None"}, set(knowledge.index("component-classes")))
 
     def test_none_parses_and_binds_no_class(self):

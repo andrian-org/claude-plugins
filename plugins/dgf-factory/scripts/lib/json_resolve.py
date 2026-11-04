@@ -124,7 +124,9 @@ def component_types():
     if not _MEMBERS:
         for path in sorted(schema_dir().glob("*.schema.json")):
             declared = (raw_schema(path.name).get("definitions") or {}).get("ComponentType") or {}
-            for member in declared.get("enum") or []:
+            # Since DGF 1.1.16 the schemas list the camelCase JSON names in `enum` and keep the C# member
+            # names — what Enum.TryParse matches, and what the tables and the folders use — in `x-enumNames`.
+            for member in declared.get("x-enumNames") or declared.get("enum") or []:
                 if isinstance(member, str) and member not in _MEMBERS:
                     _MEMBERS.append(member)
         report.debug("json_resolve.component_types", "enum", members=len(_MEMBERS))

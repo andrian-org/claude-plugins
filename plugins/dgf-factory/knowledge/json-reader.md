@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-24
+dgf_version: "1.1.16"
+read_date: 2026-11-04
 ---
 
 # JSON reader — how the runtime reads a component JSON file
@@ -11,9 +11,12 @@ which folder is read by which loader. The files read are in the maintainer prove
 this file. Everything here is read from DGF's serializer setup, its converters and its loaders,
 never from how the schemas describe the same data.
 
-The generated JSON schemas (`schemas/json/`) and this reader disagree in several places — property
-name case, enum form, polymorphic children. Where they disagree, **this file describes what the
-runtime does.**
+The generated JSON schemas (`schemas/json/`) and this reader disagree in several places. The
+schemas spell every property name in camelCase and nearly every enum as a string — its member's
+camelCase name, or a custom JSON name (below) — and match both case-sensitively; the reader accepts
+any case (but for a component's `type` key, §2), an enum as an integer, and an unknown property,
+which a schema's `additionalProperties: false` rejects. They also describe polymorphic children
+differently. Where they disagree, **this file describes what the runtime does.**
 
 ## 1. Reader options
 
@@ -42,7 +45,8 @@ configuration member uses either. The generated schemas list the `[Required]` pr
 
 **Custom enum member names.** A member marked `[JsonStringEnumMemberName("…")]` is read only by
 that name, **case-sensitively**, or by its integer. Its C# name is rejected, in any case. The
-generated schemas list the C# names in `x-enumNames`, not these. One enum uses the attribute:
+generated schemas list these names in `enum` and keep the C# names in `x-enumNames`. One enum uses
+the attribute:
 
 <!-- machine-read: enum-member-names -->
 | JSON name | Enum | Member |
@@ -164,6 +168,8 @@ runtime drops a component of that type. The schema is the vendored file for the 
 | `DataFetcher` | `DataFetcherConfiguration.schema.json` | name |
 | `SignaturePadSig100` | `SignaturePadSig100Configuration.schema.json` | name |
 | `Carousel` | `CarouselConfiguration.schema.json` | name |
+| `AutoComplete` | `AutoCompleteConfiguration.schema.json` | name |
+| `Chart` | `ChartConfiguration.schema.json` | name |
 
 Notes on the table:
 
@@ -177,7 +183,7 @@ Notes on the table:
   schema**: DGF removed it from the exporter's output and marks the component deprecated.
 - **`Header`**: `HeaderConfiguration`'s constructor passes `ComponentType.Footer` to its base. It is
   still selected by name for `Header`. This is an upstream defect.
-- 67 members are listed; `None` is omitted. It parses, but no class name matches or starts with
+- 69 members are listed; `None` is omitted. It parses, but no class name matches or starts with
   it, so a component typed `None` vanishes like one whose type has no class. `Template` has no
   class: a template file is a fragment typed by its own `type` (§4).
 
@@ -243,8 +249,9 @@ Nine discriminators select six classes:
 | `StoredProcedure` | `RawSqlDataSource.schema.json` |
 | `Code` | `CodeDataSource.schema.json` |
 
-DGF's MCP does not index these six schemas (`schema-families.md` §3), so
-`validate_component_config` cannot validate a DataSource.
+DGF's MCP indexes these six schemas under the same nine discriminators, in any case
+(`schema-families.md` §3), so `validate_component_config` can validate a DataSource by its `type`.
+Before DGF 1.1.16 it indexed none of them.
 
 ## 4. Component folders
 
@@ -289,5 +296,5 @@ reads it).
 
 - [`README.md`](README.md) — the stamping convention and the machine-read table contract (§7)
 - [`schema-families.md`](schema-families.md) — schema resolution and the runtime-parity table
-- [`component-catalogue.md`](component-catalogue.md) — the 67 `ComponentType` members and the 34 services
+- [`component-catalogue.md`](component-catalogue.md) — the 69 `ComponentType` members and the 36 services
 - [`naming-conventions.md`](naming-conventions.md) — the directory names above

@@ -94,13 +94,16 @@ class ValidateConfig(unittest.TestCase):
         result = self.run_on({APP + "_PROCESS/Case/process.xml": (XML / "process-unknown-element.xml").read_text()})
         self.assert_result(result, 1, "XSD_INVALID")
 
-    def test_workflow_state_process_lags_the_xsd(self):
+    def test_workflow_state_process_is_in_the_xsd(self):
+        # DGF 1.1.16's workflow.xsd declares StateProcess, which the runtime always bound.
         result = self.run_on({APP + "_WORKFLOW/Move/_workflow.xml": (XML / "workflow-stateprocess.xml").read_text()})
-        self.assert_result(result, 2, "XSD_LAGS_RUNTIME")
+        code, out, err = result
+        self.assertEqual(code, 0, out + err)
 
-    def test_tree_root_is_not_compilable(self):
+    def test_tree_root_is_checked_against_profile_xsd(self):
+        # profile.xsd compiles since DGF 1.1.16; like every grammar but process.xsd, it lags the runtime.
         result = self.run_on({APP + "_PROFILE/p.xml": (XML / "profile-tree.xml").read_text()})
-        self.assert_result(result, 2, "XSD_NOT_COMPILABLE")
+        self.assert_result(result, 2, "XSD_LAGS_RUNTIME")
 
     def test_xml_malformed(self):
         result = self.run_on({APP + "_DATA/T/settings.xml": '<?xml version="1.0"?>\n<entity>\n'})
