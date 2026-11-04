@@ -560,7 +560,7 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
   - **Files:** knowledge/**, provenance/knowledge/**, packs/1.2/**, provenance/packs/1.2/**, packs/lines.json,
     provenance/lines.json, tests/test_knowledge.py, provenance/sync-log/*
 
-- [ ] **Task 11: Sync `knowledge/` to tag `1.3.0` — the current line.** (depends: 5, 6, 10)
+- [x] **Task 11: Sync `knowledge/` to tag `1.3.0` — the current line.** (depends: 5, 6, 10)
   - **Deliverable:** `/dgf-sync new-line 1.3`.
     - Expected: `roles`/`deny` trimming (permissions §2.1); `RoleDisplayName` (application-layout §3.1,
       data-model); components inside tabs need `${form.comp}` (reference-graph / composition); `onbeforesave`

@@ -550,7 +550,7 @@
         "clrType": "FormTriggers",
         "repeated": false,
         "wrapper": null,
-        "summary": "Opt-in save hooks (onbeforesave / onaftersave). Each is tri-state via a Specified companion so an absent attribute stays inert and only an explicit value changes behaviour \u2014 see ."
+        "summary": "Switches for the server-side _triggers.xml steps (onload / onbeforesave / onaftersave). They do not gate the client onloadscript / onsavescript."
       },
       {
         "name": "tab",
@@ -1112,7 +1112,7 @@
       {
         "name": "onbeforesave",
         "clrType": "bool",
-        "summary": "Tri-state via the companion (canonical XmlSerializer pattern): when the onbeforesave attribute is missing, OnBeforeSaveSpecified == false and the bool defaults to false; when present, the bool reflects the parsed value and Specified flips to true. XmlFormMappingService uses this distinction to gate FormScript.OnSave \u002B FormScript.OnSaveEvents only on an explicitonbeforesave=\u0022false\u0022 \u2014 empty \u003Ctriggers/\u003E elements remain inert (legacy default preserved)."
+        "summary": null
       },
       {
         "name": "onload",

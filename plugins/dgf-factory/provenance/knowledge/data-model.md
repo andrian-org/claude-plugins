@@ -31,7 +31,7 @@ sources:
   - path: src/Core/DGF.Domain/Data/Form/FormManager.cs
     sha256: 24b8018e502d2f5ce6967ad687cf2772062feb07ba6498ee007a6bb5cf59745a
   - path: src/Core/DGF.Domain/Data/Form/Form.cs
-    sha256: aff48740abbb867ebe709fc1972133ce6d481511b055e6bb173ccca2aeca76ad
+    sha256: 8a92c66c87be8f52d5df0515e267dac6518ddb19abe7560f3b4b24a849255697
   - path: src/Core/DGF.Domain/Data/Form/FormTab.cs
     sha256: 391b3e5b93e29368b5a84ca55fdf16d507f743d2539b22a1cd24a280df819f14
   - path: src/Core/DGF.Domain/Data/Form/FormSection.cs
@@ -103,7 +103,7 @@ sources:
   - path: src/samples/Database/dbo/Tables/AspNetRoleClaims.sql
     sha256: 7b1c8ee771367f8c1ee6520c82bdc3af2e22ce7cdcc717bed40307d9f01fbf5d
   - path: src/samples/Database/dbo/Tables/AspNetRoles.sql
-    sha256: c38000582526b9bef4b68f881b885a5417dbca1e696b506664b90a4ef7d276ad
+    sha256: 2f8c82df8f73a30b00b264d265ac7f1d87520794eb43698b95bdf5215dfcec2e
   - path: src/samples/Database/dbo/Tables/AspNetTeams.sql
     sha256: 0d00eb3bc17220bd79aef165688c1fdd40bc355140da0a799a17e56ed5efa07f
   - path: src/samples/Database/dbo/Tables/AspNetUserClaims.sql
@@ -299,7 +299,7 @@ sources:
   - path: src/samples/workspaces/webasm/FM/_DATA/AspNetRoleClaims/settings.xml
     sha256: 1db503a487dc23ef82ca4bdf50919267b61b5dca2ea196494891ba8cff77982f
   - path: src/samples/workspaces/webasm/FM/_DATA/AspNetRoles/settings.xml
-    sha256: 9a90bc1e82af3b1e5d52e4ac6fab87df0315138470268fa93d7c016faa829e9d
+    sha256: 08bb77b615d97cc3aa72919ae20691d304cf927ee44389cb2671e280ac35c572
   - path: src/samples/workspaces/webasm/FM/_DATA/AspNetTeams/settings.xml
     sha256: 2fead3bbc8c9cae7ebcbc7b0099070e47e2b9e3b36f549eb00ea5fcbaadc0001
   - path: src/samples/workspaces/webasm/FM/_DATA/AspNetUserClaims/settings.xml
@@ -403,7 +403,7 @@ sources:
   - path: src/Components/Extensions/DGF.Form/Services/OldConfigurationMappers/FormCellMapper.cs
     sha256: 508b9e4bd4af3b6d60af585c4f3481992388e3f1147315b0929e83bd4df358f8
   - path: src/Components/Extensions/DGF.Form/Services/OldConfigurationMappers/XmlFormMappingService.cs
-    sha256: d0d8541f99c668e853558259809f96620a02a98ef90af60737bba9455cccfe8f
+    sha256: 45797dfb14a06c91c970560841ae2e1b0eb9b9b447e09f22e30175099f1439e1
   - path: src/Core/DGF.OM/Store/DbLookupHandler.cs
     sha256: 9953ca810fea7a37bda44fd81266f80198b64aadc6e2b480bc90499c0f3e8d1d
   - path: docs/wiki/Release-notes/.next/bugfix-lookup-dynamic-sql.md

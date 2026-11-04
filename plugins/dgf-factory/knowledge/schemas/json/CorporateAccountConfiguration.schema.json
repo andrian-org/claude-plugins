@@ -67,6 +67,12 @@
             "null",
             "string"
           ]
+        },
+        "displayName": {
+          "type": [
+            "null",
+            "string"
+          ]
         }
       }
     },

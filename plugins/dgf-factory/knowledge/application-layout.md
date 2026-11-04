@@ -1,5 +1,5 @@
 ---
-dgf_version: "1.2.0"
+dgf_version: "1.3.0"
 read_date: 2026-11-04
 ---
 
@@ -61,6 +61,10 @@ Facts behind the rows:
   `localization` (`languages`, `default`), `routes`, `header` and `footer`. A route has `path`, `name`,
   `requireAuthorization`, `fluid`, `hideHeader`, `hideFooter` and `content`; a router is referenced from
   a route's `content` by `{"type": "router", "name": …}`, not nested in `routes`.
+- **Translations follow `localization.languages`.** The shell requests translations from the host, and
+  shows the language picker, only when the sitemap's `localization.languages` lists at least one
+  language. With no `localization` block, or an empty `languages`, it requests none and shows no picker,
+  so the texts the host's localization resources hold are not shown.
 - **There is no `version` key to write.** The sitemap configuration binds none and its schema allows no
   property it does not declare; the `version` the served sitemap carries is the host's, filled from the
   framework's and the entry assembly's versions. The `dgf` sample has none.
@@ -180,7 +184,8 @@ and prints a line either way. It sets the two sign types to their own defaults.
 - **`AspNetRoles`** has `Id` (`UNIQUEIDENTIFIER`), `ApplicationId` (`UNIQUEIDENTIFIER NULL`, a foreign
   key to `aspnet_Applications`), `Name` and `NormalizedName` (`NVARCHAR(256) NULL`), `ConcurrencyStamp`
   (`NVARCHAR(MAX)`), `Description` (`NVARCHAR(256)`), `TypeId` (default
-  `4dbd37af-33bf-41e0-9834-f1de42a511d8`) and `IsAvailable` (`BIT`). The primary key is `Id`.
+  `4dbd37af-33bf-41e0-9834-f1de42a511d8`), `IsAvailable` (`BIT`) and `RoleDisplayName`
+  (`NVARCHAR(256) NULL`). The primary key is `Id`.
   **Its one unique index, `RoleNameIndex`, is on `NormalizedName` alone** (filtered to not null), so a
   role name exists once across all applications; the entity-framework migration declares `ApplicationId`
   `NOT NULL`, which the database project does not.
@@ -188,7 +193,16 @@ and prints a line either way. It sets the two sign types to their own defaults.
   `ILookupNormalizer`, so ASP.NET Identity's default applies; the framework's own migration script for
   legacy membership copies the legacy lower-cased role name into it, and it sets a user's normalised
   name and email lower-case itself. The baseline's `ModelCollation` is case-insensitive, so the unique
-  index and `x.NormalizedName == newRole` see two casings of one name as one.
+  index sees two casings of one name as one. The check that a user holds a role before switching to it
+  compares `NormalizedName` with the role name passed through the identity library's normalizer.
+- **`RoleDisplayName` is an optional label, and nothing needs it.** The entity-framework role model does
+  not map it, so sign-in and the code seed work on a table without the column. A separate query reads it
+  per request, testing that the column exists first; a role's label is its trimmed `RoleDisplayName`
+  when that is not empty, else its `Name`, and every role shows its `Name` when the column is missing or
+  the query fails. The label reaches the role switcher's data and the user information the shell reads
+  (`${@user.currentRoleDisplayName}`); claims, role switching, sitemap `roles`, profile folders and
+  `${@user.currentRoleName}` keep using `Name`. The runtime writes no value to the column; the local
+  stack's sample seed sets one label, only when the column exists.
 - **Built-in roles** are `Administrators`, `Members`, `Anonymous`, `Registered Users` and `PortalUser`
   (the constants also name `Applicant` and `New`, which the code seed creates only when an account
   names it as its `RoleName`; the local stack's `applicant` account names `Applicant`).
@@ -279,14 +293,15 @@ Facts behind the rows:
 - **The API library is a project reference in the framework's repository, and no package id is pinned.**
   It sets no `PackageId`, no description and no version of its own. The props file's `<Version>`, set
   for the `ClientDebug` configuration only, reads `1.1.15`, and the sample host's Dockerfile passes the
-  build a `VersionPrefix` of `1.1.15`; both read so at the release tagged `1.2.0`, so neither is the
+  build a `VersionPrefix` of `1.1.15`; both read so at the release tagged `1.3.0`, so neither is the
   release version — the git tag is. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
   framework: the id is by default the assembly name, `DGF.API`, which is not confirmed by any pack
   configuration.
 - **Startup requires** `ConnectionStrings:LocalSqlServer` (the host throws when it is absent), the
   workspaces root and `webasm` (§2), the application row (§2.1) and `ConnectionStrings:Redis` for the
   Redis health check and cache. Caching is `DistributedCachingOptions`: SQL Server cache, else Redis
-  (which needs `RedisInstanceName` and the Redis connection string), else in memory.
+  (which needs `RedisInstanceName` and the Redis connection string), else in memory. The Redis client is
+  StackExchange.Redis 3, which speaks RESP3 and needs Redis server 6 or later.
 - **The `Integrations` sections must exist even when nothing calls them.** The sign and notify services
   are registered only if `Integrations:DgSign`, `Integrations:DgNotify` (and `DgNotifyOtp`) exist, but
   two services that take them as plain constructor dependencies are registered unconditionally, so a
@@ -299,6 +314,12 @@ Facts behind the rows:
   `CorsOrigins` (a list, with credentials allowed), `Serilog`, `Languages`, `DbResourceConfiguration`,
   `Documents`, `ProcessConfigurations`, `TemplateRendering`, `Defaults` (uploader and image limits),
   `workflow`, `Plugins` and `AdminSeedOptions`.
+- **The API library's Serilog sinks are Console and Seq** (with Elasticsearch formatting). It ships no
+  Application Insights package, so a host whose `Serilog` settings write to Application Insights
+  references that sink itself.
+- **Sidebar counts** (`autoCount` routes) are read at most `DGF_ROUTER_COUNT_CONCURRENCY` at a time: a
+  number, default `4`, clamped to 1–16; a value that is not a number logs a warning and uses the
+  default. Each parallel count holds one database connection.
 - **A per-request performance trace** is the setting `DGF_PERF_TRACE`, read at start: `true` or `full`
   logs one `PerfTrace` line per request, SQL text included, and `counts` the numbers only; both add a
   `Server-Timing` response header. Any other value, or none, leaves it off.

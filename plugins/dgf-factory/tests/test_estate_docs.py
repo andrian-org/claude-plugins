@@ -256,7 +256,7 @@ class Content(Base):
 
     def test_role_names_are_quoted_exactly(self):
         page = self.page("a.md")
-        self.assertIn('| " Supervisor" | sitemap-roles ×1 |', page)
+        self.assertIn('| "Supervisor" | sitemap-roles ×1 |', page)  # DGF 1.3.0 trims each name
         self.assertIn('| "Case Officer" | sitemap-roles ×1 |', page)
         self.assertNotIn("Supervisor", self.page("webasm.md"))
 

@@ -45,7 +45,7 @@ sources:
   - path: src/Core/DGF.Domain/Process/StateProcess/OpenHandler.cs
     sha256: 2dbc192700b901463ffe6a35a3c772ffd56a94e7a125470d3fe222f6d59611bb
   - path: src/Core/DGF.OM/Process/StateProcess/InstanceHandler.cs
-    sha256: e3b9bbfebc191659a9427405a7bf141f96c66de07479df110743616bb80cdce8
+    sha256: bdc3f3d5599312fcbe3e6d14676b410fb48a27394a24c7981e17265b650505a5
   - path: src/Core/DGF.DataSources/DataSourceLoader.cs
     sha256: 24e3b570fcc4e533640f03370d8278e9b3eae461dc8ebb6860ac9f8b42eab8d6
   - path: src/Components/DGF.Components.Shared/ComponentFileLoadService.cs

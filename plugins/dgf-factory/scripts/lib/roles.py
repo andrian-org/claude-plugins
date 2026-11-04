@@ -11,9 +11,15 @@ the role-sources table (permissions.md §2) and, for each row, every file its
                   item's `Attribute`;
   (folder)        the name of the folder that holds the file.
 
-A value is split exactly as the runtime splits it — on `,`, with no trimming —
-so ` B` in `roles="A, B"` is listed as ` B`, the name the runtime tests. An
-empty value names no role. A file that does not parse is skipped with a trace:
+A value is split exactly as the runtime of the pack's DGF line splits it, which
+the `Separator` cell states (ADR 0036: one codebase, a pack per line):
+
+  `,`           split on `,`, nothing trimmed — before DGF 1.3.0, ` B` in
+                `roles="A, B"` is listed as ` B`, the name that runtime tests
+  `, trimmed`   split on `,`, each name trimmed, empty names dropped — DGF 1.3.0's
+                `Split(',', RemoveEmptyEntries | TrimEntries)`
+
+An empty value names no role. A file that does not parse is skipped with a trace:
 the validators report malformed files. Stdlib only.
 """
 
@@ -45,10 +51,18 @@ def _matches(root, ws, pattern):
     return [path for path in current if path.is_file()]
 
 
+TRIMMED = " trimmed"
+
+
 def _split(value, separator):
     if value is None or value == "":
         return []
-    return value.split(separator) if separator != knowledge.NONE else [value]
+    if separator == knowledge.NONE:
+        return [value]
+    if separator.endswith(TRIMMED):
+        names = [name.strip() for name in value.split(separator[: -len(TRIMMED)])]
+        return [name for name in names if name]
+    return value.split(separator)
 
 
 def _xml_values(path, element, attribute, separator):

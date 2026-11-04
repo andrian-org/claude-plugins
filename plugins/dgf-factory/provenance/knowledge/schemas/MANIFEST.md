@@ -1,6 +1,6 @@
 ---
-dgf_commit: 2db737c64a0828cd3e4cc89246a02d73d19527fb
-dgf_tag: 1.2.0
+dgf_commit: 1d4528aff060d11683ee6894e4b1f47ae14f65e0
+dgf_tag: 1.3.0
 sources:
   - path: src/Tools/dgf-mcp/Schemas/Json/ApiDataSource.schema.json
     sha256: f65af50fea45d536ba06e38e89d4d76e26b9b96907dca9fe8ffcd0011d9df6df
@@ -63,9 +63,9 @@ sources:
     vendored: json/ContainerConfiguration.schema.json
     shipped_sha256: d65260e6e472bd65e4f57b436a7e9b15b1af8067d1f86a7c24fa2329abccae7f
   - path: src/Tools/dgf-mcp/Schemas/Json/CorporateAccountConfiguration.schema.json
-    sha256: 383a33e0f8398e63c90c19a16efc8122d2d2f5c206d8e5ed849e821d81f9e288
+    sha256: 35f9617f9c44d776e796cd50b2a0667c4481ee3207d878d4458105a5aded3b06
     vendored: json/CorporateAccountConfiguration.schema.json
-    shipped_sha256: 6dafb0d8ca007bde409ab5a92e6aac7d91580bec55a47d6202356fd3ff418b32
+    shipped_sha256: 0a32f220b8686ed283340326f674faa4696a7424224d9b5f71be311ee1b2ce4e
   - path: src/Tools/dgf-mcp/Schemas/Json/DataFetcherConfiguration.schema.json
     sha256: 657e965c62abf12d600beee85ae383aa9d64a746c57e4a518a66655d6caf1917
     vendored: json/DataFetcherConfiguration.schema.json
@@ -291,9 +291,9 @@ sources:
     vendored: xsd/application-sitemap.xsd
     shipped_sha256: 1b1864bd811d087f28195b103295eb4225042079004e74ab6d4438509a544857
   - path: src/Tools/dgf-mcp/Schemas/XmlReference/form.reference.json
-    sha256: eb7fb65f23cc697bd45d17d0c5bfe78f64f6619807eea283584c0ff9ca461617
+    sha256: 79bcc432e4496267753193a8e3194cba3a94e4ce0438494f668689409fadff69
     vendored: xsd/form.reference.json
-    shipped_sha256: eb7fb65f23cc697bd45d17d0c5bfe78f64f6619807eea283584c0ff9ca461617
+    shipped_sha256: 79bcc432e4496267753193a8e3194cba3a94e4ce0438494f668689409fadff69
   - path: src/Tools/dgf-mcp/Schemas/XSD/form.xsd
     sha256: e12bf90d5a01f82d4dff0e92b6b4d7bf81fce069bc825cc11852a8da6b8da04e
     vendored: xsd/form.xsd

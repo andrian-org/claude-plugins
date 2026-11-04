@@ -40,10 +40,28 @@ class Inventory(unittest.TestCase):
         self.assertEqual(self.sources("CaseOfficer"), {"task-role"})
         self.assertEqual(self.sources("Reviewer"), {"taskgroup-role"})
 
-    def test_a_comma_list_is_split_untrimmed_as_the_runtime_tests_it(self):
+    def test_a_comma_list_is_split_and_trimmed_as_dgf_1_3_tests_it(self):
+        # the current pack is DGF 1.3, whose SiteMapManager trims each name and drops empty ones
         self.assertIn("Case Officer", self.found)
-        self.assertIn(" Supervisor", self.found)
-        self.assertNotIn("Supervisor", self.found)
+        self.assertIn("Supervisor", self.found)
+        self.assertNotIn(" Supervisor", self.found)
+
+    def test_an_older_line_splits_untrimmed_through_the_same_code(self):
+        # ADR 0036: one codebase, a pack per DGF line; the pack's `Separator` cell says how its runtime splits
+        from lib import knowledge
+        packs = helpers.load_tool("packs")
+        saved = knowledge.KNOWLEDGE_DIR
+        self.addCleanup(knowledge.use_dir, saved)
+        knowledge.use_dir(packs.pack_dir("1.2"))
+        found = roles.inventory(self.root)
+        self.assertIn(" Supervisor", found)
+        self.assertNotIn("Supervisor", found)
+
+    def test_the_split_rules(self):
+        self.assertEqual(roles._split("A, B,,", ","), ["A", " B", "", ""])
+        self.assertEqual(roles._split("A, B,,", ", trimmed"), ["A", "B"])
+        self.assertEqual(roles._split("A, B", "—"), ["A, B"])
+        self.assertEqual(roles._split("", ", trimmed"), [])
 
     def test_a_dtd_is_refused_so_its_entities_are_never_expanded(self):
         # the billion laughs, kept small enough that an unguarded reader still finishes: 10^5 expansions

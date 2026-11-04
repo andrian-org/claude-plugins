@@ -69,5 +69,7 @@ the table. The 26 rows were then applied by hand to a scratch copy of the vendor
 (attributes as optional `xs:string`, elements as optional `xs:anyType`, enumerations relaxed to
 `xs:string`) and the 23 `src/samples/workspaces/*/FM/_PROCESS/*/process.xml` files validated
 against it: 0 failures under both `lxml` 6.1.3 (bundled libxml2 2.14.6) and `xmllint` 2.9.13,
-against 2 failures (`webasm/…/PrintDeliver`, `dgf/…/DGF.Demo.EService`) under the unmodified XSD.
+against 2 failures (`webasm/…/PrintDeliver`, `dgf/…/DGF.Demo.EService`) under the unmodified XSD. Since DGF 1.1.16 the
+table has 25 rows: `OnInit/StoredProcedureActivity` is declared by `process.xsd` itself
+(`provenance/sync-log/2026-11-04-1.1-1.1.16.md`).
 The list was not widened to make a sample pass.

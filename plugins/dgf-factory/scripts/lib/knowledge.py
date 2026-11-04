@@ -124,7 +124,7 @@ TABLES = {
     "role-sources": (
         "permissions.md",
         ("Source", "File", "Element", "Attribute", "Separator", "Meaning"),
-        {"Separator": {",", "—"}},
+        {"Separator": {",", ", trimmed", "—"}},
     ),
     "field-types": (
         "data-model.md",

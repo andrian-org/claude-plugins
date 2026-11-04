@@ -39,7 +39,7 @@ sources:
   - path: src/Core/DGF.DataSources/Endpoints/EndpointFactory.cs
     sha256: d0f6f004156c4ba2b07960f263a1033cb6d95dd7799e44f85e77168bea3f060d
   - path: src/Components/Extensions/DGF.Sitemap/SiteMap/SiteMapManager.cs
-    sha256: 514b1fc09da059629e13cbc95b2d3b9558c9e1dd2b719648fa15544a709fa7fd
+    sha256: f3414c918809460218216df71e0dfbeab469f406515d2970db2b090279a20809
   - path: src/Components/Extensions/DGF.Sitemap/SiteMap/Options/SiteMapOptions.cs
     sha256: 94f81b82b0396ddfc729d6743c2a8f854aba35ac1cf38b34e29e79411097e377
   - path: src/Components/Extensions/DGF.FlowComponents/WorkFlow/WorkflowLoaderService.cs
@@ -59,7 +59,7 @@ sources:
   - path: src/Tools/SchemaExporter/Program.cs
     sha256: 6d8c7bbe6cbb2ad1f20debd534b6079c56e0ce29dda6d6617298f3158c9c03e5
   - path: src/DGF.API/DGF.API.csproj
-    sha256: 892e7094abee829888d05b49482c1c69c734bc0529b77d1f33325976bef07eb3
+    sha256: 06afe7c30185a24a85825e67b7e8dcb04d3d2df50f2e4b53f6bbc43ee6182c83
   - path: docs/wiki/AI-Authoring/format-coverage.md
     sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Components/DGF.Components.Shared/Enums/LinkTarget.cs

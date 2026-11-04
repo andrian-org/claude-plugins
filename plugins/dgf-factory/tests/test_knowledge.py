@@ -59,6 +59,29 @@ EXPECTED_ROWS = {
         "instance-models": 2,
         "solution-parts": 11,
     },
+    "1.3": {
+        "legacy-artifacts": 8,
+        "code-places": 4,
+        "component-classes": 69,
+        "datasource-discriminators": 9,
+        "component-folders": 6,
+        "enum-member-names": 4,
+        "layout-components": 8,
+        "dispatchable": 36,
+        "correspondence": 8,
+        "parity": 69,
+        "process-divergence": 25,
+        "reference-edges": 21,
+        "run-time-names": 3,
+        "role-sources": 6,
+        "field-types": 13,
+        "db-types": 12,
+        "field-sql-types": 12,
+        "workspace-minimum": 6,
+        "auth-schemes": 3,
+        "instance-models": 2,
+        "solution-parts": 11,
+    },
 }
 
 
@@ -123,8 +146,12 @@ class ReferenceEdges(unittest.TestCase):
 class RoleSources(unittest.TestCase):
     def test_the_sitemap_sources_split_on_a_comma_and_the_others_do_not(self):
         sources = knowledge.index("role-sources")
-        self.assertEqual({name for name, row in sources.items() if row["Separator"] == ","},
+        # DGF 1.3.0 trims each name (`, trimmed`); the older packs split exactly (`,`)
+        self.assertEqual({name for name, row in sources.items() if row["Separator"] in (",", ", trimmed")},
                          {"sitemap-roles", "sitemap-deny"})
+        self.assertEqual(sources["sitemap-roles"]["Separator"], ", trimmed")
+        older = knowledge.index("role-sources", helpers.PLUGIN_ROOT / "packs" / "1.2")
+        self.assertEqual(older["sitemap-roles"]["Separator"], ",")
         self.assertEqual(sources["sitemap-roles"]["File"], "_application.sitemap")
         self.assertEqual(sources["profile-group"]["Element"], "(folder)")
 
@@ -133,7 +160,7 @@ class RoleSources(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp)
         shutil.copytree(helpers.PLUGIN_ROOT / "knowledge", tmp / "k", ignore=shutil.ignore_patterns("schemas"))
         path = tmp / "k" / "permissions.md"
-        path.write_text(path.read_text(encoding="utf-8").replace("| `roles` | `,` |", "| `roles` | `;` |", 1),
+        path.write_text(path.read_text(encoding="utf-8").replace("| `roles` | `, trimmed` |", "| `roles` | `;` |", 1),
                         encoding="utf-8")
         with self.assertRaises(knowledge.KnowledgeTableError) as ctx:
             knowledge.load("role-sources", tmp / "k")

@@ -1,5 +1,5 @@
 ---
-dgf_version: "1.2.0"
+dgf_version: "1.3.0"
 read_date: 2026-11-04
 review_date: 2026-11-04
 ---

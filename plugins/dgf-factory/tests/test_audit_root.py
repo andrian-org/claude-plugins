@@ -67,7 +67,7 @@ class Audit(unittest.TestCase):
         self.assertIn("APPLICATIONS: a b (base webasm)", out)
         self.assertRegex(out, r"GRAPH: a nodes=\d+ edges=\d+ resolved=\d+ unresolved=1 ")
         self.assertIn("VALIDATOR: validate_model.py files=0", out)
-        self.assertIn('ROLE: " Supervisor" sitemap-roles=1', out)
+        self.assertIn('ROLE: "Supervisor" sitemap-roles=1', out)  # DGF 1.3.0 trims each name
         self.assertIn('ROLE: "Case Officer" sitemap-roles=1', out)
         self.assertIn("CHECKS RUN: graph, validators, roles", out)
         self.assertIn("NOT RUN: role-check (nothing in the root declares roles", out)
