@@ -20,8 +20,11 @@ grammar) — and then learns the *system you build with it*.
 > checked against DGF's own samples and a known-bad corpus. `/dgf-scaffold` creates a new application
 > from an empty folder, from templates the tool ships. It is delivered as an **npm CLI**,
 > `@andrian-org/dgf-factory`, whose `dgf-factory setup` installs it into a project for each AI harness
-> you use ([ADR 0029](docs/adr/0029-npm-cli-delivery.md)). See [the blueprint](docs/blueprint.md) for the
-> build order.
+> you use ([ADR 0029](docs/adr/0029-npm-cli-delivery.md)). The knowledge comes as **one pack per DGF
+> release line** — 1.3 (read at 1.3.0), 1.2 (1.2.0) and 1.1 (1.1.16) — and each project gets the pack of
+> the line it runs, so projects on different DGF versions live side by side
+> ([ADR 0036](docs/adr/0036-knowledge-packs-per-release-line.md), [DGF Lines](docs/dgf-lines.md)). See
+> [the blueprint](docs/blueprint.md) for the build order.
 
 ## Quick Start
 
@@ -38,7 +41,7 @@ Then, in your workspaces root:
 
 ```bash
 cd /path/to/your/workspaces-root
-dgf-factory setup                 # choose your harnesses; it previews every file, then asks
+dgf-factory setup                 # choose your harnesses and your DGF line; it previews every file, then asks
 git add .dgf-factory .claude .mcp.json && git commit -m "chore: install dgf-factory"
 ```
 
@@ -48,6 +51,11 @@ the dgf-mcp server where the harness keeps MCP servers, and builds `.dgf-factory
 validators. A receipt, `.dgf-factory/install.json`, records every file it wrote. Then run `/dgf` in
 Claude Code (`$dgf` in Codex).
 
+- **DGF line:** setup installs the knowledge of the DGF release line the estate runs — from
+  `--dgf-version 1.3.0` or `--dgf-line 1.3`, else the line installed before, else the `dgf.version` `/dgf`
+  recorded, else the newest. When the estate upgrades DGF, re-run `dgf-factory setup --dgf-version <new>`;
+  `/dgf-doctor` warns when the declared version and the installed line differ
+  ([DGF Lines](docs/dgf-lines.md)).
 - **Updating:** install the new version, then run `dgf-factory setup` again. A file you edited is kept
   and reported, never overwritten; a file that changed on both sides is shown as a diff.
 - **Teammates** who clone a set-up project need no CLI: the skills and the runtime are committed. Only
@@ -172,6 +180,7 @@ worktree-isolated worker per task and merges each back through a script that ref
 | [Architecture](docs/architecture.md) | Slice structure, dependency rules, communication |
 | [Skill Authoring](docs/skill-authoring.md) | The SKILL.md contract, gates, exit codes |
 | [DGF Knowledge Sourcing](docs/dgf-knowledge.md) | Citing, dating and version-stamping DGF facts |
+| [DGF Lines](docs/dgf-lines.md) | One knowledge pack per DGF release line; choosing a project's line; keeping packs current, on a schedule |
 | [DGF Schemas](docs/dgf-schemas.md) | The two schema families — JSON and XSD — runtime parity, vendoring |
 | [Decision Records](docs/adr/README.md) | Why dgf-factory is shaped this way — delivery model, verification, validator runtime, versioning, scope |
 | [Architecture Blueprint](docs/blueprint.md) | The full design: AI Factory teardown + DGF mapping |

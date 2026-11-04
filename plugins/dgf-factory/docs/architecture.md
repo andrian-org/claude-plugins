@@ -31,8 +31,9 @@ plugins/dgf-factory/
 │   ├── dgf-fix, dgf-evolve/     #   the learning loop — patches, and overrides that only tighten
 │   └── dgf-component, dgf-process, dgf-model, dgf-audit/   # the DGF-specific skills; two ship templates/
 ├── agents/*.md                  # subagents (not yet built)
-├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
+├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas: the current DGF line's pack
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
+├── packs/                       # each older DGF line's pack, packs/<X.Y>/ (same files, no README), + lines.json (ADR 0036)
 ├── scripts/                     # SHARED INFRASTRUCTURE — cross-slice validators
 │   ├── validate_config.py       #   family, schema and parity, both families
 │   ├── resolve_components.py    #   component types and component file references
@@ -91,7 +92,10 @@ dependency rules are kept in full — only the vocabulary is translated.
 
 `dgf-factory setup` installs this tree into a project in two places ([ADR 0029](adr/0029-npm-cli-delivery.md)):
 `skills/`, `scripts/` and `knowledge/` mirrored into `.dgf-factory/runtime/`, so every `parents[N]`
-lookup still holds, and each `SKILL.md`, rendered, into each chosen harness's skills folder. A skill
+lookup still holds, and each `SKILL.md`, rendered, into each chosen harness's skills folder. The
+runtime's `knowledge/` is one DGF line's pack — `knowledge/` itself, or `packs/<X.Y>/` installed
+in its place ([ADR 0036](adr/0036-knowledge-packs-per-release-line.md)) — so no skill or script
+names a line. A skill
 reaches the rest as plain files, written `{{dgf_runtime}}/knowledge/…` and `{{dgf_runtime}}/scripts/…`;
 setup renders the token to the project-relative `.dgf-factory/runtime`.
 
@@ -183,7 +187,7 @@ ownership table is the thing that makes multi-session, multi-agent work non-chao
 | `patches/` | `/dgf-fix` — append-only | the latest ten read by `/dgf-implement`, `/dgf-fix`, `/dgf-component`, `/dgf-process` and `/dgf-model` as cautions; consumed by `/dgf-evolve` |
 | `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | checked by `check_override.py`, then read by its skill — one of ten readers — never when the check refuses it |
 | `evolutions/` — logs and `patch-cursor.json` | `/dgf-evolve` | read-only |
-| `knowledge/` | deliberate human edit with a cited source | read-only to every slice |
+| `knowledge/`, `packs/<X.Y>/` | `/dgf-sync` (maintainer) or a deliberate human edit with a cited source; digests, stamps and vendored files only through `tools/` | read-only to every slice |
 
 ## See Also
 

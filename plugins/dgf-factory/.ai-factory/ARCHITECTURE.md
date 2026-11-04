@@ -109,12 +109,12 @@ plugins/dgf-factory/
 │       │                               #   check.py, render.py (template engine), context.py (template context)
 │       └── templates/                  #   manifest.json + solution/, workspace/, patterns/{register,service,page}/
 │
-├── knowledge/                          # ── SHARED DOMAIN ── the DGF knowledge base
+├── knowledge/                          # ── SHARED DOMAIN ── the current DGF line's knowledge pack (ADR 0036)
 │   ├── README.md                       #   how to cite, date and version-stamp a fact
-│   ├── component-catalogue.md          #   the 34 IComponentService<TSource> registrations, and why 4 other counts differ
+│   ├── component-catalogue.md          #   the 36 IComponentService<TSource> registrations, and why 4 other counts differ
 │   ├── composition-specs.md            #   declarative XML/JSON composition + EventBase verbs
 │   ├── naming-conventions.md
-│   ├── schema-families.md              #   JSON vs XSD: parity (67 rows), correspondence, resolution
+│   ├── schema-families.md              #   JSON vs XSD: parity (69 rows), correspondence, resolution
 │   ├── json-reader.md                  #   how the runtime reads component JSON; dispatch, folders, file refs
 │   ├── process-model.md                #   process.xsd vs the runtime model; reference resolution
 │   ├── data-model.md                   #   entities, fields, relations; what each model loader does
@@ -124,8 +124,11 @@ plugins/dgf-factory/
 │   └── schemas/                        #   vendored copies, version-stamped
 │       ├── MANIFEST.md                 #     DGF version, date, per-file dialect and membership
 │       ├── json/                       #     generated *.schema.json (modern component config)
-│       ├── xsd/                        #     the 9 *.xsd + form.reference.json (legacy XML)
+│       ├── xsd/                        #     the 10 *.xsd + form.reference.json (legacy XML)
 │       └── standalone/                 #     hand-authored contracts from DGF docs/schemas/
+├── packs/                              # ── SHARED DOMAIN ── each older DGF line's pack, packs/<X.Y>/ — the same
+│                                       #   files as knowledge/ minus README.md; lines.json, the shipped registry.
+│                                       #   Setup installs one pack per project at .dgf-factory/runtime/knowledge/
 │
 ├── scripts/                            # ── SHARED INFRASTRUCTURE ── cross-slice validators
 │   ├── validate_config.py              #   family first, schema read the runtime's way, parity gate
@@ -183,11 +186,18 @@ plugins/dgf-factory/
 │   ├── derive_sql_types.py             #   the SQL type of each dbtype, tallied from DGF's settings/table pairs
 │   ├── run_known_good.py               #   every validator over DGF's samples, held to the exceptions file
 │   ├── known-good-exceptions.txt       #   evidenced excuses + the warning baseline
-│   ├── check_drift.py                  #   provenance ledgers' digests against a DGF checkout
+│   ├── check_drift.py                  #   a pack's ledgers' digests against a DGF checkout (--pack)
+│   ├── packs.py                        #   where each DGF line's pack, ledgers and exceptions live
+│   ├── dgf_lines.py                    #   status, diff, checkout (a cache at a tag), freeze, fork
+│   ├── restamp_knowledge.py            #   re-digests a pack's ledgers and stamps at a tag
+│   ├── dgf_lines_watch.sh              #   cron/launchd entry; opt-in headless /dgf-sync in a worktree
 │   └── requirements.in                 #   the validator dependencies, compiled with uv
 ├── provenance/                         # ── PROVENANCE ── where each knowledge fact came from
-│   └── knowledge/                      #   one ledger per knowledge file, same relative path
-│       └── schemas/MANIFEST.md         #     DGF commit, upstream + shipped sha256 per file
+│   ├── knowledge/                      #   the current pack: one ledger per knowledge file, same relative path
+│   │   └── schemas/MANIFEST.md         #     DGF commit and tag, upstream + shipped sha256 per file
+│   ├── packs/<X.Y>/                    #   each older pack's ledgers + its known-good-exceptions.txt
+│   ├── lines.json                      #   maintainer registry: each line's tag, commit, support branch
+│   └── sync-log/                       #   one per-source triage log per sync
 ├── docs/                               # documentation, the blueprint, ADRs (docs/adr/)
 ├── AGENTS.md                           # navigation index
 └── .ai-factory/                        # pipeline artifacts

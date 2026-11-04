@@ -54,7 +54,7 @@ MCP. Every claim names its source; a claim no source supports is listed as open.
 
 Sources: …
 Open: …
-Version: 1.1.11 vs dgf.version 1.1.15 — differs: facts may have moved
+Version: 1.3.0 vs dgf.version 1.3.2 — differs: facts may have moved
 ```
 
 Then it asks whether to append the answer to `.dgf-factory/RESEARCH.md`. `/dgf-plan` reads that file as cited

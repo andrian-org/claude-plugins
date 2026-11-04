@@ -19,11 +19,12 @@ configuration must keep working there.
 | Part of the upgrade | Who does it |
 |---|---|
 | Know which release the estate runs | `/dgf` records it as `dgf.version`, declared by you, never inferred ([ADR 0019](../adr/0019-declared-dgf-version.md)) |
-| Know which release the shipped DGF facts describe | the knowledge stamp, printed as `KNOWLEDGE: dgf_version=…` |
+| Know which release the installed DGF facts describe | the knowledge stamp and line, printed as `KNOWLEDGE: dgf_version=… line=…` — one pack per DGF release line, chosen by `dgf-factory setup` ([ADR 0036](../adr/0036-knowledge-packs-per-release-line.md)) |
+| Install the knowledge of the release line you are moving to | `dgf-factory setup --dgf-version <target>` |
 | Read what changed between two releases | `/dgf-explore`, over the docs MCP's release notes, every claim cited |
 | Change the configuration for each breaking change | `/dgf-plan` → `/dgf-implement` → `/dgf-verify`, one plan per change |
 | Move the hosts to the new `DGF.API` package, the UI image, the database baseline | **By hand.** C#, SQL and deployment configuration are never a plan task ([ADR 0010](../adr/0010-dgf-implement-scope.md) §3). A plan names them under `## Scope` |
-| Compare each fact with the declared version, and warn or block | **Nobody yet.** The version gate is a follow-up: no shipped fact carries an `applies:` range, so nothing compares `dgf.version` with a fact today ([ADR 0019](../adr/0019-declared-dgf-version.md), `knowledge/README.md` §4) |
+| Compare the declared version with the installed knowledge, and warn or block | `/dgf-doctor`: `DGF_LINE_MISMATCH` when the declared version is on another line than the installed pack, `DGF_VERSION_BEHIND_PACK` for an earlier patch of the same line, and the version gate — `VERSION_BELOW_SINCE` / `VERSION_ABOVE_UNTIL` — over every installed fact that carries an `applies:` range ([ADR 0036](../adr/0036-knowledge-packs-per-release-line.md) §6) |
 
 ## What you need
 
@@ -43,11 +44,11 @@ python3 .dgf-factory/runtime/scripts/inventory_root.py --workspaces-root <root>
 **What you will see** (among the `WORKSPACE:` lines):
 
 ```text
-KNOWLEDGE: dgf_version=1.1.11
+KNOWLEDGE: dgf_version=1.2.0 line=1.2
 ```
 
-The stamp is read from DGF's `Directory.Build.props`, which lags the release tags: a stamp of `1.1.11` may describe
-a tree that behaves like a later release (`knowledge/README.md` §1.1). Read it as "no newer than", not as exact.
+The stamp is the exact release tag the installed pack was read at, and `line=` is its DGF release line
+(`knowledge/README.md` §1.1, §8). The package ships one pack per line; this project holds one of them.
 
 | Exit | What to do |
 |---|---|
@@ -56,13 +57,19 @@ a tree that behaves like a later release (`knowledge/README.md` §1.1). Read it 
 
 ## Step 2: Update dgf-factory
 
-A newer dgf-factory may ship knowledge stamped nearer your target.
+A newer dgf-factory may ship a pack for your target's line, or one read nearer your target. Install it, then
+install the target line's pack:
 
 ```bash
 npm update -g @andrian-org/dgf-factory
 dgf-factory --version
-dgf-factory setup
+dgf-factory setup --dgf-version <target>      # e.g. 1.3.0: the 1.3 line's knowledge
 ```
+
+The preview names the line (`DGF line: 1.3 (knowledge read at DGF 1.3.0; from --dgf-version)`). Files that
+differ between the two packs are updated, files only the old pack had are removed, and a knowledge file you
+edited is kept. A target older than every shipped pack is refused unless `--dgf-line` names one; a target on a
+line with no pack gets the nearest older pack, with a note.
 
 Re-running `setup` is the update. Each file is decided against the receipt
 ([ADR 0029](../adr/0029-npm-cli-delivery.md) §5): a file you never edited is rewritten; one you edited is kept and
@@ -83,14 +90,14 @@ reported; one changed on both sides is kept and shown as a diff — never overwr
 |---|---|
 | `0` | Go on. |
 | `1` | The install is broken: run `dgf-factory setup` again. |
-| `2` | `INSTALL_VERSION_DRIFT` means the CLI on your PATH and the install differ — run `setup` in this project. `INSTALL_FILE_EDITED` is a file setup will not update. |
+| `2` | `INSTALL_VERSION_DRIFT` means the CLI on your PATH and the install differ — run `setup` in this project. `INSTALL_FILE_EDITED` is a file setup will not update. `DGF_LINE_MISMATCH` is expected here, until Step 5 declares the version you installed the line of. |
 | `3` | Run `dgf-factory setup` again. |
 
 Commit the updated `.dgf-factory/runtime/`, `.dgf-factory/install.json` and harness folders, on their own, so
 the upgrade's own changes stay readable. Then run Step 1 again for the new stamp.
 
-**If the stamp is still older than your target**, the shipped facts were read at an older release than the one
-you are moving to. Every fact a plan rests on must then be re-verified through the docs MCP: `/dgf-grounded`
+**If no pack covers your target's line yet**, or the pack was read at an earlier patch, the installed facts were
+read at an older release than the one you are moving to. Every fact a plan rests on must then be re-verified through the docs MCP: `/dgf-grounded`
 warns before each answer that the knowledge was read at the stamp while the estate declares another release,
 and cites the release note when it bears on a claim.
 
@@ -106,7 +113,7 @@ the knowledge base and your workspaces, and cites every claim. Its answer ends w
 ```text
 Sources: …
 Open: <each claim no source answered>
-Version: 1.1.11 vs dgf.version <declared> — differs: facts may have moved
+Version: 1.2.0 vs dgf.version <declared> — differs: facts may have moved
 ```
 
 Say yes when it asks to save: the answer is appended to `.dgf-factory/RESEARCH.md`, which `/dgf-plan` reads as
@@ -145,7 +152,8 @@ other line alone. When the new version is newer than the knowledge stamp it says
 `get_release_notes("since:<stamp>")`.
 
 Declare the version when the estate runs it — on the branch that moves it there, or on the base branch once it
-has moved. Nothing checks the declared value against a deployment, so a wrong one stays wrong until `/dgf` is
+has moved. Then `/dgf-doctor`: with the line from Step 2 installed, `DGF_LINE_MISMATCH` is gone; a
+`VERSION_BELOW_SINCE` blocker names an installed fact that is not yet true of the declared release. Nothing checks the declared value against a deployment, so a wrong one stays wrong until `/dgf` is
 run again ([ADR 0019](../adr/0019-declared-dgf-version.md), Consequences).
 
 | Exit (root lookup) | What to do |

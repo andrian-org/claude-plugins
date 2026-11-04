@@ -52,8 +52,11 @@ git init
 dgf-factory setup
 ```
 
-`setup` asks which harnesses you use, previews every file, and asks before it writes. Without questions:
-`dgf-factory setup --harness claude --yes`; to preview only: `--dry-run`.
+`setup` asks which harnesses you use and which DGF line the application will run, previews every file, and
+asks before it writes. Without questions: `dgf-factory setup --harness claude --dgf-version 1.3.0 --yes`; to
+preview only: `--dry-run`. The line decides which knowledge pack lands in `.dgf-factory/runtime/knowledge/`;
+`/dgf-scaffold` warns (`SCAFFOLD_LINE_MISMATCH`) when the application targets a `DGF.API` version on another line
+([DGF Lines](../dgf-lines.md)).
 
 **What you will see** — the preview, then what was written:
 
@@ -259,15 +262,16 @@ NEW ROOT: <folder>/workspaces
 WORKSPACE: inspections role=application processes=0 workflows=0 components=5 forms=1 settings=1 views=2 …
 WORKSPACE: webasm role=base processes=11 workflows=137 components=135 …
 GIT: toplevel=<folder> branch=main root=workspaces
-KNOWLEDGE: dgf_version=1.1.11
+KNOWLEDGE: dgf_version=1.3.0 line=1.3
 VALIDATORS: dependencies present
 ```
 
 Then it asks: the estate's name and purpose; **the DGF version the estate runs** — from the published releases,
 or `unknown`, never a default ([ADR 0019](../adr/0019-declared-dgf-version.md)); the base branch and the branch
-prefix; the sign-in methods; and the test stack. The `KNOWLEDGE:` line is the release the shipped DGF facts were
-read at. It is shown beside the question, and never offered as the answer. When the version you declare is newer,
-`/dgf` says so and offers the release notes since that stamp.
+prefix; the sign-in methods; and the test stack. The `KNOWLEDGE:` line is the release the installed DGF facts were
+read at, and their DGF line. It is shown beside the question, and never offered as the answer. When the version you
+declare is on another line, `/dgf` gives the `dgf-factory setup --dgf-version <v>` that installs its pack; when it
+is a later patch of the same line, it offers the release notes since that stamp.
 
 It writes `workspaces/.dgf-factory/config.yaml` and `workspaces/.dgf-factory/DESCRIPTION.md`, and nothing else.
 

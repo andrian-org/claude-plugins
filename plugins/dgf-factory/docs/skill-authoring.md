@@ -120,7 +120,7 @@ files and prints `FAMILY:` lines like the other validators:
 | Script | Lines in place of `FAMILY:` |
 |---|---|
 | `locate_plan.py` | `ROOT: <path>`, or with `--setup` and no root yet `NEW ROOT: <path>`; `PLAN: <path> mode=<m> source=branch\|lone\|fast`, or with `--list` one `PLAN: <path> mode=<m> progress=<done>/<total>` per plan |
-| `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v>`; `VALIDATORS:` |
+| `inventory_root.py` | `ROOT:`; `WORKSPACE: <name> role=base\|application <count>=<n> …`; `NOT A WORKSPACE: <name> (<why>)`; `GIT:`; `KNOWLEDGE: dgf_version=<v> line=<X.Y>`; `VALIDATORS:` |
 | `check_plan.py` | `PLAN: <path> mode= format= branch=`; `AFFECTS: <ws>, …`; one `TASK: <N> [x\| ] kind=<k> depends=… files=… deletes=…` per task; `PROGRESS: <done>/<total>`; with `--overlap`, `OVERLAP SOURCES: <n> refs scanned …` |
 | `check_change.py` | `PLAN:`; `BASE: <sha> (<ref>)` — `BASE: <file> (saved before the write, --baseline)` with a saved baseline; `CHANGED: <n>`; one `CHANGE: <A\|M\|D\|R> <path> class=<class> workspace=<ws>` per changed file; with `--save-baseline`, `BASELINE: saved <n> finding(s) — <e> error(s), <w> warning(s) — to <file>` |
 | `check_patches.py` | `PATCHES: <dir> total=<n> [new=<n> processed=<n>] malformed=<n>`; one `PATCH: <name> [state=new\|processed\|malformed] severity=<s> findings=<codes> title="<title>"` per patch — `state=` and `new=`/`processed=` only with `--cursor`; with `--next-name <slug>` only `NEXT: <name> date="<date>"`, the name a new patch takes now, from the script's clock |

@@ -579,7 +579,7 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
 
 ### Phase 6 — Documentation and contracts
 
-- [ ] **Task 12: Docs, repository contracts, release.** (depends: 11)
+- [x] **Task 12: Docs, repository contracts, release.** (depends: 11)
   - **`tools/check-dual-schema-docs.sh`:**
     - §6 install-and-package: `packs/` is in `files`, `SHIPPED_DIRS` and the package check.
     - §7 stamps: runs `check_knowledge_stamps.py` over all packs.

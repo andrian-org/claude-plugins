@@ -643,6 +643,26 @@ $(grep -nE 'claude plugin install dgf-factory|dgf-factory@andrian-org|--plugin-d
 EOF
         trace "scanned ${rel} for plugin install commands"
     done
+    # "Shipped" is one set (ADR 0030): package.json `files` and doctor.py's SHIPPED_DIRS name the
+    # same directories — packs/ included since ADR 0036, so every DGF line's pack is held to them.
+    drift="$(python3 - "${PLUGIN_ROOT}" <<'PY'
+import importlib.util, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+files = {e for e in json.loads((root / "package.json").read_text())["files"] if not e.startswith("!")}
+spec = importlib.util.spec_from_file_location("doctor_for_contract", root / "skills/dgf-doctor/scripts/doctor.py")
+doctor = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(doctor)
+shipped = set(doctor.SHIPPED_DIRS)
+if files != shipped:
+    print(f"package.json files {sorted(files)} != doctor.py SHIPPED_DIRS {sorted(shipped)}")
+PY
+)"
+    if [ -n "${drift}" ]; then
+        error "${drift} — the shipped set must be named once (ADR 0030)"
+    else
+        trace 'package.json files and SHIPPED_DIRS agree'
+    fi
     if command -v npm >/dev/null 2>&1; then
         run_structural_check "${PACKAGE_CHECK}"
     else
@@ -653,11 +673,13 @@ EOF
 
 # --- 7. knowledge stamps ------------------------------------------------------
 #
-# Every knowledge/**/*.md except knowledge/README.md carries the stamp contract
-# that README.md §1 defines: dgf_version, read_date and — when a range is
-# declared — both since and until. Its sources, each with a sha256, are in a
-# provenance ledger at the same path under provenance/ (ADR 0013), and the
-# vendored schemas must match their recorded shipped digests. That frontmatter is
+# Every knowledge file of every DGF line's pack — knowledge/ and packs/<X.Y>/ —
+# except knowledge/README.md carries the stamp contract that README.md §1 and §8
+# define: dgf_version (its pack's release tag, as packs/lines.json states it),
+# read_date and — when a range is declared — both since and until. Its sources,
+# each with a sha256, are in a provenance ledger at the same path under
+# provenance/ (ADR 0036); the two line registries agree; and the vendored
+# schemas must match their recorded shipped digests. That frontmatter is
 # nested (sources is a list of maps, applies is a map), and the only frontmatter
 # parsing this script does is fm_value(), one flat key at a time. So the check
 # lives in a Python helper and this section only invokes it, exactly as section 6

@@ -80,10 +80,11 @@ plugins/dgf-factory/
 │   ├── dgf-grounded/           #   read-only: answers only what it can cite
 │   ├── dgf-archive/            #   finished plans into the archive, through archive_plans.py
 │   └── dgf-security/           #   the application's security scan, through scripts/security-scan.sh
-├── knowledge/                  # The DGF knowledge base — every fact stamped; no DGF paths (ADR 0030)
+├── knowledge/                  # The current DGF line's knowledge pack — every fact stamped with its release tag;
+│                               #   no DGF paths (ADR 0030, ADR 0036)
 │   ├── README.md               #   the stamping convention (the only unstamped file); §7 machine-read tables
-│   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (67 rows)
-│   ├── component-catalogue.md  #   34 dispatchable components; why 4 other counts differ
+│   ├── schema-families.md      #   two families, resolution rules, correspondence, runtime parity (69 rows)
+│   ├── component-catalogue.md  #   36 dispatchable components; why 4 other counts differ
 │   ├── composition-specs.md    #   workspace layout, applibs*, 5 legacy artifacts, events, XML-always, code places
 │   ├── naming-conventions.md   #   directory/file/type names a generator must reproduce exactly
 │   ├── json-reader.md          #   how the runtime reads component JSON: options, dispatch, folders, file refs
@@ -93,6 +94,8 @@ plugins/dgf-factory/
 │   ├── permissions.md          #   where the root names roles; that nothing in it declares one
 │   ├── application-layout.md   #   a new application: workspace minimum, application row, roles, sign-in, host, local stack (§7 tables)
 │   └── schemas/                #   vendored set — json/ xsd/ standalone/ + MANIFEST.md (dialects, membership)
+├── packs/                      # SHIPPED — each older DGF line's pack, packs/<X.Y>/ (same files, no README),
+│                               #   and lines.json, the registry setup chooses a project's line from (ADR 0036)
 ├── scripts/                    # SHIPPED validators skills call — exit 0/1/2/3, one output format (docs/skill-authoring.md)
 │   ├── validate_config.py      #   family, schema (read the runtime's way) and parity, both families
 │   ├── resolve_components.py   #   component types (JSON and forms) and component file references
@@ -121,7 +124,10 @@ plugins/dgf-factory/
 │                               #   model, edges, graph, roles, worktree (the only module that changes a repository)
 ├── tests/                      # NOT SHIPPED — unittest suite; fixtures/unit/ and the known-bad corpus
 ├── provenance/                 # NOT SHIPPED — where each knowledge file's facts were read from
-│   └── knowledge/              #   one ledger per knowledge file, same relative path: DGF paths + sha256
+│   ├── knowledge/              #   the current pack: one ledger per knowledge file, same relative path: DGF paths + sha256
+│   ├── packs/<X.Y>/            #   each older pack's ledgers, and its known-good-exceptions.txt
+│   ├── lines.json              #   the maintainer registry: each line's release tag, commit, support branch
+│   └── sync-log/               #   one per-source triage log per sync (/dgf-sync)
 ├── tools/                      # NOT SHIPPED — repo-maintenance tools contributors run
 │   ├── check-dual-schema-docs.sh  # doc, decision-record, install-and-package and stamp contracts; section 8 runs the tests
 │   ├── check_package.py           # the npm tarball holds the payload, and only the payload
@@ -132,7 +138,11 @@ plugins/dgf-factory/
 │   ├── build_papers.sh            # renders docs/papers/*.md to PDF with pandoc and headless Chrome
 │   ├── run_known_good.py          # every validator over DGF's samples (via scripts/lib/runner.py); each error excused
 │   ├── known-good-exceptions.txt  # the evidenced excuses, and the warning baseline
-│   ├── check_drift.py             # the provenance ledgers' digests against a DGF checkout
+│   ├── check_drift.py             # a pack's ledgers' digests against a DGF checkout at its tag (--pack)
+│   ├── packs.py                   # where each DGF line's pack, ledgers and exceptions live; the two registries
+│   ├── dgf_lines.py               # status (what moved), diff, checkout (a cache at a tag), freeze, fork (ADR 0036 §7)
+│   ├── restamp_knowledge.py       # re-digests a pack's ledgers and stamps after a re-read at a tag
+│   ├── dgf_lines_watch.sh         # the cron/launchd entry: status --fetch; opt-in headless /dgf-sync in a worktree
 │   └── requirements.in            # the validator dependencies, compiled with uv
 ├── docs/                       # Detailed documentation, one topic per page
 │   ├── adr/                    #   architecture decision records — README.md is the index
@@ -140,6 +150,7 @@ plugins/dgf-factory/
 │   ├── architecture.md         #   slice structure and dependency rules
 │   ├── skill-authoring.md      #   SKILL.md contract, gates, exit codes
 │   ├── dgf-knowledge.md        #   sourcing and version-stamping DGF facts
+│   ├── dgf-lines.md            #   one pack per DGF line: choosing a project's line, the sync flow, the schedule
 │   ├── dgf-schemas.md          #   the two schema families: JSON + XSD, parity, vendoring
 │   ├── pipeline.md             #   the spine, .dgf-factory/, the plan format, the change gate, the loop, the DGF-specific skills
 │   ├── blueprint.md            #   the full design: AI Factory teardown + DGF mapping
@@ -154,7 +165,8 @@ plugins/dgf-factory/
 │   └── rules/base.md           #   detected project conventions
 └── .claude/
     ├── skills/                 # 29 aif skills (the reference pipeline) +
-    │                           # plugin-structure (Claude Code plugin layout reference)
+    │                           # plugin-structure (Claude Code plugin layout reference) +
+    │                           # dgf-sync (maintainer: bring a DGF line's pack to a release, ADR 0036)
     └── agents/                 # 19 subagents — coordinators, workers, loop roles, sidecars
 ```
 
@@ -197,7 +209,12 @@ and the field-type tables, closed it.
 | [scripts/lib/plan.py](scripts/lib/plan.py) | The plan file's flat header, its tasks and Commit Plan, every path's class, and the artifact a path is |
 | [skills/dgf-verify/references/GATE-RESULT-CONTRACT.md](skills/dgf-verify/references/GATE-RESULT-CONTRACT.md) | What the verify gate's block holds and how its status is computed |
 | [scripts/lib/report.py](scripts/lib/report.py) | Every finding code and the exit code it forces — the single source of severity |
-| [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to `tools/known-good-exceptions.txt` |
+| [tools/run_known_good.py](tools/run_known_good.py) | Maintainer-only: the validators over DGF's samples, held to the pack's exceptions file (`--pack`) |
+| [docs/adr/0036-knowledge-packs-per-release-line.md](docs/adr/0036-knowledge-packs-per-release-line.md) | Knowledge packs per DGF release line, stamped with the release tag; one pack per project; the version gate; the sync flow |
+| [packs/lines.json](packs/lines.json) | The shipped registry of DGF lines: each pack's dir, `dgf_version` and `read_date`, and the current line |
+| [cli/lines.mjs](cli/lines.mjs) | Which DGF line setup installs: flags, the receipt's `dgfLine`, the estate's `dgf.version`; twin of `scripts/lib/dgf_version.py` |
+| [tools/dgf_lines.py](tools/dgf_lines.py) | Maintainer-only: which lines moved past their packs (`status`), each drifted source's diff, caches at a tag, freeze and fork |
+| [.claude/skills/dgf-sync/SKILL.md](.claude/skills/dgf-sync/SKILL.md) | Maintainer-only: bring a pack to a DGF release — triage, edit, re-vendor, restamp, check, log |
 | [skills/dgf-scaffold/scripts/design.py](skills/dgf-scaffold/scripts/design.py) | The scaffold's design check: the folder is empty, names, references, data model, SQL types, what is open, every default |
 | [skills/dgf-scaffold/scripts/generate.py](skills/dgf-scaffold/scripts/generate.py) | Renders a new application from the design and `templates/manifest.json`; `--check` is the post-generation check (`check.py`) |
 | [skills/dgf-scaffold/references/DESIGN-FORMAT.md](skills/dgf-scaffold/references/DESIGN-FORMAT.md) | The design file, `docs/application.json`: every key, its rule and its default |
@@ -271,10 +288,11 @@ and the field-type tables, closed it.
   gating, the validator runtime, the unit of work, the default rule set — read the ADR that
   closed it. Delivery — the npm CLI, `dgf-factory setup`, the receipt and the shipped payload — is
   decided by [ADR 0029](docs/adr/0029-npm-cli-delivery.md) and [ADR 0030](docs/adr/0030-shipped-package-payload.md).
-  Process verification, the validator runtime and version gating are decided by
+  Process verification, the validator runtime and version gating — knowledge packs per DGF
+  release line, stamped with the release tag, one installed per project — are decided by
   [ADR 0014](docs/adr/0014-process-verification-runtime-resolution.md),
   [ADR 0031](docs/adr/0031-validator-runtime-project-venv.md) and
-  [ADR 0013](docs/adr/0013-version-gating-provenance-ledger.md); the plan format, change-relative
+  [ADR 0036](docs/adr/0036-knowledge-packs-per-release-line.md); the plan format, change-relative
   gates and the declared DGF version by [ADR 0017](docs/adr/0017-plan-file-format.md),
   [ADR 0018](docs/adr/0018-change-relative-gates.md) and
   [ADR 0019](docs/adr/0019-declared-dgf-version.md); the gate block — who builds it, how its
@@ -287,7 +305,7 @@ and the field-type tables, closed it.
   the scaffold's reversal of "drive a template" together with the whole-root unit by
   [ADR 0026](docs/adr/0026-authoring-entry-point-revised.md); a writing skill's baseline without git — saved
   before the write, never the gate's — by [ADR 0025](docs/adr/0025-saved-baseline-without-git.md);
-  0001, 0002, 0003, 0004, 0006, 0007, 0008, 0012, 0015, 0020, 0021 and 0023 are superseded history.
+  0001, 0002, 0003, 0004, 0006, 0007, 0008, 0012, 0013, 0015, 0020, 0021 and 0023 are superseded history.
   Reverse a decision with a new ADR that supersedes the old one in full; never by editing it. The
   only in-place edit is a dated erratum that corrects a fact without changing the decision.
   A `proposed` ADR decides nothing until it is accepted.
@@ -298,6 +316,12 @@ and the field-type tables, closed it.
   the project-relative `.dgf-factory/runtime` — a `SKILL.md` is installed alone into a harness's
   folder, so a bare `knowledge/…` path resolves to nothing there. dgf-mcp tools are granted as
   `mcp__dgf-mcp__<tool>`. `tests/test_skill_contracts.py` enforces both.
+- **A knowledge pack moves only through `/dgf-sync` and the tools** ([ADR 0036](docs/adr/0036-knowledge-packs-per-release-line.md)).
+  `knowledge/` is the current DGF line's pack and `packs/<X.Y>/` each older line's, every one read at an
+  exact release tag. Digests, stamps, vendored schemas and the two registries (`packs/lines.json`,
+  `provenance/lines.json`) are written by `tools/restamp_knowledge.py`, `tools/vendor_schemas.py` and
+  `tools/dgf_lines.py`, never by hand; every sync leaves a per-source triage log in `provenance/sync-log/`.
+  Validators, skills and the installer are one codebase and must hold for every pack.
 - **Framework facts must be verified, never assumed.** The blueprint's Part 2 is marked
   `[assume]` throughout because it was written from one sentence of description. Confirm
   against the DGF repository or the DGF docs MCP before writing a fact into a skill, and
@@ -305,8 +329,9 @@ and the field-type tables, closed it.
 - **No DGF repository paths in shipped files** ([ADR 0030](docs/adr/0030-shipped-package-payload.md)).
   Files a developer installs never contain a path into the DGF repository: no `src/…`, no
   `docs/wiki/…`, no local checkout path — and never a relative link out of the payload. Shipped
-  files are the npm package payload, `package.json` `files`: `bin/`, `cli/`, `skills/`, `scripts/`
-  and `knowledge/`, restated in `doctor.py`'s `SHIPPED_DIRS`. A developer's install
+  files are the npm package payload, `package.json` `files`: `bin/`, `cli/`, `skills/`, `scripts/`,
+  `knowledge/`, `packs/` and `agents/`, restated in `doctor.py`'s `SHIPPED_DIRS` (section 6 of
+  `tools/check-dual-schema-docs.sh` holds the two equal). A developer's install
   has no DGF checkout, so shipped content cites the shipped `knowledge/` base or a DGF docs MCP
   tool instead. Workspace layout paths such as `FM/_COMPONENTS/` are allowed: they describe the
   developer's own workspaces, not the DGF repository. Maintainer material (`docs/`, ADRs,

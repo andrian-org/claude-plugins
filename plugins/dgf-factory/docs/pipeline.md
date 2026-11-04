@@ -175,7 +175,7 @@ The spine's five are stdlib-only Python, except that `check_change.py` and `veri
 | Script | Decides | Usage |
 |---|---|---|
 | `locate_plan.py` | The workspaces root (the nearest `.dgf-factory/config.yaml`), and the active plan: the branch's, else the one active plan, else the fast plan | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--root-only \| --setup \| --list]` |
-| `inventory_root.py` | Each workspace and its counts, what is not a workspace, git position, the knowledge stamp, validator dependencies | `--workspaces-root R` |
+| `inventory_root.py` | Each workspace and its counts, what is not a workspace, git position, the knowledge stamp and its DGF line, validator dependencies | `--workspaces-root R` |
 | `check_plan.py` | The header, tasks, the Commit Plan's groups (`plan-commits`), each file's class and workspace, the route of each new file, the ultra bundle's integrity, and (with `--overlap`) other active plans | `<plan> --workspaces-root R [--overlap]` |
 | `check_change.py` | The branch's changed files against the plan, and the validators' findings against the merge-base | `--workspaces-root R --plan P (--base REF \| --changed S:PATH …) [--files …] [--skip-validators]` |
 | `verify_gate.py` | The gate: finds the root and the plan, runs `check_plan.py`'s and `check_change.py`'s checks in-process, audits the tasks, computes the status, prints the one `dgf-gate-result` block | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--plan P] [--base REF \| --changed S:PATH …] [--no-overlap] [--strict]` |
@@ -226,10 +226,16 @@ Nothing in a workspaces root states which DGF release it runs, so `/dgf` asks an
 as `dgf.version` ([ADR 0019](adr/0019-declared-dgf-version.md)). The user picks it from the
 releases the DGF docs MCP's `list_release_notes` returns, with no default; the knowledge stamp is
 shown in the question but never offered as the answer. `/dgf-scaffold` asks for `dgf_version` the
-same way. `unknown` is allowed and stays a warning. When the declared version is newer than the knowledge base's stamp, `/dgf`
-says the shipped facts were read at an older release and offers the DGF docs MCP's
-`get_release_notes`. The version gate that compares it with a fact's `applies:` range is a
-follow-up: no behavioural fact carries one yet.
+same way. `unknown` is allowed and stays a warning.
+
+The knowledge the project holds is one DGF line's pack, installed by `dgf-factory setup` and recorded
+as `dgfLine` in the receipt ([ADR 0036](adr/0036-knowledge-packs-per-release-line.md)). When the
+declared version is on another line, `/dgf` gives the `dgf-factory setup --dgf-version <v>` that
+installs its pack; when it is another patch of the same line, it offers the DGF docs MCP's
+`get_release_notes`. `/dgf-doctor` checks it in every project: `DGF_LINE_MISMATCH`,
+`DGF_VERSION_BEHIND_PACK`, `DGF_VERSION_UNKNOWN`, `DGF_LINE_UNRECORDED`, and the version gate over
+every installed fact with an `applies:` range — `VERSION_BELOW_SINCE` blocks, `VERSION_ABOVE_UNTIL`
+warns ([DGF Lines](dgf-lines.md)).
 
 ## The gate block
 

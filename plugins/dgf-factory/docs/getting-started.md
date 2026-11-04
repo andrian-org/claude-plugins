@@ -35,21 +35,30 @@ npm install -g @andrian-org/dgf-factory
 Then run setup at the workspaces root, and start your harness from that same folder afterwards:
 
 ```bash
-dgf-factory setup                                  # asks which harnesses; previews; asks before writing
+dgf-factory setup                                  # asks which harnesses and DGF line; previews; asks before writing
 dgf-factory setup --harness claude,codex --yes     # the same, without questions
+dgf-factory setup --dgf-version 1.2.0 --harness claude --yes   # the knowledge of the DGF line the estate runs
 dgf-factory setup --dry-run --harness claude       # the preview only
 ```
+
+**Which DGF line.** The package ships one knowledge pack per DGF release line (`packs/lines.json`), and a
+project gets one: from `--dgf-line X.Y` or `--dgf-version X.Y.Z`; else the line installed before; else the
+`dgf.version` `/dgf` recorded in `.dgf-factory/config.yaml`; else the newest. A version older than every pack
+is refused unless `--dgf-line` names one. Two projects on one machine can hold different lines. To switch,
+re-run setup with the new version; `/dgf-doctor` warns when the declared version and the installed line
+differ ([DGF Lines](dgf-lines.md)).
 
 | Written | Where | Committed |
 |---|---|---|
 | The rendered `SKILL.md` per skill | each harness's skills folder: `.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, … | yes |
-| The validators, the knowledge base, the skills' references and templates | `.dgf-factory/runtime/` | yes |
+| The validators, the chosen DGF line's knowledge pack, the skills' references and templates | `.dgf-factory/runtime/` | yes |
 | The validators' Python environment | `.dgf-factory/runtime/.venv/` (ignored by a managed `.gitignore`) | no |
-| The receipt: every file written, with two hashes | `.dgf-factory/install.json` | yes |
+| The receipt: every file written, with two hashes, and the DGF line (`dgfLine`) | `.dgf-factory/install.json` | yes |
 | A `dgf-mcp` entry | the harness's MCP file, e.g. `.mcp.json`, `.gemini/settings.json`, `.codex/config.toml` | your choice |
 
 Running `dgf-factory setup` again is the update: each file is compared with the receipt, a file you
-edited is kept and reported, and one that changed on both sides is shown as a diff and kept. Nothing
+edited is kept and reported, and one that changed on both sides is shown as a diff and kept. Install the new
+CLI first: a receipt that records a DGF line is refused by a CLI older than 0.3.0. Nothing
 outside the project is written, and the project's own `.gitignore` is never edited. `/dgf-doctor` checks
 the install against the receipt.
 
@@ -199,15 +208,22 @@ bash tools/check-dual-schema-docs.sh                     # section 8 runs the sa
 
 Without `lxml` and `jsonschema` the tests that need them skip, and the docs check warns.
 
-Two tools need a DGF checkout, so they are run by hand and are not part of the docs check:
+The tools that need a DGF checkout are run by hand and are not part of the docs check. Each takes
+`--pack <X.Y>` for one DGF line's pack (default: the current line), and a checkout at that line's release
+tag — `tools/dgf_lines.py checkout <dgf-root> <X.Y>` makes one without touching your DGF working copy:
 
 ```bash
-.venv/bin/python tools/run_known_good.py <dgf-root>   # every validator over DGF's own samples
-python3 tools/check_drift.py <dgf-root>               # the provenance ledgers against the checkout
+python3 tools/dgf_lines.py status <dgf-root> --fetch                  # which lines moved past their packs
+.venv/bin/python tools/run_known_good.py <checkout> --pack 1.3       # every validator over DGF's own samples
+python3 tools/check_drift.py <checkout> --pack 1.3                   # the pack's ledgers against the checkout
 ```
 
-`run_known_good.py` passes only when every error it sees is excused in
-`tools/known-good-exceptions.txt`. An excuse is an `EXCEPTION` line whose reason cites the
+Bringing a pack to a new DGF release is the maintainer skill `/dgf-sync`; [DGF Lines](dgf-lines.md) has the
+flow and the scheduled watcher.
+
+`run_known_good.py` passes only when every error it sees is excused in the pack's exceptions file —
+`tools/known-good-exceptions.txt` for the current line, `provenance/packs/<X.Y>/known-good-exceptions.txt`
+for another. An excuse is an `EXCEPTION` line whose reason cites the
 runtime code path, or an `EXPECTED_EXTERNAL` process. An exception never makes a validator
 gap pass: a validator that disagrees with the runtime is fixed.
 
@@ -225,8 +241,8 @@ rather than a different one per interpreter.
 **Releasing.** Bump `version` in `package.json`, commit, then push a tag that names it:
 
 ```bash
-git tag dgf-factory-v0.2.0
-git push origin dgf-factory-v0.2.0
+git tag dgf-factory-v0.3.0
+git push origin dgf-factory-v0.3.0
 ```
 
 `.github/workflows/publish-dgf-factory.yml` (at the repository root) checks that the tag matches
