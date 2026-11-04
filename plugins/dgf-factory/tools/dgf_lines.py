@@ -15,6 +15,12 @@ A repo-maintenance tool, not shipped. Four subcommands:
                             support branch (origin/X.Y.x), has no pack
       An untagged branch such as 2.x, and an old line with neither a pack nor a
       support branch, are INFO. Changes no knowledge file: safe to schedule.
+  diff     <dgf-root> <line> --to <X.Y.Z> [--path <dgf-path>]… [--stat]
+      Read-only. For each source the pack's ledgers cite that changed between the
+      pack's pinned commit and <X.Y.Z> (the vendored schema set's excepted — that
+      is vendor_schemas.py's), the knowledge file it feeds and its `git diff`, so
+      the maintainer skill needs no git grant (ADR 0035). --path narrows it to the
+      named sources; --stat prints the per-file summary only.
   checkout <dgf-root> <line> [--tag <X.Y.Z>]
       Materialises the line at its tag (default: the pack's tag, or the line's
       newest when the pack is a legacy pin) in a `git clone --shared` cache under
@@ -345,6 +351,49 @@ def cmd_status(args):
     return summary()
 
 
+# --- diff --------------------------------------------------------------------
+
+def drifted_sources(cache, line):
+    """[(knowledge file it feeds, source path)] that changed at the cache checkout, schema ledger excepted."""
+    drift = load_tool("check_drift")
+    stamps = drift.load_stamps()
+    pack = drift.Pack(line)
+    _cited, found = drift.drift_findings(cache, stamps, drift.ledgers(stamps, pack))
+    return [(feeds, path) for _code, _ledger, path, feeds, _e, _a in found if not feeds.endswith("schemas/MANIFEST.md")]
+
+
+def cmd_diff(args):
+    try:
+        shipped, maintainer, _current = packs.load_registry()
+    except packs.RegistryError as exc:
+        fail(EXIT_USAGE, f"line registry: {exc}")
+    if args.line not in shipped:
+        fail(EXIT_USAGE, f"line {args.line} has no pack")
+    if not RELEASE_TAG.match(args.to) or packs.line_of(args.to) != args.line or commit_of(args.dgf_root, args.to) is None:
+        fail(EXIT_USAGE, f"--to {args.to}: not a release tag on line {args.line} in {args.dgf_root}")
+    pinned = maintainer[args.line]["commit"]
+    cache = materialise(args.dgf_root, args.line, args.to)
+    sources = drifted_sources(cache, args.line)
+    if args.path:
+        wanted = set(args.path)
+        sources = [(feeds, path) for feeds, path in sources if path in wanted]
+    print(f"{BOLD}Drifted sources of pack {args.line}{NC}: {pinned[:12]} → {args.to} ({len(sources)})")
+    by_file = {}
+    for feeds, path in sources:
+        by_file.setdefault(feeds, []).append(path)
+    for feeds in sorted(by_file):
+        print(f"\n{BOLD}{feeds}{NC} — {len(by_file[feeds])} source(s)")
+        for path in by_file[feeds]:
+            stat = git(args.dgf_root, "diff", "--no-ext-diff", "--no-textconv", "--stat=120", pinned, args.to, "--",
+                       path, check=False) or "  (no textual change — the file was renamed or its mode changed)\n"
+            print(stat.rstrip())
+            if not args.stat:
+                print(git(args.dgf_root, "diff", "--no-ext-diff", "--no-textconv", "--no-color", pinned, args.to,
+                          "--", path, check=False) or "")
+    debug("diff", line=args.line, to=args.to, sources=len(sources))
+    return EXIT_CLEAN
+
+
 # --- checkout ----------------------------------------------------------------
 
 def cmd_checkout(args):
@@ -513,6 +562,12 @@ def parse_args(argv):
     status.add_argument("--fetch", action="store_true")
     status.add_argument("--json")
     status.add_argument("--line", type=line_arg)
+    diff = sub.add_parser("diff")
+    diff.add_argument("dgf_root", type=dgf_root)
+    diff.add_argument("line", type=line_arg)
+    diff.add_argument("--to", required=True)
+    diff.add_argument("--path", action="append", default=[])
+    diff.add_argument("--stat", action="store_true")
     checkout = sub.add_parser("checkout")
     checkout.add_argument("dgf_root", type=dgf_root)
     checkout.add_argument("line", type=line_arg)
@@ -539,7 +594,8 @@ def parse_args(argv):
 def main(argv):
     args = parse_args(argv)
     debug("main", command=args.command)
-    return {"status": cmd_status, "checkout": cmd_checkout, "freeze": cmd_freeze, "fork": cmd_fork}[args.command](args)
+    commands = {"status": cmd_status, "diff": cmd_diff, "checkout": cmd_checkout, "freeze": cmd_freeze, "fork": cmd_fork}
+    return commands[args.command](args)
 
 
 if __name__ == "__main__":

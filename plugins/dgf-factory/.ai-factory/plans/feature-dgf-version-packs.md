@@ -451,7 +451,7 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
 
 ### Phase 4 — The periodic update
 
-- [ ] **Task 7: The maintainer skill `/dgf-sync`.** (depends: 4)
+- [x] **Task 7: The maintainer skill `/dgf-sync`.** (depends: 4)
   - **Deliverable:** `.claude/skills/dgf-sync/SKILL.md`, prompt-as-program, the house style of
     `skills/dgf-doctor/SKILL.md`.
     - **Frontmatter:** `allowed-tools` narrowed to `Bash(python3 tools/dgf_lines.py *)`,
@@ -488,7 +488,7 @@ restamp_knowledge.py <dgf-checkout> --pack <line> (<knowledge-file>… | --all) 
   - **Files:** .claude/skills/dgf-sync/SKILL.md, .claude/skills/dgf-sync/references/SYNC-LOG-FORMAT.md,
     .claude/skills/dgf-sync/references/TRIAGE.md, provenance/sync-log/README.md, tests/test_maintainer_skill.py
 
-- [ ] **Task 8: The scheduled watcher.** (depends: 4, 7)
+- [x] **Task 8: The scheduled watcher.** (depends: 4, 7)
   - **Deliverable:** `tools/dgf_lines_watch.sh <dgf-root>`.
     1. Runs `dgf_lines.py status --fetch --json "$DGF_LINES_CACHE/last-status.json"`.
     2. Exit 0 → done.

@@ -144,6 +144,27 @@ class Status(Base):
         self.assertEqual(self.lines("status", self.tmp)[0], 3)
 
 
+class Diff(Base):
+    def test_diff_shows_each_drifted_source_and_leaves_the_dgf_alone(self):
+        before = self.dgf_state()
+        code, out, err = self.lines("diff", self.dgf, "1.3", "--to", "1.3.1")
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("Drifted sources of pack 1.3", out)
+        self.assertIn("knowledge/facts.md — 1 source(s)", out)
+        self.assertIn("-v1", out)
+        self.assertIn("+v2", out)
+        self.assertNotIn("AConfiguration", out, "the vendored schema set is vendor_schemas.py's")
+        self.assertEqual(self.dgf_state(), before)
+
+    def test_stat_and_path_narrow_it(self):
+        code, out, _ = self.lines("diff", self.dgf, "1.3", "--to", "1.3.1", "--stat", "--path", "src/Elsewhere.cs")
+        self.assertEqual(code, 0, out)
+        self.assertIn("(0)", out)
+
+    def test_a_tag_off_the_line_is_exit_3(self):
+        self.assertEqual(self.lines("diff", self.dgf, "1.3", "--to", "1.2.0")[0], 3)
+
+
 class Checkout(Base):
     def test_checkout_detaches_a_cache_at_the_tag_and_leaves_the_dgf_alone(self):
         before = self.dgf_state()
