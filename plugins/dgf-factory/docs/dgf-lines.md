@@ -160,7 +160,7 @@ The DGF repository is on Azure DevOps (`dev.azure.com/dotgov/DotGovFramework`). 
 cannot read it without a personal access token, and deciding that secret's scope is a follow-up of ADR 0036.
 Until then the watcher runs on a maintainer's machine.
 
-## See also
+## See Also
 
 - [ADR 0036](adr/0036-knowledge-packs-per-release-line.md) — the decision
 - [DGF Knowledge Sourcing](dgf-knowledge.md) — stamping and citing a fact

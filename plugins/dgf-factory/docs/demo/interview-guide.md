@@ -1,4 +1,4 @@
-[Prep checklist](prep-checklist.md) · [Cheat sheet](cheat-sheet.md) · [Back to README](../../README.md)
+[← Blueprint](../blueprint.md) · [Prep checklist](prep-checklist.md) · [Cheat sheet](cheat-sheet.md) · [Back to README](../../README.md)
 
 # Interview Guide — Split Bill on DGF, built live with dgf-factory
 

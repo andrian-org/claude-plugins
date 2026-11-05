@@ -30,13 +30,17 @@
   - **Upgrade an estate from an older DGF version to the latest** — no upgrade skill exists; `/dgf` records the declared version ([ADR 0019](../docs/adr/0019-declared-dgf-version.md)) and the knowledge is stamped to one DGF version ([ADR 0013](../docs/adr/0013-version-gating-provenance-ledger.md)). The guide needs a version-delta route: release notes via `get_release_notes("since:X.Y.Z")`, re-vendored schemas, the gate over the whole root
   - **Add new functionality to an existing system** — `/dgf-plan` → `/dgf-implement` (with `/dgf-component`, `/dgf-process`, `/dgf-model`) → `/dgf-verify` → `/dgf-commit`, and `/dgf-audit`'s blast radius before touching a shared workflow
   - **Check the current system, including security** — `/dgf-audit` for configuration health and blast radius, plus `scripts/security-scan.sh` (Trivy, Gitleaks, Semgrep, OWASP ZAP; runtime, dependency, secret, config, code, image, DAST and SBOM checks). Before the guide: decide where the scan lives and how a skill calls it — it currently sits untracked in the shipped `scripts/`, exits `2` for a usage error where the project contract says `3` and `2` is warnings, needs Docker, and names a `security-scan.ps1` Windows twin that does not exist
+- [x] **DGF Version Packs** — one knowledge pack per DGF release line, each read at an exact release tag and stamped with it, because `Directory.Build.props` `<Version>` is two releases stale. `knowledge/` tracks the current line (1.3.0); `packs/1.2` (1.2.0) and `packs/1.1` (1.1.16) are frozen beside it, and `packs/lines.json` registers them. `dgf-factory setup` installs one line per project — from `--dgf-line`, `--dgf-version`, the receipt or the estate's `dgf.version` — and refuses an estate older than every pack; `/dgf-doctor` reports `DGF_LINE_MISMATCH` and gates ranged facts. The maintainer side: `tools/dgf_lines.py` (status, diff, checkout, freeze, fork), `tools/restamp_knowledge.py`, `--pack` on every existing tool, the `/dgf-sync` skill, and `tools/dgf_lines_watch.sh` for cron/launchd, which with autorun leaves an unmerged `chore/dgf-sync-<date>` branch for review. Released as 0.3.0 ([ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md); plan in `plans/feature-dgf-version-packs.md`)
 
 ## Follow-ups
 
 Task-sized items from finished milestones that no open milestone owns. Pick one up when its area next changes. The detail is in the archived plans under `archive/plans/`.
 
-- **Refresh the knowledge base to DGF 1.1.15.** The knowledge is stamped 1.1.11. Against a DGF checkout at 1.1.15 (`58dd775a0`, read 2026-11-03), `tools/run_known_good.py` is BLOCKED with 52 errors no exception covers — newer samples use component types such as `chart` and `autoComplete` the catalogue does not know — and `tools/check_drift.py` reports 147 drifted sources across 11 ledgers. Re-vendor the schemas, re-read each drifted fact from the runtime, re-stamp, and settle every new error with a validator fix or an evidenced exception (`.ai-factory/RULES.md` rule 3). Do this before any pilot; the concept paper asks for it ([ADR 0013](../docs/adr/0013-version-gating-provenance-ledger.md))
-- **Install from the registry, end to end.** The tag-triggered workflow published 0.2.0 to GitHub Packages on 2026-10-27; install it with the README's `.npmrc` steps on a clean machine and record the result ([ADR 0029](../docs/adr/0029-npm-cli-delivery.md))
+- **Install from the registry, end to end.** The tag-triggered workflow published 0.2.0 to GitHub Packages on 2026-10-27; `package.json` is now 0.3.0, not yet tagged. Tag and publish it, then install it with the README's `.npmrc` steps on a clean machine and record the result ([ADR 0029](../docs/adr/0029-npm-cli-delivery.md))
+- **A CI job for the DGF line watcher.** `tools/dgf_lines_watch.sh` runs from cron or launchd on one machine; moving it to Azure DevOps needs a PAT and a decision on secrets ([ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md); `feature-dgf-version-packs.md`)
+- **Row-level `applies:` ranges in machine-read tables.** Facts carry `since`/`until` ranges; a `knowledge/README.md` §7 table row cannot yet, so a row that changes inside a line forces a whole-pack answer (`feature-dgf-version-packs.md`)
+- **Report upstream: the stale build version.** DGF's `src/Directory.Build.props` `<Version>` is ClientDebug-only and reads `1.1.15` at tags 1.1.16, 1.2.0 and 1.3.0; releases are versioned by GitVersion from tags (`feature-dgf-version-packs.md`)
+- **The 1.3.1 fragments disagree on `RenderType Internal`.** Settle it from the runtime when `/dgf-sync` brings the 1.3 pack to 1.3.1 (`feature-dgf-version-packs.md`)
 - **Run the parallel agents in Claude Code.** `plan_layers.py` and `worktree_task.py` are tested over real worktrees, and a scripted dry run merged two tasks; a live `claude --agent dgf-implement-coordinator` run on a real plan has not been made ([ADR 0033](../docs/adr/0033-parallel-execution.md))
 - **Add the quality skills to the override readers** once a patch teaches one of them something ([ADR 0032](../docs/adr/0032-quality-and-authoring-skills.md) §7)
 - **A git wrapper script** so read-only git queries can be pre-approved again by name, each argument checked ([ADR 0035](../docs/adr/0035-no-skill-pre-approves-git.md))
@@ -89,9 +93,6 @@ Task-sized items from finished milestones that no open milestone owns. Pick one 
   harmless edit changes — `MODEL_REFERENCE_APP_DEPENDENT`'s application list, a view-template reason quoting a
   renamed key — reads as new. Decide whether such a message should carry a stable part for the key to use
   ([ADR 0018](../docs/adr/0018-change-relative-gates.md), [ADR 0025](../docs/adr/0025-saved-baseline-without-git.md))
-- **Re-read `composition-specs.md`'s `angular.json` digest.** Its ledger entry for `src/DGF.UI/angular.json` is stamped
-  at an older DGF commit than `1d5999186`; the fact holds, the digest is stale. Maintainer work: run
-  `tools/check_drift.py` against a DGF checkout and re-stamp (`provenance/knowledge/composition-specs.md`)
 
 ## Completed
 
@@ -117,3 +118,4 @@ Also done on 2026-11-03, from the follow-ups: no skill pre-approves git any more
 | Usage Guides | 2026-11-03 |
 | Concept Paper | 2026-11-03 |
 | Product Description Paper | 2026-11-03 |
+| DGF Version Packs | 2026-11-05 |

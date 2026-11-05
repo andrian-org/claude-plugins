@@ -1,4 +1,4 @@
-[← Decision Records](adr/README.md) · [Back to README](../README.md)
+[← Decision Records](adr/README.md) · [Back to README](../README.md) · [Interview Demo →](demo/interview-guide.md)
 
 > **Note:** this page moved from `ARCHITECTURE-BLUEPRINT.md` in the plugin root.
 > File paths in Part 2 are relative to the **plugin root** (`plugins/dgf-factory/`),

@@ -1,4 +1,4 @@
-[Back to README](../README.md) · [Pipeline Spine →](pipeline.md)
+[Back to README](../README.md) · [Usage Guides →](guides/README.md)
 
 # Getting Started
 
@@ -338,7 +338,8 @@ skills, run `/dgf-fix` when `/dgf-verify` suggests it, then `/dgf-evolve`.
 ## What is not here yet
 
 - An install from the registry checked end to end: the tag-triggered workflow published 0.2.0 to GitHub Packages
-  on 2026-10-27, but the README's `.npmrc` route has been checked only with a tarball (`npm pack`)
+  on 2026-10-27, but the README's `.npmrc` route has been checked only with a tarball (`npm pack`). `package.json`
+  is now 0.3.0 (the DGF line packs), not yet tagged, so the registry still serves 0.2.0
 - Agents for any harness but Claude Code: the parallel run (`claude --agent dgf-implement-coordinator`, see
   [Parallel execution](pipeline.md#parallel-execution)) is Claude Code only, and every other harness implements a
   plan with `/dgf-implement`, one task at a time (ADR 0033)

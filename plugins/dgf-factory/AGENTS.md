@@ -261,10 +261,12 @@ and the field-type tables, closed it.
 |---|---|---|
 | README | `README.md` | Plugin landing page |
 | Getting Started | `docs/getting-started.md` | Prerequisites, installing with `dgf-factory setup`, repo layout, a scratch project, trying the spine |
+| Usage Guides | `docs/guides/README.md` | Five scenarios, step by step, with the gates on each |
 | Pipeline Spine | `docs/pipeline.md` | The five skills, `.dgf-factory/`, plan format, change gate, learning loop, the DGF-specific skills |
 | Architecture | `docs/architecture.md` | Slice structure and dependency rules |
 | Skill Authoring | `docs/skill-authoring.md` | SKILL.md contract, gates, exit codes |
 | DGF Knowledge Sourcing | `docs/dgf-knowledge.md` | Citing and version-stamping DGF facts |
+| DGF Lines | `docs/dgf-lines.md` | One pack per DGF line, choosing a line, the sync |
 | DGF Schemas | `docs/dgf-schemas.md` | The two schema families (JSON + XSD), runtime parity, vendoring |
 | Decision Records | `docs/adr/README.md` | Index of architecture decisions — delivery model, process verification, validator runtime, version gating, scope, default rules |
 | Architecture Blueprint | `docs/blueprint.md` | AI Factory teardown and the DGF mapping |

@@ -1,4 +1,4 @@
-[Back to README](../../README.md) · [Getting Started](../getting-started.md) · [Start a new project →](start-a-new-project.md)
+[← Getting Started](../getting-started.md) · [Back to README](../../README.md) · [Start a new project →](start-a-new-project.md)
 
 # Usage Guides
 

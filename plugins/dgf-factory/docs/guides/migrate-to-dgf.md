@@ -1,4 +1,4 @@
-[← Upgrade the DGF version](upgrade-dgf-version.md) · [Guides](README.md) · [Back to README](../../README.md)
+[← Upgrade the DGF version](upgrade-dgf-version.md) · [Guides](README.md) · [Back to README](../../README.md) · [Pipeline Spine →](../pipeline.md)
 
 # Migrate to DGF
 

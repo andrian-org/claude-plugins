@@ -1,4 +1,4 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
+[← Usage Guides](guides/README.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
 
 # The Pipeline Spine, the Learning Loop, the DGF-Specific and the Quality Skills
 

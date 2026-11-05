@@ -1,4 +1,4 @@
-[← DGF Knowledge Sourcing](dgf-knowledge.md) · [Back to README](../README.md) · [Decision Records →](adr/README.md)
+[← DGF Lines](dgf-lines.md) · [Back to README](../README.md) · [Decision Records →](adr/README.md)
 
 # DGF Schemas — JSON and XSD
 

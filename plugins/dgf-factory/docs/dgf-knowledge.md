@@ -1,4 +1,4 @@
-[← Skill Authoring](skill-authoring.md) · [Back to README](../README.md) · [DGF Schemas →](dgf-schemas.md)
+[← Skill Authoring](skill-authoring.md) · [Back to README](../README.md) · [DGF Lines →](dgf-lines.md)
 
 # DGF Knowledge Sourcing
 

@@ -227,6 +227,7 @@ Artifact root is `.dgf-factory/`, mirroring `.ai-factory/`.
 
 See [.ai-factory/ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture guidelines —
 folder structure, dependency rules, communication mechanisms and anti-patterns.
+Pattern: Structured Modules (Vertical Slices)
 
 Pattern: **Structured Modules (Vertical Slices)** — one skill is one self-contained
 slice, with shared DGF facts in `knowledge/` and cross-slice validators in `scripts/`.
