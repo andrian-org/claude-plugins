@@ -25,7 +25,7 @@ sources:
   - path: src/Core/DGF.Domain/Data/EditableGrid/EditableGridManager.cs
     sha256: 66941b29b2a35731aca24b532be267570dc666aae1e611bcb528c13591961f98
   - path: src/Core/DGF.Domain/Data/StaticOptionReader.cs
-    sha256: 5b6c5808f3d8c3038dc2caa28c3f9c0890734f7334630678a39319c791079602
+    sha256: 2028ec64dda6d6dac67ca01bc02163bb9aabd79380586bd76869931b4d74d40e
   - path: src/Core/DGF.DataSources/DataSourceLoader.cs
     sha256: 24e3b570fcc4e533640f03370d8278e9b3eae461dc8ebb6860ac9f8b42eab8d6
   - path: src/Core/DGF.DataSources/Endpoints/EndpointFactory.cs
@@ -59,15 +59,13 @@ sources:
     sha256: 77bab74088530734c42b312a38865fd5b818fa807b126b0ea6e733637c7a3e5f
   # §5 — the /application and /webasm static-file mounts
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: da6b8856d99d6a527a8d081ec98beb96bd8422870297540e7a1f7abd227f8865
+    sha256: 219b5e33610ee2339d4fd67661abff6281168ca69d3d197e13dc7bf3254eb7a3
   - path: src/DGF.UI/src/index.html
     sha256: c492af0365ca05b5fc0007b9164c2c9b85ff80d4810ad4caf3ee869b89749458
   - path: src/DGF.UI/src/app/services/theme.service.ts
     sha256: 6688dbc54c5e785859f805ae94390632ed7429724952b783072f4f55e932a3ac
-  - path: docs/wiki/Release-notes/.next/breaking-theme-design-token-links.md
-    sha256: 4a36c3db471ab87b1713d4224ad1eff7c8776c791a17c0986337504f73141a23
-  - path: docs/wiki/Release-notes/.next/bugfix-theme-stylesheet-browser-cache.md
-    sha256: 6037f9c2b202723f753adca31976152913c06f1ad3ba8bed579eb459caa70e83
+  - path: docs/wiki/Release-notes/RELEASE-1.3.0.md
+    sha256: e52f588bb4ec45dabf79061c89353235ef7f746e578d4aade938ff37cddb568c
 ---
 # Provenance — `knowledge/composition-specs.md`
 

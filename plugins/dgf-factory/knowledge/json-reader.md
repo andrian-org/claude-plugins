@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.3.0"
-read_date: 2026-11-04
+dgf_version: "1.3.1"
+read_date: 2026-11-05
 ---
 
 # JSON reader — how the runtime reads a component JSON file

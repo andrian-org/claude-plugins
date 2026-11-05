@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: da6b8856d99d6a527a8d081ec98beb96bd8422870297540e7a1f7abd227f8865
+    sha256: 219b5e33610ee2339d4fd67661abff6281168ca69d3d197e13dc7bf3254eb7a3
   - path: src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs
     sha256: f57d38b06a3c40d73926e0c479a576f04a7f46b146a15d3e9b7b1799e00daff7
   - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs

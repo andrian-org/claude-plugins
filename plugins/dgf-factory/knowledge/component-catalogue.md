@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.3.0"
-read_date: 2026-11-04
+dgf_version: "1.3.1"
+read_date: 2026-11-05
 ---
 
 # Component catalogue — which components exist, and which count answers which question
@@ -18,7 +18,7 @@ which.** In particular, never write "~40" — it matches none of them.
 | **36** | `IComponentService<TSource>` registrations — components the runtime dispatches to a service | the 36 `RegisterComponentService(` calls across 33 `ConfigureServices.cs` files | *"Which component names does the runtime route a request to?"* — the validator's question |
 | **69** | `ComponentType` enum members (excluding `None`) — every type name the runtime recognises, including layout-only types with no service | the `ComponentType` enum | *"Is this a legal `type` value at all?"* |
 | **58** | lifecycle-matrix entries | the MCP's lifecycle matrix, `get_component_lifecycle` (`totalCount`) | *"What is this component's lifecycle classification?"* — hand-authored with code citations |
-| **63** | showcase examples | the MCP's showcase examples, `get_component_examples` (`componentCount`) | *"Is there a demo of this component?"* — built from the sample app, not from services |
+| **68** | showcase examples | the MCP's showcase examples, `get_component_examples` (`componentCount`) | *"Is there a demo of this component?"* — built from the sample app, not from services |
 | **68** | components with a generated JSON schema | DGF's format-coverage page, `get_doc_page('AI-Authoring/format-coverage.md')` (69 rows, one struck through) | *"Can its config be schema-validated?"* — see `schema-families.md` |
 
 None of these is published as a derived artifact; the 36 and the 69 are derived by static

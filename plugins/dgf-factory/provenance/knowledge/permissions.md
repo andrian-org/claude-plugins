@@ -36,8 +36,8 @@ sources:
     sha256: 3a1d88607ccd0bf75612cfd88fbf003c070200562f78ded6086341bc742d2c52
   - path: src/Core/DGF.Infrastructure/Services/Account/UserService.cs
     sha256: b37705ad5d2744cdc2cccb8807b95ec2042e962368acefadfec9092a5337e09b
-  - path: docs/wiki/Release-notes/.next/feature-role-display-name.md
-    sha256: b8f6c85c6fbd9e055f27fb718e1561bc8bd3b5dec27f40fb34592e8287ac2486
+  - path: docs/wiki/Release-notes/RELEASE-1.3.0.md
+    sha256: e52f588bb4ec45dabf79061c89353235ef7f746e578d4aade938ff37cddb568c
 ---
 # Provenance — `knowledge/permissions.md`
 
