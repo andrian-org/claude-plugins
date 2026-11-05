@@ -43,7 +43,7 @@ sources:
   - path: src/Core/DGF.Domain/Data/ContextCell.cs
     sha256: d8578247ef44838cefeb728443cbdaa6920cd3cf9725080494c0a16182e96b3c
   - path: src/Core/DGF.OM/Store/SqlQueryBuilder.cs
-    sha256: 2644e959c875c4de001a41f595b56c7deda28a0ff4c0cca8670f1494c00d0dd7
+    sha256: ff28e265f8de1c3fc5d1b5227a965ab5e26d336c0411e1432a8330632385aa6f
   - path: src/Core/DGF.OM/Providers/BaseDataRowProvider.cs
     sha256: aad537e34cab1b3606d47795387a3b187a23c9d7ebb52c6262b6782680ee9b25
   - path: src/Core/DGF.Kernel/Utils/Serialization/BaseFileSerializationService.cs
@@ -406,12 +406,20 @@ sources:
     sha256: 45797dfb14a06c91c970560841ae2e1b0eb9b9b447e09f22e30175099f1439e1
   - path: src/Core/DGF.OM/Store/DbLookupHandler.cs
     sha256: 9953ca810fea7a37bda44fd81266f80198b64aadc6e2b480bc90499c0f3e8d1d
-  - path: docs/wiki/Release-notes/.next/bugfix-lookup-dynamic-sql.md
-    sha256: 0c9c1033de92c6ef71d408c08c7900692d07e5e1753e9a143a79bc4240782cb3
-  - path: docs/wiki/Release-notes/.next/bugfix-textarea-pattern-validation.md
-    sha256: 493c6af7e2402e11921750646d3ef46f81fa664a6d59fb8b94b602178ac91954
-  - path: docs/wiki/Release-notes/.next/feature-tab-item-property-converters.md
-    sha256: aef4bb1ae83bd1f430b5e6828e00d4bd2f714b9dee0c2880815867133ba1545e
+  - path: docs/wiki/Release-notes/RELEASE-1.3.0.md
+    sha256: e52f588bb4ec45dabf79061c89353235ef7f746e578d4aade938ff37cddb568c
+  - path: src/samples/Database/dbo/Tables/DGF_Demo_DocCases.sql
+    sha256: cbbf30e3b93eea2cfe51ca9319e8968306ad9f451e4eaf04cb278e43e3ad48e7
+  - path: src/samples/Database/dbo/Tables/DGF_Demo_DocCaseLines.sql
+    sha256: acad93b37c61fd45ba22298df9de98759f976f54720159c852436148001cb77d
+  - path: src/samples/Database/dbo/Tables/DGF_Demo_DocCaseLineNotes.sql
+    sha256: f429573104b21f136c98bfff7a0bfe7885a26a5dfadbdf686622833df96e96d5
+  - path: src/samples/workspaces/dgf/FM/_DATA/DGF_Demo_DocCases/settings.xml
+    sha256: a477610e873c5667bf8401fc2c279ec9c45861d6c629408cef2fa48c107ffe39
+  - path: src/samples/workspaces/dgf/FM/_DATA/DGF_Demo_DocCaseLines/settings.xml
+    sha256: fd1a166f9a678b30d4a960a32bd54becf9d39fc4c157dae0a4ccba6f41578bb7
+  - path: src/samples/workspaces/dgf/FM/_DATA/DGF_Demo_DocCaseLineNotes/settings.xml
+    sha256: fec7dd7cb1019b5bf755b8ff497a83d1d630dad4370b78c3980fb7890b1b6c65
 ---
 # Provenance — `knowledge/data-model.md`
 

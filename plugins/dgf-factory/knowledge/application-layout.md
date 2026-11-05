@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.3.0"
-read_date: 2026-11-04
+dgf_version: "1.3.1"
+read_date: 2026-11-05
 ---
 
 # Application layout — what a new DGF application is made of
@@ -277,6 +277,11 @@ Facts behind the rows:
   `SessionOptions`, whose keys are `CookieDomain` (none), `CookieNamePrefix` (`webapp`), `IdleTimeout`
   (30 minutes), `SlidingExpiration` (true), `SameSite` (`None`) and `UseDistributedCacheSessionStorage`
   (false). The cookie names are `<prefix>_session` and `<prefix>_oidc_auth`.
+- **A user from another application gets `DefaultRole` on first sign-in**, from DGF 1.3.1. Applications
+  that share one database share its users. When an external user signs in to an application whose
+  `ApplicationId` is not the user's own, and the user has no role in that application, the account
+  service grants `DefaultRole` — only when `AutoApprove` is `true` and `DefaultRole` is set. A user of
+  the application itself whose roles were removed gets none back.
 - **Two host settings rewrite redirects**: `WebAppHost` is the UI's base URL, used for the failure
   redirect to `/login`; `ReverseProxyHost` is the API's public URL, prefixed to the callback path. Both
   are read from the top level of the settings.
@@ -293,7 +298,7 @@ Facts behind the rows:
 - **The API library is a project reference in the framework's repository, and no package id is pinned.**
   It sets no `PackageId`, no description and no version of its own. The props file's `<Version>`, set
   for the `ClientDebug` configuration only, reads `1.1.15`, and the sample host's Dockerfile passes the
-  build a `VersionPrefix` of `1.1.15`; both read so at the release tagged `1.3.0`, so neither is the
+  build a `VersionPrefix` of `1.1.15`; both read so at the release tagged `1.3.1`, so neither is the
   release version — the git tag is. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
   framework: the id is by default the assembly name, `DGF.API`, which is not confirmed by any pack
   configuration.
@@ -312,8 +317,18 @@ Facts behind the rows:
 - **Other settings the host reads:** `ApplicationConfig:ApplicationName` (the data-protection application
   name, default `DGF`; keys are persisted to the database), `ApplicationConfig:CustomAssembliesPath`,
   `CorsOrigins` (a list, with credentials allowed), `Serilog`, `Languages`, `DbResourceConfiguration`,
-  `Documents`, `ProcessConfigurations`, `TemplateRendering`, `Defaults` (uploader and image limits),
-  `workflow`, `Plugins` and `AdminSeedOptions`.
+  `ProcessConfigurations`, `TemplateRendering`, `Defaults` (uploader and image limits),
+  `DataSources:EnforceAuthentication`, `workflow`, `Plugins` and `AdminSeedOptions`.
+- **The host reads no `Documents` settings.** Word and PDF documents are rendered in process by the
+  engine the API library ships. `Documents:Engine` and `Documents:PdfConverter` set to anything but
+  `Syncfusion`, and `GotenbergUrl`, `MaxPdfBytes`, `LibreOfficePath`, `LibreOfficeTimeoutSeconds`,
+  `PdfAVersion`, `PdfTagged` and `ValidatePdfA` under `Documents`, each log a warning at start and are
+  otherwise ignored. No document licence key is read.
+- **Anonymous callers and data sources.** `DataSources:EnforceAuthentication` defaults to `true`. With it,
+  a caller who has not signed in gets 401 from a `document` data source, and from any data source named
+  by `/DataSource/execute`, unless that data source sets `allowUnauthorizedAccess: true`. Data sources
+  that components, forms, lookups and workflows run internally are not checked. Set to `false`, nothing
+  is refused, and the host logs that once.
 - **The API library's Serilog sinks are Console and Seq** (with Elasticsearch formatting). It ships no
   Application Insights package, so a host whose `Serilog` settings write to Application Insights
   references that sink itself.
@@ -327,13 +342,15 @@ Facts behind the rows:
   `ASPNETCORE_HTTP_PORTS=4000`); the health endpoint is `/health/live`; the image has no `curl` or `wget`.
 - **The sample host's Dockerfile** builds from the framework's own source tree, so it is not a pattern
   a package-consuming project can copy. What it pins: `mcr.microsoft.com/dotnet/aspnet:10.0` as the
-  runtime and `mcr.microsoft.com/dotnet/sdk:10.0` as the build image; libraries for PDF and imaging
-  (`libfontconfig`, `libgdiplus`, `libc6-dev`, `libuuid1`, `fontconfig`, `fonts-liberation`); a user and
-  group with id `4000`; `ENTRYPOINT ["dotnet", "<Host>.dll"]`.
-- **The sample `appsettings.json` of the host holds live-looking secrets** in eight places — the
-  connection string, two endpoint passwords, two integration passwords, an RSA private key, a PowerBI
-  secret and a Syncfusion licence — and environment URLs. None of it is a pattern: the credential-free
-  settings the local stack mounts are.
+  runtime and `mcr.microsoft.com/dotnet/sdk:10.0` as the build image; `libfontconfig`, `fontconfig` and
+  the fonts documents are rendered with (`fonts-liberation`, `fonts-crosextra-carlito`,
+  `fonts-crosextra-caladea`, `fonts-dejavu-core`, `fonts-noto-core`); a user and group with id `4000`;
+  `ENTRYPOINT ["dotnet", "<Host>.dll"]`. Without the Carlito and Caladea fonts, text set in Calibri or
+  Cambria falls back to another family and breaks lines differently from Word.
+- **The sample `appsettings.json` of the host holds live-looking secrets** in three places — the
+  connection string, one endpoint password and an RSA private key — beside four `__REPLACE_ME__`
+  placeholders, and environment URLs. None of it is a pattern: the credential-free settings the local
+  stack mounts are.
 
 ## 7. The local stack
 
@@ -344,8 +361,8 @@ services and the stubs.
   from a mounted certificate directory); `mcr.microsoft.com/mssql/server:2022-latest` (`MSSQL_PID`
   `Developer`, `ACCEPT_EULA` `Y`, healthcheck `sqlcmd -Q 'SELECT 1'`, data volume); `redis:7-alpine`
   (`--save 60 1`); `datalust/seq:2024.3` (`SEQ_FIRSTRUN_NOAUTHENTICATION` `True`); `wiremock/wiremock:3.13.1`
-  for the Registration Authority, Pay, Sign and Notify stubs; `gotenberg/gotenberg:8`. The database and
-  Redis services are in the `infra` profile; `COMPOSE_PROFILES=` opts out.
+  for the Registration Authority, Pay, Sign and Notify stubs. No document-conversion service runs. The
+  database and Redis services are in the `infra` profile; `COMPOSE_PROFILES=` opts out.
 - **`db-init`** is built from the database project's folder and exits after publishing; the API waits on
   `service_completed_successfully`, and on `service_healthy` for SQL Server and Redis.
 - **The API and UI images are built from source and no tag is pinned** (`image: dgf-api`, `image: dgf-ui`,
@@ -355,14 +372,16 @@ services and the stubs.
   `DGF_WORKSPACES_ROOT_PATH`, `WorkspaceName`, `ConnectionStrings__LocalSqlServer` (from
   `${MSSQL_SA_PASSWORD}` and `${MSSQL_DB}`), `ConnectionStrings__Redis`,
   `DistributedCachingOptions__RedisConnectionString`, `AdminSeedOptions__Enabled`,
-  `AdminSeedOptions__Accounts__0__*` to `__3__*` and
-  `Integrations__RegistrationAuthority__TokenGeneration__PrivateKey`, and inherits `DGF_PERF_TRACE`
-  (`full` unless `.env` sets it). The four accounts are the administrator, `officer` and `registrar`
+  `AdminSeedOptions__Accounts__0__*` to `__3__*`,
+  `Integrations__RegistrationAuthority__TokenGeneration__PrivateKey` and
+  `DataSources__EnforceAuthentication` (`${DGF_ENFORCE_DATASOURCE_AUTH:-false}`, so the sample's public
+  component pages work without signing in), and inherits `DGF_PERF_TRACE` (`full` unless `.env` sets it). The four accounts are the administrator, `officer` and `registrar`
   (`Members`) and `applicant` (`Applicant`); the last three share one password.
   Its mounts are the workspace directory, `webasm`, and a settings file over `/app/appsettings.json`
   (read-only). A double underscore in an environment variable overrides the JSON key it names.
 - **The `.env` keys** are `MSSQL_SA_PASSWORD`, `MSSQL_DB`, `MSSQL_PORT`, `DGF_ADMIN_USERNAME`,
-  `DGF_ADMIN_PASSWORD`, `DGF_ADMIN_EMAIL`, `DGF_DEMO_USER_PASSWORD`, `TIME_ZONE` and `COMPOSE_PROFILES`; the Registration
+  `DGF_ADMIN_PASSWORD`, `DGF_ADMIN_EMAIL`, `DGF_DEMO_USER_PASSWORD`, `TIME_ZONE`,
+  `DGF_ENFORCE_DATASOURCE_AUTH` (`false`) and `COMPOSE_PROFILES`; the Registration
   Authority's private key is generated per machine into `.env` and never committed.
 - **The UI container** is `nginx:alpine`. The shell fetches `assets/appsettings.json` at run time, and
   the stack mounts a settings file over it. Its keys are `apiUrl` (the API's public URL), `dateFormat`,

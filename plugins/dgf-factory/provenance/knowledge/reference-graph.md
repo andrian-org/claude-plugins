@@ -58,8 +58,8 @@ sources:
     sha256: 4c04606f9ede9df1594c430284618af6b648fa443cab721ce28763fcde955426
   - path: src/Components/Extensions/DGF.ComboBox/Services/ComboBoxComponentServiceInternal.cs
     sha256: aa8b51d9b87577fbcfbacea91c77bc2820af83a745b22f943c5ddcd06bb8e6a4
-  - path: docs/wiki/Release-notes/.next/feature-inputgroup-view-opens-profile.md
-    sha256: b813fe5dee852ee7d09faa65d25db2d4a57006358e036034563cd58774c538ed
+  - path: docs/wiki/Release-notes/RELEASE-1.3.0.md
+    sha256: e52f588bb4ec45dabf79061c89353235ef7f746e578d4aade938ff37cddb568c
 ---
 # Provenance — `knowledge/reference-graph.md`
 

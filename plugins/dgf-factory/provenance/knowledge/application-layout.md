@@ -5,7 +5,7 @@ sources:
   - path: src/samples/workspaces/readme.md
     sha256: 25a0d3dbd73d5cca2af538a7200037b421b1e517664fb3141fdc38c155cc07db
   - path: src/samples/workspaces/dgf/FM/_COMPONENTS/sitemap.json
-    sha256: 9122daedc2ae080e603131f95754db34d67625adcde35b0697ce5b7ff21c35ef
+    sha256: 758cf579f059c8817802751c1bcf0cc43410179c3aba4e576c76529e8c42e197
   - path: src/samples/workspaces/dgf/FM/_COMPONENTS/Page/SiteMap/loginPage.json
     sha256: 230d1ef9d3b264f06c148c7cbef55030e0bb3832bdcaa20f9029200d746ebb60
   - path: src/samples/workspaces/dgf/_application.sitemap
@@ -13,7 +13,7 @@ sources:
   - path: src/samples/workspaces/zims/_application.sitemap
     sha256: 0a745e62f7bcdcd2d0c3cb5491aa76b16615012a24527a54f1d63001379c830e
   - path: src/samples/workspaces/dgf/FM/_PROFILE/Components/Members/_tree.xml
-    sha256: 40b782dba33ebf0a585b6977e7f2b4b3b5df895d07f7532f241c3053413d1693
+    sha256: d296540a7364866f25116f6e79f86cdddb66aef50dc62d4da87f266739b9947d
   - path: src/samples/workspaces/dgf/FM/_PROFILE/Components/Members/ComponentsRouter.xml
     sha256: 0d8f87c08892e3d8d56215d7b0d001eacd52394fb7aceb68bb5b2cd724f66b41
   - path: src/Core/DGF.Domain/Application/Map/ApplicationMap.cs
@@ -53,7 +53,7 @@ sources:
   - path: src/Core/DGF.Infrastructure/Services/WorkspaceProvider.cs
     sha256: 08e244adad88e180fd37e503d694b0d189c562844db63d84985cb40ab2254c59
   - path: src/Core/DGF.Infrastructure/Services/Account/EfAccountService.cs
-    sha256: ce515a2162e44119a591235f06c4fa47dba25584e98c1786144c2c13b37f7e23
+    sha256: 9ecf652e729ab5063ddadb704da6394a380bee5d830943b290577af23cdcf62b
   - path: src/Core/DGF.Infrastructure/Persistence/Seed/ApplicationDbContextSeed.cs
     sha256: d3ae04f38afdb771d0880df9f1fbfeb22bcaec48a2ce128f402e32cd8833b57d
   - path: src/Core/DGF.Infrastructure/Persistence/Seed/AdminSeedOptions.cs
@@ -77,7 +77,7 @@ sources:
   - path: src/samples/Database/DGF.Database.publish.xml
     sha256: 3206bc1109241d913c97a6b7354752f37e7038e96b231b5eba6561754bc9732d
   - path: src/samples/Database/Scripts/Script.PostDeployment.sql
-    sha256: 492f0c150f4157adb2958e891984ff83e9169c8938f69cb2376bd0f9c15eec9e
+    sha256: c0e7df02d5cf96cca99915bc9096d3e2b126af2afb29963eae541788d6b7f33a
   - path: src/samples/Database/ContinuousDeployment/1.PostDeployment.Workspaces.sql
     sha256: 57baeeb1877aec78b21d8b82cdae0c19d1a314344c25b9ad00fc0ef74fb78fe6
   - path: src/samples/Database/dbo/Tables/aspnet_Applications.sql
@@ -103,7 +103,7 @@ sources:
   - path: src/Components/Extensions/DGF.LoginComponent/Services/LoginComponentService.cs
     sha256: 10615239bb02a10bfd24adde9dad3952f742925732b3a7750c1a5bd7ab365aff
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: da6b8856d99d6a527a8d081ec98beb96bd8422870297540e7a1f7abd227f8865
+    sha256: 219b5e33610ee2339d4fd67661abff6281168ca69d3d197e13dc7bf3254eb7a3
   - path: src/DGF.API/DGF.API.csproj
     sha256: 06afe7c30185a24a85825e67b7e8dcb04d3d2df50f2e4b53f6bbc43ee6182c83
   - path: src/Core/DGF.Infrastructure/ConfigureServices.cs
@@ -115,21 +115,21 @@ sources:
   - path: src/samples/BFF.API/Program.cs
     sha256: 762bfccf72a5b12acf1633f5972bf912573306b6833b071a38ef97b1cdc3009a
   - path: src/samples/BFF.API/Dockerfile
-    sha256: 5fe34b60e0b93e160aac386d19b2d73cf568af6e1a875ea349ba4c59dc2fbd9e
+    sha256: ea871ae4e9199654eb82d89e612ced3c8a1645c0085a547d77c35aeaf5ef6c02
   - path: src/samples/BFF.API/appsettings.json
-    sha256: 3757b1514724a25d7ca081e6ffdeed6a730e9f43f0c39462e5b5567e2f5f4a49
+    sha256: c28178d5ffb00bc2a4ed77e49a098015fb2fceae122454433a5b92c4beef2c76
   - path: src/samples/DGF.Compose/readme.md
-    sha256: 4ea281d02ef14d146fbef63d1f7a8d3af8fce2041f467efedef8b7a679d62d2b
+    sha256: 6bdd123d77b095b67604fa9af665fab754c64267ebe119c43f142dd63f46bda8
   - path: src/samples/DGF.Compose/.env-example
-    sha256: ffbb036fad3078a641083ff1cbbbf9583b3cca32dc060344e1688f5a786efc3f
+    sha256: 96b9f8329b39e814f57a7b3dd949258e84a3195db317c77b70cb42d81d1b6b1d
   - path: src/samples/DGF.Compose/docker-compose.yml
-    sha256: fa16b6a3339787ff0895bd937b4b66c5d899812e86366fca0a8997b0cc8e544d
+    sha256: 3b61279f4c9a0e95e57e9a101daacfa2dcead7e4cfda749694708e706b458ee3
   - path: src/samples/DGF.Compose/docker-compose.base.yml
     sha256: aa5e85301ab9a8d368a26a4d1806f44d7cf01e0beeb3315cf9a0518e5c2395bb
   - path: src/samples/DGF.Compose/docker-compose.infra.yml
     sha256: 2e953f8cfd5ab667f5b0406b573f032041fcb2a0e05b002d377c62c13b98353c
   - path: src/samples/DGF.Compose/docker-compose.shared.yml
-    sha256: c75da4b507d3f405b92991264647aac82934d54c70b7f6e217b65ac758863fb1
+    sha256: 2543a61c87209ae1413f683716b902ccbe57ed7b405320b01bc7f35003dc779a
   - path: src/samples/DGF.Compose/docker-compose.stubs.yml
     sha256: 24755c3d28a5eb2a569dbf7c322d173daa264b2ddf8ef074f3ee57d634342002
   - path: src/samples/DGF.Compose/docker-compose.zma.yml
@@ -137,7 +137,7 @@ sources:
   - path: src/samples/DGF.Compose/dgf-ui/appsettings.default.json
     sha256: cda0bec6a86dbff506491689cb52324b4b1979af369b405d1e8fa0abc97ff7af
   - path: src/samples/DGF.Compose/configs/default/appsettings.json
-    sha256: 61830d46da028b3feba38ecf1c4de1e47cb7b5c71df700ac525b66f71b0590f1
+    sha256: d46be4d8c159a96c647b63762899ceeeaaacf3503128848983c86f5df707be61
   - path: src/DGF.UI/Dockerfile
     sha256: 5955535e680900cafcb8800305c6e8967244c6d63c6e767b78f1f986195243f9
   - path: src/Components/Extensions/DGF.Sitemap/Models/Configuration/SiteMapConfiguration.cs
@@ -175,17 +175,17 @@ sources:
   - path: src/Components/Extensions/DGF.Router/Services/RouteCountRunner.cs
     sha256: 8f55ad134e8a2228aac3f65abdaecad57a8361ea2f071f7062aad1bcad319aef
   - path: src/Directory.Packages.props
-    sha256: b110ff8fd12792484c5a00b0a837d1754f09b7b09013e9b99d83bffdf23c4854
-  - path: docs/wiki/Release-notes/.next/breaking-backend-package-majors.md
-    sha256: 88910c142bbfd2c44ffc763e8e20215eb89ce587920fbf7abe19b30aa7026e8b
-  - path: docs/wiki/Release-notes/.next/breaking-remove-application-insights-packages.md
-    sha256: 7715f598b51486dcbf62c814eed554516a7e863757d73b9ccd3460dc29988f24
-  - path: docs/wiki/Release-notes/.next/improvement-router-folder-counts-parallel.md
-    sha256: ea9bfcc51cfec8414b71391ba130f997f73c2e9b35a09e2c701a7c5275c99a15
-  - path: docs/wiki/Release-notes/.next/bugfix-no-localization-request-without-block.md
-    sha256: d84ec9da1d03a4ccde87005ab44c00f400b5d6a47d28e7355ef83ef44f057267
-  - path: docs/wiki/Release-notes/.next/feature-role-display-name.md
-    sha256: b8f6c85c6fbd9e055f27fb718e1561bc8bd3b5dec27f40fb34592e8287ac2486
+    sha256: abfaf82df23485cffb44b446ff27ad0ed65d703e7f87b866f83a07beec64b2e5
+  - path: docs/wiki/Release-notes/RELEASE-1.3.0.md
+    sha256: e52f588bb4ec45dabf79061c89353235ef7f746e578d4aade938ff37cddb568c
+  - path: docs/wiki/Release-notes/RELEASE-1.3.1.md
+    sha256: 1c561da9081110a7c0b700fe2ca7d363f4b1d8f3cbf8904e15e81226cd8552ba
+  - path: src/Core/DGF.DataSources/DataSourceExecutor.cs
+    sha256: 75ce33c5913003c57bed0e8d9487ff682cee8ce4a1433de2c2b3be3efea090ba
+  - path: src/Core/DGF.DataSources/Controllers/DataSourceController.cs
+    sha256: 74f7b03e9f9d0c9daa5857fda9aebd2db2140b4d89e65d81e0a7e6fdf441d2b7
+  - path: src/Core/DGF.Documents/Extensions/DocumentsServiceCollectionExtensions.cs
+    sha256: 5530361cef950a36dde575dadb99dec643727937ff6f75c47626bbd2ef78dbd5
 ---
 # Provenance — `knowledge/application-layout.md`
 

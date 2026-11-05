@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.3.0"
-read_date: 2026-11-04
+dgf_version: "1.3.1"
+read_date: 2026-11-05
 ---
 
 # Data model — entities, fields, relations, and what the loaders do with a reference
@@ -42,7 +42,7 @@ An entity is the folder `FM/_DATA/<Entity>/`. Its `settings.xml` is read by `Xml
   - on a table with no primary key, or an empty one: `The Primary Key not defined in the table`;
   - when the key's first name is no field's.
 
-  None of the samples' 429 entities does any of these.
+  None of the samples' 432 entities does any of these.
 - **Other children:** `header`, `description`, `watermark`, `audittrail`, `wfevents`, `attachment`,
   and `fields`, a list of `field`. The root's `version` attribute is the generator's version.
 - **`sqlquery="[SQLCODE]"`** reads `sqlcode.sql` beside `settings.xml`, and throws when it is
@@ -51,8 +51,8 @@ An entity is the folder `FM/_DATA/<Entity>/`. Its `settings.xml` is read by `Xml
   some of those statements pasted the query unresolved, so a lookup over such a table failed with
   invalid SQL.
 
-In DGF's samples: `webasm` has 194 entities and 3256 fields, `zims` 223 and 5044, `dgf` 12 and 103.
-400 datasources are `DB` and 29 `Provider`.
+In DGF's samples: `webasm` has 194 entities and 3256 fields, `zims` 223 and 5044, `dgf` 15 and 131.
+403 datasources are `DB` and 29 `Provider`.
 
 ## 2. A field
 
@@ -65,11 +65,11 @@ are `extract`, `relation`, `slavegrid`, any number of `binding`, and `binaryfiel
   names only: `PrimaryKey`, `Lookup`, `Picklist`, `Checkboxlist`, `Text`, `Html`, `Integer`, `Float`,
   `Money`, `Boolean`, `DateTime`, `EditableGrid`, `Image`. Any other value fails deserialization, and
   the table does not load (§3.6). One sample entity uses `Decimal` and `Memo`, which are not members.
-- **Sample counts by `type`:** Text 3988, DateTime 1000, Lookup 931, Integer 832, Picklist 802,
-  Boolean 567, EditableGrid 146, Money 55, Image 51, Float 25, Decimal 4, Html 1, Memo 1.
-- **Which types carry which child**, in the samples: `extract` under `Lookup` (929), `Picklist` (567),
-  `Text` (249) and `Integer` (1); `slavegrid` only under `EditableGrid` (146); `relation` only under
-  `Lookup` (14); `binding` under `Picklist` (176) and `Lookup` (42). The model does not tie a child to
+- **Sample counts by `type`:** Text 3995, DateTime 1003, Lookup 932, Integer 838, Picklist 805,
+  Boolean 568, EditableGrid 147, Money 58, Image 53, Float 26, Decimal 4, Html 1, Memo 1.
+- **Which types carry which child**, in the samples: `extract` under `Lookup` (930), `Picklist` (570),
+  `Text` (249) and `Integer` (1); `slavegrid` only under `EditableGrid` (147); `relation` only under
+  `Lookup` (15); `binding` under `Picklist` (189) and `Lookup` (42). The model does not tie a child to
   a type: `IsExtractable` is simply "has an `extract`".
 - **`uimask`** is a string of flags, one character each: required for grid, required for form, valid
   for grid, valid for form, allow create, valid for report. A `1` sets the flag. The positions count
@@ -113,7 +113,7 @@ Existence is a file read on the built path, case-sensitive on Linux.
   first primary key, and reads that field's name (`GetXmlTemplate`), or shows the table's first field
   instead when that name is empty (`name=""`). **So a table with no such field
   throws** a null reference instead: its one `Text` field is its key, or it has none. 18 of the
-  samples' 429 entities are of that kind; any missing view of theirs throws. The view pastes the key,
+  samples' 432 entities are of that kind; any missing view of theirs throws. The view pastes the key,
   that field's name and its title, and can fail to parse (§3.6).
 - **With no `table`**, the `dialog` is loaded, and its first view's table and view are used. A lookup
   with neither throws `Lookup table/view or dialog not defined`.
@@ -122,7 +122,7 @@ Existence is a file read on the built path, case-sensitive on Linux.
   throws** `Lookup Dialog "…" not found.` From an entity in `webasm`, a dialog resolves in each
   application's `_LOOKUP`.
 
-In the samples every one of the 1746 `extract` elements names a `table`; two also name a `dialog`,
+In the samples every one of the 1750 `extract` elements names a `table`; two also name a `dialog`,
 which the runtime ignores.
 
 ### 3.3 `relation` — M:N
@@ -130,7 +130,7 @@ which the runtime ignores.
 `RelationProperties` binds `table`, `tableKey`, `filter` and a list of `column` elements whose `type`
 is `parentkey`, `childkey`, `typekey` or an extra column. **Its `table` is a database junction table**
 (`DataSourceTable`), used in SQL: not a `_DATA` entity, and not a file in the workspaces root. A
-`relation` sits beside the field's `extract`, which names the related entity. 14 in the samples.
+`relation` sits beside the field's `extract`, which names the related entity. 15 in the samples.
 
 ### 3.4 `slavegrid` — 1:N
 
@@ -149,7 +149,7 @@ is `parentkey`, `childkey`, `typekey` or an extra column. **Its `table` is a dat
   else the key. It needs no particular field, but it pastes that field's name and title, and can fail to
   parse (§3.6).
 
-146 in the samples.
+147 in the samples.
 
 ### 3.5 `binding` — a cascade
 
@@ -250,23 +250,23 @@ and no other name — `Decimal` and `Memo`, which the runtime does not have, are
 | Type | In settings.xsd | Fact |
 |---|---|---|
 | `PrimaryKey` | no | 0 fields in the samples, which type a key as Text and Guid, or Integer and Int32 |
-| `Lookup` | yes | 931 fields; carries an extract, and may carry a relation |
-| `Picklist` | yes | 802 fields; carries an extract, and may carry a binding |
+| `Lookup` | yes | 932 fields; carries an extract, and may carry a relation |
+| `Picklist` | yes | 805 fields; carries an extract, and may carry a binding |
 | `Checkboxlist` | no | 0 fields in the samples |
-| `Text` | yes | 3988 fields; the type of a string, of a Guid and of the key of most tables |
+| `Text` | yes | 3995 fields; the type of a string, of a Guid and of the key of most tables |
 | `Html` | yes | 1 field |
-| `Integer` | yes | 832 fields |
-| `Float` | yes | 25 fields |
-| `Money` | yes | 55 fields |
-| `Boolean` | yes | 567 fields |
-| `DateTime` | yes | 1000 fields |
-| `EditableGrid` | yes | 146 fields; carries the slave grid, and has no column of its own |
-| `Image` | yes | 51 fields |
+| `Integer` | yes | 838 fields |
+| `Float` | yes | 26 fields |
+| `Money` | yes | 58 fields |
+| `Boolean` | yes | 568 fields |
+| `DateTime` | yes | 1003 fields |
+| `EditableGrid` | yes | 147 fields; carries the slave grid, and has no column of its own |
+| `Image` | yes | 53 fields |
 
 ### 6.2 The `dbtype` values
 
 `dbtype` names the column's .NET type. An empty `dbtype` is a field with no column of its own — a
-lookup's display, an editable grid, a user-defined field; 200 fields in the two workspaces' entities
+lookup's display, an editable grid, a user-defined field; 202 fields in the two workspaces' entities
 have one. These are the values the samples use with a table script, counted over the `webasm` and `dgf`
 entities.
 
@@ -274,17 +274,17 @@ entities.
 | Dbtype | Fact |
 |---|---|
 | `String` | 1094 fields |
-| `StringUnicode` | 117 fields |
-| `Boolean` | 236 fields |
-| `DateTime` | 356 fields |
+| `StringUnicode` | 121 fields |
+| `Boolean` | 237 fields |
+| `DateTime` | 359 fields |
 | `DateTimeOffset` | 2 fields |
-| `Decimal` | 29 fields |
+| `Decimal` | 33 fields |
 | `Double` | 10 fields |
 | `Guid` | 521 fields |
-| `Int16` | 451 fields |
-| `Int32` | 240 fields |
-| `Int64` | 81 fields |
-| `Byte[]` | 19 fields |
+| `Int16` | 449 fields |
+| `Int32` | 249 fields |
+| `Int64` | 80 fields |
+| `Byte[]` | 21 fields |
 
 Four spellings occur once or twice and are not a sound basis for a column: `Text` (2 fields, one of
 which sits on a `BIT` column), `Integer` (1, on a `SMALLINT`), `smallint` (1) and the empty string above.
@@ -293,8 +293,8 @@ which sits on a `BIT` column), `Integer` (1, on a `SMALLINT`), `smallint` (1) an
 
 The tally pairs every `FM/_DATA/<T>/settings.xml` in the `webasm` and `dgf` sample
 workspaces with the baseline's `dbo/Tables/<T>.sql` by exact case, and reads each field's `dbtype` and
-`size` and the column's declared type. **86 pairs; 1753 fields; 1628 of them have a column, 13 of which
-are computed (`AS`) and skipped, leaving 1615 tallied.** Per `dbtype` it reports the majority SQL type
+`size` and the column's declared type. **89 pairs; 1781 fields; 1654 of them have a column, 14 of which
+are computed (`AS`) and skipped, leaving 1640 tallied.** Per `dbtype` it reports the majority SQL type
 and its share.
 
 The size rule says how the column's length relates to the field's `size`:
@@ -310,26 +310,26 @@ The size rule says how the column's length relates to the field's `size`:
 <!-- machine-read: field-sql-types -->
 | Dbtype | Size rule | SQL type | Evidence |
 |---|---|---|---|
-| `String` | size | VARCHAR(size) | 468/552 fields; alternatives NVARCHAR(size) 78, NCHAR(size) 6 |
-| `StringUnicode` | size | NVARCHAR(size) | 55/55 fields |
-| `Boolean` | none | BIT | 130/130 fields |
-| `DateTime` | none | DATETIME | 168/176 fields; alternatives DATE 4, SMALLDATETIME 4; 10 more fields are DATETIME2(7) |
+| `String` | size | VARCHAR(size) | 468/555 fields; alternatives NVARCHAR(size) 81, NCHAR(size) 6 |
+| `StringUnicode` | size | NVARCHAR(size) | 58/58 fields; 1 more field, with no size, is NVARCHAR(MAX) |
+| `Boolean` | none | BIT | 131/131 fields |
+| `DateTime` | none | DATETIME | 170/179 fields; alternatives DATE 5, SMALLDATETIME 4; 10 more fields are DATETIME2(7) |
 | `DateTimeOffset` | fixed | DATETIMEOFFSET(7) | 1/1 fields |
-| `Decimal` | precision | DECIMAL(18,2) | 13/14 fields; alternative DECIMAL(18) 1; 3 more fields are MONEY |
+| `Decimal` | precision | DECIMAL(18,2) | 16/17 fields; alternative DECIMAL(18) 1; 3 more fields are MONEY |
 | `Double` | fixed | FLOAT(53) | 6/6 fields |
 | `Guid` | none | UNIQUEIDENTIFIER | 246/246 fields |
 | `Int16` | none | SMALLINT | 243/244 fields; alternative TINYINT 1 |
-| `Int32` | none | INT | 125/126 fields; alternative SMALLINT 1 |
+| `Int32` | none | INT | 134/135 fields; alternative SMALLINT 1 |
 | `Int64` | none | BIGINT | 26/27 fields; alternative SMALLINT 1 |
-| `Byte[]` | max | VARBINARY(MAX) | 4/4 fields; 5 more fields are IMAGE |
+| `Byte[]` | max | VARBINARY(MAX) | 6/6 fields; 5 more fields are IMAGE |
 
 Two facts the tally shows and a reader would otherwise guess:
 
-- **A unicode string is spelled `StringUnicode`**, not `String` with a flag: all 55 of those fields sit on
-  `NVARCHAR`. `String` is `VARCHAR` in 468 of 552 fields and `NVARCHAR` in 78, so a string that must hold
+- **A unicode string is spelled `StringUnicode`**, not `String` with a flag: all 59 of those fields sit on
+  `NVARCHAR`. `String` is `VARCHAR` in 468 of 555 fields and `NVARCHAR` in 81, so a string that must hold
   non-Latin text is `StringUnicode`.
 - **A decimal's precision and scale are never in the settings file**; the columns hold `DECIMAL (18, 2)`
-  in 13 of 14 cases. A column of any other precision is a choice the settings file cannot state.
+  in 16 of 17 cases. A column of any other precision is a choice the settings file cannot state.
 
 ## See Also
 
