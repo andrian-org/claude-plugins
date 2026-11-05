@@ -103,9 +103,17 @@ async function askLine(registry, fallback, io) {
   if (fallback.note) io.output.write(`  (${fallback.note})\n`);
   const hint = fallback.line ? ` [Enter keeps ${fallback.line}]` : '';
   const answer = (await ask(io, `Number or line${hint}: `)).trim();
-  if (!answer && fallback.line) return fallback;
+  if (!answer) {
+    if (fallback.line) return fallback;
+    // No default to keep: the estate's version is older than every pack, and Enter is no explicit choice
+    // (ADR 0036 §3) — refuse as the non-interactive path does, never fall through to the newest line.
+    log.info('setup.askLine', '[FIX] refused: empty answer with no default', { reason: fallback.refusal?.message });
+    throw fallback.refusal;
+  }
   const line = /^\d+$/.test(answer) ? ordered[Number(answer) - 1] ?? answer : answer;
-  return selectLine({ lines: ordered, current: registry.current, flagLine: line });
+  const chosen = { ...selectLine({ lines: ordered, current: registry.current, flagLine: line }), source: 'prompt' };
+  log.debug('setup.askLine', '[FIX] answered', { answer, line: chosen.line });
+  return chosen;
 }
 
 /** { line, source, note, entry } — from the flags, else the receipt and the config, asked on a terminal. */
@@ -125,9 +133,12 @@ async function chooseLine(options, receipt, projectRoot, pkgRoot, io) {
       fallback = selectLine(inputs);
     } catch (err) {
       if (!(err instanceof CliError) || err.code !== EXIT_BLOCKED) throw err;
-      fallback = { line: null, note: err.message };
+      fallback = { line: null, note: err.message, refusal: err };
     }
-    chosen = fallback.source === 'receipt' ? fallback : await askLine(registry, fallback, io);
+    // On a terminal the line is always asked, the receipt's line included as the default — ADR 0036 §3, and the
+    // harness prompt's own "Enter keeps" — so an interactive re-run can switch lines without a flag.
+    log.debug('setup.chooseLine', '[FIX] asking', { default: fallback.line, source: fallback.source });
+    chosen = await askLine(registry, fallback, io);
   }
   const entry = lineEntry(registry, chosen.line);
   log.info('setup.line', 'chosen', { line: chosen.line, source: chosen.source, dir: entry.dir });

@@ -26,7 +26,8 @@ It passes only when all of these hold:
 
 When the checkout's HEAD is not the `dgf_commit` the pack's vendored schemas were
 read at, the last two downgrade to warnings: the samples may have moved. The
-checkout's release tag is printed beside the pack's `dgf_version`. Warnings are
+checkout's release tag is printed beside the pack's `dgf_version`, and a tag other
+than it — or none — is the warning VERSION_MISMATCH, as in check_drift.py. Warnings are
 counted per code, as the baseline.
 
 Exceptions file, one entry per line (`#` starts a comment):
@@ -143,6 +144,22 @@ def release_tag(root):
     return tags[-1] if tags else None
 
 
+def version_mismatch(tag, pack_entry):
+    """Why the checkout is not the pack's release, or None (ADR 0036 §2: a pack is read at an exact tag).
+
+    The samples move between tags, so a run at another tag — or at none — checks the pack against code it
+    was not read from. check_drift.py warns VERSION_MISMATCH for the same case; this is the same warning.
+    """
+    expected = pack_entry["dgf_version"]
+    if pack_entry.get("legacy"):
+        return None
+    if tag is None:
+        return f"the checkout is at no release tag; pack {pack_entry['line']} was read at {expected}"
+    if tag != expected:
+        return f"the checkout is at tag {tag}; pack {pack_entry['line']} was read at {expected}"
+    return None
+
+
 def load_exceptions(path=EXCEPTIONS_FILE):
     """(EXCEPTION entries, EXPECTED_EXTERNAL names); a malformed line is exit 3."""
     exceptions, external = [], set()
@@ -236,10 +253,13 @@ def main(argv):
     root, verbose, line = parse_args(argv)
     if verbose:
         report.set_verbose()
+    # Settle the arguments before the dependency check (rules/base.md "validate input before acting"):
+    # resolve_pack needs only the stdlib tools/packs.py, so an unregistered --pack is exit 3 with or without lxml.
+    line, pack_entry, knowledge_dir, exceptions_path, ledger = resolve_pack(line)
+    report.debug("run_known_good.args", "[FIX] settled before deps", line=line)
     deps.require()
     from lxml import etree
     from lib import knowledge
-    line, pack_entry, knowledge_dir, exceptions_path, ledger = resolve_pack(line)
     knowledge.use_dir(knowledge_dir)
     samples = root / SAMPLES
     exceptions, external = load_exceptions(exceptions_path)
@@ -264,6 +284,12 @@ def main(argv):
 
     blocking, warnings = 0, 0
     print(f"\n{report.BOLD}Settlement{report.NC}")
+    mismatch = version_mismatch(tag, pack_entry)
+    report.debug("run_known_good.tag", "[FIX] checked", tag=tag, expected=pack_entry["dgf_version"],
+                 mismatch=bool(mismatch))
+    if mismatch:
+        print(f"{report.YELLOW}WARN{report.NC}  VERSION_MISMATCH {mismatch}")
+        warnings += 1
     print(f"  excused by EXCEPTION:         {excused['EXCEPTION']}")
     print(f"  excused by EXPECTED_EXTERNAL: {excused['EXPECTED_EXTERNAL']}")
     for name, path, finding in unexcused:

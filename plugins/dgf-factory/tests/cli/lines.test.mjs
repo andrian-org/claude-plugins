@@ -131,6 +131,76 @@ test('without flags the previous line is kept, and the estate\'s dgf.version cho
   assert.equal((await setup(pkg, project)).receipt.dgfLine, OLD, 'the receipt wins over the config');
 });
 
+// A terminal whose questions take the scripted answers in turn; once they run out it is Ctrl+D.
+function terminal(answers) {
+  const queue = [...answers];
+  return {
+    output: sink(),
+    question: async () => {
+      if (queue.length) return queue.shift();
+      throw Object.assign(new Error('Aborted with Ctrl+D'), { name: 'AbortError', code: 'ABORT_ERR' });
+    },
+    close: () => {},
+  };
+}
+
+test('on a terminal a version below every pack offers no default: Enter is refused (exit 1), a typed line installs', async (t) => {
+  const { pkg } = twoPackPackage(t);
+  const project = tmp(t);
+  mkdirSync(path.join(project, '.dgf-factory'));
+  writeFileSync(path.join(project, '.dgf-factory/config.yaml'), 'dgf:\n  version: "0.1.0"\n');
+  const ask = (answers, out = sink()) => run(['--root', project, '--harness', 'claude', '--no-python'], { parseArgs },
+    { io: terminal(answers), out, pkgRoot: pkg });
+  await assert.rejects(ask(['']), (err) => err.code === EXIT_BLOCKED && /older than every knowledge pack/.test(err.message)
+    && /--dgf-line/.test(err.message));
+  assert.deepEqual(readdirSync(path.join(project, '.dgf-factory')), ['config.yaml'], 'nothing written');
+  const out = sink();
+  await ask([OLD, 'y'], out);
+  assert.equal(JSON.parse(readFileSync(path.join(project, '.dgf-factory/install.json'), 'utf8')).dgfLine, OLD);
+  assert.match(out.text(), /DGF line: 0\.9 \(knowledge read at DGF 0\.9\.1; from your answer at the prompt\)/);
+});
+
+// The scripted terminal, keeping every question asked, so a test can see which prompts ran and their defaults.
+function recordingTerminal(answers) {
+  const io = terminal(answers);
+  const asked = [];
+  const question = io.question;
+  io.question = async (prompt) => { asked.push(prompt); return question(prompt); };
+  return { io, asked, linePrompt: () => asked.find((prompt) => prompt.startsWith('Number or line')) };
+}
+
+test('on a terminal the line is always asked, Enter keeping the receipt, then the config, then the current line (ADR 0036 §3)', async (t) => {
+  const { pkg, current } = twoPackPackage(t);
+  const interactive = (project, answers) => {
+    const term = recordingTerminal(answers);
+    const done = run(['--root', project, '--harness', 'claude', '--no-python'], { parseArgs }, { io: term.io, out: sink(), pkgRoot: pkg });
+    return done.then(() => ({ ...term, receipt: JSON.parse(readFileSync(path.join(project, '.dgf-factory/install.json'), 'utf8')) }));
+  };
+
+  // a re-run: the receipt's line is the default, and Enter keeps it
+  const rerun = tmp(t);
+  await setup(pkg, rerun, '--dgf-line', OLD);
+  const kept = await interactive(rerun, ['', 'y']);
+  assert.match(kept.linePrompt() ?? '', new RegExp(`\\[Enter keeps ${OLD.replace('.', '\\.')}\\]`), 'the line is asked on a re-run');
+  assert.equal(kept.receipt.dgfLine, OLD);
+  // ... and a typed line switches: apply, then remove the files only the old pack shipped
+  assert.equal((await interactive(rerun, [current, 'y', 'y'])).receipt.dgfLine, current);
+  assert.ok(!existsSync(path.join(rerun, RUNTIME, 'only-in-old.md')), 'the old pack\'s own file is removed');
+
+  // a first install: the estate's dgf.version is the default
+  const declared = tmp(t);
+  mkdirSync(path.join(declared, '.dgf-factory'));
+  writeFileSync(path.join(declared, '.dgf-factory/config.yaml'), 'dgf:\n  version: "0.9.4"\n');
+  const fromConfig = await interactive(declared, ['', 'y']);
+  assert.match(fromConfig.linePrompt() ?? '', new RegExp(`\\[Enter keeps ${OLD.replace('.', '\\.')}\\]`));
+  assert.equal(fromConfig.receipt.dgfLine, OLD);
+
+  // nothing recorded or declared: the current line is the default
+  const fresh = await interactive(tmp(t), ['', 'y']);
+  assert.match(fresh.linePrompt() ?? '', new RegExp(`\\[Enter keeps ${current.replace('.', '\\.')}\\]`));
+  assert.equal(fresh.receipt.dgfLine, current);
+});
+
 test('a version below every pack is refused without --dgf-line (exit 1), and an unknown line is exit 3', async (t) => {
   const { pkg } = twoPackPackage(t);
   const project = tmp(t);

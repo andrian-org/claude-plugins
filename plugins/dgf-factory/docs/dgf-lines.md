@@ -40,7 +40,10 @@ The decision is [ADR 0036](adr/0036-knowledge-packs-per-release-line.md). The op
 1. `--dgf-line X.Y`, or `--dgf-version X.Y.Z` (the line of that version);
 2. the line the project's receipt, `.dgf-factory/install.json`, recorded last time;
 3. the estate's declared `dgf.version` in `.dgf-factory/config.yaml` (written by `/dgf`);
-4. the current line. On a terminal setup asks, with that default.
+4. the current line.
+
+Without a flag, setup on a terminal always asks, offering that line as the default — so re-running
+`dgf-factory setup` interactively is also how you switch a project's line.
 
 | Declared version | Pack installed |
 |---|---|

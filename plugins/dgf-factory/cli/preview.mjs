@@ -51,7 +51,7 @@ function lineSummary(dgfLine) {
 }
 
 const SOURCE = {
-  'flag-line': '--dgf-line', 'flag-version': '--dgf-version', receipt: 'the previous install',
+  'flag-line': '--dgf-line', 'flag-version': '--dgf-version', prompt: 'your answer at the prompt', receipt: 'the previous install',
   config: 'the estate\'s dgf.version', current: 'the newest line',
 };
 
