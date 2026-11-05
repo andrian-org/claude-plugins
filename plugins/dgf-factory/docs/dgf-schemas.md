@@ -1,4 +1,4 @@
-[← DGF Knowledge Sourcing](dgf-knowledge.md) · [Back to README](../README.md) · [Decision Records →](adr/README.md)
+[← DGF Lines](dgf-lines.md) · [Back to README](../README.md) · [Decision Records →](adr/README.md)
 
 # DGF Schemas — JSON and XSD
 
@@ -107,7 +107,12 @@ but are explicitly **out of Wave-1 validator scope**.
 ## 4. Inventories and source-of-truth precedence
 
 Three inventories exist and they disagree. Any count quoted without naming its inventory
-will be wrong against the other two.
+will be wrong against the other two. The counts below were measured on 2026-09-21, at the DGF
+commit the first knowledge base was read at. Each knowledge pack states its own line's counts
+([DGF Lines](dgf-lines.md)): from DGF 1.1.16 the repository holds **71** JSON schema files
+(AutoComplete and Chart added), `format-coverage.md` claims **68** components, the MCP indexes the
+six DataSource schemas by their nine discriminators, and every generated schema uses camelCase
+property names and camelCase string enums, keeping the C# member names in `x-enumNames`.
 
 | Inventory | Count | What it counts |
 |---|---|---|
@@ -129,7 +134,9 @@ The gap reconciles exactly:
 
 `Carousel` and `SignaturePadSig100` are present in the repository and in
 `format-coverage.md` but **absent from the live MCP** — the deployed server predates them.
-The XSD side has no such drift: 9 in the repository, 9 on the live server.
+The XSD side had no such drift: 9 in the repository, 9 on the live server. DGF 1.1.16 adds a tenth,
+`application-sitemap.xsd` (root `map`, the grammar of `_application.sitemap`), and `profile.xsd`
+compiles from then on.
 
 ### Precedence rule
 
@@ -323,8 +330,10 @@ in `knowledge/json-reader.md`: `component-classes` (§2), `datasource-discrimina
 
 Schemas are **vendored, not read across the filesystem** — a validator that reaches outside
 the plugin breaks the moment the plugin is installed elsewhere. The complete set is
-vendored: all committed JSON schemas, all 9 XSDs, and `XmlReference/form.reference.json`.
-Roughly 3.5 MB. What the set holds is
+vendored: all committed JSON schemas, all XSDs (10 from DGF 1.1.16), and
+`XmlReference/form.reference.json`. Roughly 3.5 MB, once per DGF line's pack:
+`knowledge/schemas/` for the current line, `packs/<X.Y>/schemas/` for the others, each vendored
+at its line's release tag with `tools/vendor_schemas.py --pack <X.Y>`. What the set holds is
 [`knowledge/schemas/MANIFEST.md`](../knowledge/schemas/MANIFEST.md), which ships. Where each
 file came from, from which commit, with its digests, is the maintainer-only ledger
 [`provenance/knowledge/schemas/MANIFEST.md`](../provenance/knowledge/schemas/MANIFEST.md).

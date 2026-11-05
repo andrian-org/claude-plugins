@@ -421,5 +421,18 @@ class Cannot(Base):
         self.assertTrue(any("the roof is on fire" in m for c, m in found), found)
 
 
+class NoDtd(unittest.TestCase):
+    def test_a_generated_file_with_a_dtd_is_not_well_formed_to_the_check(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        bomb = tmp / "_tree.xml"
+        bomb.write_text('<!DOCTYPE tree [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;&a;">]><tree title="&b;"/>',
+                        encoding="utf-8")
+        with self.assertRaises(check.ET.ParseError):
+            check.parse_xml(bomb)
+        (tmp / "ok.xml").write_text('<tree title="x"/>', encoding="utf-8")
+        self.assertEqual(check.parse_xml(tmp / "ok.xml").getroot().attrib, {"title": "x"})
+
+
 if __name__ == "__main__":
     unittest.main()

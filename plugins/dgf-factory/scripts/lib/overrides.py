@@ -27,6 +27,8 @@ override has check_override.py check it first. Three checks refuse it:
   forbidden  no FORBIDDEN construct in a rule's name or text: a gate block, a
              flag other than --strict or --verbose, a tool grant, an install or
              download, a git command that rewrites history or discards work, a
+             git setting that runs a command, a shell command line (`sh -c`,
+             `eval`, `rm -rf`, `python -c`, a command substitution), a
              path outside the workspaces root. The text is read as ASCII first
              (read_as()): a typographic dash is a hyphen, and any space a space
 
@@ -86,6 +88,24 @@ FORBIDDEN = tuple((name, re.compile(pattern, re.IGNORECASE), why) for name, patt
      "a rule never installs or downloads anything"),
     ("git-write", r"\bgit(?:\s+-{1,2}[\w.-]+(?:[= ]\S+)?)*\s+(?:push|reset|clean|checkout|switch|rebase|rm|restore|stash)\b",
      "a rule never rewrites history or discards work"),
+    # `git -c` sets any key for one command, and these keys run a program: an alias (`!` runs a shell), the pager,
+    # the fsmonitor, the ssh command, the hooks folder, an editor, a credential helper, a diff or merge driver.
+    ("git-config", r"\bgit(?:\s+-{1,2}[\w.-]+(?:[= ]\S+)?)*?\s+(?:-c\s*\S|--config-env\b)"
+                   r"|\balias\.\w|\bcore\.(?:fsmonitor|pager|sshcommand|hookspath|editor|askpass|gitproxy)\b"
+                   r"|\b(?:sequence\.editor|credential\.helper|gpg\.program|diff\.external|uploadpack\.packobjectshook)\b"
+                   r"|\b(?:diff|merge|filter)\.[\w-]+\.(?:command|textconv|driver|clean|smudge|process)\b"
+                   r"|=\s*[\"']?!\s*\w",
+     "a rule never sets a git option that runs a command"),
+    # A command line a reader would run: a shell or an interpreter given code inline, eval, a recursive or forced
+    # rm, and a command substitution — `$(…)`, or backticks inside a double-quoted string or after `=`. A backtick
+    # span on its own is Markdown code, and stays allowed.
+    ("shell", r"\b(?:sh|bash|zsh|dash|ksh)(?:\s+-[a-z]+)*\s+-[a-z]*c\b|\beval\b"
+              r"|\brm(?:\s+-[\w-]+)*\s+-(?:[a-z]*[rf][a-z]*\b|-(?:recursive|force)\b)"
+              r"|\bpython[0-9.]*(?:\s+-[a-z]+)*\s+-[a-z]*c\b"
+              r"|\bnode(?:\s+-[\w-]+)*\s+-(?:[a-z]*[ep]\b|-(?:eval|print)\b)"
+              r"|\b(?:perl|ruby)(?:\s+-\w+)*\s+-[a-z]*e\b"
+              r"|\$\(|\"[^\"`\n]*`[^`\n]+`[^\"`\n]*\"|=\s*`[^`\n]+`",
+     "a rule never holds a command line to run"),
     ("outside-root", OUTSIDE_ROOT, "a rule never names a path outside the workspaces root"),
 ))
 
@@ -96,9 +116,10 @@ LIMIT_WORDS = ("stop", "exit", "status", "block", "blocking", "blocker", "warn",
 
 
 def _forms(word):
-    """The word, and for a word ending in `e` its stem before `-ing` (waive → waiving)."""
-    stem = re.escape(word)
-    return [stem, re.escape(word[:-1]) + "(?=ing)"] if word.endswith("e") else [stem]
+    """The word, and for a word ending in `e` its stem before `-ing` (waive → waiving). An `_` in a word stands for
+    any joint: `pre_existing` is also pre-existing, pre existing and preexisting."""
+    stem = re.escape(word).replace("_", r"[-_\s]?")
+    return [stem, re.escape(word[:-1]).replace("_", r"[-_\s]?") + "(?=ing)"] if word.endswith("e") else [stem]
 
 
 # Word-bounded and case-insensitive; a plural, past, -ing or -ly form counts too (STOPs, skipped, waiving, optionally).

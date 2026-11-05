@@ -63,6 +63,27 @@ def commit_all(repo, message):
     return git(repo, "rev-parse", "HEAD").strip()
 
 
+def tag(repo, name, ref="HEAD"):
+    """A lightweight tag `name` at `ref`; returns the commit it names."""
+    git(repo, "tag", name, ref)
+    return git(repo, "rev-parse", f"{name}^{{commit}}").strip()
+
+
+def branch(repo, name, ref="HEAD"):
+    """A branch `name` at `ref`, without checking it out."""
+    git(repo, "branch", name, ref)
+    return git(repo, "rev-parse", name).strip()
+
+
+def load_tool(name, alias=None):
+    """A module from tools/ (not a package), loaded by path under a private name."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(alias or f"tool_under_test_{name}", TOOLS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def make_root(tmp, files):
     """Write {relative path: str | bytes} under `tmp` and return it as a Path."""
     root = Path(tmp)

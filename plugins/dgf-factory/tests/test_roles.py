@@ -40,10 +40,39 @@ class Inventory(unittest.TestCase):
         self.assertEqual(self.sources("CaseOfficer"), {"task-role"})
         self.assertEqual(self.sources("Reviewer"), {"taskgroup-role"})
 
-    def test_a_comma_list_is_split_untrimmed_as_the_runtime_tests_it(self):
+    def test_a_comma_list_is_split_and_trimmed_as_dgf_1_3_tests_it(self):
+        # the current pack is DGF 1.3, whose SiteMapManager trims each name and drops empty ones
         self.assertIn("Case Officer", self.found)
-        self.assertIn(" Supervisor", self.found)
-        self.assertNotIn("Supervisor", self.found)
+        self.assertIn("Supervisor", self.found)
+        self.assertNotIn(" Supervisor", self.found)
+
+    def test_an_older_line_splits_untrimmed_through_the_same_code(self):
+        # ADR 0036: one codebase, a pack per DGF line; the pack's `Separator` cell says how its runtime splits
+        from lib import knowledge
+        packs = helpers.load_tool("packs")
+        saved = knowledge.KNOWLEDGE_DIR
+        self.addCleanup(knowledge.use_dir, saved)
+        knowledge.use_dir(packs.pack_dir("1.2"))
+        found = roles.inventory(self.root)
+        self.assertIn(" Supervisor", found)
+        self.assertNotIn("Supervisor", found)
+
+    def test_the_split_rules(self):
+        self.assertEqual(roles._split("A, B,,", ","), ["A", " B", "", ""])
+        self.assertEqual(roles._split("A, B,,", ", trimmed"), ["A", "B"])
+        self.assertEqual(roles._split("A, B", "—"), ["A, B"])
+        self.assertEqual(roles._split("", ", trimmed"), [])
+
+    def test_a_dtd_is_refused_so_its_entities_are_never_expanded(self):
+        # the billion laughs, kept small enough that an unguarded reader still finishes: 10^5 expansions
+        laughs = "".join(f'<!ENTITY l{i} "{"&l%d;" % (i - 1) * 10}">' for i in range(1, 6))
+        bomb = (f'<?xml version="1.0"?><!DOCTYPE map [<!ENTITY l0 "lol">{laughs}<!ENTITY r "Smuggled">]>'
+                '<map><mapNode name="x" roles="&r;"/><mapNode name="y" roles="&l5;"/></map>\n')
+        root = helpers.make_root(os.path.join(self.tmp, "dtd"), {"a/_application.sitemap": bomb,
+                                                                 "a/FM/_PROCESS/Case/process.xml": "<Process/>"})
+        found = roles.inventory(root)
+        self.assertNotIn("Smuggled", found)
+        self.assertFalse(any("lol" in name for name in found), sorted(found)[:3])
 
     def test_an_empty_roles_value_names_no_role(self):
         self.assertNotIn("", self.found)

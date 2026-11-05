@@ -29,10 +29,14 @@ plugins/dgf-factory/
 │   ├── dgf-doctor/              #   the install check, with its own scripts/doctor.py
 │   ├── dgf, dgf-plan, dgf-implement, dgf-verify, dgf-commit/   # the pipeline spine
 │   ├── dgf-fix, dgf-evolve/     #   the learning loop — patches, and overrides that only tighten
-│   └── dgf-component, dgf-process, dgf-model, dgf-audit/   # the DGF-specific skills; two ship templates/
-├── agents/*.md                  # subagents (not yet built)
-├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas
+│   ├── dgf-component, dgf-process, dgf-model, dgf-audit/   # the DGF-specific skills; two ship templates/
+│   ├── dgf-scaffold/            #   a new application from an empty folder: scripts/, templates/, references/
+│   └── dgf-review, dgf-rules, dgf-rules-check, dgf-qa, dgf-docs,
+│       dgf-explore, dgf-grounded, dgf-archive, dgf-security/   # quality & authoring: reports, never gates
+├── agents/claude/               # subagents: dgf-implement-coordinator + dgf-implement-worker (ADR 0033)
+├── knowledge/                   # SHARED DOMAIN — versioned DGF facts + vendored schemas: the current DGF line's pack
 │   └── schemas/{json,xsd,standalone}/   # both families, kept in separate directories
+├── packs/                       # each older DGF line's pack, packs/<X.Y>/ (same files, no README), + lines.json (ADR 0036)
 ├── scripts/                     # SHARED INFRASTRUCTURE — cross-slice validators
 │   ├── validate_config.py       #   family, schema and parity, both families
 │   ├── resolve_components.py    #   component types and component file references
@@ -47,12 +51,19 @@ plugins/dgf-factory/
 │   ├── check_patches.py         #   the patch format; which patches the cursor has not seen
 │   ├── check_override.py        #   may a skill read its override: shape, sources, forbidden, limit
 │   ├── audit_root.py            #   the whole-root audit, and a file's reach per application
+│   ├── plan_layers.py           #   the next layer of a plan: ready, parallel, serial and why
+│   ├── worktree_task.py         #   sync a worker's worktree; merge it back within the task's files
+│   ├── check_rules.py           #   the estate's RULES.md before any skill reads it; layout-case
+│   ├── show_change.py           #   the change's diff, for skills that pre-approve no git
+│   ├── estate_docs.py           #   the estate's inventory pages, written or --check'ed
+│   ├── archive_plans.py         #   finished plans listed, and with --apply archived
+│   ├── security-scan.sh         #   Trivy, Gitleaks, Semgrep, ZAP — needs Docker
 │   ├── requirements.txt         #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                     #   what the scripts share (below)
 ├── .mcp.json                    # MCP servers
 ├── tests/                       # NOT SHIPPED — unittest suite, fixtures, the known-bad corpus
-├── tools/                       # NOT SHIPPED — repo-maintenance checks, vendoring, known-good run, drift check
-└── provenance/                  # NOT SHIPPED — the DGF sources of each knowledge file
+├── tools/                       # NOT SHIPPED — repo-maintenance checks, vendoring, known-good run, drift check, DGF line tools
+└── provenance/                  # NOT SHIPPED — the DGF sources of each knowledge file, per pack; lines.json; sync logs
 ```
 
 `scripts/lib/` is one module per concern, so a validator stays a short composition:
@@ -72,6 +83,10 @@ plugins/dgf-factory/
 | `process_checks.py` | Dead transitions, unreachable states, workflow and change-state references |
 | `plan.py` | The plan file's flat header, tasks and Commit Plan; each path's class — config, code, excluded, other — and the artifact it is |
 | `git.py` | The read-only git calls — changed files, refs, and a commit's tree written blob by blob |
+| `worktree.py` | A worker's worktree for the parallel run — the only module that changes a repository, and only `worktree_task.py` calls its changing calls ([ADR 0033](adr/0033-parallel-execution.md)) |
+| `runtime.py` | Every entry script's first call: re-run under the project's `.dgf-factory/runtime/.venv` ([ADR 0031](adr/0031-validator-runtime-project-venv.md)) |
+| `install_receipt.py` | The install receipt, read: the footprint the change checks ignore, and the Python twin of `cli/hash.mjs` |
+| `dgf_version.py` | DGF versions and lines, and which pack an estate reads — the twin of `cli/lines.mjs`, both held to one set of vectors ([ADR 0036](adr/0036-knowledge-packs-per-release-line.md)) |
 | `runner.py` | Every validator over a root or some of its files; `tools/run_known_good.py` uses the same runner |
 | `baseline.py` | Which findings a branch introduced: the merge-base comparison of [ADR 0018](adr/0018-change-relative-gates.md) |
 | `patches.py` | The patch file — name, fields, sections — and the patch cursor ([ADR 0024](adr/0024-learning-loop-revised.md) §1) |
@@ -91,7 +106,12 @@ dependency rules are kept in full — only the vocabulary is translated.
 
 `dgf-factory setup` installs this tree into a project in two places ([ADR 0029](adr/0029-npm-cli-delivery.md)):
 `skills/`, `scripts/` and `knowledge/` mirrored into `.dgf-factory/runtime/`, so every `parents[N]`
-lookup still holds, and each `SKILL.md`, rendered, into each chosen harness's skills folder. A skill
+lookup still holds, and each `SKILL.md`, rendered, into each chosen harness's skills folder. Agents are
+never runtime files: each `agents/<harness>/<name>.md` is rendered into that harness's agents folder, and the
+package ships agents for Claude Code only ([ADR 0033](adr/0033-parallel-execution.md)). The
+runtime's `knowledge/` is one DGF line's pack — `knowledge/` itself, or `packs/<X.Y>/` installed
+in its place ([ADR 0036](adr/0036-knowledge-packs-per-release-line.md)) — so no skill or script
+names a line. A skill
 reaches the rest as plain files, written `{{dgf_runtime}}/knowledge/…` and `{{dgf_runtime}}/scripts/…`;
 setup renders the token to the project-relative `.dgf-factory/runtime`.
 
@@ -102,8 +122,8 @@ They live apart, because one kind ships and the other does not
 
 | Kind | Who runs it | Where | Example |
 |---|---|---|---|
-| Runtime validator | A skill calls it mid-run | root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py`, `audit_root.py` |
-| Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py` |
+| Runtime validator | A skill calls it mid-run | root `scripts/` — shipped | `validate_config.py`, `resolve_components.py`, `validate_process.py`, `validate_model.py`, `route_means.py`, `locate_plan.py`, `inventory_root.py`, `check_plan.py`, `check_change.py`, `verify_gate.py`, `check_patches.py`, `check_override.py`, `audit_root.py`, `plan_layers.py`, `worktree_task.py`, `check_rules.py`, `show_change.py`, `estate_docs.py`, `archive_plans.py`, `security-scan.sh` |
+| Repo-maintenance tool | A contributor runs it by hand | `tools/` — not shipped | `check-dual-schema-docs.sh`, `check_package.py`, `smoke_install.sh`, `check_knowledge_stamps.py`, `vendor_schemas.py`, `run_known_good.py`, `check_drift.py`, `dgf_lines.py`, `restamp_knowledge.py`, `dgf_lines_watch.sh` |
 
 A tool may import `scripts/lib/` directly: `run_known_good.py` runs the validators over DGF's
 samples through `scripts/lib/runner.py`, the runner the change gate uses. The reverse never happens. A shipped script imports nothing from
@@ -183,7 +203,7 @@ ownership table is the thing that makes multi-session, multi-agent work non-chao
 | `patches/` | `/dgf-fix` — append-only | the latest ten read by `/dgf-implement`, `/dgf-fix`, `/dgf-component`, `/dgf-process` and `/dgf-model` as cautions; consumed by `/dgf-evolve` |
 | `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | checked by `check_override.py`, then read by its skill — one of ten readers — never when the check refuses it |
 | `evolutions/` — logs and `patch-cursor.json` | `/dgf-evolve` | read-only |
-| `knowledge/` | deliberate human edit with a cited source | read-only to every slice |
+| `knowledge/`, `packs/<X.Y>/` | `/dgf-sync` (maintainer) or a deliberate human edit with a cited source; digests, stamps and vendored files only through `tools/` | read-only to every slice |
 
 ## See Also
 

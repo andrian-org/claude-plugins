@@ -100,3 +100,45 @@ test('pruning stops at the first non-empty folder', (t) => {
   assert.equal(existsSync(path.join(root, 'a/b')), false);
   assert.equal(existsSync(path.join(root, 'a/keep.txt')), true);
 });
+
+test('a files key outside where setup installs for its owner is refused', () => {
+  const entry = (owner) => ({ source: 's', owner, sourceHash: 'a', installedHash: 'b' });
+  const cases = [
+    ['src/Program.cs', 'runtime'],
+    ['src/Program.cs', 'claude'],
+    ['.git/hooks/pre-commit', 'runtime'],
+    ['.dgf-factory/runtime/.git/config', 'runtime'],
+    ['.claude/skills/x/.GIT/hooks/pre-commit', 'claude'],
+    ['.cursor/skills/dgf/SKILL.md', 'claude'],
+    ['.claude/skills/dgf/SKILL.md', 'nobody'],
+    ['.dgf-factory/config.yaml', 'runtime'],
+    ['.claude/skillsX/dgf/SKILL.md', 'claude'],
+  ];
+  for (const [rel, owner] of cases) {
+    const data = { ...sample(), files: { [rel]: entry(owner) } };
+    assert.throws(() => validate(data), (err) => err.code === 3 && err.message.includes(rel) && /setup never installs there/.test(err.message), `${owner} ${rel}`);
+  }
+  const fine = { ...sample(), files: {
+    '.dgf-factory/runtime/.gitignore': entry('runtime'),
+    '.claude/agents/dgf-implement-worker.md': entry('claude'),
+    '.agents/skills/dgf/SKILL.md': entry('universal'),
+  } };
+  assert.equal(validate(fine), fine);
+});
+
+test('dgfLine round-trips after version, an older receipt without it loads, and a malformed one is refused', (t) => {
+  const root = project(t);
+  const data = sample();
+  data.dgfLine = '1.3';
+  writeReceipt(root, data);
+  const text = readFileSync(path.join(root, RECEIPT), 'utf8');
+  assert.deepEqual(Object.keys(JSON.parse(text)).slice(0, 3), ['tool', 'version', 'dgfLine']);
+  assert.equal(readReceipt(root).dgfLine, '1.3');
+  assert.equal(emptyReceipt('0.3.0', '1.2').dgfLine, '1.2');
+  assert.equal('dgfLine' in emptyReceipt('0.3.0'), false);
+  const old = sample();
+  assert.equal(validate(old).dgfLine, undefined, 'a 0.2.0 receipt has no line and is valid');
+  for (const bad of ['1.3.0', 'latest', 13, '']) {
+    assert.throws(() => validate({ ...sample(), dgfLine: bad }), /dgfLine must be a DGF release line/, String(bad));
+  }
+});

@@ -217,3 +217,33 @@ class WholeRootWalk(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NextName(Base):
+    """--next-name: the script names a new patch from its own clock, never the model (roadmap follow-up)."""
+
+    def test_the_name_and_the_date_agree_and_the_name_is_valid(self):
+        import re
+        from lib import patches
+        code, out, _ = self.check("--next-name", "dead-transition")
+        self.assertEqual(code, 0, out)
+        match = re.search(r'^NEXT: (\S+) date="([^"]+)"$', out, re.MULTILINE)
+        self.assertIsNotNone(match, out)
+        name, date = match.groups()
+        self.assertIsNone(patches.name_problem(name))
+        self.assertTrue(name.endswith("-dead-transition.md"))
+        self.assertEqual(patches.name_timestamp(name).strftime("%Y-%m-%d %H:%M"), date)
+
+    def test_a_taken_name_gets_a_numbered_slug(self):
+        import datetime
+        from lib import patches
+        now = datetime.datetime(2026, 9, 27, 9, 0)
+        self.add("2026-09-27-09.00-second.md")
+        name, date = patches.next_name(self.root / PATCHES, "second", now)
+        self.assertEqual((name, date), ("2026-09-27-09.00-second-2.md", "2026-09-27 09:00"))
+
+    def test_a_bad_slug_or_a_mixed_call_is_usage(self):
+        self.assertEqual(self.check("--next-name", "Not A Slug")[0], 3)
+        self.assertEqual(self.check("--next-name", "x" * 51)[0], 3)
+        self.add(SECOND)
+        self.assertEqual(self.check("--next-name", "ok", str(self.root / PATCHES / SECOND))[0], 3)

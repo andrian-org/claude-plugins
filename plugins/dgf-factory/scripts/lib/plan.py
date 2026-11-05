@@ -40,6 +40,7 @@ from pathlib import Path
 
 from . import knowledge, report
 
+SUPPORTED_FORMAT = "1"  # the only `plan_format` this plugin reads; check_plan.py re-exports it
 HEADER_KEYS = ("plan_format", "mode", "branch", "created", "affects_workspaces", "base_workspace_reason", "archived")
 MODES = ("fast", "full", "ultra")
 KINDS = ("config", "code")

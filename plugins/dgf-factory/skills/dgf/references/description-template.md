@@ -10,7 +10,8 @@
 ## DGF version
 
 - **Declared:** `{{DGF_VERSION}}` — `dgf.version` in `.dgf-factory/config.yaml`.
-- **Shipped knowledge read at:** `{{KNOWLEDGE_STAMP}}` — the `KNOWLEDGE:` line of the inventory.
+- **Shipped knowledge read at:** `{{KNOWLEDGE_STAMP}}` — the `KNOWLEDGE:` line of the inventory: the stamp and
+  the DGF line of the knowledge pack `dgf-factory setup` installed.
 {{VERSION_NOTE}}
 
 ## Workspaces root

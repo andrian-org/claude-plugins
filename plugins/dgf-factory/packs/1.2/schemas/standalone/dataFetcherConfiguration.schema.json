@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dataFetcherConfiguration.schema.json",
+  "title": "DataFetcherConfiguration",
+  "description": "Headless DGF component that fires a dataSource reactively and dispatches onValueChange events to mutate other components.",
+  "type": "object",
+  "required": ["type", "name"],
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "dataFetcher",
+      "description": "Must be exactly \"dataFetcher\"."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*$",
+      "description": "Unique camelCase identifier. Result is accessible as ${name.@data.field} from any component on the page.",
+      "examples": ["districtFetcher", "userProfileFetcher", "duplicateCheckFetcher"]
+    },
+    "dataSource": {
+      "type": "object",
+      "description": "Inline dataSource definition. Mutually exclusive with dataSourcePath.",
+      "properties": {
+        "type": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "dataSourcePath": {
+      "type": "string",
+      "description": "Relative path to an external JSON dataSource file. Mutually exclusive with dataSource.",
+      "examples": ["dataSources/GetDistricts.json", "dataSources/CheckEmailAvailability.json"]
+    },
+    "debounceMs": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 5000,
+      "default": null,
+      "description": "Milliseconds to wait after the last parameter change before firing. null = fire immediately. Use 150–300 for combo-driven params, 300–500 for text field params."
+    },
+    "manualTrigger": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, reactive subscription is disabled. Fire only via a Button with componentAction { targetName, targetAction: \"data\" }."
+    },
+    "silentOnError": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, HTTP errors are logged at warn level but the global error toast is suppressed. Use for non-critical page-load fetches."
+    },
+    "parameters": {
+      "type": "array",
+      "description": "Parameter bindings passed to the dataSource. Use ${componentName} tokens for reactive bindings.",
+      "items": {
+        "$ref": "#/definitions/parameter"
+      }
+    },
+    "events": {
+      "type": "object",
+      "description": "Event handlers dispatched after each successful fetch.",
+      "properties": {
+        "onValueChange": {
+          "type": "array",
+          "description": "Handlers executed after a successful fetch, in order. Each handler targets a component and applies an action verb.",
+          "items": {
+            "$ref": "eventBase.schema.json"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "hidden": {
+      "type": "boolean",
+      "default": true,
+      "description": "Always renders hidden — DataFetcher produces no UI. This field is informational only."
+    },
+    "metaData": {
+      "type": "object",
+      "description": "Arbitrary key/value metadata attached to the component configuration.",
+      "additionalProperties": true
+    }
+  },
+  "oneOf": [
+    { "required": ["dataSource"], "not": { "required": ["dataSourcePath"] } },
+    { "required": ["dataSourcePath"], "not": { "required": ["dataSource"] } }
+  ],
+  "definitions": {
+    "parameter": {
+      "type": "object",
+      "required": ["name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name passed to the dataSource endpoint."
+        },
+        "value": {
+          "type": "string",
+          "description": "Parameter value. Use ${componentName} for reactive field references, ~UserID / ~TenantID for context tokens, or a literal string.",
+          "examples": ["${provinceCombo}", "~UserID", "~TenantID", "${caseCombo}"]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, the framework skips the HTTP request if this parameter resolves to an empty or null value (ComponentFacadeService.validateRequiredParameters). Set required: true to gate the fetch on this parameter's presence."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "type": "dataFetcher",
+      "name": "districtFetcher",
+      "dataSourcePath": "dataSources/GetDistricts",
+      "debounceMs": 150,
+      "parameters": [
+        { "name": "ProvinceID", "value": "${provinceCombo}", "required": true }
+      ],
+      "events": {
+        "onValueChange": [
+          { "componentName": "districtCombo", "action": "data" },
+          {
+            "componentName": "districtCombo",
+            "action": "setValue",
+            "valueExpression": "result.total === 1 ? result.items[0].key : null"
+          },
+          {
+            "componentName": "districtCombo",
+            "action": "setReadonly",
+            "valueExpression": "result.total === 1"
+          }
+        ]
+      }
+    },
+    {
+      "type": "dataFetcher",
+      "name": "userProfileFetcher",
+      "dataSourcePath": "dataSources/GetUserProfile",
+      "silentOnError": true,
+      "parameters": [
+        { "name": "UserID", "value": "~UserID", "required": true }
+      ],
+      "events": {
+        "onValueChange": [
+          { "componentName": "fullNameInput", "action": "setValue", "valueExpression": "result.FullName" },
+          { "componentName": "emailInput", "action": "setValue", "valueExpression": "result.Email" }
+        ]
+      }
+    }
+  ]
+}

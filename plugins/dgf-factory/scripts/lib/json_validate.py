@@ -147,8 +147,11 @@ def enum_accepts(instance, schema):
 
     Names are read in any case with surrounding whitespace ignored; a member with
     a custom JSON name only by that name, case-sensitively (json-reader.md §1).
-    An integer — or integer string — must be a listed value of an integer enum;
-    a string enum lists no values, and the reader takes any integer for it.
+    An integer — or integer string — must be a listed value of an integer enum.
+    An enum that carries its C# names (`x-enumNames`) is read by JsonStringEnumConverter,
+    which takes any integer whatever the schema's `type` says (json-reader.md §1): the
+    generated schemas before DGF 1.1.16 typed it string and listed no values, and since
+    1.1.16 they list the camelCase JSON names — neither limits the integers.
     """
     enums = schema.get("enum") or []
     names = schema.get("x-enumNames") or []

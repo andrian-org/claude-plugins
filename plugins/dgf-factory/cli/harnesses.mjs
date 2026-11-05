@@ -1,6 +1,6 @@
 // The AI harnesses dgf-factory installs into (ADR 0029 §3).
 //
-// The folders are AI Factory 2.19.0's registry, entry for entry: `dist/core/agents.js:7-174`
+// The folders are AI Factory 2.21.0's registry, entry for entry: `dist/core/agents.js:7-180`
 // (id, displayName, configDir, skillsDir, agentsDir, settingsFile). Keep them in step by hand;
 // tests/cli/harnesses.test.mjs compares them with an installed ai-factory when one is found.
 //
@@ -17,6 +17,9 @@
 //                without losing them — manual. Windsurf (now Devin Desktop) has user-level config
 //                only, and Zencoder's could not be read — manual.
 //              - Codex CLI reads a project `.codex/config.toml` only once the user trusts the project.
+//   formerDirs folders an earlier AI Factory registry installed into (2.19.0: windsurf `.windsurf/skills`,
+//              antigravity `.agent/skills`). A receipt may still name them, so re-running setup can remove
+//              the old files by ADR 0029 §5's table; nothing is ever installed there.
 import { usageError } from './exit.mjs';
 
 export const HARNESSES = [
@@ -28,12 +31,12 @@ export const HARNESSES = [
   { id: 'gemini', displayName: 'Gemini CLI', configDir: '.gemini', skillsDir: '.gemini/skills', settingsFile: null, transform: 'default', mcp: { file: '.gemini/settings.json', format: 'mcpServers-httpUrl' } },
   { id: 'junie', displayName: 'Junie', configDir: '.junie', skillsDir: '.junie/skills', settingsFile: null, transform: 'default', mcp: { file: '.junie/mcp/mcp.json', format: 'mcpServers-url' } },
   { id: 'qwen', displayName: 'Qwen Code', configDir: '.qwen', skillsDir: '.qwen/skills', settingsFile: '.qwen/settings.json', transform: 'qwen', mcp: { file: '.qwen/settings.json', format: 'mcpServers-httpUrl' } },
-  { id: 'windsurf', displayName: 'Windsurf', configDir: '.windsurf', skillsDir: '.windsurf/skills', settingsFile: null, transform: 'default', mcp: null },
+  { id: 'windsurf', displayName: 'Devin Desktop (formerly Windsurf)', configDir: '.devin', skillsDir: '.devin/skills', settingsFile: null, transform: 'default', mcp: null, formerDirs: ['.windsurf/skills'] },
   { id: 'warp', displayName: 'Warp', configDir: '.warp', skillsDir: '.warp/skills', settingsFile: null, transform: 'default', mcp: { file: '.warp/.mcp.json', format: 'mcpServers-url' } },
   { id: 'zencoder', displayName: 'Zencoder', configDir: '.zencoder', skillsDir: '.zencoder/skills', settingsFile: null, transform: 'default', mcp: null },
   { id: 'roocode', displayName: 'Roo Code', configDir: '.roo', skillsDir: '.roo/skills', settingsFile: '.roo/mcp.json', transform: 'default', mcp: { file: '.roo/mcp.json', format: 'mcpServers-streamable' } },
   { id: 'kilocode', displayName: 'Kilo Code', configDir: '.kilocode', skillsDir: '.kilocode/skills', settingsFile: '.kilocode/mcp.json', transform: 'default', mcp: null },
-  { id: 'antigravity', displayName: 'Antigravity', configDir: '.agent', skillsDir: '.agent/skills', settingsFile: null, transform: 'default', mcp: { file: '.agents/mcp_config.json', format: 'mcpServers-serverUrl' } },
+  { id: 'antigravity', displayName: 'Antigravity 2.0', configDir: '.agents', skillsDir: '.agents/skills', agentsDir: '.agents/agents', settingsFile: '.agents/mcp_config.json', transform: 'default', mcp: { file: '.agents/mcp_config.json', format: 'mcpServers-serverUrl' }, formerDirs: ['.agent/skills'] },
   { id: 'opencode', displayName: 'OpenCode', configDir: '.opencode', skillsDir: '.opencode/skills', settingsFile: 'opencode.json', transform: 'default', mcp: { file: 'opencode.json', format: 'opencode-remote' } },
   { id: 'universal', displayName: 'Universal / Other', configDir: '.agents', skillsDir: '.agents/skills', settingsFile: '.mcp.json', transform: 'default', mcp: { file: '.mcp.json', format: 'mcpServers-http' } },
 ];
@@ -52,8 +55,8 @@ export function getHarness(id) {
 
 /**
  * The harnesses for a list of ids, refusing two that would write one skills folder differently.
- * AI Factory refuses the same pair (`dist/core/transformer.js:79-102`): codex-app and universal
- * share `.agents/skills`, with different transforms.
+ * AI Factory refuses the same pairs (`dist/core/transformer.js:79-102`): since 2.21.0 codex-app,
+ * universal and antigravity all share `.agents/skills`, and codex-app renders it differently.
  */
 export function selectHarnesses(ids) {
   const unique = [...new Set(ids)];

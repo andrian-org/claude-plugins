@@ -7,8 +7,8 @@ outside the shipped tree (§1). A fact without a stamp is not a fact; it is a gu
 formatting.
 
 This file is the operative contract. The decisions behind it are recorded in
-ADR 0013, which superseded ADR 0008 on
-2026-09-23, and ADR 0012, which keeps DGF
+ADR 0036, which superseded ADR 0013 on
+2026-11-04, and ADR 0030, which keeps DGF
 repository paths out of every shipped file, this directory included. This file and the ADRs
 agree; if they ever disagree, **this file wins** until a new ADR settles it.
 
@@ -21,14 +21,14 @@ Frontmatter, on every `knowledge/**/*.md` except this README:
 
 ```yaml
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-22
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 ```
 
 | Field | Meaning | Rule |
 |---|---|---|
-| `dgf_version` | The DGF version the facts were read from | Quoted string. Read from DGF's `Directory.Build.props`, **never** from a git tag — see §1.1 |
+| `dgf_version` | The DGF release the facts were read at | Quoted `X.Y.Z`: the **exact release tag** at the checkout's HEAD — see §1.1. Every file in one pack carries the same value (§8) |
 | `read_date` | When the sources were read | `YYYY-MM-DD`, unquoted |
 
 **A shipped file never lists its sources.** Every DGF file a fact file was derived from is
@@ -43,23 +43,22 @@ The per-source `sha256` is what makes drift detectable. Re-running the digest ag
 upstream file answers "has this changed since we read it" without diffing prose. That is a
 maintainer check, run against a DGF checkout (§4).
 
-### 1.1 Why `Directory.Build.props`, and why it lags
+### 1.1 The release tag, and why not `Directory.Build.props`
 
-DGF's `Directory.Build.props` states `1.1.11`, under
-`Condition="'$(Configuration)' == 'ClientDebug'"`. It is the only version the repository
-states anywhere, and it lags: git tags reach `1.1.15` and release notes exist through
-`1.1.15`. So a fact stamped `1.1.11` may well have been read from a tree that is
-behaviourally `1.1.15`.
+A pack is read only from a DGF checkout whose HEAD is exactly a release tag, and its
+`dgf_version` is that tag. A tag names one commit whichever branch is checked out, so the
+stamp is reproducible. An unreleased branch tip is never stamped: its release does not exist
+yet.
 
-This is accepted. The superseded ADR 0003 gave "a stamp that lags is worse than no stamp"
-as the reason to prefer the props file over a tag, and that reason does not survive — the
-props file *is* the lagging source. The conclusion still holds, for a better reason, which
-ADR 0013 §1 records: **determinism.** `git describe` on a DGF checkout returns a different value depending on
-which branch is checked out (on one branch it returns `1.1.12-21-gaa1d5c4c2`, with `1.1.13`
-and `1.1.15` unreachable), while the props file returns the same value regardless. The gate
-in §4 must be reproducible, and a version source that shifts with branch state is not.
+DGF's `Directory.Build.props` was the source until 2026-11-04 (superseded ADR 0013). It
+states `<Version>` under a ClientDebug-only condition, and it stopped following the
+releases: it reads `1.1.11` at the tags 1.1.12–1.1.15 and `1.1.15` at 1.1.16, 1.2.0 and
+1.3.0. A source that gives one value for three release lines cannot tell them apart, so it is
+no longer read. DGF itself versions its builds from tags: its release lines are support
+branches whose tag is the release.
 
-Do not "correct" a stamp to a tag value. Record the lag; do not hide it.
+`git describe` without `--exact-match` stays rejected: it answers relative to the branch that
+is checked out.
 
 ## 2. Three fact classes — stamp everything, range only what moved
 
@@ -107,7 +106,7 @@ never fires for such a fact, so it applies to every consumer version.
 **`until: null` — no known end.** The range is open-ended: true from `since` onward until
 proven otherwise. It is **not** "true through `dgf_version`".
 
-> Both conventions are decided in ADR 0013 §3,
+> Both conventions are decided in ADR 0036 §5, carried forward from ADR 0013 §3,
 > which also records why the superseded ADR 0003's reading of `until: null` ("still true at
 > `dgf_version`") had to go: it made its own flagship TreeTable example incoherent.
 
@@ -116,21 +115,27 @@ proven otherwise. It is **not** "true through `dgf_version`".
 Tied to the exit-code contract: `0` clean, `1` blocked, `2` warnings, `3` usage error.
 Reproduced here rather than linked, because the version gate is written against this file.
 
-**The version gate** reads the stamps in this directory, and runs for a developer:
+**The version gate** runs for a developer, in `/dgf-doctor`'s project mode. It reads the
+estate's declared `dgf.version` in `.dgf-factory/config.yaml`, the installed pack's stamps,
+and the line the install receipt records (§8):
 
 | Situation | Behaviour | Exit |
 |---|---|---|
 | Consumer version **below** a fact's `since` | **error** — the fact is not true of their DGF | `1` |
 | Consumer version **above** a fact's `until` | **warn** — possibly stale, not proven wrong | `2` |
 | Consumer DGF version **cannot be determined** | **warn**, and say so | `2` |
+| Consumer version's line is **not the installed pack's** | **warn**, naming `dgf-factory setup --dgf-version <v>` | `2` |
+| Same line, consumer version **older than the pack's tag** | **warn** — the pack may describe a patch the estate lacks | `2` |
+| The receipt records **no line** | **warn** — re-run `dgf-factory setup` | `2` |
 
 **The digest checks** read the provenance ledgers, and run for a maintainer only — never from
 a skill:
 
 | Situation | Behaviour | Exit |
 |---|---|---|
-| A ledger's upstream `sha256` no longer matches a DGF checkout | **warn** — a maintenance signal | `2` |
+| A ledger's upstream `sha256` no longer matches its line's release tag | **warn** — a maintenance signal | `2` |
 | A vendored schema no longer matches its recorded `shipped_sha256` | **error** — the shipped copy was edited by hand | `1` |
+| A newer release tag exists on a pack's line, or a release line has no pack | **warn** — a maintenance signal | `2` |
 
 Blocking below `since` is the default because of an asymmetry: applying a newer
 *restriction* too early is merely over-strict and safe, while claiming a newer *capability*
@@ -246,12 +251,37 @@ or a pipeline stage, and it is the plugin's own fact, not DGF's: it carries no p
 | `auth-schemes` | [`application-layout.md`](application-layout.md) §5 — `Keys` is space-separated |
 | `solution-parts` | [`application-layout.md`](application-layout.md) §7 — `Verified values` and `Placeholders` are space-separated |
 
+## 8. Packs — one per DGF release line
+
+DGF maintains several release lines at once, and a developer works on estates that run
+different ones. The knowledge base is therefore one **pack** per release line `X.Y`:
+
+| Where | What |
+|---|---|
+| `knowledge/` | the **current** line's pack, plus this README |
+| `packs/<X.Y>/` | each older line's pack: the same file names, no README |
+| `packs/lines.json` | the registry: each line's `dir`, `dgf_version` (its tag), `read_date`, and which line is `current` |
+
+- A pack is complete. It is never an overlay of another pack: an inherited file would carry a
+  ledger read at another line's tag.
+- Every file in a pack carries the pack's `dgf_version`, and the registry states it.
+- Ranges (§2.1) mark a boundary **inside** a line, such as a fact that changed in a patch
+  release. A difference between two lines is two packs.
+- In a project, `dgf-factory setup` installs one pack into `.dgf-factory/runtime/knowledge/`
+  (this README plus that line's files) and records the line as `dgfLine` in
+  `.dgf-factory/install.json`. It is chosen with `--dgf-line X.Y` or `--dgf-version X.Y.Z`,
+  or from the previous install and the estate's `dgf.version`. A version older than every
+  pack is refused unless the line is named explicitly, because an older estate reading a newer
+  pack would be told about capabilities its runtime lacks (§4).
+- Each pack's ledgers live in the maintainer-only `provenance/` tree, beside a sync log for
+  every time the pack was brought to a new tag.
+
 ## See Also
 
 The ADRs and pages below are maintainer documentation in the dgf-factory repository (`docs/`); they are
 not installed with the tool (ADR 0030).
 
-- ADR 0013 — Stamp every fact, gate only behavioural ones — provenance in a maintainer ledger
+- ADR 0036 — Knowledge packs per DGF release line, each pinned to a release tag; one pack installed per project (superseding ADR 0013)
 - ADR 0030 — Shipped files are the npm package payload, and carry no DGF repository paths (superseding ADR 0012)
 - DGF Knowledge Sourcing — the reader-facing version of §5
 - DGF Schemas — inventories, correspondence map, vendoring contract

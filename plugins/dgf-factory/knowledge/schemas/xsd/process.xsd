@@ -65,11 +65,22 @@
     </xs:simpleType>
 
     <!-- OnInit Type -->
+    <!-- AbstractStateEvent: children in any order. StoredProcedureActivity runs a stored procedure
+         (method=) with the Assign fields as its parameters. -->
     <xs:complexType name="OnInitType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="UpdateRecord" type="UpdateRecordType"/>
+            <xs:element name="Task" type="TaskType"/>
+            <xs:element name="StoredProcedureActivity" type="StoredProcedureActivityType"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:complexType name="StoredProcedureActivityType">
         <xs:sequence>
-            <xs:element name="UpdateRecord" type="UpdateRecordType" minOccurs="0" maxOccurs="1"/>
-            <xs:element name="Task" type="TaskType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="Assign" type="AssignType" minOccurs="0" maxOccurs="1"/>
         </xs:sequence>
+        <xs:attribute name="method" type="xs:string" use="required"/>
+        <xs:attribute name="timeout" type="xs:int" use="optional"/>
     </xs:complexType>
 
     <!-- OnFinalize Type -->

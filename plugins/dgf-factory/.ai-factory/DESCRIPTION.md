@@ -51,6 +51,14 @@ Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific
   views; processes and workflows; entities). `/dgf-audit` is read-only: the root's health, and a
   file's blast radius — the processes that reach it in each application — with a `LIMIT:` line on
   every reach. `/dgf-process` and `/dgf-model` ship templates
+- `skills/dgf-review`, `dgf-rules`, `dgf-rules-check`, `dgf-qa`, `dgf-docs`, `dgf-explore`, `dgf-grounded`,
+  `dgf-archive`, `dgf-security` — the quality and authoring skills
+  ([ADR 0032](../docs/adr/0032-quality-and-authoring-skills.md), [ADR 0034](../docs/adr/0034-usage-scenarios-security-scan.md)):
+  reports, never gates; each writes at most one artifact under `.dgf-factory/`; the estate's `RULES.md` is
+  checked by `check_rules.py` before any skill reads it
+- `agents/claude/` — `dgf-implement-coordinator` and `dgf-implement-worker`, the Claude Code parallel run
+  ([ADR 0033](../docs/adr/0033-parallel-execution.md)): `plan_layers.py` schedules, `worktree_task.py` syncs and
+  merges, refusing an undeclared file
 - `knowledge/` — the DGF knowledge base: `README.md` (the stamping convention, and §7 the
   machine-read table contract), nine stamped facts files (`schema-families`,
   `component-catalogue`, `composition-specs`, `naming-conventions`, `json-reader`,
@@ -58,8 +66,13 @@ Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific
   fourteen machine-read tables the scripts load (`reference-edges`, the newest, is every reference
   a configuration file makes, how it resolves, and what the runtime does when its target is
   missing), and `schemas/` — the
-  vendored set (69 JSON + 9 XSD + grammar reference + 3 standalone contracts, ~3.5 MB) with a
-  `MANIFEST.md` of dialects and membership. Shipped, so it names no DGF repository path
+  vendored set (71 JSON + 10 XSD + grammar reference + 3 standalone contracts, ~3.5 MB) with a
+  `MANIFEST.md` of dialects and membership. It is the **current DGF line's pack**, read at tag
+  1.3.0; `packs/1.2/` (1.2.0) and `packs/1.1/` (1.1.16) are the older lines' packs, named in
+  `packs/lines.json`, and `dgf-factory setup` installs one of them per project
+  ([ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md)). Maintainers keep them current
+  with `tools/dgf_lines.py`, `tools/restamp_knowledge.py`, the `/dgf-sync` skill and the scheduled
+  `tools/dgf_lines_watch.sh` ([docs/dgf-lines.md](../docs/dgf-lines.md)). Shipped, so it names no DGF repository path
 - `provenance/` — **not shipped.** One ledger per knowledge file, recording the DGF files its
   facts were read from with a `sha256` each; the schema ledger adds the DGF commit and each
   vendored file's upstream and shipped digests
@@ -90,11 +103,13 @@ Roadmap milestone 11 ("Learning Loop") is built, and milestone 12 ("DGF-Specific
   and `roles.py` among its modules — and
   `requirements.txt`: `lxml` 6.1.3 and
   `jsonschema` 4.25.1, exact pins with hashes, Python 3.9 floor
-- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 82-case known-bad
+- `tests/` — **not shipped.** The `unittest` suite, unit fixtures, the 99-case known-bad
   corpus (one per blocking finding and exit-3 path), and `test_skill_contracts.py`, which fails
   when a skill quotes a finding code or passes a flag no script has, and holds the override
   readers and writer to the limit
-- `docs/adr/` — 31 decision records, 0001–0031; the index is `docs/adr/README.md`
+- `docs/adr/` — 34 decision records, 0001–0034; the index is `docs/adr/README.md`
+- `docs/guides/` — the usage guides, one per scenario; `docs/papers/` — the concept paper and the product
+  description, Markdown sources rendered to PDF by `tools/build_papers.sh`
 - `.mcp.json` (dgf-mcp only), `.ai-factory/config.yaml`
 
 Not yet created: `agents/`. The package is not yet published to GitHub Packages.
@@ -135,7 +150,8 @@ supersede the `[assume]` flags in Part 2 of the blueprint.
 | `docs/schemas/` holds only 3 hand-authored standalone contracts, not the generated set | `componentValidator`, `dataFetcherConfiguration`, `eventBase` |
 | Hosted DGF documentation MCP | `https://dgf-mcp.dotgov.uk/mcp` |
 | Auth: JWT Bearer + OIDC (Azure AD + DGPass); tests: xUnit/FluentAssertions/Moq + Jest/Playwright | `AGENTS.md` tech stack |
-| DGF version source of truth is **`1.1.11`**, set only under `Condition="'$(Configuration)' == 'ClientDebug'"` despite a comment claiming all configurations share it | `src/Directory.Build.props` L30-34 |
+| `Directory.Build.props` `<Version>` is **not a release version**: set only under `Condition="'$(Configuration)' == 'ClientDebug'"`, it reads `1.1.15` at tags 1.1.16, 1.2.0 and 1.3.0 alike. The release is the git tag (GitVersion, support branches `X.Y.x`); knowledge packs are stamped with it ([ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md)) | `src/Directory.Build.props` L32-35, `GitVersion.yml` L1-7, read 2026-11-04 |
+| DGF runs **several release lines at once**: 1.1 (final tag 1.1.16, on `master`), 1.2 (`1.2.x`), 1.3 (`1.3.x`, latest 1.3.0); `2.x` carries no tag | `git tag`, `git merge-base --is-ancestor`, read 2026-11-04 |
 | **Nothing first-party version-stamps DGF knowledge** — no `version` on the XSDs, none in the generated JSON schemas, no compatibility matrix; release notes are the only version-aware surface | `Schemas/XSD/`, `Schemas/Json/`, `docs/wiki/Release-notes/` |
 | Process verification is **asymmetric**: structure is headless and deterministic (one-line XSD wrappers; `DgfMcpServer.csproj` has zero `<ProjectReference>`), semantics are checked by nothing DGF ships (`process.xsd` has no `xs:key`/`xs:keyref`, process is excluded at `XmlCrossReferenceValidator.cs:94`, `DiagnosticCheckService`'s process branch is commented out) | verified 2026-09-21 — see [ADR 0014](../docs/adr/0014-process-verification-runtime-resolution.md) |
 | A process **cannot be executed headlessly** — stepping one needs a case record and therefore the database | `DGF.OM/Process/StateProcess/InstanceHandler.cs` `GetProcessMapAsync` |
@@ -211,11 +227,13 @@ Artifact root is `.dgf-factory/`, mirroring `.ai-factory/`.
 
 See [.ai-factory/ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture guidelines —
 folder structure, dependency rules, communication mechanisms and anti-patterns.
+Pattern: Structured Modules (Vertical Slices)
 
 Pattern: **Structured Modules (Vertical Slices)** — one skill is one self-contained
 slice, with shared DGF facts in `knowledge/` and cross-slice validators in `scripts/`.
 Maintainer material — `tools/` and `provenance/` — sits beside the slices and is never
-shipped.
+shipped. The installer — `bin/` and `cli/` — is a module beside the slices, not one of them: it
+places the payload and meets the Python side only through the receipt.
 Expressed in the agent-skill folder convention every harness reads (`skills/<name>/SKILL.md`).
 
 ## Delivery Model (decided)
@@ -259,7 +277,7 @@ on 2026-10-26.
 - **Portability.** Runtime paths in skills are written `{{dgf_runtime}}/…`, rendered by setup to the
   project-relative `.dgf-factory/runtime/…`, never absolute paths.
 - **No DGF repository paths in shipped files.** A developer's install has no DGF checkout,
-  so nothing in the package payload — `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/` —
+  so nothing in the package payload — `bin/`, `cli/`, `skills/`, `agents/`, `scripts/`, `knowledge/`, `packs/` —
   names a path into it, or links outside the payload. Shipped files cite the knowledge base, a
   DGF docs MCP call or a DGF type name; paths and digests live in `provenance/`. `doctor.py` and
   `tools/check_package.py` block on a violation — see [ADR 0030](../docs/adr/0030-shipped-package-payload.md).

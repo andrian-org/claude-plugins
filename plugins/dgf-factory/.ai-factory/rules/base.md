@@ -27,20 +27,35 @@
 ## Module Structure
 
 - `<plugin>/package.json` — the npm package `@andrian-org/dgf-factory`. Its `files` list —
-  `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/` — is what ships
+  `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/`, `packs/`, `agents/` — is what ships
   ([ADR 0030](../../docs/adr/0030-shipped-package-payload.md)).
 - `<plugin>/bin/dgf-factory.mjs` — the CLI entry. **Shipped.**
 - `<plugin>/cli/` — the installer: Node ≥ 18.3, `.mjs`, no dependencies. **Shipped.**
 - `<plugin>/skills/<name>/SKILL.md` — one directory per skill. `dgf-factory setup` renders each
   `SKILL.md` into every chosen harness's skills folder and copies the rest of the directory into
   `.dgf-factory/runtime/skills/<name>/`. **Shipped.**
-- `<plugin>/agents/*.md` — subagent definitions. Not yet created, and setup installs none.
+- `<plugin>/agents/<harness>/*.md` — agent definitions, today `agents/claude/` only: `dgf-implement-coordinator` and
+  `dgf-implement-worker` (ADR 0033). Setup installs each into that harness's `agentsDir`, rendered like a skill and
+  owned by the harness in the receipt. **Shipped.**
 - `<plugin>/scripts/` — shared runtime validators that skills call. **Shipped.**
-- `<plugin>/knowledge/` — stamped DGF facts and the vendored schema set. **Shipped.**
-- `<plugin>/tools/` — repo-maintenance checks and the schema vendoring tool that
+- `<plugin>/knowledge/` — the current DGF line's knowledge pack: stamped DGF facts and the vendored
+  schema set, every fact read at an exact release tag. **Shipped.**
+- `<plugin>/packs/<X.Y>/` — each older DGF line's pack, the same files as `knowledge/` minus its
+  `README.md`; `packs/lines.json` is the shipped registry setup chooses a project's line from. Setup
+  installs exactly one pack at `.dgf-factory/runtime/knowledge/`, so a skill or script reads
+  `{{dgf_runtime}}/knowledge/` and never `packs/` ([ADR 0036](../../docs/adr/0036-knowledge-packs-per-release-line.md)).
+  **Shipped.**
+- `<plugin>/tools/` — repo-maintenance checks, the schema vendoring tool and the DGF line tools that
   contributors run by hand. **Not shipped.** A maintenance tool never goes in `scripts/`.
 - `<plugin>/provenance/` — one ledger per knowledge file: the DGF files its facts came from,
-  each with a `sha256`. **Not shipped.**
+  each with a `sha256`. `provenance/knowledge/` for the current pack, `provenance/packs/<X.Y>/` for each
+  older one with its `known-good-exceptions.txt`, `provenance/lines.json` (each line's tag, commit and
+  support branch), and `provenance/sync-log/` (one triage log per sync). **Not shipped.**
+- **A pack moves only through `/dgf-sync` and the tools.** Digests and stamps are written by
+  `tools/restamp_knowledge.py`, vendored schemas by `tools/vendor_schemas.py`, the two registries by
+  `tools/dgf_lines.py` — never by hand. Validators, skills and the installer are one codebase and must
+  hold for every shipped pack; `tools/run_known_good.py --pack <line>` and `tools/check_drift.py --pack
+  <line>` check each one ([ADR 0036](../../docs/adr/0036-knowledge-packs-per-release-line.md)).
 - `.ai-factory/` — pipeline artifacts, single-writer ownership per command
 - Skills write runtime paths as `{{dgf_runtime}}/…`, which `dgf-factory setup` renders to the
   project-relative `.dgf-factory/runtime`; dgf-mcp tools are granted as `mcp__dgf-mcp__<tool>`

@@ -2,7 +2,7 @@
 name: dgf-component
 description: Inspect, validate or scaffold a DGF component — modern JSON under FM/_COMPONENTS or a legacy form, view, grid or options file — in both schema families and parity-aware, writing only inside the active plan's scope. Use for "add a component", "check this component", "is this component valid", "scaffold a DataTable", "what uses this component".
 argument-hint: "[inspect | validate | scaffold] <file, Type/name or Type>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__build_form_xml
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/audit_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/resolve_components.py"*) Bash(python3 "{{dgf_runtime}}/scripts/route_means.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_config.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_model.py"*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference mcp__dgf-mcp__build_form_xml
 disable-model-invocation: false
 version: 0.2.0
 ---

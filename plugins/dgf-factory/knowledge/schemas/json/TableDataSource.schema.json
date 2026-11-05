@@ -5,7 +5,7 @@
   "description": "Database table or view data source for querying data with filtering, searching, and sorting.\nImplements ITableDataSource and IParametrizedDataSource<TableDataSourceParameter>.\nProvides the most common data access pattern, supporting filters, search parameters, sorting,\nand result paging. Table data sources map to database tables or views and support per-view configuration.",
   "additionalProperties": false,
   "properties": {
-    "Filters": {
+    "filters": {
       "type": [
         "array",
         "null"
@@ -15,7 +15,7 @@
         "$ref": "#/definitions/KeyValuePairOfStringAndString"
       }
     },
-    "SearchParameters": {
+    "searchParameters": {
       "type": [
         "array",
         "null"
@@ -25,7 +25,7 @@
         "$ref": "#/definitions/KeyValuePairOfStringAndString"
       }
     },
-    "SortParameters": {
+    "sortParameters": {
       "type": [
         "array",
         "null"
@@ -35,7 +35,7 @@
         "$ref": "#/definitions/KeyValuePairOfStringAndString"
       }
     },
-    "Parameters": {
+    "parameters": {
       "type": [
         "array",
         "null"
@@ -45,14 +45,14 @@
         "$ref": "#/definitions/TableDataSourceParameter"
       }
     },
-    "Name": {
+    "name": {
       "type": [
         "null",
         "string"
       ],
       "description": "Gets the unique name identifier for this table data source. Used in component bindings."
     },
-    "Type": {
+    "type": {
       "description": "Gets the data source type. Can be DataSourceType.Table, LookupTable, or EditableGrid.",
       "oneOf": [
         {
@@ -60,36 +60,36 @@
         }
       ]
     },
-    "SingleResult": {
+    "singleResult": {
       "type": "boolean",
       "description": "Gets or sets whether this table returns a single result object rather than a collection.\nWhen true, single-row results are unwrapped from array form."
     },
-    "AllowUnauthorizedAccess": {
+    "allowUnauthorizedAccess": {
       "type": "boolean",
       "description": "Gets or sets whether this table allows unauthenticated access.\nWhen true, the table is queried without requiring authentication claims."
     },
-    "TableName": {
+    "tableName": {
       "type": [
         "null",
         "string"
       ],
       "description": "Gets or sets the name of the database table or view that this data source queries.\nExamples: \"Users\", \"Approvals\", \"FormSubmissions\"."
     },
-    "SqlView": {
+    "sqlView": {
       "type": [
         "null",
         "string"
       ],
       "description": "Gets or sets the custom SQL view (CTE or derived query) to use instead of a direct table reference.\nAllows for more complex filtering or transformation of the underlying table data."
     },
-    "ViewName": {
+    "viewName": {
       "type": [
         "null",
         "string"
       ],
       "description": "Gets or sets the named view configuration for this table.\nViews customize data retrieval behavior (filtering, sorting, search configuration).\nDefault is \"default\". Examples: \"active\", \"archived\", \"summary\"."
     },
-    "ForwardPaginationParameters": {
+    "forwardPaginationParameters": {
       "type": "boolean",
       "description": "Gets or sets whether pagination parameters (page, pageSize, skip, take) should be forwarded to the table.\nWhen true, component pagination settings are passed as table parameters for OFFSET/FETCH."
     }
@@ -99,13 +99,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Key": {
+        "key": {
           "type": [
             "null",
             "string"
           ]
         },
-        "Value": {
+        "value": {
           "type": [
             "null",
             "string"
@@ -123,12 +123,12 @@
           "description": "Defines a table data source parameter for database table queries.\nExtends DataSourceParameterBase with IsRequired flag and TableParameterDestinationType to determine\nwhether the parameter serves as a filter, search condition, or query parameter.",
           "additionalProperties": false,
           "properties": {
-            "IsRequired": {
+            "isRequired": {
               "type": "boolean",
               "description": "Gets or sets whether this parameter is required by the table query.\nWhen true, the parameter value must be provided or the query will fail.\nWhen false, the query can execute without this parameter if not available in component state."
             },
-            "Type": {
-              "description": "Gets or sets how this parameter is applied to the table data source.\nValues: TableFilter (WHERE clause condition), TableSearch (full-text search), or Query (direct SQL parameter).\nDefault is TableFilter. Determines the SQL generation strategy used by the data source executor.",
+            "type": {
+              "description": "Gets or sets how this parameter is applied to the table data source.\nValues: TableFilter (typed search-form condition — LIKE '%v%' on a Text field),\nTableSearch (exact match — = value, or IN when the value has commas), or Query (direct SQL parameter).\nDefault is TableFilter. Determines the SQL generation strategy used by the data source executor.",
               "oneOf": [
                 {
                   "$ref": "#/definitions/TableParameterDestinationType"
@@ -148,9 +148,9 @@
         "Query"
       ],
       "enum": [
-        "TableFilter",
-        "TableSearch",
-        "Query"
+        "tableFilter",
+        "tableSearch",
+        "query"
       ]
     },
     "DataSourceParameterBase": {
@@ -158,15 +158,15 @@
       "description": "Base class for all data source parameter definitions.\nParameters define how external values (component state, user claims, pagination info) map to data source inputs.\nSupports token substitution: ${componentName}, ${item.field}, ${User.attribute}, ~UserID, ~NOW.",
       "additionalProperties": false,
       "required": [
-        "SourceName"
+        "sourceName"
       ],
       "properties": {
-        "SourceName": {
+        "sourceName": {
           "type": "string",
           "description": "Gets or sets the source location of the parameter value. Required.\nExamples: component name, nested path (item.field), claim name.\nSupports token syntax like \"${itemValue}\", \"${User.Id}\", \"~UserID\", \"~NOW\".",
           "minLength": 1
         },
-        "DestinationName": {
+        "destinationName": {
           "type": [
             "null",
             "string"
@@ -191,16 +191,16 @@
         "Code"
       ],
       "enum": [
-        "None",
-        "Table",
-        "LookupTable",
-        "EditableGrid",
-        "Api",
-        "Static",
-        "Document",
-        "RawSql",
-        "StoredProcedure",
-        "Code"
+        "none",
+        "table",
+        "lookupTable",
+        "editableGrid",
+        "api",
+        "static",
+        "document",
+        "rawSql",
+        "storedProcedure",
+        "code"
       ]
     }
   }

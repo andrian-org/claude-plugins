@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+    sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Components/DGF.Components.Shared/Contracts/IComponentService.cs
     sha256: 0b5e3415c3c56acdf5e392b61111ef191eb6b834024c7bd7883061b1841aa973
   - path: src/Components/DGF.Services.Extensions/ComponentServiceProvider.cs
@@ -9,11 +9,11 @@ sources:
   - path: src/Components/DGF.Services.Extensions/ConfigureServices.cs
     sha256: b1df9fca9fb6e6d8dbd1e5df6665df7b13e5b74fc5bed3833d7d9a7efe9e4929
   - path: src/Tools/dgf-mcp/Data/lifecycle/components.json
-    sha256: 14b8bd7209522c77d1019703c15c4b144380c5166070971f531dec54b4822b7f
+    sha256: e0a83bf8176289b01011ffea466f2b98fbb6fbb519151a7680229bed2e2fe900
   - path: src/Tools/dgf-mcp/Data/examples/components.json
-    sha256: 0986c4f49c029e44e4d7d0f7fc347a6aec7a4f7f9f1947ed9e95c1b315ea50e3
+    sha256: 14a1a0eacee47d52e414572e39eb5e1ea15fed93c01b49647134fac537bc35fd
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Components/Extensions/DGF.Calendar/ConfigureServices.cs
     sha256: 923d61053f653fa7ccf9b571b6f4f0abf92dcca96933b5b2c3ce7ea8cf12e323
   - path: src/Components/Extensions/DGF.Carousel/ConfigureServices.cs
@@ -41,7 +41,7 @@ sources:
   - path: src/Components/Extensions/DGF.FormComponents/ConfigureServices.cs
     sha256: 734449f8f26e073f90a4795779a84d6a6668a797a522169ae5a0520b99503987
   - path: src/Components/Extensions/DGF.IFrame/ConfigureServices.cs
-    sha256: 7f04e4e82b0b651681399c93cabe338b557e6d3cf58722110e5fbeabfeb63040
+    sha256: b666ecf2270234b9fca76946a997da5a669391b8425d493fc7b3f7097eab5cf6
   - path: src/Components/Extensions/DGF.ImageComponent/ConfigureServices.cs
     sha256: 1d352ad56959aab523253d2b3053bbd1b639b56dfe978fe3e36651c87ff0f790
   - path: src/Components/Extensions/DGF.LayoutComponents/ConfigureServices.cs
@@ -76,6 +76,10 @@ sources:
     sha256: ee234a010a920fb07d78efdc4c51e6ba8a61ea70ba3b09f303ab083cd84a5050
   - path: src/Components/Extensions/DGF.Uploader/ConfigureServices.cs
     sha256: 32e0b4568009efab733e3cdf89507ff22fd5f247cbf56e73480fe4f118823af0
+  - path: src/Components/Extensions/DGF.AutoComplete/ConfigureServices.cs
+    sha256: 086554a37bd36cd02f472c9c405c2062343793ff801ed8674d148e2831aa445a
+  - path: src/Components/Extensions/DGF.Chart/ConfigureServices.cs
+    sha256: e7d73af016799bbc4c086e802b930add5962bff2050853f04627e919ce3b07df
 ---
 # Provenance — `knowledge/component-catalogue.md`
 

@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-22
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 
 # Component catalogue — which components exist, and which count answers which question
@@ -15,13 +15,13 @@ which.** In particular, never write "~40" — it matches none of them.
 
 | Count | What it enumerates | Source | Answers |
 |---|---|---|---|
-| **34** | `IComponentService<TSource>` registrations — components the runtime dispatches to a service | the 34 `RegisterComponentService(` calls across 31 `ConfigureServices.cs` files | *"Which component names does the runtime route a request to?"* — the validator's question |
-| **67** | `ComponentType` enum members (excluding `None`) — every type name the runtime recognises, including layout-only types with no service | the `ComponentType` enum | *"Is this a legal `type` value at all?"* |
-| **56** | lifecycle-matrix entries | the MCP's lifecycle matrix, `get_component_lifecycle` (`totalCount`) | *"What is this component's lifecycle classification?"* — hand-authored with code citations |
-| **59** | showcase examples | the MCP's showcase examples, `get_component_examples` (`componentCount`) | *"Is there a demo of this component?"* — built from the sample app, not from services |
-| **66** | components with a generated JSON schema | DGF's format-coverage page, `get_doc_page('AI-Authoring/format-coverage.md')` (67 rows, one struck through) | *"Can its config be schema-validated?"* — see `schema-families.md` |
+| **36** | `IComponentService<TSource>` registrations — components the runtime dispatches to a service | the 36 `RegisterComponentService(` calls across 33 `ConfigureServices.cs` files | *"Which component names does the runtime route a request to?"* — the validator's question |
+| **69** | `ComponentType` enum members (excluding `None`) — every type name the runtime recognises, including layout-only types with no service | the `ComponentType` enum | *"Is this a legal `type` value at all?"* |
+| **58** | lifecycle-matrix entries | the MCP's lifecycle matrix, `get_component_lifecycle` (`totalCount`) | *"What is this component's lifecycle classification?"* — hand-authored with code citations |
+| **63** | showcase examples | the MCP's showcase examples, `get_component_examples` (`componentCount`) | *"Is there a demo of this component?"* — built from the sample app, not from services |
+| **68** | components with a generated JSON schema | DGF's format-coverage page, `get_doc_page('AI-Authoring/format-coverage.md')` (69 rows, one struck through) | *"Can its config be schema-validated?"* — see `schema-families.md` |
 
-None of these is published as a derived artifact; the 34 and the 67 are derived by static
+None of these is published as a derived artifact; the 36 and the 69 are derived by static
 read of DGF source, and must be re-derived on re-vendor. The files read, with their digests,
 are in the maintainer provenance ledger for this file.
 
@@ -47,11 +47,11 @@ The reflection scan is a **filter**, not the naming source. Both stages live in 
    ```
 
    An implementation that exists but was never explicitly registered is **skipped with a
-   warning**, not registered. So the 34 explicit calls, not the interface implementers,
+   warning**, not registered. So the 36 explicit calls, not the interface implementers,
    define the dispatchable set. Every current implementer is registered — the two sets match
    1:1 at this `dgf_version`.
 
-## 3. The 34 dispatchable components
+## 3. The 36 dispatchable components
 
 Name → service type → registering module, derived from the call sites. Several services are
 `partial class` split across two files; each counts once.
@@ -59,9 +59,11 @@ Name → service type → registering module, derived from the call sites. Sever
 <!-- machine-read: dispatchable -->
 | `ComponentType` | Service | Component extension module |
 |---|---|---|
+| `AutoComplete` | `AutoCompleteComponentService` | `DGF.AutoComplete` |
 | `Booking` | `BookingComponentService` | `DGF.DateTimeComponents` |
 | `Calendar` | `CalendarComponentService` | `DGF.Calendar` |
 | `Carousel` | `CarouselComponentService` | `DGF.Carousel` |
+| `Chart` | `ChartComponentService` | `DGF.Chart` |
 | `ComboBox` | `ComboBoxComponentService` | `DGF.ComboBox` |
 | `CorporateAccount` | `CorporateAccountComponentService` | `DGF.Corporate` |
 | `DataFetcher` | `DataFetcherComponentService` | `DGF.DataFetcher` |
@@ -95,7 +97,7 @@ Name → service type → registering module, derived from the call sites. Sever
 | `WorkflowNew` | `WorkflowComponentServiceNew` | `DGF.FlowComponents` (`WorkFlow`) |
 
 Three modules register two components each (`DGF.DataTable`, `DGF.DateTimeComponents`,
-`DGF.FlowComponents` (`WorkFlow`)) — hence 34 calls in 31 files.
+`DGF.FlowComponents` (`WorkFlow`)) — hence 36 calls in 33 files.
 
 ## 4. The 33 enum members with no service
 
@@ -108,15 +110,15 @@ must accept them as types and must not expect a service behind them:
 `PhoneNumber` `ProfileMenu` `RadioButton` `Route` `Row` `Search` `Section` `SelectButton`
 `Separator` `Tab` `Template` `Textarea` `TextBox` `Time` `Toggle`
 
-67 − 34 = 33. `Text`, `Textarea` and `TextBox` are three distinct enum members; only `Text`
+69 − 36 = 33. `Text`, `Textarea` and `TextBox` are three distinct enum members; only `Text`
 has a service.
 
 ## 5. Cross-checks a validator should perform
 
-- A `type` not in the 67 → **unknown component**, blocked
-- A `type` in the 67 but not in the 34 → **legal, no service**; do not expect dispatch
-- A `type` in the 34 → dispatchable; consult `schema-families.md` §6 before claiming its
-  JSON config is runtime-read — `Workflow` and `ProcessFlow` are both in the 34 and both `✗`
+- A `type` not in the 69 → **unknown component**, blocked
+- A `type` in the 69 but not in the 36 → **legal, no service**; do not expect dispatch
+- A `type` in the 36 → dispatchable; consult `schema-families.md` §6 before claiming its
+  JSON config is runtime-read — `Workflow` and `ProcessFlow` are both in the 36 and both `✗`
 
 ## See Also
 

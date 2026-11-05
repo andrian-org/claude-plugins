@@ -1,0 +1,13 @@
+{
+  "cli": "estate_docs.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--out",
+    ".dgf-factory/docs"
+  ],
+  "exit": 1,
+  "codes": [
+    "DOCS_PAGE_NOT_GENERATED"
+  ]
+}

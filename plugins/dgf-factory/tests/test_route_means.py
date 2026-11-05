@@ -16,7 +16,7 @@ class RouteMeans(unittest.TestCase):
         code, line, out = route("Form")
         self.assertEqual(code, 0, out)
         self.assertTrue(line.startswith("ROUTE: xml <workspace>/FM/_DATA/<table>/_forms/<form>/_form.xml — "), out)
-        self.assertIn("parity row 19 is ◐", line)
+        self.assertIn("parity row 21 is ◐", line)
 
     def test_rule_1_workflow_is_a_legacy_type(self):
         code, line, out = route("Workflow")
@@ -31,7 +31,7 @@ class RouteMeans(unittest.TestCase):
     def test_rule_2_not_runtime_is_xml_at_the_counterpart_artifact(self):
         code, line, out = route("ProcessFlow")
         self.assertEqual(code, 0, out)
-        self.assertTrue(line.startswith("ROUTE: xml <workspace>/FM/_PROCESS/<process>/process.xml — parity row 34 is ✗"),
+        self.assertTrue(line.startswith("ROUTE: xml <workspace>/FM/_PROCESS/<process>/process.xml — parity row 36 is ✗"),
                         out)
 
     def test_rule_3_supported_is_json(self):

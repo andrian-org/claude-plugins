@@ -47,6 +47,18 @@ test('a partial uninstall removes one harness, keeps the runtime and a shared MC
   assert.ok(Object.values(receipt.files).every((f) => f.owner !== 'claude'));
 });
 
+test('uninstalling claude removes its agents, and an edited agent is kept', (t) => {
+  const project = installed(t, 'claude');
+  const agents = path.join(project, '.claude/agents');
+  assert.deepEqual(readdirSync(agents).sort(), ['dgf-implement-coordinator.md', 'dgf-implement-worker.md']);
+  writeFileSync(path.join(agents, 'dgf-implement-worker.md'), 'mine\n');
+  const result = cli('uninstall', '--root', project, '--harness', 'claude', '--yes');
+  assert.equal(result.status, 2, result.stdout + result.stderr);
+  assert.equal(existsSync(path.join(agents, 'dgf-implement-coordinator.md')), false);
+  assert.equal(readFileSync(path.join(agents, 'dgf-implement-worker.md'), 'utf8'), 'mine\n');
+  assert.match(result.stdout, /kept {5}\.claude\/agents\/dgf-implement-worker\.md \(edited/);
+});
+
 test('an edited file is kept and reported (exit 2)', (t) => {
   const project = installed(t);
   writeFileSync(path.join(project, '.claude/skills/dgf-plan/SKILL.md'), 'mine\n');
@@ -113,4 +125,26 @@ test('Ctrl+D at the confirm prompt is a usage error, and nothing is removed', as
   const out = { write: () => true };
   await assert.rejects(run(['--root', project], { parseArgs }, { io, out }), (err) => err.code === 3 && /cancelled/.test(err.message));
   assert.ok(existsSync(path.join(project, '.claude/skills/dgf/SKILL.md')));
+});
+
+test('a committed receipt naming a project file is refused: setup, status and uninstall delete nothing', async (t) => {
+  const project = installed(t, 'claude');
+  const { hashFile } = await import('../../cli/hash.mjs');
+  const receiptPath = path.join(project, '.dgf-factory/install.json');
+  for (const [rel, owner] of [['src/Program.cs', 'runtime'], ['.git/hooks/pre-commit', 'claude'], ['.claude/skills/x/.git/hooks/pre-commit', 'claude']]) {
+    mkdirSync(path.dirname(path.join(project, rel)), { recursive: true });
+    writeFileSync(path.join(project, rel), 'precious\n');
+    const receipt = JSON.parse(readFileSync(path.join(project, '.dgf-factory/install.json'), 'utf8'));
+    const hash = hashFile(path.join(project, rel));
+    receipt.files[rel] = { source: 'scripts/x.py', owner, sourceHash: hash, installedHash: hash };
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    for (const args of [['uninstall', '--yes'], ['setup', '--harness', 'claude', '--yes', '--no-python'], ['status']]) {
+      const result = cli(...args, '--root', project);
+      assert.equal(result.status, 3, `${args[0]} ${rel}: ${result.stdout}${result.stderr}`);
+      assert.match(result.stderr, new RegExp(`${rel.replace(/[.]/g, '\\.')}\` (is not under|is inside a \`\\.git\` folder)`));
+    }
+    assert.equal(readFileSync(path.join(project, rel), 'utf8'), 'precious\n', rel);
+    delete receipt.files[rel];
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+  }
 });

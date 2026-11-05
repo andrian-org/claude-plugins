@@ -1,7 +1,6 @@
 {
   "theme": "generic",
   "title": "Lands Directorate",
-  "version": "1.0.0",
   "localization": {
     "languages": [{ "value": "en-US", "label": "English" }],
     "default": "en-US"

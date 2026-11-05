@@ -1,6 +1,6 @@
 {
   "name": "@andrian-org/dgf-factory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Installs the dgf-factory pipeline — DotGov Framework-aware plan/implement/verify skills and their dual-schema validators — into a project, for every AI harness you use.",
   "type": "module",
   "bin": {
@@ -12,6 +12,8 @@
     "skills",
     "scripts",
     "knowledge",
+    "packs",
+    "agents",
     "!**/__pycache__",
     "!**/*.pyc",
     "!skills/dgf-scaffold/templates/solution/obj",

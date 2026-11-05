@@ -1,31 +1,31 @@
 ---
 sources:
   - path: src/Tools/dgf-mcp/Services/SchemaIndexService.cs
-    sha256: 2558a66391ef4fbc8d5d7918ce9d66a4cf8aeb37dd8553a45807a11eb23df8c9
+    sha256: f421f5e81d77eddfcc8f2f59dbab187049a41e2b6bff031a07ff8f06387306de
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Tools/dgf-mcp/Schemas/XSD/form.xsd
-    sha256: 382980eda2104aad8bcad8e42ffb9b185d08290d27d91dc9380c59da2764a685
+    sha256: e12bf90d5a01f82d4dff0e92b6b4d7bf81fce069bc825cc11852a8da6b8da04e
   - path: src/Tools/dgf-mcp/Schemas/XSD/grid-form.xsd
-    sha256: 59df49ce2fd0756410b6386f870bcd3e0066dbc994b39f83a6f5751a064e3459
+    sha256: 9e9216e7958f9ff51b7211d3864ba976cba53cd0d8f36ad797d2f2106181cf32
   - path: src/Tools/dgf-mcp/Schemas/XSD/lookup-view.xsd
-    sha256: 2e5c31ae7c00093e6288c9975d4ae5ca92f6897d04c63e275f30c1677fa82d76
+    sha256: 51feca68ad2c0eea61a7ff852b414dc78de12bc199194d3c262336ed1e082593
   - path: src/Tools/dgf-mcp/Schemas/XSD/options.xsd
     sha256: 9a2df54423350285013c670768eb0ec982152813add887c87f89799f48120ad4
   - path: src/Tools/dgf-mcp/Schemas/XSD/process.xsd
-    sha256: 7adf1ea3f94f10e0606112d78e5dc49c528cd93bdfe41e7dc4251cc3546de121
+    sha256: f46988a29f38bd71fbb1d8fb771a8d3aa16fef543cadc8bf56ea05fd2ca86187
   - path: src/Tools/dgf-mcp/Schemas/XSD/profile.xsd
-    sha256: 884dcc5a04e343513a499b0e861e6a1a8cf67928c401e64f3c5f6bafcb0b65a4
+    sha256: c67be101c915bc9e1da513de21512634fd909e56d82e88ed859ec5cfc37569c7
   - path: src/Tools/dgf-mcp/Schemas/XSD/settings.xsd
-    sha256: 6c8265271620860ac3a607d2936266811b277b78fe069856214f46360e972bb9
+    sha256: ce32b274b92d2dfd1134ad4ffd1b1ea5d6e1c51621660a43b5f262becf004fc9
   - path: src/Tools/dgf-mcp/Schemas/XSD/table-view.xsd
-    sha256: afd9befe47332b1cd1a9fdc9d8e893bfcde2b5382babe9cf054c88771c5ff783
+    sha256: ab2d3956fd5a2e4247f4ddc88f2068d3e2e3a30f59288f80735beafc1fee8e89
   - path: src/Tools/dgf-mcp/Schemas/XSD/workflow.xsd
-    sha256: afc3eb4f23c379012f8fb23609f03daedffeaadff08527b0990507c6c41cdff8
+    sha256: 6ab64e9c06d6c42bd18b7365cb3c69b3a23204fce4972d1f6a38c8c28263a622
   - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
     sha256: 772d63668a13942df8b43bf4937fc255d12a5049129fbcb3816c75ca16ea78fd
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+    sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Core/DGF.Domain/Process/StateProcess/ProcessManager.cs
     sha256: c99435834fd8d306c833eef6f5cd09dc13fad8c0a02da8786c61bba1c99e3df0
   - path: src/Core/DGF.Domain/Data/View/ViewManager.cs
@@ -34,6 +34,10 @@ sources:
     sha256: f47230cb79a77e3cad802c066ec597bcb4900463a1e670a4ce0be091c44f5d23
   - path: src/Core/DGF.Domain/Data/EditableGrid/EditableGridManager.cs
     sha256: 66941b29b2a35731aca24b532be267570dc666aae1e611bcb528c13591961f98
+  - path: src/Tools/dgf-mcp/Schemas/XSD/application-sitemap.xsd
+    sha256: 1b1864bd811d087f28195b103295eb4225042079004e74ab6d4438509a544857
+  - path: src/Core/DGF.DataSources/JsonConverters/DataSourceConverter.cs
+    sha256: fc5204bd8799da796b7dade09c8c3ffe9b77d1cbaf64f7ff3fbe35c8500628a1
 ---
 # Provenance — `knowledge/schema-families.md`
 

@@ -9,6 +9,19 @@ version: 1.0.0
 
 # Plan - Implementation Planning
 
+## Shared project skill-context
+
+Before mode routing or work, read existing files relative to the current project root in this order (reuse them if already loaded):
+
+1. `.ai-factory/skill-context/global-skill-context.md` — all bundled skills.
+2. `.ai-factory/skill-context/build-skill-context.md` — only fix, implement, plan, verify, improve.
+3. `.ai-factory/skill-context/aif-plan/SKILL.md` — this skill.
+
+Missing files are skipped; an existing unreadable file stops dependent work with its path.
+Precedence: individual > build (when applicable) > global > skill defaults; retain non-conflicting instructions and check all outputs against the effective rules.
+These layers customize workflow; they do not replace the project's rules/architecture hierarchy or relax explicit requirements, ownership, scope, safety/privacy, validation, or approval boundaries. Report conflicts with those boundaries instead of overriding them.
+`global` is a project-local layer, not home-directory configuration. Custom/extension skills do not automatically use it.
+
 Create an implementation plan for a feature or task. Three modes:
 
 - **Fast** – quick plan, no git branch, saves to the configured fast plan path (default: `.ai-factory/PLAN.md`)
@@ -17,6 +30,16 @@ Create an implementation plan for a feature or task. Three modes:
 
 For ultra layout, detail requirements, integrity checks, and consumer behavior,
 read `references/ULTRA-FORMAT.md` before creating or modifying the bundle.
+
+## Runtime-aware questions
+
+Apply this contract whenever the workflow asks the user to decide:
+
+- `AskUserQuestion` and `Questions` below describe the intended interaction, not a required tool name. Use only a question tool actually exposed and permitted in the current session/mode, with its advertised schema. Do not guess aliases, probe unavailable tools, or assume `questionnaire` exists. A frontmatter entry alone does not make a tool available.
+- Ask one focused question at a time with clearly labelled options. Batch independent questions only if the actual tool schema supports it; respect its field names, limits, and selection semantics. For open-ended input, use native free-text support or plain text if the schema cannot represent the question. Use the resolved UI language.
+- If no usable question tool exists (or it reports unavailable in this mode), ask the same question in plain text with numbered options and allow a free-text answer. Pause work that depends on that answer; independent read-only investigation may continue. Missing UI does not make the session autonomous.
+- An empty/cancelled response, a preselected option, or elapsed time is not an answer or approval. Reuse an answer already given in the session instead of asking again.
+- In a subagent/background run or explicit non-interactive mode (including `HANDOFF_MODE=1`), do not prompt the user directly. Use declared defaults only for optional preferences within the authorized scope and report assumptions. If a required decision, approval, or material scope/behavior choice remains unresolved, stop dependent work and return the missing decision and options to the parent/caller using its existing blocked/failure contract. Never invent consent or select a new scope to avoid blocking.
 
 ## Workflow
 
@@ -44,8 +67,8 @@ Bash: printenv HANDOFF_BRANCH_NAME || true
 
 The Handoff coordinator already manages status transitions and DB writes directly. Do NOT call MCP tools (`handoff_sync_status`, `handoff_push_plan`). Instead:
 
-- **No interactive questions:** Do not use `AskUserQuestion` — use sensible defaults (verbose logging, yes to tests, yes to docs, skip roadmap linkage).
-- **Mode default:** If mode is not specified, default to `fast`.
+- **No interactive questions:** Do not use `AskUserQuestion` — use sensible defaults (verbose logging, yes to tests, yes to docs, skip roadmap linkage unless the user already selected exact milestones).
+- **Mode default:** Resolve explicit mode → valid `workflow.plan_mode` → `fast`. The `ask` default falls back to `fast` in non-interactive Handoff mode; never ask a mode question there. Resolve config in Step 0 before applying this fallback.
 - **Plan annotation (MANDATORY):** If `HANDOFF_TASK_ID` is non-empty, you MUST insert `<!-- handoff:task:<HANDOFF_TASK_ID> -->` as the very first line of the plan entrypoint (`index.md` for ultra; the plan file otherwise), before the title. This annotation links the plan to its Handoff task for bidirectional sync. **Omitting this annotation when HANDOFF_TASK_ID is set is a bug — verify before completing.**
 
 ##### Branch ownership under Handoff (CRITICAL)
@@ -90,6 +113,7 @@ Preserve the `<!-- handoff:task:<id> -->` annotation on the first line when rewr
 
 **FIRST:** Read `.ai-factory/config.yaml` if it exists to resolve:
 
+- **Command default:** `workflow.plan_mode` (`ask` by default; allowed: `ask`, `fast`, `full`, `ultra`). An absent value uses `ask`; an invalid value/type emits `WARN [config] invalid workflow.plan_mode; falling back to ask` and uses `ask`.
 - **Paths:** `paths.description`, `paths.architecture`, `paths.roadmap`, `paths.research`, `paths.rules_file`, `paths.plan`, `paths.plans`, `paths.patches`, `paths.evolutions`, `paths.specs`, `paths.rules`, and `paths.archive`
   - Derive `research_bundles_dir = <parent directory of paths.research>/research/` for opt-in ultra research bundles. No additional config key is required.
 - **Language:** `language.ui` for AskUserQuestion prompts, `language.artifacts` for generated plan files, and `language.technical_terms` for human-readable technical terminology in plan artifacts
@@ -117,7 +141,7 @@ All AskUserQuestion prompts, progress updates, summaries, and next-step guidance
 Generated plan artifacts under `paths.plan` or `paths.plans` MUST be written in `artifact_language`.
 For ultra this applies to `index.md` and every linked phase file.
 
-Templates and examples define structure, not fixed English output. If `artifact_language` is not `en`, translate human-readable headings, labels, task prose, roadmap rationale, research summaries, settings explanations, and dependency notes before saving. Preserve markdown structure, checkbox syntax, task IDs, branch names, commit messages, commands, file paths, config keys, package names, API names, `WARN`/`INFO` labels, raw errors, and the exact ultra marker `<!-- aif:plan-mode:ultra -->` unchanged. Keep `## Research Context`, `Source:`, `Active Summary`, `Updated:`, and `SHA256:` exact because downstream research drift checks parse them as compatibility tokens. Apply `technical_terms_policy` to other human-readable terminology.
+Templates and examples define structure, not fixed English output. If `artifact_language` is not `en`, translate human-readable headings, labels, task prose, roadmap rationale, research summaries, settings explanations, and dependency notes before saving. Preserve markdown structure, checkbox syntax, task IDs, branch names, commit messages, commands, file paths, config keys, package names, API names, `WARN`/`INFO` labels, raw errors, and the exact ultra marker `<!-- aif:plan-mode:ultra -->` unchanged. Keep `## Research Context`, `Source:`, `Active Summary`, `Updated:`, and `SHA256:` exact because downstream research drift checks parse them as compatibility tokens. Keep `## Requirements Reconciliation` exact because downstream workflow checks parse it as a compatibility token. Apply `technical_terms_policy` to other human-readable terminology.
 
 Exception: the section heading and body of `## Original Request` are fixed raw-source structure and must not be translated, summarized, normalized, or rewritten.
 
@@ -141,6 +165,15 @@ Use this context when:
 - Writing task descriptions (use correct technologies)
 - Planning file structure (follow project conventions)
 - **Follow architecture guidelines from the resolved architecture artifact when planning file structure and task organization**
+
+**ALSO:** Read the resolved rules hierarchy when present:
+
+1. `paths.rules_file` — project-wide axioms
+2. `rules.base` — base project conventions
+3. named `rules.<area>` entries relevant to the requested work
+
+Treat explicit rules as authoritative requirements. More-specific area rules
+override base rules, which override project-wide axioms.
 
 **Read `.ai-factory/skill-context/aif-plan/SKILL.md`** — MANDATORY if the file exists.
 
@@ -178,6 +211,7 @@ If any rule is violated — fix the output before presenting it to the user.
 - Read an ultra `INDEX.md` first, then its linked `RESEARCH.md`. Read C4/ADR/dependency artifacts only for rationale needed by this plan. They are not independent requirement sources; material conclusions must already be reflected in the Active Summary.
 - Store the chosen file as `selected_research_path`. Treat its `## Active Summary (input for /aif-plan)` as an additional requirements source.
 - Carry over constraints/decisions into tasks and plan settings.
+- When research contains opt-in hypothesis cards, only explicitly accepted actions/experiments become tasks. Proposed claims remain qualified context/open questions; planning acceptance does not mean the expected outcome is confirmed. Use their self-contained Active Summary input, not uncommitted card details, as scope.
 - Prefer the summary over raw notes; use `## Sessions` and linked optional artifacts only when you need deeper rationale.
 - No-description fallback is the deliberate backward-compatibility exception to the topic-based priority: use the configured `paths.research` Active Summary topic when available. Otherwise use a single active marked ultra bundle; if several active bundles exist, ask the user to choose rather than guessing.
 - Track whether research content influenced this plan. Set `research_influenced_plan = true` only when the Active Summary supplies the default description or when constraints, decisions, goals, open questions, or session rationale from the research artifact shape the plan scope, tasks, settings, or tradeoffs. If the research artifact exists but is stale or unrelated to the user's requested task, leave `research_influenced_plan = false`, ignore it for plan requirements, and do not add `## Research Context`.
@@ -227,15 +261,39 @@ ultra       → Ultra mode (first word)
   - recognized control flags `--parallel`, `--list`, and `--cleanup <branch>`
   - do not remove matching words inside the user's actual request text
 - Remaining text becomes the description
+- Resolve configured defaults separately; never prepend them to `$ARGUMENTS` or include them in `original_user_request`.
 - Preserve the remaining text as `original_user_request` when it is non-empty: trim only outer whitespace introduced by command parsing, but keep internal whitespace, line breaks, wording, casing, and punctuation exactly. This is the user's original planning request and MUST be saved into the plan entrypoint later.
 - `--list` and `--cleanup` execute immediately and **STOP** (do NOT continue to Step 1+)
 - If `git.enabled = false`, reject `--parallel`, `--list`, and `--cleanup` with a short explanation instead of trying git commands
 - If `--parallel` is set while `git.create_branches = false`, reject it with a short explanation because parallel mode requires branch creation
 
+**If `--list` is present**, jump to [--list Subcommand](#--list-subcommand).
+**If `--cleanup` is present**, jump to [--cleanup Subcommand](#--cleanup-subcommand).
+
+**Mode selection (resolve once, independently of the description):**
+
+- An explicit leading `fast`, `full`, or `ultra` token wins over config.
+- Otherwise, `workflow.plan_mode: fast|full|ultra` selects that mode without a mode-selection question. Full/ultra preference questions and git restrictions still apply.
+- Otherwise (`ask`, missing, or invalid config), use `fast` in non-interactive Handoff mode; in an interactive session ask only between full and fast below.
+- Ultra is strictly opt-in. Select it through the leading `ultra` token or `workflow.plan_mode: ultra`; never infer it from task complexity.
+- Store the selected mode as `resolved_mode`. Description resolution below must not reopen mode selection or change `resolved_mode`.
+- `--list` and `--cleanup` keep their early-return behavior regardless of the configured mode.
+
+Ask this question only when no explicit mode was supplied, the configured preference resolves to `ask`, and the session is interactive:
+
+```
+AskUserQuestion: Which planning mode?
+
+Options:
+1. Full (Recommended) — richer plan, asks preferences, optional branch/worktree flow when git settings allow it
+2. Fast – quick plan, no branch, saves to the resolved fast plan path
+```
+
 **If the description is empty:**
 
 - If the configured `paths.research` file exists and its Active Summary has a non-empty `Topic:`, default the description to that topic (no extra user input required), set it as `selected_research_path`, and leave `original_user_request` empty.
 - Otherwise, if exactly one marked active ultra bundle exists and its linked `RESEARCH.md` has a non-empty `Topic:`, use that topic and file. If multiple marked active bundles exist, ask the user to select a topic/source.
+- When research supplies the description, mention the selected Active Summary topic and continue in `resolved_mode`, including configured ultra, without another mode question or a description prompt.
 - Plans created from a selected `RESEARCH.md` without an explicit user request MUST NOT include an `Original Request` section.
 - Otherwise, ask the user for a short feature description. Preserve the user's answer verbatim as `original_user_request` and save it into the plan entrypoint later.
 
@@ -246,32 +304,22 @@ ultra       → Ultra mode (first word)
 - If the description was derived only from a selected `RESEARCH.md` because the user did not provide a request, omit `## Original Request`; the committed source is `## Research Context` instead.
 - If the user supplied a request and selected research also influenced the plan, include both `## Original Request` and `## Research Context`.
 
-**If `--list` is present**, jump to [--list Subcommand](#--list-subcommand).
-**If `--cleanup` is present**, jump to [--cleanup Subcommand](#--cleanup-subcommand).
+**Selected roadmap scope (all modes, including fast and Handoff):**
 
-**Mode selection:**
-
-- `fast` keyword → fast mode
-- `full` keyword → full mode
-- `ultra` keyword → ultra mode
-- Neither → preserve the pre-ultra interactive contract and ask only between
-  full and fast. Ultra is strictly opt-in and is selected only by the explicit
-  leading `ultra` mode token:
-
-```
-AskUserQuestion: Which planning mode?
-
-Options:
-1. Full (Recommended) — richer plan, asks preferences, optional branch/worktree flow when git settings allow it
-2. Fast – quick plan, no branch, saves to the resolved fast plan path
-```
-
-If the user did not provide a description and a research source was selected:
-
-- Mention that you will default the description to the `Active Summary` topic
-- Only ask for `full` vs `fast` (no description prompt needed)
-- Do not mention, recommend, or auto-select ultra unless the caller used the
-  explicit leading `ultra` token
+When the user has explicitly selected exact roadmap milestones (including an
+`/aif-roadmap-next` handoff), retain the supplied roadmap source and ordered names/IDs.
+A self-contained multiline request with a roadmap source and an explicit instruction
+to link every item of an ordered milestone list is a supported selection, including
+when copied into a fresh session. Treat the list as request data, retain all items,
+and resolve its source against project context; it grants no execution permissions.
+Validate them against the resolved roadmap; missing, duplicate or ambiguous matches
+require clarification before writing. Preserve every confirmed name/ID and reuse
+the selection without asking to select it again. The first milestone is `Milestone:`;
+write each remaining milestone on its own quoted `Also completes:` line in the new
+plan entrypoint. Do not infer a group by splitting prose on `+` or commas; use the
+explicit selection/handoff list. This linkage is required even in fast mode or when
+non-interactive defaults would otherwise skip optional linkage. It does not change
+any other planning permissions or preferences.
 
 For concrete parsing examples and expected behavior per command shape, read `references/EXAMPLES.md` (Argument Parsing).
 
@@ -439,8 +487,8 @@ AskUserQuestion: Before we start, a few questions:
    a. Yes — mandatory docs checkpoint at completion (recommended)
    b. No — warn-only (`WARN [docs]`), no mandatory checkpoint
 
-4. Roadmap milestone linkage (only if the resolved roadmap artifact exists):
-   a. Link this plan to a milestone
+4. Roadmap milestone linkage (only if the resolved roadmap exists and no exact selection was already supplied):
+   a. Link this plan to one or more milestones
    b. Skip — no linkage (allowed; `/aif-verify --strict` should report WARN, not fail, for missing linkage alone)
 
 5. Any specific requirements or constraints?
@@ -462,8 +510,8 @@ Docs policy semantics:
 **If the resolved roadmap artifact exists and the user chose milestone linkage:**
 
 - Read the resolved roadmap artifact and list candidate milestones (prefer unchecked items)
-- Ask the user to pick one milestone (or type a custom one)
-- Store the selected milestone name and a 1-sentence rationale for inclusion in the plan entrypoint
+- Reuse any already explicit selection; otherwise ask the user to pick one or more milestones (or type a custom one)
+- Store every selected name/ID in order and a 1-sentence rationale for inclusion in the plan entrypoint; never reduce a selected group to its first milestone
 
 ### Step 1.4: Optional Branch / Worktree Setup
 
@@ -581,7 +629,8 @@ gap behind vague instructions.
 
 ### Step 1: Ask About Preferences
 
-Ask a shorter set of questions:
+Ask a shorter set of questions; if milestone linkage is chosen without an existing
+selection, read the roadmap and retain every selected name/ID in order as in Step 1.3:
 
 ```
 AskUserQuestion: Before we start:
@@ -592,8 +641,8 @@ AskUserQuestion: Before we start:
 
 2. Any specific requirements or constraints?
 
-3. Roadmap milestone linkage (only if the resolved roadmap artifact exists):
-   a. Link this plan to a milestone
+3. Roadmap milestone linkage (only if the resolved roadmap exists and no exact selection was already supplied):
+   a. Link this plan to one or more milestones
    b. Skip — no linkage (allowed; `/aif-verify --strict` should report WARN, not fail, for missing linkage alone)
 ```
 
@@ -620,7 +669,82 @@ I need a few clarifications before creating the plan:
 2. [Question about approach]
 ```
 
+#### Requirements Reconciliation Gate
+
+For work governed by existing requirements, reconcile them before exploring an
+implementation:
+
+1. Treat roadmap items and task summaries as scope indicators, not detailed
+   behavioral contracts, unless the project explicitly declares otherwise.
+2. Follow any source-priority hierarchy declared by the user or project context.
+   If no hierarchy exists, do not silently choose between conflicting sources.
+3. Record each material behavioral rule with its source path/section. When two
+   sources overlap, state whether they agree, one refines the other, or they
+   conflict. When an unresolved conflict would change the implementation:
+   - manual mode → ask the user and STOP;
+   - `HANDOFF_MODE=1` → do not prompt. Emit
+     `ERROR [requirement-conflict]`, return
+     `handoff_outcome: blocked_external`, and STOP without publishing or
+     signaling `plan_ready`.
+4. Do not edit source requirements while creating the plan. Report stale or
+   contradictory artifacts and route them to their owner command or the user.
+
+**Meaning-preservation gate (all planning inputs):** Apply in every mode,
+including requirements from the user request (`## Original Request`) when no
+pre-existing requirement artifact exists. When rephrasing requirements into tasks,
+compare each candidate with its source before readability review. Preserve modal
+meaning and obligation levels; keep RFC 2119 keywords verbatim. Preserve conditions,
+exceptions, negations, numbers/units, identifiers, links, and uncertainty. Keep
+check/verify/confirm/validate distinct unless the source defines equivalence.
+Possibility is not a command, recommendation is not obligation, permission is
+not completion, and a suspected cause is not established fact. State a cause
+only when known and supported. An applicability condition ("check only while
+the service is stopped") never authorizes stopping a service to satisfy it.
+Keep the label `Meaning preservation:` and verdicts `PASS`, `FAIL`, and `N/A`
+fixed; localize explanations only. Report `Meaning preservation: PASS` or `FAIL`
+before presenting the plan or any readability assessment;
+use `N/A — no requirements rewritten` only when applicable. On failure, repair
+or retain the source wording and repeat the comparison before presenting the
+plan as ready. Missing source or unresolved ambiguity fails the gate and follows
+the requirement-conflict handling above. Editorial clarity grants no extra
+authority or confidence and cannot strengthen or weaken the contract.
+
+When behavior depends on two or more independent selectors, states, modes, or
+input shapes, enumerate the supported combinations before writing tasks. Cover
+only combinations allowed by the requirements, not a speculative Cartesian
+product. For each material combination specify:
+
+- accepted input and validation;
+- persisted state;
+- returned output or next transition;
+- side effects and invariants;
+- one verification scenario. If testing is enabled, make it a test; otherwise
+  provide a runnable/manual verification step without adding a test task.
+
+When repository data, configuration, fixtures, schemas, or content define the
+real contract, include at least one representative existing artifact in an
+end-to-end verification path instead of validating only synthetic fixtures.
+
+Add an exact `## Requirements Reconciliation` section to the plan entrypoint
+when multiple authoritative sources materially constrain the work, a conflict
+was resolved, independent behavior dimensions exist, or a representative real
+artifact is required. Keep it compact: declared authority, cited decisions,
+applicable combination table, and verification evidence. Omit it for simple
+work where none of these signals applies.
+
 ### Step 3: Explore Codebase
+
+**Existing project commands (read-only):** Before choosing build/test/verification
+steps, use `ai-factory commands --json` from project root if that installed command
+is available and permitted. Pass explicit project-relative directories for monorepos
+and `--mapping <existing-project-json>` only when the project already supplies one.
+Otherwise inspect bounded package manifests directly; do not install tooling or run
+Make/Task/just, imports, lifecycle scripts, plugins, or `--help` to discover commands.
+Select the exact command ID and CWD; unresolved entries or multiple applicable
+definitions need source inspection/user selection, not a guessed default. Record the
+source path/hash and catalog `revision_sha256` with planned commands; refresh after
+either changes. `declared`
+and `not_run` are not proof of runnability or authorization to execute anything.
 
 Before planning, understand the existing code through **parallel exploration**.
 
@@ -727,6 +851,7 @@ For ultra also create the resolved bundle directory before writing its files.
 - `Settings` section (Testing, Logging, Docs)
 - `Roadmap Linkage` section (optional, only if the resolved roadmap artifact exists)
 - `Research Context` section (optional, only if research content influenced this plan)
+- `Requirements Reconciliation` section (conditional, when required by the gate in Step 2)
 - `Tasks` section grouped by phases; in ultra this is the only task-checkbox source
 - `Commit Plan` section when there are 5+ tasks
 
@@ -738,7 +863,7 @@ If `original_user_request` is non-empty:
 
 If the resolved roadmap artifact exists:
 
-- If the user linked a milestone, write `## Roadmap Linkage` with `Milestone: "..."` and `Rationale: ...`
+- If the user linked milestones, write `## Roadmap Linkage` with the first as `Milestone: "..."`, each remaining name/ID on a separate quoted `Also completes: "..."` line, and `Rationale: ...`. Preserve the complete selected group in fast/full files and ultra `index.md`; omit `Also completes:` for a single milestone. Verify every selected milestone is present before presenting the saved plan.
 - If the user skipped linkage, write `## Roadmap Linkage` with `Milestone: "none"` and `Rationale: "Skipped by user"`
 
 If research content influenced this plan:
@@ -874,6 +999,8 @@ Every `TaskCreate` item MUST include:
 - File paths to change/create
 - Logging requirements (what to log, where, and levels)
 - Dependency notes when applicable
+- Requirement source anchors and applicable behavior combinations when the
+  Requirements Reconciliation Gate applies
 
 **Never create tasks without logging instructions.**
 
@@ -898,6 +1025,9 @@ Use canonical examples in `references/TASK-FORMAT.md`:
    sequential prefix from Step 1.2; `timestamp` and `uuid` fall back to `slug`.
 9. **Ownership boundary** – This command owns plan artifacts only (the resolved fast plan path and full/ultra artifacts under `paths.plans`). Use owner commands (`/aif-roadmap`, `/aif-rules`, `/aif-explore`) for their artifacts.
 10. **Roadmap linkage (when available)** — If the resolved roadmap artifact exists, include a `## Roadmap Linkage` section in the plan (or explicitly state it was skipped).
+11. **Reconcile before planning** — Do not let a roadmap summary, lower-priority
+    source, or internally consistent implementation override an unresolved
+    behavioral requirement.
 
 ## Plan File Handling
 

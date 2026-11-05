@@ -6,7 +6,11 @@
 #
 #   1. npm pack
 #   2. npm install -g --prefix <tmp>/npm <tarball>
-#   3. dgf-factory setup --harness claude,codex,gemini --yes, in an empty project
+#   3. dgf-factory setup --harness claude,codex,gemini --yes, in an empty project; the two implement
+#      agents land in .claude/agents/ and nowhere else (ADR 0033 §5)
+#   3b. a second project on the oldest packed DGF line (--dgf-line): its receipt names that line and its
+#       runtime knowledge carries that line's stamp, while the first project holds the current line's
+#       (ADR 0036 §3) — skipped, with a note, when the package holds one line
 #   4. a second setup: exit 0, nothing written
 #   5. edit one installed skill, set up again: the edit is kept, and reported
 #   6. the installed doctor: exit 0, or 2 with only INSTALL_FILE_EDITED (from step 5)
@@ -65,6 +69,43 @@ for dir in .claude/skills .codex/skills .gemini/skills .dgf-factory/runtime/scri
     [ -d "${PROJECT}/${dir}" ] || fail 1 "${dir} was not installed"
 done
 [ -f "${PROJECT}/.dgf-factory/install.json" ] || fail 1 'no receipt'
+for agent in dgf-implement-coordinator dgf-implement-worker; do
+    [ -f "${PROJECT}/.claude/agents/${agent}.md" ] || fail 1 "the ${agent} agent was not installed for claude"
+    grep -qF "\".claude/agents/${agent}.md\"" "${PROJECT}/.dgf-factory/install.json" || fail 1 "the receipt does not record ${agent}"
+done
+for dir in .codex/agents .gemini/agents .dgf-factory/runtime/agents; do
+    [ ! -e "${PROJECT}/${dir}" ] || fail 1 "${dir} was installed; agents ship for Claude Code only"
+done
+
+step '3b. two projects on two DGF lines'
+REGISTRY="${TMP}/npm/lib/node_modules/@andrian-org/dgf-factory/packs/lines.json"
+[ -f "${REGISTRY}" ] || fail 1 "the package holds no packs/lines.json"
+lines_info="$(node -e '
+const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+const key = (l) => l.line.split(".").map(Number);
+const sorted = [...r.lines].sort((a, b) => key(a)[0] - key(b)[0] || key(a)[1] - key(b)[1]);
+const cur = r.lines.find((l) => l.line === r.current);
+console.log([r.current, cur.dgf_version, sorted[0].line, sorted[0].dgf_version, r.lines.length].join(" "));
+' "${REGISTRY}")" || fail 1 'cannot read the packed registry'
+set -- ${lines_info}
+current="$1"; current_version="$2"; oldest="$3"; oldest_version="$4"; line_count="$5"
+trace "lines: ${line_count}; current ${current} (${current_version}); oldest ${oldest} (${oldest_version})"
+stamp_of() { sed -n 's/^dgf_version: "\(.*\)"$/\1/p' "$1/.dgf-factory/runtime/knowledge/schema-families.md"; }
+line_of() { node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).dgfLine)' "$1/.dgf-factory/install.json"; }
+[ "$(line_of "${PROJECT}")" = "${current}" ] || fail 1 "the first project's receipt does not name line ${current}"
+[ "$(stamp_of "${PROJECT}")" = "${current_version}" ] || fail 1 "the first project's knowledge is not stamped ${current_version}"
+if [ "${line_count}" -gt 1 ]; then
+    OTHER="${TMP}/other-project"
+    mkdir -p "${OTHER}"
+    code=0
+    "${CLI}" setup --root "${OTHER}" --harness claude --dgf-line "${oldest}" --yes --no-python > "${TMP}/other.txt" || code=$?
+    [ "${code}" -eq 0 ] || { cat "${TMP}/other.txt"; fail 1 "setup --dgf-line ${oldest} exited ${code}"; }
+    [ "$(line_of "${OTHER}")" = "${oldest}" ] || fail 1 "the second project's receipt does not name line ${oldest}"
+    [ "$(stamp_of "${OTHER}")" = "${oldest_version}" ] || fail 1 "the second project's knowledge is not stamped ${oldest_version}"
+    printf 'line %s (%s) and line %s (%s) installed side by side\n' "${current}" "${current_version}" "${oldest}" "${oldest_version}"
+else
+    printf 'the package holds one DGF line (%s) — the side-by-side install is skipped\n' "${current}"
+fi
 
 step '4. a second setup changes nothing'
 before="$(cd "${PROJECT}" && find . -type f -not -path './.dgf-factory/runtime/.venv/*' -exec shasum {} + | sort)"

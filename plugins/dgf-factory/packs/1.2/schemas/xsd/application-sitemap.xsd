@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+    <!--
+      Schema for _application*.sitemap files — the profile-centric application entry point.
+      Root element: <map>
+
+      Added 2026-09-18. Derived from two sample workspaces (dgf, zims) and three
+      consumer apps in zigs/. Namespace declarations (xmlns:xsi, xmlns:xsd) that appear on
+      the root element in production files are NOT schema attributes — do not add xs:attribute
+      for them; a validator ignores xmlns:* automatically.
+
+      2026-09-25: declares what SiteMapManager / RouterMappingService read, plus the items
+      production sitemaps carry but the engine ignores (<theme>, createdInfo, basedOn, dbprefix,
+      name=, type=, visible= on <map>) so real files validate. Children in any order.
+    -->
+
+    <xs:element name="map" type="MapType"/>
+
+    <xs:complexType name="MapType">
+        <!-- xs:all, not xs:sequence: XmlSerializer binds these children in any order. -->
+        <xs:all>
+            <!-- Bound (ApplicationInfo.Theme) but never read. SiteMapManager reads <dgf-theme>. -->
+            <xs:element name="theme"        type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="dgf-theme"    type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="createdInfo"  type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="basedOn"      type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="dbprefix"     type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="title"        type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="description"  type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="logo"         type="xs:string"   minOccurs="0" maxOccurs="1"/>
+            <xs:element name="tabs"         type="NavListType" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="links"        type="NavListType" minOccurs="0" maxOccurs="1"/>
+        </xs:all>
+        <xs:attribute name="name"    type="xs:string"  use="required"/>
+        <!-- type is an integer application-kind discriminator (e.g. "1"), not an enum -->
+        <xs:attribute name="type"    type="xs:string"  use="optional"/>
+        <xs:attribute name="visible" type="xs:boolean" use="optional"/>
+    </xs:complexType>
+
+    <!-- Shared container for <tabs> and <links> -->
+    <xs:complexType name="NavListType">
+        <xs:sequence>
+            <xs:element name="mapNode" type="SitemapMapNodeType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Navigation entry inside a sitemap (distinct from the leaf-node <mapNode> in _PROFILE/*.xml).
+         name= and type= stay required: SiteMapManager.CreateRouteAndLink calls Name.ToLower() and
+         Type.Equals(...) with no null check. -->
+    <xs:complexType name="SitemapMapNodeType">
+        <xs:attribute name="content" type="xs:string"               use="required"/>
+        <xs:attribute name="name"    type="xs:string"               use="required"/>
+        <xs:attribute name="title"   type="xs:string"               use="required"/>
+        <xs:attribute name="type"    type="SitemapNavTypeEnum"      use="required"/>
+        <!-- Comma-separated roles; the user needs any one. Empty or absent = no role check, and the
+             route is not marked requireAuthorization. "Members" = any authenticated user.
+             Engine 1.1.14 and older throw NullReferenceException when roles= is absent; fixed in 1.1.15. -->
+        <xs:attribute name="roles"   type="xs:string"               use="optional"/>
+        <!-- Comma-separated roles that are refused this node even when roles= allows them (SiteMapManager.CheckPermissions). -->
+        <xs:attribute name="deny" type="xs:string" use="optional"/>
+        <!-- Route icon. A leading "fa fa-" is stripped (e.g. "fa fa-home" becomes "home"). -->
+        <xs:attribute name="ico"      type="xs:string"              use="optional"/>
+        <!-- Resource key for the title; wins over title= when set (ApplicationMapNode.LocalizedTitle). -->
+        <xs:attribute name="restitle" type="xs:string"              use="optional"/>
+        <!-- bool with no default: an absent visible= means false. false keeps the route but emits no menu link. -->
+        <xs:attribute name="visible" type="xs:boolean"              use="optional"/>
+    </xs:complexType>
+
+    <!-- Nav-entry type values observed across all workspaces.
+         SiteMapManager maps only PROFILE, WORKFLOW and Page (case-insensitive). ⚠️ HTML and SERVERCONTROL
+         validate here because production sitemaps carry them, but the engine logs a warning and serves no
+         route for them: do not author them. -->
+    <xs:simpleType name="SitemapNavTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="PROFILE"/>
+            <xs:enumeration value="Page"/>
+            <!-- lowercase 'page' used in some consumer workspaces -->
+            <xs:enumeration value="page"/>
+            <xs:enumeration value="WORKFLOW"/>
+            <xs:enumeration value="HTML"/>
+            <xs:enumeration value="SERVERCONTROL"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>

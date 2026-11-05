@@ -1,322 +1,335 @@
 ---
-dgf_commit: aa1d5c4c2eb7f07d038b32f0842cdde71f85019b
+dgf_commit: 1d4528aff060d11683ee6894e4b1f47ae14f65e0
+dgf_tag: 1.3.0
 sources:
   - path: src/Tools/dgf-mcp/Schemas/Json/ApiDataSource.schema.json
-    sha256: d60a3f830db750e19ad5b2962e83c374c653d31dd9508a69295947bc04fa2eae
+    sha256: f65af50fea45d536ba06e38e89d4d76e26b9b96907dca9fe8ffcd0011d9df6df
     vendored: json/ApiDataSource.schema.json
-    shipped_sha256: d60a3f830db750e19ad5b2962e83c374c653d31dd9508a69295947bc04fa2eae
+    shipped_sha256: f65af50fea45d536ba06e38e89d4d76e26b9b96907dca9fe8ffcd0011d9df6df
+  - path: src/Tools/dgf-mcp/Schemas/Json/AutoCompleteConfiguration.schema.json
+    sha256: 082d3056fb6181e2c3fd2912c4b48b658001654ab2ba885c32df4e735362b896
+    vendored: json/AutoCompleteConfiguration.schema.json
+    shipped_sha256: 222461e7624b98444ea38d00e61deca2a2b395f3283cfb4dccb80e763f7b52ec
   - path: src/Tools/dgf-mcp/Schemas/Json/BadgeConfiguration.schema.json
-    sha256: 77aa26d163c0a5bc6d3c087a91b85b027b8a0848e5946aca26a7cd88d813b59f
+    sha256: 85412a0377a78ed7ba321d69ba1d7114ff632545c5880f9ce598e83fe24c64a9
     vendored: json/BadgeConfiguration.schema.json
-    shipped_sha256: 3cc9a80ec799e83bffc6b8a50ca3eb1f67799b896d53bc2430e701dfd8edd1a8
+    shipped_sha256: ad388dd29c58213938e1b34dcd44524bb952ef9dab4f2d9dfe0d4e6477f593ea
   - path: src/Tools/dgf-mcp/Schemas/Json/BookingConfiguration.schema.json
-    sha256: 50b336ac4ffd445c25b3527789f93df6a593eae427e54cfd030392c3d74e735a
+    sha256: 4de3d181944ada4106f6ee8f9a20656a7b1c525fb99b246d4ff0d113a553f68a
     vendored: json/BookingConfiguration.schema.json
-    shipped_sha256: 65a7ccb6b18d5238a6f480e26f6d74c02da283a4a1ea4342cdc49f11469f1438
+    shipped_sha256: 6a874c0b6a97948e40f5fc3fb9f24731478b17e81e990cacf0660bac96d8261c
   - path: src/Tools/dgf-mcp/Schemas/Json/BreadcrumbConfiguration.schema.json
-    sha256: dad98aea0be3ea500e9557a22904a41b7981739cec792eaa3cbaf56760b83581
+    sha256: d1f8669650efaf8b45eeb0ce1cfa7c894272e6d3de4c4e7b6a1a8fc6e8a1b2dc
     vendored: json/BreadcrumbConfiguration.schema.json
-    shipped_sha256: 364e5fb9f69b137d24ce1f535bf4a76593bec66980afbe477b2e1dbb859c35a1
+    shipped_sha256: 210b45e56e63800fbcb45f693af67abceed32fed5b615d8bdc6355b4227d78d6
   - path: src/Tools/dgf-mcp/Schemas/Json/ButtonConfiguration.schema.json
-    sha256: 2f555c3f5debc48799a4a9178ee009d8bf58e17028016d2b79ca9493253352aa
+    sha256: 425d27fb4647ce32cfa9fa1d1479e09c63312f4aeda876950e03dd0bb8897db1
     vendored: json/ButtonConfiguration.schema.json
-    shipped_sha256: 9b59139230cad4c5043a955c82374d8dcbf1e5727fac5cb92b3984a641b69269
+    shipped_sha256: 35ec707c84d58073f3c78435ee27a200adb5946e0276def996a3a0dc99dd73cc
   - path: src/Tools/dgf-mcp/Schemas/Json/CalendarConfiguration.schema.json
-    sha256: 2a7759249f37de4da08a3351227b88ef7058398280803b7e8fa34da8366c9f30
+    sha256: 3b413cd494744e6fe708b08dd984685b79e5a23553393cda09eef4af13357234
     vendored: json/CalendarConfiguration.schema.json
-    shipped_sha256: 92739ccae9f9cdb2522411eafa6ae7bcbf37f7b7380febadbb6441d05112ea54
+    shipped_sha256: 9776e883ed77c90447e18daa8fbf104d21ee36b33300c3cee0a2b0c569cc10aa
   - path: src/Tools/dgf-mcp/Schemas/Json/CardConfiguration.schema.json
-    sha256: 9f1b5e4ffa2667ec947c218c415ab792970762377a46193c0bc43350a4509fb5
+    sha256: 4ad754a44f89648359e91f39982dff9eb7b1f6c0ebcec42c10b9f701781385f8
     vendored: json/CardConfiguration.schema.json
-    shipped_sha256: ab6b53bcae9c204e097d55bdf167b98f63811b52fbe0d9d77120552a31d4d6d3
+    shipped_sha256: 1fcdeaf6cc13783f67b121f0577fb8f752f66b7ee11906f8e4f773f731a7dd62
   - path: src/Tools/dgf-mcp/Schemas/Json/CarouselConfiguration.schema.json
-    sha256: 384e0576b51c2ba49c39dc390f194816c7185a3778589e00ec8dea2a91c45464
+    sha256: a05a1cfc57a92ade4235a2a3154f96f32df6ff77e944f104aae9f7cbe1b3825d
     vendored: json/CarouselConfiguration.schema.json
-    shipped_sha256: 88385c203cf7a33ef921f599a52d4705014bee11b9bd6e74d5020e56ec60ce18
+    shipped_sha256: c4b027a6ed3825cd0887c01d2b1284b50fa9bd8a313d97163af1c4b3d144cc0d
+  - path: src/Tools/dgf-mcp/Schemas/Json/ChartConfiguration.schema.json
+    sha256: d244b841348061177e5698914987ba8d9848119a0d02e09bf2ab46e9238f0ab9
+    vendored: json/ChartConfiguration.schema.json
+    shipped_sha256: d6c66b795af6b5acb6b1e5d0d9080d085c2307e2e34de2a16fe83aa9411a6085
   - path: src/Tools/dgf-mcp/Schemas/Json/CheckboxConfiguration.schema.json
-    sha256: f7d3c5429e20714a3a30e7487b835b9489911dbba5f4e083d3287815cb5f6e2b
+    sha256: 0383a3bc548e8e6c2563299c9c8f7f23d11752f74d80634ed23ac0d92dddc959
     vendored: json/CheckboxConfiguration.schema.json
-    shipped_sha256: f676f2fc4b11662b171db96f5a1427415b928b283d1319161ef6a0b8593a630b
+    shipped_sha256: f2c6441014cd7284d1927107ff4c432bef5c1300a24a58030d15e7f183e94111
   - path: src/Tools/dgf-mcp/Schemas/Json/CodeDataSource.schema.json
-    sha256: eb1d7c1bd87e4846631f47fcbeed35d3ac8aa697b7f2a4fc0ed3150234cb6f02
+    sha256: 19bb6836e6e8b4a3401ab2234f66ec0c797366f68dedd80b65835afa648032c2
     vendored: json/CodeDataSource.schema.json
-    shipped_sha256: eb1d7c1bd87e4846631f47fcbeed35d3ac8aa697b7f2a4fc0ed3150234cb6f02
+    shipped_sha256: 19bb6836e6e8b4a3401ab2234f66ec0c797366f68dedd80b65835afa648032c2
   - path: src/Tools/dgf-mcp/Schemas/Json/CodeViewerConfiguration.schema.json
-    sha256: f242c45a1af690037a8342ec588b1bb732cbb2b9b8c6a3c8dc2e878cd65220b7
+    sha256: 26e49dfc0125719016512985f225f279fe0f90f7737808fbe3fa6f18b673a860
     vendored: json/CodeViewerConfiguration.schema.json
-    shipped_sha256: 3b433ce7f2375b37d5828ef24cb03bc67c843e7ca368ef87f195ce00376cdf60
+    shipped_sha256: d5b04f719cbef019d9b96e4e5d9e544c02fed2c2cd2050e7b8bf5370fa25d89c
   - path: src/Tools/dgf-mcp/Schemas/Json/ComboBoxConfiguration.schema.json
-    sha256: a34ab0603548095baed36e2bb9c5ed22cf5e88244882e2a93d2cf4820182c383
+    sha256: 1d36a0faa7d9fd8df8d95476f604a55d591588d38963d7ffb5e2b3aca73d8ab2
     vendored: json/ComboBoxConfiguration.schema.json
-    shipped_sha256: 9eb54e1f8272473556b1412022a5b4bfbe371329b0d0eebf163a1967990798ad
+    shipped_sha256: 757cc349c5fc2681f49f052c89f45ed84f86ff1fa8274e12fb0c17f7d4d47118
   - path: src/Tools/dgf-mcp/Schemas/Json/ContainerConfiguration.schema.json
-    sha256: 86b69ca9749d2c1d13e3919803f45f5e83037b19eb0b320143b5be6450545a2f
+    sha256: bf855de08e5da4ea25cd7c1f5c6b892183978e044c750dcd2d176c477cdda665
     vendored: json/ContainerConfiguration.schema.json
-    shipped_sha256: 4ef697d66baf838c8ea38461ee917409f2361aeb9f41edd3366dc08ec1da7264
+    shipped_sha256: d65260e6e472bd65e4f57b436a7e9b15b1af8067d1f86a7c24fa2329abccae7f
   - path: src/Tools/dgf-mcp/Schemas/Json/CorporateAccountConfiguration.schema.json
-    sha256: ceb9aa21b3677ca5f3c1929ed7db2e169dd2b8d0d19da228227534cab0c8f4b2
+    sha256: 35f9617f9c44d776e796cd50b2a0667c4481ee3207d878d4458105a5aded3b06
     vendored: json/CorporateAccountConfiguration.schema.json
-    shipped_sha256: 18e9b9e542c286c003ed990d4b5238dc7e22f2f43214d5da05e61db206edccce
+    shipped_sha256: 0a32f220b8686ed283340326f674faa4696a7424224d9b5f71be311ee1b2ce4e
   - path: src/Tools/dgf-mcp/Schemas/Json/DataFetcherConfiguration.schema.json
-    sha256: e07470e52a1d012d3ef632598e49828f7c417e7f20dcf16b471318034d564a34
+    sha256: 657e965c62abf12d600beee85ae383aa9d64a746c57e4a518a66655d6caf1917
     vendored: json/DataFetcherConfiguration.schema.json
-    shipped_sha256: 5d9952b84bbc9bab2976cfdd532d79e6ef74d0de1cb167030b706a8ad9d6a2eb
+    shipped_sha256: 27d3a234b8b92729998dc67acf04cf9c80ea854a19e6d8231af09435ef65e173
   - path: src/Tools/dgf-mcp/Schemas/Json/DataTableConfiguration.schema.json
-    sha256: 1088d8161f3266e3e6b74e4c652820bfe962ed3a5cabf2638dbcb43045cbd37a
+    sha256: 9d6d5ea6dc4c98b436b3028d7bab8403e02f3c51a0ca1886f819216fa2d471ed
     vendored: json/DataTableConfiguration.schema.json
-    shipped_sha256: 479022224412191c0f23847c50d14097c3f06daa4b6219edfde5d6d5f2c04d14
+    shipped_sha256: 3bc308f51bf36b0449026550778d255474faf9eb9ebc3214cd254eb26f6c0e6d
   - path: src/Tools/dgf-mcp/Schemas/Json/DatePickerConfiguration.schema.json
-    sha256: 658e6f7764b93daae3f61ced487766cdc5e88b18a5a5d5707b20f8f432abeaf6
+    sha256: b55b9895fc9cb8362a05416ce7e1a9070d6cd01be3febd0e1642c28cc1d547bc
     vendored: json/DatePickerConfiguration.schema.json
-    shipped_sha256: 9ff95af1e4d34b1cd6d4020160a90568385c848495ef861777af4afd376fb3fd
+    shipped_sha256: c77e9972a56e072a36849e7d1583b1f836d950e89f305af3c876dc653b0ad736
   - path: src/Tools/dgf-mcp/Schemas/Json/DateTimePickerConfiguration.schema.json
-    sha256: d77834193bf7ca6c8d6e945e02667160363e7ad51cda8bced00c72e38baa0077
+    sha256: 3d05eee3435fde076f191c2375a52cea6ac727b8b08eb523588f018983c7bd55
     vendored: json/DateTimePickerConfiguration.schema.json
-    shipped_sha256: 95142c50eb085f63562ce12a1993c6fd59af55ecfa4cc55dad27dfb2f32646ca
+    shipped_sha256: 5b4d7c4325134c73d59cde056edbca28282bd178536b5938e1192b97caa9e21a
   - path: src/Tools/dgf-mcp/Schemas/Json/DocumentDataSource.schema.json
-    sha256: 491b3b8b41b46f1fc7a28e3e4f93b6327cb3bbd8bc1273fc047014acf5cf429c
+    sha256: 19b9c6a2bd8ced0d67063032041d8f105137bb96e449f94e866600cb10980582
     vendored: json/DocumentDataSource.schema.json
-    shipped_sha256: 491b3b8b41b46f1fc7a28e3e4f93b6327cb3bbd8bc1273fc047014acf5cf429c
+    shipped_sha256: 19b9c6a2bd8ced0d67063032041d8f105137bb96e449f94e866600cb10980582
   - path: src/Tools/dgf-mcp/Schemas/Json/EligibilityCriteriaConfiguration.schema.json
-    sha256: b418400536557f5628c1af8ef5fa51295a70f5dbf37221ac03d89d3120eac47b
+    sha256: 9b33c0cb1677f71f28002d2a192a944ae66aa94440b92f7b934e43d4e019c23a
     vendored: json/EligibilityCriteriaConfiguration.schema.json
-    shipped_sha256: 1f4e845bf6b457a920d65bff2b1a430376d61f903024baa8c0ab399782bfa9cc
+    shipped_sha256: 827ed50bf7d3083ac063f3a13404754e215e031b23296237a3f58dbb621cf1c7
   - path: src/Tools/dgf-mcp/Schemas/Json/FooterConfiguration.schema.json
-    sha256: d427c0e3aab5147c955163430b0f97cf325fef0010364a902c8a3113f3d89176
+    sha256: 724b4effd65b3fd719366f6f49d79abc3f8d860be935629e72edd05a49cfffcb
     vendored: json/FooterConfiguration.schema.json
-    shipped_sha256: f9e0f1a3195ee549aacb6705bb1046e66017f1abf99c4ec7d0bece8f5e6a5594
+    shipped_sha256: 062226f3a88bcb417ce41b6358a0dcc8d19f2e2a217614cd01d17205757b218c
   - path: src/Tools/dgf-mcp/Schemas/Json/FormConfiguration.schema.json
-    sha256: c703fe97410993a1f16f6ed74e071aba2a607d5bd4b2ac24ed2fc3c7a721dbff
+    sha256: 225711fd55ce260d057b2d5726b73aee0f54481602d068f710cfd345f1f105a2
     vendored: json/FormConfiguration.schema.json
-    shipped_sha256: 74ddbe00f87008296e2169008ef5cda9787a0d2859492edaf23964c33bed78e9
+    shipped_sha256: 9a03007262709cc7c918e27edf4a2252a704d1cca9efea75a19b69237e6c0fb4
   - path: src/Tools/dgf-mcp/Schemas/Json/HeaderConfiguration.schema.json
-    sha256: e1cb118616e5eb58615a3cd2d0997d9d7880756c9987d54e6399f94a6f09edc7
+    sha256: d4b6968ede6898dbd0532b45d03591ebdc870ac34d4c68b16cf2e7c2b63abefe
     vendored: json/HeaderConfiguration.schema.json
-    shipped_sha256: e2e60e8ed1893713d13be30436ff5d1517925d5d7ce2850a2dd263ef9218fc5f
+    shipped_sha256: af02921a7cd4bcdf4aec35e2dd2a1c5a23816f6c86cebaeda3269fb3ae3d0c78
   - path: src/Tools/dgf-mcp/Schemas/Json/IDataSource.schema.json
-    sha256: 6d17c22d01d6fff2df2c541ddc44e414948c9c0721d36a19d86112ae3f130e1b
+    sha256: c41545ffa06b61e2163694af747c84ec10526c1e4f142adea5a1f43badbd6857
     vendored: json/IDataSource.schema.json
-    shipped_sha256: 6d17c22d01d6fff2df2c541ddc44e414948c9c0721d36a19d86112ae3f130e1b
+    shipped_sha256: c41545ffa06b61e2163694af747c84ec10526c1e4f142adea5a1f43badbd6857
   - path: src/Tools/dgf-mcp/Schemas/Json/IconConfiguration.schema.json
-    sha256: 9f17caa629ae7b2eb1371da2d228629528c469b5aee309f210d9e0eb7f9de320
+    sha256: 1c8825a9991bf69f80aebc8b0c5039402e1a65cf729cb833b7b291ee423840b6
     vendored: json/IconConfiguration.schema.json
-    shipped_sha256: 59abfe3198371deaf5145d3816012a31d0715639baecc846b1a9418f087adecc
+    shipped_sha256: 8972eb5b70fa8729c06493adc529f95b495422d8bbd81c8437628bfb6c9ec48a
   - path: src/Tools/dgf-mcp/Schemas/Json/IframeConfiguration.schema.json
-    sha256: df709e73ebd5d950ee4ab5b1afb0fd224e451dfc250f2f5d365c0816f2882a02
+    sha256: 16193707ed86652bcbfacbec55001b01a95be180072d8ea97cd51ca1f4caff7f
     vendored: json/IframeConfiguration.schema.json
-    shipped_sha256: e9a059e32e09e790b175ca92a2a454c422662e6cf7d71bcf84b47075c55af54d
+    shipped_sha256: 7fb1b3ff2b1d461df700fd3a3fe13b747f9e4eb17317a04210dfc49a1cb2341c
   - path: src/Tools/dgf-mcp/Schemas/Json/ImageConfiguration.schema.json
-    sha256: 10379f08ef65b4d07e4d182e8af80d18bc27a7b1e5baf0b75455dcaef37ea053
+    sha256: c7c04f8bbbc9a7cf2f47d0106b993e8fa5cc7d4ffed80367138b4ddf3a74117a
     vendored: json/ImageConfiguration.schema.json
-    shipped_sha256: 9024e374fcdfdebc861f2fc8f7e7cf647d380a110d8dbff6d428b13e740a0c98
+    shipped_sha256: a9885705a5d192fe2ded7099636371d4bef19e33706be2e29a3ad4eedca87e5b
   - path: src/Tools/dgf-mcp/Schemas/Json/InputGroupConfig.schema.json
-    sha256: f3bd107cbf707e43ef73eb513c2248f889843efc3d3b57f52c5f3645b662eb78
+    sha256: 33b9f12beafa7df20ec8112615c6c4d0a5d4f8fa211bfcd05a92284f94a7c226
     vendored: json/InputGroupConfig.schema.json
-    shipped_sha256: 0a4b3334a6ed9f4f20ef6faefe84de7127c68c832fa78bf39a5c099166a235a2
+    shipped_sha256: aa16199f7c51ff4200a8256f23c17bedaa630b9acbc95269d0089a3382e4b147
   - path: src/Tools/dgf-mcp/Schemas/Json/LinkConfiguration.schema.json
-    sha256: e2d2b3e799a8c099770ea467b378442df0b7d1ce0ee5085d7486fc0920df3bbc
+    sha256: a8353d245b23aa263a514dc38c232d784eaca6d8dd3af27a25513273314dff5a
     vendored: json/LinkConfiguration.schema.json
-    shipped_sha256: 11a8bfce6ce57e7373798d8f041d619937186a329b793570a4544d695b644011
+    shipped_sha256: 1f184c7b6349c84fff162fd63cc7cd5d2a747a3dc7798ebc0903ae6e9ae36c0a
   - path: src/Tools/dgf-mcp/Schemas/Json/ListBoxConfiguration.schema.json
-    sha256: 38278f543ac72c6aa2726f348d2f107dfe8daa6dcd485ebdb77365722765089a
+    sha256: 07f65b7e7d822a186e3a7628222caf10426238f57d6ce28f291138834ebd51f8
     vendored: json/ListBoxConfiguration.schema.json
-    shipped_sha256: 5902c29f174148f7e26b6bc2030ac385cafd5f048f9384c617334c876606db83
+    shipped_sha256: 728c531decf4aa9c0d0a091089bbccab415b7e4d52d8d25131d5a6604b1dcb67
   - path: src/Tools/dgf-mcp/Schemas/Json/LoginConfiguration.schema.json
-    sha256: 84265b59ba4de1eaf2c44ed70673e9fcdac5cd0dc64c70dee52738aabe931123
+    sha256: f5bfed5a3f56110b410d28df926d99fbfef5c45a9813e9047f8ab93c93e8669f
     vendored: json/LoginConfiguration.schema.json
-    shipped_sha256: 4b3b51d5ed592a9f5bb22e96d4e0be615536c94f36bb4f222211685bd9bbe95d
+    shipped_sha256: 0d5c41545a9a22de414738a7997da6a1f14e5e0d8d10b81bf44dbc50afdc3ae6
   - path: src/Tools/dgf-mcp/Schemas/Json/NumberConfiguration.schema.json
-    sha256: 4e4939fe80068884dade910df6ccc54da44437f12ffbcb7afae7ba0303743e95
+    sha256: 270a29bf281c2dd5b0843415613d022e8b16c16466bbc1f18d139cba17f78d6d
     vendored: json/NumberConfiguration.schema.json
-    shipped_sha256: a170316f7429b755e227fcf71c4c1e7a0d25fd7a96c0799005b7a11331ccaeb1
+    shipped_sha256: 560a5f84ef7a41e859d26495a56efd02fd284badfe5763de714318beae745cc2
   - path: src/Tools/dgf-mcp/Schemas/Json/NumberConfiguration`1.schema.json
     sha256: 9f89cf900cae6466e7e9280f28d3c7df8764e60c1ecdda133abcf91353cec38e
     vendored: json/NumberConfiguration`1.schema.json
     shipped_sha256: 9f89cf900cae6466e7e9280f28d3c7df8764e60c1ecdda133abcf91353cec38e
   - path: src/Tools/dgf-mcp/Schemas/Json/PageConfiguration.schema.json
-    sha256: 545088422585d3b446e05217964a3006556357281184ac8140db09b687835ab8
+    sha256: 85822db4a9b02f67adb9a8276338039576c40bff0fd0b40e6adba927cd76ed02
     vendored: json/PageConfiguration.schema.json
-    shipped_sha256: 20708a962cd814033f4cba71f44445e4bcd8fd3efd02a927291023eb0c6d3c5f
+    shipped_sha256: 944e0e1881ddb6672f266be7bf7b36cffefbcaba8f75acc1ab3cae4fb55b8093
   - path: src/Tools/dgf-mcp/Schemas/Json/PayComponentConfiguration.schema.json
-    sha256: 780534fea044e7e95ea2d407384a1393d4416edb6ae741d2a0e052614be9d497
+    sha256: 9f7724f105f261c426561465167d419b1c33571358c6843a6e8b39b721d906f3
     vendored: json/PayComponentConfiguration.schema.json
-    shipped_sha256: 938b795bf9d9a6f22af18d2528dc2dd644623e6ef47f2d0c6cf8aa94e9f87045
+    shipped_sha256: a695356a9ec9cbb8eb838a0183762e4b0332e0494080ff24402c4b1f682cdd1c
   - path: src/Tools/dgf-mcp/Schemas/Json/PdfViewerConfiguration.schema.json
-    sha256: 3a8e3fef58b5c4e4df03e844e2cc78d17489515e3f48c89ff7441e05638cd859
+    sha256: 81a535dabad89978fa2bf4645b836f9cd53d72f8435621cd0a334c7a5996e395
     vendored: json/PdfViewerConfiguration.schema.json
-    shipped_sha256: 5322627abe2d2c1e14f860307a338a0f725e2d7b48d7f9cf8b186a0fde7c579f
+    shipped_sha256: e1329ddaf684d5e92084df4445b986f6a95e4484f324d5d25df558c514b12a09
   - path: src/Tools/dgf-mcp/Schemas/Json/PhoneNumberConfiguration.schema.json
-    sha256: f119b0901f6242c187dbfe824da69d89319e00d623e8d0bcba72b9089734f14f
+    sha256: 3360fee14fe0c50c51016a0a37c15dcf4897f5885cf532c73ee148706680ba13
     vendored: json/PhoneNumberConfiguration.schema.json
-    shipped_sha256: bb3cf5f30314d8fbcb23296f954d524a75ebfe413ee68b4a61a425f2bfa713ff
+    shipped_sha256: a584a88a0fa1f0a9f6d519b23ac324b4cbff03389bf0c95f9a47b6dce261584b
   - path: src/Tools/dgf-mcp/Schemas/Json/PowerBiConfiguration.schema.json
-    sha256: 55d50d8ed3286144c69039904fec674bab6d52134e802a1db7d3fa8eada95e38
+    sha256: 1a9c41a5ce314f782ec6b692f4855e528ff95d684f3fc1b62ba85a458050debb
     vendored: json/PowerBiConfiguration.schema.json
-    shipped_sha256: 765038be0095a93bce27220a356f5cace9772056898916ab464ca7f777578dec
+    shipped_sha256: cba46eb43b8bf235a1338de81dc066ce2780b9e1240550954684064c7dd49438
   - path: src/Tools/dgf-mcp/Schemas/Json/ProcessFlowConfiguration.schema.json
-    sha256: 1fbaba714984461273400a7ae5d6ba30a1d7f381890a7c35b29097130cedb092
+    sha256: 6d19d8304888862e7415cdbe47b7c68f1f7554e7314a59434d0e203560f33d8e
     vendored: json/ProcessFlowConfiguration.schema.json
-    shipped_sha256: 8b7905a67854dd1804c827e5b6d1d5f17e1be2ef6473a12b36cfad7dfc027b0d
+    shipped_sha256: 2899ce65324dc8642e70ead49353af55bd7ec5eca5656be6da89fd6046f1cf5f
   - path: src/Tools/dgf-mcp/Schemas/Json/ProcessMonitorComponentConfiguration.schema.json
-    sha256: f8a31bd938cf747ebf31c9f044131963f4f73e054efe63cca7a1d5427b53fc59
+    sha256: 4b1a862a234a06fa750c62ea4cb06105049400991cb68246d29e0e5f24f19f0c
     vendored: json/ProcessMonitorComponentConfiguration.schema.json
-    shipped_sha256: e5e2d21e10a71e3b118f66396223a8cbcf78101d74103990b5ba28f04d758a71
+    shipped_sha256: 581146eed1ff707fbdaec6004c3fa77522dbba30929dfcf2e5fbf151706863cc
   - path: src/Tools/dgf-mcp/Schemas/Json/ProfileMenuConfiguration.schema.json
-    sha256: 406ad282737152dd38fa9f014da16a5858d2f92066f61fb3824cf74955a13c05
+    sha256: 14083882bb5724743022e062c1b1306dd811e3367dd8ac7daa7e168b9adc89be
     vendored: json/ProfileMenuConfiguration.schema.json
-    shipped_sha256: f3d81601675b4e5262a3e7262209154d26b06dd5f027ef87dc7a6b4130eb8506
+    shipped_sha256: f8f1f6f0569d34282c215cd2bbe4b57701b35a462e174b781908e38dd42be236
   - path: src/Tools/dgf-mcp/Schemas/Json/QueryConfiguration.schema.json
-    sha256: aa2fd0eeee59275133070008ddf8302806530d961c7e0d2cc34a0b208f775c07
+    sha256: 2edc42ec7534ba7a3451c20d3dcf5721025f073060bede9f08e752557dff6e23
     vendored: json/QueryConfiguration.schema.json
-    shipped_sha256: eb9dead268d16dc67894d126ac08ba9bc428ed5d4c7aa8770fc87e74c1e048a8
+    shipped_sha256: 09ebb06d8f3e70963fb6c3b1435b4652cec7b4bd5d8dc7571bed3d1691ddd374
   - path: src/Tools/dgf-mcp/Schemas/Json/RadioGroupConfiguration.schema.json
-    sha256: e3c6fe290e0031ac14f71a06a6c718510f937993f5c10b8c23102ca6863b5b97
+    sha256: f87d48262c536eab8270ce69934efa82793830886cf7376d045c1429019763e8
     vendored: json/RadioGroupConfiguration.schema.json
-    shipped_sha256: e21e579d8e377dc3521dc25d1704fa8c4918412400536cbf32da6229ecc9e532
+    shipped_sha256: e3f224d9ca60dab727353777b2707aadbd8443768e2e71244c2202ab95a9cd19
   - path: src/Tools/dgf-mcp/Schemas/Json/RangeConfiguration.schema.json
-    sha256: e82a52f61af7c26dd57b020e31d5b10d28ee723187a26adb1b8c3987c2212a25
+    sha256: 1ff0f381ff6573ee7a24b782d97fb140064ab994d4f297b91ef6da440b78b2fd
     vendored: json/RangeConfiguration.schema.json
-    shipped_sha256: 457f31001e53ec6496c7d783fce510df9d2195d10d3068f0092f1967504cb2c0
+    shipped_sha256: 61444145c9ef486e2bfb75208c943074abcaa050520c360fd0dbd085556ea574
   - path: src/Tools/dgf-mcp/Schemas/Json/RawSqlDataSource.schema.json
-    sha256: aabacb10a40a45b2cd65513139dfa3bdb8db4ff654821c19c15c176d0ca603ea
+    sha256: d157711210ad7bb4cb3c48b37fccd0636ce10d9d88953205001753e8ebd31c17
     vendored: json/RawSqlDataSource.schema.json
-    shipped_sha256: aabacb10a40a45b2cd65513139dfa3bdb8db4ff654821c19c15c176d0ca603ea
+    shipped_sha256: d157711210ad7bb4cb3c48b37fccd0636ce10d9d88953205001753e8ebd31c17
   - path: src/Tools/dgf-mcp/Schemas/Json/ReferenceComponentConfiguration.schema.json
-    sha256: dca31ae81f0843b6b76c85b55365e3e0f0f708686c40db9c3720d8df2cbc7f36
+    sha256: 3442bd9da956739a48da8c87cc41d08fdcbb59bafc1b7a574cd0f2985cf41236
     vendored: json/ReferenceComponentConfiguration.schema.json
-    shipped_sha256: be5f28c1302baf60cd5735c239257502ee421e4eb6516d99be1c799961e5f5d5
+    shipped_sha256: 19c63d54197e60357efd37f857735781a37b629a3a4ff520135b1c2a590af75b
   - path: src/Tools/dgf-mcp/Schemas/Json/RoleSwitcherConfiguration.schema.json
-    sha256: c325e028ce1ae8fd7344f889ed5b45a4fc2ec57a970d1ca60801a362b9bf12a6
+    sha256: 3639ab223d82495962654187ad837ea800cb830fee7b22ed7d058ece21c34742
     vendored: json/RoleSwitcherConfiguration.schema.json
-    shipped_sha256: f8b5fd27666989a1e3424eeba85d56bea11423190d6708f3f652620a8c7d648e
+    shipped_sha256: 6ffa76f72139d75dde9082c9ecb276de23eed0b5ea569b7b686bb7f87d782377
   - path: src/Tools/dgf-mcp/Schemas/Json/RouteConfiguration.schema.json
-    sha256: 66f8f43b12ffa4abd16f0a9dbe9cdd75e91bbc5776a07a40da676217bb007832
+    sha256: 9102875b4194889b692334967f7f4d893913fbfd5ce0099b91bcdf034b07dd19
     vendored: json/RouteConfiguration.schema.json
-    shipped_sha256: 5d965539655f7fb64f0e31ad82449a2ad8d53e0324ae4b501063027b66b36880
+    shipped_sha256: 73ec4a05047c5e91afb4241833291cdeb510194cb083acf35989703dce6325ee
   - path: src/Tools/dgf-mcp/Schemas/Json/RouterConfiguration.schema.json
-    sha256: c802aa5664d63a3b30b92087b53a0f812527d471d7ddab3a04db6963e2810622
+    sha256: 87d8878e1639bc9f2c4dd2a9553d09d1274e8ca19070365be7b19f71384901cb
     vendored: json/RouterConfiguration.schema.json
-    shipped_sha256: 6b5869a24f360b9af20dc3cdf037a460b5deb94bada73ceabd2b446556419297
+    shipped_sha256: cf68e4ede579a237bcae75b5ed4b334b4fdd2564ada41abf775a37e16aea44f2
   - path: src/Tools/dgf-mcp/Schemas/Json/RowConfig.schema.json
-    sha256: 032935bb09bd6c07ce84fcb3cdfa9f9a19a3e033a0125947bc7a75352d139f53
+    sha256: 054add5a56dec5c66689536024084f8d653583d113c5cc5b5f7ba4d9926dee15
     vendored: json/RowConfig.schema.json
-    shipped_sha256: 77dc2b81156c4d511311bf7f066baf8773a3812470b12c6b410f3302811e52d9
+    shipped_sha256: 288a498d12cc05b970e650aa28896b786bc4b169b252f4f16bfe0f066aa620e5
   - path: src/Tools/dgf-mcp/Schemas/Json/SectionConfig.schema.json
-    sha256: 371125e67b26786a64f235d2cf7e93a5b1cddd424734a85238f691d235b73c87
+    sha256: 85c758b95f5410b31bd2f535e08c772595e5cb91ef389d4a1ab326e22af4d28a
     vendored: json/SectionConfig.schema.json
-    shipped_sha256: a8a26a3178344a2ac75bb32ddfceeac68eb6e4fb4f3e498c533ef15335cb3f92
+    shipped_sha256: e7d253d6dea29507e22ae6a982bfd8eef1b97b8b67b9bafedc443c246aedbf64
   - path: src/Tools/dgf-mcp/Schemas/Json/SelectButtonConfiguration.schema.json
-    sha256: 0580bf632418926c343ff609e639dc764ac463c4372115b405f8697b441fdde9
+    sha256: 4a30f17828d6d43139a763f4c485893f31e55a56aa53438ebd470fd345070e46
     vendored: json/SelectButtonConfiguration.schema.json
-    shipped_sha256: b0660b0b87c36c32ed30d4ebe50239dd9896d982e79ed8ddcd83129d22fbc9fe
+    shipped_sha256: 6a9ead94042d10bb0ebaa2a2b6aa2722b71769ed70a3d1288e52e4754e75207f
   - path: src/Tools/dgf-mcp/Schemas/Json/SeparatorConfiguration.schema.json
-    sha256: 608d528e098e6d8991f66a069743df5c67b45cd91410c15bc65e74ab6093ac8c
+    sha256: 23c106acbb66a4e9cd6a13246a3cb288010bd54eab8caf361f492fe1dbf73ad0
     vendored: json/SeparatorConfiguration.schema.json
-    shipped_sha256: aa68d14c1e1d66aac965c012a0f314fafbb5d24325290ce153cbbc887e3b9e42
+    shipped_sha256: 6cafb7eb6e1796c22c2440923ea12fece52bb32d73aea6129f0c281369636ae6
   - path: src/Tools/dgf-mcp/Schemas/Json/SignaturePadSig100Configuration.schema.json
-    sha256: d5a2917e3717a1dc158fed210c7532a596a01302a9bb83c7cf80903425d2d135
+    sha256: 4d1b5c81a630b98876c009d60d5c569675b16aae582fa89a23ae84a5cb7b0f4e
     vendored: json/SignaturePadSig100Configuration.schema.json
-    shipped_sha256: 8f0011e97fe1ea579887e3b6ba11e51b58a50609666e09d5f52530663eb2caa6
+    shipped_sha256: d101d3dd7c6b0d52728f418f237728abb585898984a15eea7dbd5aaa06d979f8
   - path: src/Tools/dgf-mcp/Schemas/Json/SiteMapConfiguration.schema.json
-    sha256: 83d88a0d40c977caae89abb255fe0228a8f22556975b97932058e6f02c2dd171
+    sha256: 307eb3084c7f280aef14eb67e18c898828815669a77a66761da1a205b5d96504
     vendored: json/SiteMapConfiguration.schema.json
-    shipped_sha256: 977edae01bdd0d5ed895619c8373ce0907a55fb78815045266d5540c3581548b
+    shipped_sha256: 9089ec80f391e55cc0105f5925cd4fecf1401c8ee6d3faf7fe47764111848484
   - path: src/Tools/dgf-mcp/Schemas/Json/StaticOptionsDataSource.schema.json
-    sha256: 92f62e14ca12e4ae38ce57252af2a6b3b6e9565cac787ac4034fea5e6ef704cd
+    sha256: a06812bae9de6bf255d1c4746e67ef7d53dbedaec06c2c4e0663a3b81815100f
     vendored: json/StaticOptionsDataSource.schema.json
-    shipped_sha256: 92f62e14ca12e4ae38ce57252af2a6b3b6e9565cac787ac4034fea5e6ef704cd
+    shipped_sha256: a06812bae9de6bf255d1c4746e67ef7d53dbedaec06c2c4e0663a3b81815100f
   - path: src/Tools/dgf-mcp/Schemas/Json/TabConfiguration.schema.json
-    sha256: 553228bc141aafc427d868e32835be82078a049675f3ff9b729de9b234ec824f
+    sha256: a70b8a5c77317aa43f697519f557a8f2ac889bff6a7740f0ca10c490489f74e5
     vendored: json/TabConfiguration.schema.json
-    shipped_sha256: 5e8d72c615083fa140337baf1a52f62b3a4b5e8b9a498299e41055a2098bd994
+    shipped_sha256: d1043d351a63e9cfe2c49a621a014034cd814210b75ca202fa310991daf060d2
   - path: src/Tools/dgf-mcp/Schemas/Json/TableDataSource.schema.json
-    sha256: 167f6ed4c65aa3874df706ea05fceca30ffa782365227a99e7cc0095775d55c5
+    sha256: 28a3fa0b0d064d8fdf938ecce4e03d271ac024936b0f1b9f00ae0861d7f00056
     vendored: json/TableDataSource.schema.json
-    shipped_sha256: 167f6ed4c65aa3874df706ea05fceca30ffa782365227a99e7cc0095775d55c5
+    shipped_sha256: 28a3fa0b0d064d8fdf938ecce4e03d271ac024936b0f1b9f00ae0861d7f00056
   - path: src/Tools/dgf-mcp/Schemas/Json/TeamSwitcherConfiguration.schema.json
-    sha256: 5b2d577ba7e7bda5860e800f2bdba82e9cda8fc7626336a842b473c645ddd312
+    sha256: ab85be2393ede0de7f76e70bab0bde561632e3abfe0d03663c3460f0daff2f20
     vendored: json/TeamSwitcherConfiguration.schema.json
-    shipped_sha256: ef72919a6050ecf93276f4952ad05992791613e2f0f2f1a1992613090c4a90fd
+    shipped_sha256: 4f1b8079fbfe520c960d4cb68c72ee4d06f80ff08afb6706946e4f7e0e315acb
   - path: src/Tools/dgf-mcp/Schemas/Json/TextAreaConfiguration.schema.json
-    sha256: 44c2ec639b895b6737befad790f10f0307d09c741dc047ca7374093f8e80047c
+    sha256: 2cc63fc5f2314a72dd2afc4220bec89ab3acdeeef209796ac3dc50529fb77505
     vendored: json/TextAreaConfiguration.schema.json
-    shipped_sha256: e4a979d2e96abdec06bee0ffa6577c9e8b99e5ee400a970ae8eedbd0ebfef0d3
+    shipped_sha256: dd3ab5077880cdcdb3159f3b42be3f1a158930a23f7bf40adfcc1470a3006c12
   - path: src/Tools/dgf-mcp/Schemas/Json/TextBoxConfiguration.schema.json
-    sha256: 6756a388df0eb6aa9fe7669229957084510f939b24cd640dacd75780d748a621
+    sha256: 5a8b3a7aceb9c2b2d83b69f35b66bd5d4854f69bea26cc5d3016783d6cfa6977
     vendored: json/TextBoxConfiguration.schema.json
-    shipped_sha256: 70b51a7e0caa5d6205bb0e4515478b8e6a8e0fa2bd0c8b2b2754668de57638d2
+    shipped_sha256: eb4cd65b5c26cfc4b89011ac9894589d7a8eb0b269af7eedd4a56411b731edb8
   - path: src/Tools/dgf-mcp/Schemas/Json/TextConfiguration.schema.json
-    sha256: 7a11153b3864a7d9b776a24d82d880a82cb705baf3535c9e315932aa501bc5bc
+    sha256: 5dc624a4563cde41e555c50a0c4dd78e6060a9805da373b314b51f99643a74a0
     vendored: json/TextConfiguration.schema.json
-    shipped_sha256: f0983ede084e45805ea24b9064de26cbd157411035724604feffa09a894b7f9a
+    shipped_sha256: ea77f0f0960114d400722a083905d2c0187ae712ea9d3495c14255781a68025c
   - path: src/Tools/dgf-mcp/Schemas/Json/TimePickerConfiguration.schema.json
-    sha256: 5f8ff4c0bca0f2aa7553b80d608af9c36eb0d5f850e0320f8841f46d6b297f8c
+    sha256: db0704bfe54823ae2dc814c1c3a110be6b7925a9f4e8bba57ef3039fdeb15925
     vendored: json/TimePickerConfiguration.schema.json
-    shipped_sha256: aaab4360497f49d071a0c518f5483e66e19749c889e12775a6d4d60d9314b19f
+    shipped_sha256: 0352384fae402a3615ac977fd32fd52d6062aff017b91e464471e1632ce53761
   - path: src/Tools/dgf-mcp/Schemas/Json/ToggleConfiguration.schema.json
-    sha256: 30ff8decadd537f4d9027d16e4c361514ab3eb54104d1fb1229e793924a11f1b
+    sha256: e765dfe970127c1db545d99dc7bf2b1dd0a5ed9c726f1cae49ee7e62d4166b28
     vendored: json/ToggleConfiguration.schema.json
-    shipped_sha256: 05c33dbbf7c52dd392bfedaa9f6ee96a86dc79f47b5b87bd7c4a8c3522c11e8c
+    shipped_sha256: 31ed7d291a0c1ec21728e8049e8474ff039177fab0f67f9ccaf3e3a728813c7e
   - path: src/Tools/dgf-mcp/Schemas/Json/TreeTableConfiguration.schema.json
-    sha256: 4c85477d04ed0755f3ff74081f29603594c233e70f1f5397f313dd71df3c78e7
+    sha256: 231c778ffa2af7503935e9a64c317a42a550e3cbec2385c978383e1d3ec83ad0
     vendored: json/TreeTableConfiguration.schema.json
-    shipped_sha256: 6dee263f030a4756264b9e755ea8adb0aefa29763e28336397ecb6a194331897
+    shipped_sha256: a3e73c82f397da985bf9b1911105e343e78ce69ee56eb2a7a059d45829509acd
   - path: src/Tools/dgf-mcp/Schemas/Json/TreeViewConfiguration.schema.json
-    sha256: 0662e7c29d70599fbcae6ba05befa0abfe7c03fdb406647e4d77f06cab50dec8
+    sha256: 1bfc78073614cd22b235455340aac5c3a17602e6244f58ac376110515310eda7
     vendored: json/TreeViewConfiguration.schema.json
-    shipped_sha256: 3390883c3e7e3bb83df1c3107393fbf932d32b2ef1e9c1156fe295fef80fd66f
+    shipped_sha256: 67fc75cf91db3a7663b2ff79bc89da8966ac2c11aa45aaa8230ed878d2900a9c
   - path: src/Tools/dgf-mcp/Schemas/Json/UploaderConfiguration.schema.json
-    sha256: 37f4ea399a9a2baa8a91f8f6b2ab7552be32e922c874721adc170d1a127e8bd5
+    sha256: a1ab688c8dce3b80be3ebcae0ebfe7135b2edd9d11fa18ef2f49263a86702eba
     vendored: json/UploaderConfiguration.schema.json
-    shipped_sha256: 1d951f13186b15efe33595cbb54fefcdbf975fe04450c6dba887026917e81dcd
+    shipped_sha256: 1e358f91fd8576b27f8d7d7b171f320e4f6cdb69007aaede9b60fcc7c365ca6d
   - path: src/Tools/dgf-mcp/Schemas/Json/WorkflowConfiguration.schema.json
-    sha256: bb6497184b225fa56df2325bcb11506b280e6ed98418539dcb7b876b7dbe0088
+    sha256: 7a592de64d4e984c7eaaf7d70a73459cc1c7c263511cdcd55ba34133f6dd78cc
     vendored: json/WorkflowConfiguration.schema.json
-    shipped_sha256: 89a45f2e55a0364b915063d2462874ba0313009327d682665ade046ed3673c22
+    shipped_sha256: c798a36bc2966faf5c04e5f5f2fea7377fa0200b5b3df915a60ec4ff3dca123e
   - path: src/Tools/dgf-mcp/Schemas/Json/componentValidator.schema.json
     sha256: d15b379181448263f1aef9e8b9df2e22a1fc54a1ae225342258966b7868ddcc0
     vendored: json/componentValidator.schema.json
     shipped_sha256: d15b379181448263f1aef9e8b9df2e22a1fc54a1ae225342258966b7868ddcc0
+  - path: src/Tools/dgf-mcp/Schemas/XSD/application-sitemap.xsd
+    sha256: 1b1864bd811d087f28195b103295eb4225042079004e74ab6d4438509a544857
+    vendored: xsd/application-sitemap.xsd
+    shipped_sha256: 1b1864bd811d087f28195b103295eb4225042079004e74ab6d4438509a544857
   - path: src/Tools/dgf-mcp/Schemas/XmlReference/form.reference.json
-    sha256: 127c91a978a4b5b64ebc2d23f26afb666c7059cbdd41dbb82773e8d536c5c1a9
+    sha256: 79bcc432e4496267753193a8e3194cba3a94e4ce0438494f668689409fadff69
     vendored: xsd/form.reference.json
-    shipped_sha256: 127c91a978a4b5b64ebc2d23f26afb666c7059cbdd41dbb82773e8d536c5c1a9
+    shipped_sha256: 79bcc432e4496267753193a8e3194cba3a94e4ce0438494f668689409fadff69
   - path: src/Tools/dgf-mcp/Schemas/XSD/form.xsd
-    sha256: 382980eda2104aad8bcad8e42ffb9b185d08290d27d91dc9380c59da2764a685
+    sha256: e12bf90d5a01f82d4dff0e92b6b4d7bf81fce069bc825cc11852a8da6b8da04e
     vendored: xsd/form.xsd
-    shipped_sha256: b0123f266de48984e5082eeeb608328ec2e201ab3b8f8eebb3c9b6fb0fd14719
+    shipped_sha256: 052ef5474fe507390da6be3b1ca6c3571b2899d6d7c0ebb54040856f514b476b
   - path: src/Tools/dgf-mcp/Schemas/XSD/grid-form.xsd
-    sha256: 59df49ce2fd0756410b6386f870bcd3e0066dbc994b39f83a6f5751a064e3459
+    sha256: 9e9216e7958f9ff51b7211d3864ba976cba53cd0d8f36ad797d2f2106181cf32
     vendored: xsd/grid-form.xsd
-    shipped_sha256: 59df49ce2fd0756410b6386f870bcd3e0066dbc994b39f83a6f5751a064e3459
+    shipped_sha256: 9e9216e7958f9ff51b7211d3864ba976cba53cd0d8f36ad797d2f2106181cf32
   - path: src/Tools/dgf-mcp/Schemas/XSD/lookup-view.xsd
-    sha256: 2e5c31ae7c00093e6288c9975d4ae5ca92f6897d04c63e275f30c1677fa82d76
+    sha256: 51feca68ad2c0eea61a7ff852b414dc78de12bc199194d3c262336ed1e082593
     vendored: xsd/lookup-view.xsd
-    shipped_sha256: 2e5c31ae7c00093e6288c9975d4ae5ca92f6897d04c63e275f30c1677fa82d76
+    shipped_sha256: 51feca68ad2c0eea61a7ff852b414dc78de12bc199194d3c262336ed1e082593
   - path: src/Tools/dgf-mcp/Schemas/XSD/options.xsd
     sha256: 9a2df54423350285013c670768eb0ec982152813add887c87f89799f48120ad4
     vendored: xsd/options.xsd
     shipped_sha256: 9a2df54423350285013c670768eb0ec982152813add887c87f89799f48120ad4
   - path: src/Tools/dgf-mcp/Schemas/XSD/process.xsd
-    sha256: 7adf1ea3f94f10e0606112d78e5dc49c528cd93bdfe41e7dc4251cc3546de121
+    sha256: f46988a29f38bd71fbb1d8fb771a8d3aa16fef543cadc8bf56ea05fd2ca86187
     vendored: xsd/process.xsd
-    shipped_sha256: 7adf1ea3f94f10e0606112d78e5dc49c528cd93bdfe41e7dc4251cc3546de121
+    shipped_sha256: f46988a29f38bd71fbb1d8fb771a8d3aa16fef543cadc8bf56ea05fd2ca86187
   - path: src/Tools/dgf-mcp/Schemas/XSD/profile.xsd
-    sha256: 884dcc5a04e343513a499b0e861e6a1a8cf67928c401e64f3c5f6bafcb0b65a4
+    sha256: c67be101c915bc9e1da513de21512634fd909e56d82e88ed859ec5cfc37569c7
     vendored: xsd/profile.xsd
-    shipped_sha256: 884dcc5a04e343513a499b0e861e6a1a8cf67928c401e64f3c5f6bafcb0b65a4
+    shipped_sha256: c67be101c915bc9e1da513de21512634fd909e56d82e88ed859ec5cfc37569c7
   - path: src/Tools/dgf-mcp/Schemas/XSD/settings.xsd
-    sha256: 6c8265271620860ac3a607d2936266811b277b78fe069856214f46360e972bb9
+    sha256: ce32b274b92d2dfd1134ad4ffd1b1ea5d6e1c51621660a43b5f262becf004fc9
     vendored: xsd/settings.xsd
-    shipped_sha256: 6c8265271620860ac3a607d2936266811b277b78fe069856214f46360e972bb9
+    shipped_sha256: ce32b274b92d2dfd1134ad4ffd1b1ea5d6e1c51621660a43b5f262becf004fc9
   - path: src/Tools/dgf-mcp/Schemas/XSD/table-view.xsd
-    sha256: afd9befe47332b1cd1a9fdc9d8e893bfcde2b5382babe9cf054c88771c5ff783
+    sha256: ab2d3956fd5a2e4247f4ddc88f2068d3e2e3a30f59288f80735beafc1fee8e89
     vendored: xsd/table-view.xsd
-    shipped_sha256: afd9befe47332b1cd1a9fdc9d8e893bfcde2b5382babe9cf054c88771c5ff783
+    shipped_sha256: 1e54f22d5cc8b4a22263eb3877b75d246b960c2e1747822547a4f3d24edc53ca
   - path: src/Tools/dgf-mcp/Schemas/XSD/workflow.xsd
-    sha256: afc3eb4f23c379012f8fb23609f03daedffeaadff08527b0990507c6c41cdff8
+    sha256: 6ab64e9c06d6c42bd18b7365cb3c69b3a23204fce4972d1f6a38c8c28263a622
     vendored: xsd/workflow.xsd
-    shipped_sha256: afc3eb4f23c379012f8fb23609f03daedffeaadff08527b0990507c6c41cdff8
+    shipped_sha256: 6ab64e9c06d6c42bd18b7365cb3c69b3a23204fce4972d1f6a38c8c28263a622
   # hand-authored standalone contract, not the generated set
   - path: docs/schemas/componentValidator.schema.json
     sha256: d15b379181448263f1aef9e8b9df2e22a1fc54a1ae225342258966b7868ddcc0

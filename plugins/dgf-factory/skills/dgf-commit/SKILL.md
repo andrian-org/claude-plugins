@@ -2,7 +2,7 @@
 name: dgf-commit
 description: Commit staged DGF changes with a conventional commit message scoped by workspace, following the plan's Commit Plan when there is one, after a warn-only check that the change stays inside its plan. Use for "commit", "dgf commit", "save changes", "create commit", "commit the plan", "commit the setup".
 argument-hint: "[scope or context]"
-allowed-tools: Read Glob Grep Bash(git *) Bash(python3 "{{dgf_runtime}}/scripts/*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) AskUserQuestion
 disable-model-invocation: false
 version: 0.3.0
 ---

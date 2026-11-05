@@ -9,6 +9,13 @@
   <ItemGroup>
     <!-- DGF pins no package id: DGF.API is the assembly name. Point NuGet at the feed that serves it. -->
     <PackageReference Include="DGF.API" Version="{{dgf_version}}" />
+    <!-- Transitive packages DGF.API brings in, lifted past their HIGH advisories (read 2026-11-03):
+         ImageSharp GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q, GHSA-jjfr-hcj7-qf5w, GHSA-v76p-62qx-wwq2 (fixed in 3.2.0);
+         System.Security.Cryptography.Pkcs GHSA-846f-f764-76mx (fixed in 10.0.13). Remove a line once DGF.API itself
+         depends on a fixed version: the security scan's dependency step, or dotnet's vulnerable-package listing
+         with transitive packages included, says when. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.2.0" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
 </Project>

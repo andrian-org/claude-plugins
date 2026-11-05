@@ -15,6 +15,7 @@ cannot default, and prints every default it applies, so nothing is decided silen
 | nothing printed but the verdict | the design is complete | `0` |
 | `SCAFFOLD_DIR_NOT_EMPTY`, `SCAFFOLD_NAME_INVALID`, `SCAFFOLD_OPTION_INVALID`, `SCAFFOLD_REFERENCE_INVALID`, `SCAFFOLD_MODEL_INVALID`, `SCAFFOLD_SQL_TYPE_UNKNOWN` | a conflict; each line names the key and the rule | `1` |
 | `SCAFFOLD_ASK` | a value is open; each line is `<key> — <rule> (candidates: …)` | `2` |
+| `SCAFFOLD_LINE_MISMATCH` | `dgf_version` is on another DGF line than the knowledge `dgf-factory setup` installed here (the receipt's `dgfLine`); the line names the setup command | `2` |
 | `SCAFFOLD_DESIGN_UNREADABLE` | the file cannot be read as a design | `3` |
 | `DEFAULT: <key> = <value>` | a value the check filled in; shown, never silent | (with `0` or `2`) |
 

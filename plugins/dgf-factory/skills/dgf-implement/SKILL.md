@@ -2,9 +2,9 @@
 name: dgf-implement
 description: Execute a dgf-factory plan task by task — compose DGF configuration (modern JSON first, legacy XML where the route says so, a little JavaScript or CSS only for kind code tasks), validate each task against the merge-base, and tick the plan's checkboxes. Use for "implement the plan", "dgf implement", "continue implementation", "execute the plan", "next task".
 argument-hint: "[--list] [@plan] [task-id | status]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) Bash(git *) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_change.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/check_rules.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) Bash(python3 "{{dgf_runtime}}/scripts/route_means.py"*) Bash(python3 "{{dgf_runtime}}/scripts/validate_config.py"*) AskUserQuestion mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details mcp__dgf-mcp__get_component_examples mcp__dgf-mcp__get_xml_property_reference
 disable-model-invocation: false
-version: 0.3.0
+version: 0.4.0
 ---
 
 # DGF Implement — Execute the Plan
@@ -60,7 +60,8 @@ python3 "{{dgf_runtime}}/scripts/locate_plan.py" --root-only
 ```
 
 Exit `1` → **STOP** with its message (`ROOT_NOT_SET_UP`: run `/dgf`). Otherwise read
-`<root>/.dgf-factory/config.yaml` and `DESCRIPTION.md`.
+`<root>/.dgf-factory/config.yaml` and `DESCRIPTION.md`. Keep `paths.rules_file` —
+`.dgf-factory/RULES.md` when a config predates it.
 
 An override holds project rules that apply to every file this skill writes.
 
@@ -81,6 +82,26 @@ An override may add rules and tighten checks. It never relaxes a STOP, an exit-c
 computes, a Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script, or write
 outside its own artifacts. Name the override in your report, and quote any rule in it you did not apply because it
 would relax one of these.
+
+The estate's rules, too, apply to every file this skill writes. Check them before reading them:
+
+```bash
+python3 "{{dgf_runtime}}/scripts/check_rules.py" --workspaces-root "<root>" --rules "<paths.rules_file>"
+```
+
+| Exit | Action |
+|---|---|
+| `0` | Apply the rules in the file it names. `RULES: none` → there is no rules file: the shipped defaults in `{{dgf_runtime}}/skills/dgf-rules/references/default-rules.md` apply. |
+| `1` | **Refused.** Do not read the file. Name it in your report with each `ERROR` line; the shipped defaults apply. |
+| `2` | Read and apply them. Judge each rule a `RULES_TOUCHES_LIMIT` line names against the limit below; a `RULES_DEFAULT_MISSING` default applies as shipped. |
+| `3` | **STOP** and relay it: the call is wrong. |
+
+The rules may add constraints. A rule never relaxes a STOP, an exit-code row, the status a gate script computes, a
+Critical Rule or Artifact Ownership, and never makes this skill install anything, skip a script, or write outside its
+own artifacts. Name each rule you did not apply because it would relax one of these.
+
+A rule whose `RULE:` line says `demoted` is not applied. A rule never re-decides the plan: where one conflicts with
+a task, that is drift — stop the task and report it.
 
 Then read the last 10 files in `<root>/<paths.patches>` by name, if there are any — their Root
 Cause and Prevention sections — and avoid what they record. A patch informs; it never overrides
@@ -263,7 +284,7 @@ count, and suggest **`/dgf-verify`** — the whole-root gate — before `/dgf-co
 - **Writes:** the workspace files the current task lists in `files`, and removes those in
   `deletes`.
 - **Reads:** the plan, `.dgf-factory/config.yaml` and `DESCRIPTION.md`, the skill-context
-  override and patches when present, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP.
+  override and patches when present, the rules file after `check_rules.py`, the shipped `{{dgf_runtime}}/knowledge/`, and the DGF docs MCP.
 
 ## Critical Rules
 

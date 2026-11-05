@@ -15,6 +15,11 @@ sorted by name:
                   malformed patch is never new. An unreadable cursor warns, and
                   every well-formed patch then counts as new
 
+With --next-name SLUG it checks nothing and prints the name a new patch takes
+now: `NEXT: <YYYY-MM-DD-HH.mm>-<slug>.md date="<YYYY-MM-DD HH:mm>"`, from this
+machine's clock to the minute, with `-2`, `-3`, … added to the slug while a
+patch of that name exists — so /dgf-fix never supplies the time itself.
+
 The format is skills/dgf-fix/references/PATCH-FORMAT.md. A PATCH argument is an
 ordinary path — absolute, or relative to the working directory — and must name
 a file directly in the patches directory. `--patches-dir` and `--cursor` are
@@ -23,12 +28,14 @@ writes: not a patch, not the cursor. Stdlib only.
 
 Usage:  check_patches.py --workspaces-root R [--patches-dir D] [--cursor C]
                          [PATCH ...] [--verbose]
+        check_patches.py --workspaces-root R [--patches-dir D] --next-name SLUG
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  every patch is well formed (or there are none)
   1  a patch is malformed — it is never read as a lesson, nor marked processed
   2  the cursor is unreadable (PATCH_CURSOR_UNREADABLE); every patch counts as new
-  3  usage error: no root, or a PATCH outside the patches directory
+  3  usage error: no root, a PATCH outside the patches directory, or a SLUG
+     that makes no valid name
 """
 
 if __name__ == "__main__":
@@ -51,6 +58,8 @@ def build_parser():
     parser.add_argument("--workspaces-root", required=True, help="the directory that holds .dgf-factory/")
     parser.add_argument("--patches-dir", default=DEFAULT_PATCHES, help="relative to the root (paths.patches)")
     parser.add_argument("--cursor", help="relative to the root: <paths.evolutions>patch-cursor.json")
+    parser.add_argument("--next-name", metavar="SLUG", help="print the name and date a new patch with this slug "
+                                                            "takes now, and check nothing")
     return parser
 
 
@@ -119,6 +128,16 @@ def main(argv):
         rejected(f"--workspaces-root is not a directory: {args.workspaces_root}", root=args.workspaces_root)
     shown_dir = Path(args.patches_dir).as_posix().rstrip("/") + "/"
     patches_dir = root / args.patches_dir
+    if args.next_name is not None:
+        if args.patches or args.cursor:
+            rejected("--next-name takes no PATCH and no --cursor", slug=args.next_name)
+        name, date_or_why = patches.next_name(patches_dir, args.next_name)
+        if name is None:
+            rejected(f"--next-name: {date_or_why}", slug=args.next_name)
+        rep = report.Report(shown_dir + name)
+        rep.ran("patch-name")
+        report.debug("check_patches.main", "next name", name=name)
+        return report.render([rep], header=HEADER, lines=[f'NEXT: {name} date="{date_or_why}"'])
     reports, parsed = [], []
     for path in targets(args.patches, patches_dir):
         rep = report.Report(shown_dir + path.name)

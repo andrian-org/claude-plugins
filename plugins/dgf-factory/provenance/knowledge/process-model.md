@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/Tools/dgf-mcp/Schemas/XSD/process.xsd
-    sha256: 7adf1ea3f94f10e0606112d78e5dc49c528cd93bdfe41e7dc4251cc3546de121
+    sha256: f46988a29f38bd71fbb1d8fb771a8d3aa16fef543cadc8bf56ea05fd2ca86187
   - path: src/Core/DGF.Domain/Process/StateProcess/Process.cs
     sha256: ac395a608a432d20caa57f7936f96d155aaa5eeafd477b41924cbc6001142f66
   - path: src/Core/DGF.Domain/Process/StateProcess/State.cs
@@ -49,7 +49,7 @@ sources:
   - path: src/Components/Extensions/DGF.FlowComponents/WorkFlow/Engine/Core/StepExecution/Handlers/StateProcessStepHandler.cs
     sha256: 1436af91f93c38dd136c8949ca2a9f34b0253f624488e77ff09738b6eb3f6917
   - path: src/Core/DGF.OM/Process/StateProcess/InstanceHandler.cs
-    sha256: e3b9bbfebc191659a9427405a7bf141f96c66de07479df110743616bb80cdce8
+    sha256: bdc3f3d5599312fcbe3e6d14676b410fb48a27394a24c7981e17265b650505a5
   - path: src/Core/DGF.DataViewer/Workflow/BackgroundWorkflowService.cs
     sha256: f7732f5f5c667288fa00f87e08083ba4c260700e27c57e592d47d6c128bfe4a3
 ---
@@ -69,5 +69,7 @@ the table. The 26 rows were then applied by hand to a scratch copy of the vendor
 (attributes as optional `xs:string`, elements as optional `xs:anyType`, enumerations relaxed to
 `xs:string`) and the 23 `src/samples/workspaces/*/FM/_PROCESS/*/process.xml` files validated
 against it: 0 failures under both `lxml` 6.1.3 (bundled libxml2 2.14.6) and `xmllint` 2.9.13,
-against 2 failures (`webasm/…/PrintDeliver`, `dgf/…/DGF.Demo.EService`) under the unmodified XSD.
+against 2 failures (`webasm/…/PrintDeliver`, `dgf/…/DGF.Demo.EService`) under the unmodified XSD. Since DGF 1.1.16 the
+table has 25 rows: `OnInit/StoredProcedureActivity` is declared by `process.xsd` itself
+(`provenance/sync-log/2026-11-04-1.1-1.1.16.md`).
 The list was not widened to make a sample pass.

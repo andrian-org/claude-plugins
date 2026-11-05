@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-23
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 # Vendored DGF schema set — what it holds
 

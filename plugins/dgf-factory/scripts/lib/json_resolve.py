@@ -18,7 +18,6 @@ from pathlib import Path
 
 from . import knowledge, prepass, report
 
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "knowledge" / "schemas" / "json"
 INDEX_SUFFIX = "Configuration.schema.json"
 # DGF's SchemaIndexService allow-list: indexed although it has no Configuration infix.
 INDEX_ALLOW_LIST = ("componentValidator.schema.json",)
@@ -27,22 +26,45 @@ DATASOURCE_INTERFACE = "#/definitions/IDataSource"
 
 _RAW = {}
 _MERGED = {}
+_MEMBERS = []
+
+
+def schema_dir():
+    """The vendored JSON schema set of the pack in use (knowledge.use_dir moves it)."""
+    return knowledge.schemas_dir() / "json"
+
+
+def __getattr__(name):
+    """`SCHEMA_DIR` stays readable, and always names the pack in use."""
+    if name == "SCHEMA_DIR":
+        return schema_dir()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _reset():
+    _RAW.clear()
+    _MERGED.clear()
+    _MEMBERS.clear()
+    report.debug("json_resolve.reset", "cleared", schemas=schema_dir())
+
+
+knowledge.register_reset(_reset)
 
 
 def index():
     """{lower-cased index key: filename}, exactly as SchemaIndexService builds it."""
     found = {}
-    for path in sorted(SCHEMA_DIR.glob("*" + INDEX_SUFFIX)):
+    for path in sorted(schema_dir().glob("*" + INDEX_SUFFIX)):
         found[path.name[: -len(INDEX_SUFFIX)].lower()] = path.name
     for name in INDEX_ALLOW_LIST:
-        if (SCHEMA_DIR / name).is_file():
+        if (schema_dir() / name).is_file():
             found[name[: -len(".schema.json")].lower()] = name
     return found
 
 
 def raw_schema(filename):
     if filename not in _RAW:
-        _RAW[filename] = json.loads((SCHEMA_DIR / filename).read_text(encoding="utf-8"))
+        _RAW[filename] = json.loads((schema_dir() / filename).read_text(encoding="utf-8"))
     return _RAW[filename]
 
 
@@ -82,7 +104,7 @@ def custom_enum_names():
 
 def interface_schema():
     """A root that validates against the IComponentConfiguration interface only."""
-    for path in sorted(SCHEMA_DIR.glob("*" + INDEX_SUFFIX)):
+    for path in sorted(schema_dir().glob("*" + INDEX_SUFFIX)):
         definitions = merged_schema(path.name).get("definitions") or {}
         if "IComponentConfiguration" in definitions:
             # Inlined, not a $ref: a $ref to the interface is what dispatches.
@@ -92,8 +114,6 @@ def interface_schema():
     raise LookupError("no vendored schema defines IComponentConfiguration")
 
 
-_MEMBERS = []
-
 
 def component_types():
     """The ComponentType members, `None` included, as the vendored schemas declare the enum.
@@ -102,9 +122,11 @@ def component_types():
     members are the union across the set, in declaration order.
     """
     if not _MEMBERS:
-        for path in sorted(SCHEMA_DIR.glob("*.schema.json")):
+        for path in sorted(schema_dir().glob("*.schema.json")):
             declared = (raw_schema(path.name).get("definitions") or {}).get("ComponentType") or {}
-            for member in declared.get("enum") or []:
+            # Since DGF 1.1.16 the schemas list the camelCase JSON names in `enum` and keep the C# member
+            # names — what Enum.TryParse matches, and what the tables and the folders use — in `x-enumNames`.
+            for member in declared.get("x-enumNames") or declared.get("enum") or []:
                 if isinstance(member, str) and member not in _MEMBERS:
                     _MEMBERS.append(member)
         report.debug("json_resolve.component_types", "enum", members=len(_MEMBERS))

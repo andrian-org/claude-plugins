@@ -65,7 +65,7 @@ class Inventory(unittest.TestCase):
 
     def test_the_knowledge_stamp(self):
         _, out, _ = self.inventory()
-        self.assertRegex(self.line(out, "KNOWLEDGE: "), r"^KNOWLEDGE: dgf_version=\d+\.\d+\.\d+$")
+        self.assertRegex(self.line(out, "KNOWLEDGE: "), r"^KNOWLEDGE: dgf_version=\d+\.\d+\.\d+ line=\d+\.\d+$")
 
     def test_no_git(self):
         _, out, _ = self.inventory()

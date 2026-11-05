@@ -2,7 +2,7 @@
 name: dgf
 description: Set up dgf-factory for a DGF workspaces root — inventory the workspaces, record the estate's DGF version, and write .dgf-factory/config.yaml and DESCRIPTION.md. Use for "set up dgf-factory", "dgf setup", "initialise the workspaces root", "configure dgf", "start using dgf-factory".
 argument-hint: "[workspaces-root]"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/*) Bash(git *) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_release_notes
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/scripts/check_override.py"*) Bash(python3 "{{dgf_runtime}}/scripts/inventory_root.py"*) Bash(python3 "{{dgf_runtime}}/scripts/locate_plan.py"*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_release_notes
 disable-model-invocation: false
 version: 0.3.0
 ---
@@ -114,8 +114,8 @@ Ask in at most **two** `AskUserQuestion` calls — the tool takes four questions
    releases whose `version` is an `X.Y.Z` (skip `NOTES-NEXT`, `README` and any other non-version
    row), newest first, then `unknown`; any other release is typed under Other. Never preselect or
    recommend one. When the MCP is unavailable, offer only `unknown`, and say a version is typed
-   under Other. Show the knowledge stamp from the inventory's `KNOWLEDGE:` line **in the question
-   text**, as the release the shipped facts were read at — never as an option or a default.
+   under Other. Show the knowledge stamp and line from the inventory's `KNOWLEDGE:` line **in the
+   question text**, as the release the installed facts were read at — never as an option or a default.
    Nothing in a workspaces root states the version, so never infer it.
 3. **The base branch** — the Step 2 default first. Skip when `git.enabled` is false.
 4. **The branch prefix** — `feature/` first. Skip when `git.enabled` is false.
@@ -142,15 +142,25 @@ Otherwise use the language the user writes in for both, and say so in Step 7.
 
 ### Step 4: Compare the declared version
 
-- **`unknown`:** warn that a future version gate cannot compare facts with this estate, and
-  that the warning will stand in DESCRIPTION.md until `/dgf` is re-run with a version.
-- **Newer than the knowledge stamp:** say that the shipped facts were read at an older DGF
-  release, and offer the DGF docs MCP's `get_release_notes("since:<stamp>")` so the user can
-  read what changed. Do not edit the knowledge base.
-- **Equal or older:** no note.
+The inventory's `KNOWLEDGE:` line names the installed knowledge's stamp and its DGF line:
+`KNOWLEDGE: dgf_version=<stamp> line=<X.Y>`. Each project holds one DGF line's knowledge, chosen
+by `dgf-factory setup` (`{{dgf_runtime}}/knowledge/README.md` §8).
 
-The version is recorded, not checked. No fact carries an `applies:` range yet, so no gate uses
-it today.
+- **`unknown`:** warn that the version gate cannot compare facts with this estate, and that the
+  warning will stand in DESCRIPTION.md until `/dgf` is re-run with a version.
+- **Another line than `line=`** — the declared version's `X.Y` differs: the installed knowledge
+  describes another DGF line. Say so, and give the command that installs the estate's line:
+  `dgf-factory setup --dgf-version <declared>`, then `/dgf-doctor`. Do not edit the knowledge base,
+  and do not run setup yourself.
+- **Same line, newer than the stamp:** say that the shipped facts were read at an earlier release
+  of the line, and offer the DGF docs MCP's `get_release_notes("since:<stamp>")` so the user can
+  read what changed. Do not edit the knowledge base.
+- **Same line, older than the stamp:** say that the facts were read at a later patch than the
+  estate runs, and offer `get_release_notes("since:<declared>")`.
+- **Equal:** no note.
+
+The version is recorded here; `/dgf-doctor` checks it — the line against the installed one, and
+every installed fact that carries an `applies:` range (the version gate).
 
 ### Step 5: Write the artifacts
 

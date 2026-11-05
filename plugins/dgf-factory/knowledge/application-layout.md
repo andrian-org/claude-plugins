@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-30
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 
 # Application layout — what a new DGF application is made of
@@ -52,10 +52,22 @@ Facts behind the rows:
   without an error, and the application root then redirects to `routes[0].path`, which no longer
   exists. So the landing route is listed first with a real path. The `dgf` sample's is `/home`, with
   `requireAuthorization: false` and a `page` content named `SiteMap/home`.
-- **`sitemap.json`'s shape.** Top-level keys are `theme`, `title`, `version`, `logo`, `favicon`,
+- **The landing route is also where a signed-in user's dead deep link goes.** When a signed-in user's
+  first navigation of a page load — a return from sign-in, a bookmark, a typed address — names a path
+  that no route of their sitemap has (the host strips the routes their claims cannot open), the route
+  guard sends them to `/`, and so to the first route of their sitemap, instead of the 404 page. An
+  unknown path followed inside the running shell still shows the 404 page.
+- **`sitemap.json`'s shape.** Top-level keys are `theme`, `title`, `logo`, `favicon`,
   `localization` (`languages`, `default`), `routes`, `header` and `footer`. A route has `path`, `name`,
   `requireAuthorization`, `fluid`, `hideHeader`, `hideFooter` and `content`; a router is referenced from
   a route's `content` by `{"type": "router", "name": …}`, not nested in `routes`.
+- **Translations follow `localization.languages`.** The shell requests translations from the host, and
+  shows the language picker, only when the sitemap's `localization.languages` lists at least one
+  language. With no `localization` block, or an empty `languages`, it requests none and shows no picker,
+  so the texts the host's localization resources hold are not shown.
+- **There is no `version` key to write.** The sitemap configuration binds none and its schema allows no
+  property it does not declare; the `version` the served sitemap carries is the host's, filled from the
+  framework's and the entry assembly's versions. The `dgf` sample has none.
 - **`/login` is hard-coded in the shell and the host.** The auth guard, the route guard and the error
   interceptor navigate to `/login`, and the host's cookie `LoginPath` is `/login`. A workspace therefore
   declares a route whose `path` is `/login`, with `hideHeader` and `hideFooter`, and content a local page.
@@ -63,10 +75,19 @@ Facts behind the rows:
 - **The login page** is a `page` whose content is one `login` component with `title` and
   `authenticationMethods`, a list of `{name, title, hidden}`. The shell's accepted names are `azure`,
   `dgpass` and `basic`. A method with `hidden: true` is listed under other options.
-- **The sign-in menu item calls DGPass directly when the login route lists 0 or 1 method** and only
-  navigates to `/login` when it lists more than one. A profile-menu item with the id `signIn` therefore
-  starts a DGPass login whatever the single method is; a header for an application that lists only
-  `basic` must not use that id.
+- **The sign-in menu item opens `/login`, unless the login route inlines one external method.** A
+  profile-menu item with the id `signIn` starts a provider's login directly only when the `/login`
+  route's first content is itself a `login` component listing exactly one method and that method is
+  not `basic`; it then challenges that method's provider. Otherwise — content that is a page, as the
+  reference layout's is, several methods, or `basic` alone — it navigates to `/login`.
+- **A sitemap node can be gated by `metaData`, and the host strips it before serving.** A node whose
+  `metaData.requireUser` is set reaches only the callers it names: `authenticated` or `guest`. A node
+  with `metaData.requireClaims`, a list of `{name, value, hasNoValue}`, is removed for an anonymous
+  caller — unless it is a route with `requireAuthorization`, kept as a login-redirect stub — and for a
+  signed-in one unless every named claim exists and, where a `value` is given, equals it ignoring case;
+  with `hasNoValue` it is kept only while the claim is absent or empty. The `dgf` sample's header gates
+  an `Admin Tools` item on `requireUser: authenticated` and the claim `CurrentRoleName` (the user's
+  current role, set at sign-in) being `Administrators`.
 - **`_application.sitemap`** is read by `ApplicationMapService` from the application workspace root
   alone: `ApplicationMap` binds the root `map` and `ApplicationInfo` its attributes `name`, `page`,
   `type`, `visible` and elements `theme`, `dgf-theme`, `createdInfo`, `basedOn`, `dbprefix`, `title`,
@@ -75,6 +96,9 @@ Facts behind the rows:
   The `dgf` sample's `map` is `name="default" type="1" visible="true"`, `basedOn` is `default`, and its
   one `tabs` node is `type="PROFILE"` with `content` naming the profile. A router's profile is found
   by looking its name up in these tabs and links before falling back to the name as the profile folder.
+  The `dgf` sample's `/router-nested` route uses a router, `RouterNested`, whose profile folder has no
+  tab and is found by that fallback, so a tab per profile folder is the layout's convention, not
+  something the runtime needs.
 - **A profile tree** is `Tree` (`title`, `name`, `image`, `navigator`), holding `Folders` of `Folder`
   (`title`, `name`, `image`, `control`), nestable. A folder's `control` says what it opens — `FORM`,
   `GRID`, `SERVERCONTROL` — or is empty for a group heading. Its node file is `<name>.xml` beside the
@@ -85,8 +109,9 @@ Facts behind the rows:
   When neither exists it does not throw: it returns an empty tree. A node file is looked up in the
   group, then in `Members`, and a missing one throws `File not found`. A plain profile name is looked
   up in the application workspace only; `BASE:` reaches `webasm`.
-- **The reference layout's one `BASE:` route is `/user-profile`** (page `BASE:UserProfilePage`). It is
-  optional: a workspace that omits it loses only that page.
+- **The reference layout's one `BASE:` page is `BASE:UserProfilePage`**, used by two routes:
+  `/user-profile`, and `/restricted`, a test route that `metaData.requireClaims` hides from a user
+  without a named claim. Both are optional: a workspace that omits them loses only that page.
 - **Scratch directories** `_STORAGE/`, `Temp/_Upload` and `Temp/Attachments` live under the
   application root. The host creates a missing `Temp/_Upload` or `Temp/Attachments` when it maps them
   as static paths.
@@ -159,7 +184,8 @@ and prints a line either way. It sets the two sign types to their own defaults.
 - **`AspNetRoles`** has `Id` (`UNIQUEIDENTIFIER`), `ApplicationId` (`UNIQUEIDENTIFIER NULL`, a foreign
   key to `aspnet_Applications`), `Name` and `NormalizedName` (`NVARCHAR(256) NULL`), `ConcurrencyStamp`
   (`NVARCHAR(MAX)`), `Description` (`NVARCHAR(256)`), `TypeId` (default
-  `4dbd37af-33bf-41e0-9834-f1de42a511d8`) and `IsAvailable` (`BIT`). The primary key is `Id`.
+  `4dbd37af-33bf-41e0-9834-f1de42a511d8`), `IsAvailable` (`BIT`) and `RoleDisplayName`
+  (`NVARCHAR(256) NULL`). The primary key is `Id`.
   **Its one unique index, `RoleNameIndex`, is on `NormalizedName` alone** (filtered to not null), so a
   role name exists once across all applications; the entity-framework migration declares `ApplicationId`
   `NOT NULL`, which the database project does not.
@@ -167,9 +193,19 @@ and prints a line either way. It sets the two sign types to their own defaults.
   `ILookupNormalizer`, so ASP.NET Identity's default applies; the framework's own migration script for
   legacy membership copies the legacy lower-cased role name into it, and it sets a user's normalised
   name and email lower-case itself. The baseline's `ModelCollation` is case-insensitive, so the unique
-  index and `x.NormalizedName == newRole` see two casings of one name as one.
+  index sees two casings of one name as one. The check that a user holds a role before switching to it
+  compares `NormalizedName` with the role name passed through the identity library's normalizer.
+- **`RoleDisplayName` is an optional label, and nothing needs it.** The entity-framework role model does
+  not map it, so sign-in and the code seed work on a table without the column. A separate query reads it
+  per request, testing that the column exists first; a role's label is its trimmed `RoleDisplayName`
+  when that is not empty, else its `Name`, and every role shows its `Name` when the column is missing or
+  the query fails. The label reaches the role switcher's data and the user information the shell reads
+  (`${@user.currentRoleDisplayName}`); claims, role switching, sitemap `roles`, profile folders and
+  `${@user.currentRoleName}` keep using `Name`. The runtime writes no value to the column; the local
+  stack's sample seed sets one label, only when the column exists.
 - **Built-in roles** are `Administrators`, `Members`, `Anonymous`, `Registered Users` and `PortalUser`
-  (the constants also name `Applicant` and `New`, which no seed creates).
+  (the constants also name `Applicant` and `New`, which the code seed creates only when an account
+  names it as its `RoleName`; the local stack's `applicant` account names `Applicant`).
 - **The code seed** (`ApplicationDbContextSeed`, run after start) does nothing unless
   `AdminSeedOptions:Enabled` is true and `Accounts` is non-empty. It creates roles **only when
   `AspNetRoles` has no row at all** — for any application — through `RoleManager`, as
@@ -255,14 +291,17 @@ Facts behind the rows:
   optional actions. `BuildEServicesApi` reads `appsettings.json` (required), `appsettings.<Environment>.json`
   (optional) and the environment, in that order, and ends by mapping controllers and running.
 - **The API library is a project reference in the framework's repository, and no package id is pinned.**
-  It sets no `PackageId`, no description and no version of its own; the only version is the props file's
-  `1.1.11`. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
+  It sets no `PackageId`, no description and no version of its own. The props file's `<Version>`, set
+  for the `ClientDebug` configuration only, reads `1.1.15`, and the sample host's Dockerfile passes the
+  build a `VersionPrefix` of `1.1.15`; both read so at the release tagged `1.3.0`, so neither is the
+  release version — the git tag is. A consumer project's `PackageReference` id, version and feed are therefore not pinned by the
   framework: the id is by default the assembly name, `DGF.API`, which is not confirmed by any pack
   configuration.
 - **Startup requires** `ConnectionStrings:LocalSqlServer` (the host throws when it is absent), the
   workspaces root and `webasm` (§2), the application row (§2.1) and `ConnectionStrings:Redis` for the
   Redis health check and cache. Caching is `DistributedCachingOptions`: SQL Server cache, else Redis
-  (which needs `RedisInstanceName` and the Redis connection string), else in memory.
+  (which needs `RedisInstanceName` and the Redis connection string), else in memory. The Redis client is
+  StackExchange.Redis 3, which speaks RESP3 and needs Redis server 6 or later.
 - **The `Integrations` sections must exist even when nothing calls them.** The sign and notify services
   are registered only if `Integrations:DgSign`, `Integrations:DgNotify` (and `DgNotifyOtp`) exist, but
   two services that take them as plain constructor dependencies are registered unconditionally, so a
@@ -275,6 +314,15 @@ Facts behind the rows:
   `CorsOrigins` (a list, with credentials allowed), `Serilog`, `Languages`, `DbResourceConfiguration`,
   `Documents`, `ProcessConfigurations`, `TemplateRendering`, `Defaults` (uploader and image limits),
   `workflow`, `Plugins` and `AdminSeedOptions`.
+- **The API library's Serilog sinks are Console and Seq** (with Elasticsearch formatting). It ships no
+  Application Insights package, so a host whose `Serilog` settings write to Application Insights
+  references that sink itself.
+- **Sidebar counts** (`autoCount` routes) are read at most `DGF_ROUTER_COUNT_CONCURRENCY` at a time: a
+  number, default `4`, clamped to 1–16; a value that is not a number logs a warning and uses the
+  default. Each parallel count holds one database connection.
+- **A per-request performance trace** is the setting `DGF_PERF_TRACE`, read at start: `true` or `full`
+  logs one `PerfTrace` line per request, SQL text included, and `counts` the numbers only; both add a
+  `Server-Timing` response header. Any other value, or none, leaves it off.
 - **Ports and health.** The sample image listens on `4000` (`ASPNETCORE_URLS=http://+:4000`,
   `ASPNETCORE_HTTP_PORTS=4000`); the health endpoint is `/health/live`; the image has no `curl` or `wget`.
 - **The sample host's Dockerfile** builds from the framework's own source tree, so it is not a pattern
@@ -307,11 +355,14 @@ services and the stubs.
   `DGF_WORKSPACES_ROOT_PATH`, `WorkspaceName`, `ConnectionStrings__LocalSqlServer` (from
   `${MSSQL_SA_PASSWORD}` and `${MSSQL_DB}`), `ConnectionStrings__Redis`,
   `DistributedCachingOptions__RedisConnectionString`, `AdminSeedOptions__Enabled`,
-  `AdminSeedOptions__Accounts__0__*` and `Integrations__RegistrationAuthority__TokenGeneration__PrivateKey`.
+  `AdminSeedOptions__Accounts__0__*` to `__3__*` and
+  `Integrations__RegistrationAuthority__TokenGeneration__PrivateKey`, and inherits `DGF_PERF_TRACE`
+  (`full` unless `.env` sets it). The four accounts are the administrator, `officer` and `registrar`
+  (`Members`) and `applicant` (`Applicant`); the last three share one password.
   Its mounts are the workspace directory, `webasm`, and a settings file over `/app/appsettings.json`
   (read-only). A double underscore in an environment variable overrides the JSON key it names.
 - **The `.env` keys** are `MSSQL_SA_PASSWORD`, `MSSQL_DB`, `MSSQL_PORT`, `DGF_ADMIN_USERNAME`,
-  `DGF_ADMIN_PASSWORD`, `DGF_ADMIN_EMAIL`, `TIME_ZONE` and `COMPOSE_PROFILES`; the Registration
+  `DGF_ADMIN_PASSWORD`, `DGF_ADMIN_EMAIL`, `DGF_DEMO_USER_PASSWORD`, `TIME_ZONE` and `COMPOSE_PROFILES`; the Registration
   Authority's private key is generated per machine into `.env` and never committed.
 - **The UI container** is `nginx:alpine`. The shell fetches `assets/appsettings.json` at run time, and
   the stack mounts a settings file over it. Its keys are `apiUrl` (the API's public URL), `dateFormat`,
@@ -320,6 +371,11 @@ services and the stubs.
   `assets/js/formshared.js` and `assets/styles/custom.css`
   ([`composition-specs.md`](composition-specs.md) §5); the default stack mounts none of them, and the
   consumer samples bind-mount each from the consumer's repository.
+- **The shell's design tokens** are stylesheets under `/assets/tokens/`. The shell's `index.html` links
+  five stylesheets, in this order and with these `id`s: `app-core`, `app-semantic`, `app-density`,
+  `app-custom` and `app-theme`, each href with a `?v=` query. At start the theme service sets
+  `app-semantic`, `app-density` and `app-theme`, adding a link that is missing; it never adds `app-core`
+  or `app-custom`. A consumer that replaces the shell's `index.html` therefore carries all five links.
 - **Routing** is by traefik labels: a router rule on the host name, entrypoint `websecure`, TLS, and the
   service port (`4000` for the API, `80` for the UI).
 

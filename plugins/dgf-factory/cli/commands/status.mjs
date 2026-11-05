@@ -45,7 +45,7 @@ export function inspect(projectRoot, receipt, cliVersion) {
     const current = currentEntryHash(projectRoot, BY_ID.get(id), record.file);
     mcp[id] = { file: record.file, state: current === null ? 'missing' : current === record.entryHash ? 'unchanged' : 'edited' };
   }
-  return { version: receipt.version, cli: cliVersion, drift: receipt.version !== cliVersion, harnesses: receipt.harnesses, groups, mcp };
+  return { version: receipt.version, cli: cliVersion, drift: receipt.version !== cliVersion, dgfLine: receipt.dgfLine ?? null, harnesses: receipt.harnesses, groups, mcp };
 }
 
 function clean(result) {
@@ -55,7 +55,8 @@ function clean(result) {
 }
 
 function render(result, projectRoot) {
-  const lines = [`dgf-factory status — ${projectRoot}`, `Installed by ${result.version}; this CLI is ${result.cli}${result.drift ? ' — run `dgf-factory setup` to update' : ''}`, ''];
+  const lines = [`dgf-factory status — ${projectRoot}`, `Installed by ${result.version}; this CLI is ${result.cli}${result.drift ? ' — run `dgf-factory setup` to update' : ''}`,
+    `DGF line: ${result.dgfLine ?? 'unrecorded — installed before DGF lines; re-run `dgf-factory setup`'}`, ''];
   const owners = Object.keys(result.groups).sort((a, b) => (a === 'runtime' ? -1 : b === 'runtime' ? 1 : a.localeCompare(b)));
   for (const owner of owners) {
     const g = result.groups[owner];

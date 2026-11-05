@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-30
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 
 # Data model — entities, fields, relations, and what the loaders do with a reference
@@ -46,9 +46,12 @@ An entity is the folder `FM/_DATA/<Entity>/`. Its `settings.xml` is read by `Xml
 - **Other children:** `header`, `description`, `watermark`, `audittrail`, `wfevents`, `attachment`,
   and `fields`, a list of `field`. The root's `version` attribute is the generator's version.
 - **`sqlquery="[SQLCODE]"`** reads `sqlcode.sql` beside `settings.xml`, and throws when it is
-  missing.
+  missing. The SQL the engine builds over such a table — a view's rows, a lookup's join and its display
+  name — selects from the resolved query in place of the table (`SqlQueryBuilder`). Before DGF 1.2.0
+  some of those statements pasted the query unresolved, so a lookup over such a table failed with
+  invalid SQL.
 
-In DGF's samples: `webasm` has 194 entities and 3255 fields, `zims` 223 and 5044, `dgf` 12 and 103.
+In DGF's samples: `webasm` has 194 entities and 3256 fields, `zims` 223 and 5044, `dgf` 12 and 103.
 400 datasources are `DB` and 29 `Provider`.
 
 ## 2. A field
@@ -62,7 +65,7 @@ are `extract`, `relation`, `slavegrid`, any number of `binding`, and `binaryfiel
   names only: `PrimaryKey`, `Lookup`, `Picklist`, `Checkboxlist`, `Text`, `Html`, `Integer`, `Float`,
   `Money`, `Boolean`, `DateTime`, `EditableGrid`, `Image`. Any other value fails deserialization, and
   the table does not load (§3.6). One sample entity uses `Decimal` and `Memo`, which are not members.
-- **Sample counts by `type`:** Text 3987, DateTime 1000, Lookup 931, Integer 832, Picklist 802,
+- **Sample counts by `type`:** Text 3988, DateTime 1000, Lookup 931, Integer 832, Picklist 802,
   Boolean 567, EditableGrid 146, Money 55, Image 51, Float 25, Decimal 4, Html 1, Memo 1.
 - **Which types carry which child**, in the samples: `extract` under `Lookup` (929), `Picklist` (567),
   `Text` (249) and `Integer` (1); `slavegrid` only under `EditableGrid` (146); `relation` only under
@@ -72,6 +75,12 @@ are `extract`, `relation`, `slavegrid`, any number of `binding`, and `binaryfiel
   for grid, valid for form, allow create, valid for report. A `1` sets the flag. The positions count
   UTF-16 code units, as a .NET string does, so a character outside the Basic Multilingual Plane takes
   two.
+- **`pattern` and `patternValidationMessage`** reach the page through the legacy form mapper
+  (`FormCellMapper`): a `Text` field's default control — a TextBox, or a TextArea when `format` is
+  `textarea` — takes the cell's own `pattern` first and the field's otherwise, and `email`, in any case,
+  stands for the shared e-mail expression and its message. Since DGF 1.2.0 the TextArea takes it too;
+  before, `format="textarea"` dropped it. `.` does not match a line break, so a multi-line pattern
+  spells any character `[\s\S]`.
 
 ## 3. Relations, and how each reference resolves
 
@@ -201,6 +210,10 @@ reference to anything in the workspaces root. 231 in the samples.
 - **A bound cell must name a field.** For every such cell that has a `name` and no `content` element,
   `Form.AddFields` looks the name up in the table's fields — exactly, case-sensitive — and **throws**
   `The form cell "…" does not exist in the form "…"` when it is not one. The form then fails to load.
+- **A hidden tab's cells are bound all the same.** A `tab` binds a `visible` attribute — exactly
+  `false` hides its header, any other value shows it — and a `propertyConvertor` that hides or disables
+  it at run time (`FormTab`, since DGF 1.2.0). Both act on the page only: `Form.InitFields` walks every
+  tab, so a hidden tab's cells must still name fields.
 - **A cell with no `name` is an empty cell** (`FormCell.IsEmptyCell`), and **a cell with a `content`
   element is custom** (`FormCell.IsCustom`). The runtime skips both.
 
@@ -229,9 +242,9 @@ tally of the entities that DGF's own samples pair with a table script, not a rul
 
 ### 6.1 The field types
 
-`type` is a `FieldTypeEnum` member (§2); the counts below are §2's, over three workspaces. The vendored `settings.xsd` declares eleven of the thirteen,
-plus two names the runtime does not have, `Decimal` and `Memo`; it lacks `PrimaryKey` and `Checkboxlist`,
-so every file using either warns `XSD_LAGS_RUNTIME`.
+`type` is a `FieldTypeEnum` member (§2); the counts below are §2's, over three workspaces. The vendored `settings.xsd` declares eleven of the thirteen
+and no other name — `Decimal` and `Memo`, which the runtime does not have, are not in it; it lacks
+`PrimaryKey` and `Checkboxlist`, so every file using either warns `XSD_LAGS_RUNTIME`.
 
 <!-- machine-read: field-types -->
 | Type | In settings.xsd | Fact |
@@ -240,7 +253,7 @@ so every file using either warns `XSD_LAGS_RUNTIME`.
 | `Lookup` | yes | 931 fields; carries an extract, and may carry a relation |
 | `Picklist` | yes | 802 fields; carries an extract, and may carry a binding |
 | `Checkboxlist` | no | 0 fields in the samples |
-| `Text` | yes | 3987 fields; the type of a string, of a Guid and of the key of most tables |
+| `Text` | yes | 3988 fields; the type of a string, of a Guid and of the key of most tables |
 | `Html` | yes | 1 field |
 | `Integer` | yes | 832 fields |
 | `Float` | yes | 25 fields |
@@ -260,7 +273,7 @@ entities.
 <!-- machine-read: db-types -->
 | Dbtype | Fact |
 |---|---|
-| `String` | 1093 fields |
+| `String` | 1094 fields |
 | `StringUnicode` | 117 fields |
 | `Boolean` | 236 fields |
 | `DateTime` | 356 fields |
@@ -280,8 +293,8 @@ which sits on a `BIT` column), `Integer` (1, on a `SMALLINT`), `smallint` (1) an
 
 The tally pairs every `FM/_DATA/<T>/settings.xml` in the `webasm` and `dgf` sample
 workspaces with the baseline's `dbo/Tables/<T>.sql` by exact case, and reads each field's `dbtype` and
-`size` and the column's declared type. **86 pairs; 1752 fields; 1627 of them have a column, 13 of which
-are computed (`AS`) and skipped, leaving 1614 tallied.** Per `dbtype` it reports the majority SQL type
+`size` and the column's declared type. **86 pairs; 1753 fields; 1628 of them have a column, 13 of which
+are computed (`AS`) and skipped, leaving 1615 tallied.** Per `dbtype` it reports the majority SQL type
 and its share.
 
 The size rule says how the column's length relates to the field's `size`:
@@ -297,7 +310,7 @@ The size rule says how the column's length relates to the field's `size`:
 <!-- machine-read: field-sql-types -->
 | Dbtype | Size rule | SQL type | Evidence |
 |---|---|---|---|
-| `String` | size | VARCHAR(size) | 468/551 fields; alternatives NVARCHAR(size) 77, NCHAR(size) 6 |
+| `String` | size | VARCHAR(size) | 468/552 fields; alternatives NVARCHAR(size) 78, NCHAR(size) 6 |
 | `StringUnicode` | size | NVARCHAR(size) | 55/55 fields |
 | `Boolean` | none | BIT | 130/130 fields |
 | `DateTime` | none | DATETIME | 168/176 fields; alternatives DATE 4, SMALLDATETIME 4; 10 more fields are DATETIME2(7) |
@@ -313,7 +326,7 @@ The size rule says how the column's length relates to the field's `size`:
 Two facts the tally shows and a reader would otherwise guess:
 
 - **A unicode string is spelled `StringUnicode`**, not `String` with a flag: all 55 of those fields sit on
-  `NVARCHAR`. `String` is `VARCHAR` in 468 of 551 fields and `NVARCHAR` in 77, so a string that must hold
+  `NVARCHAR`. `String` is `VARCHAR` in 468 of 552 fields and `NVARCHAR` in 78, so a string that must hold
   non-Latin text is `StringUnicode`.
 - **A decimal's precision and scale are never in the settings file**; the columns hold `DECIMAL (18, 2)`
   in 13 of 14 cases. A column of any other precision is a choice the settings file cannot state.

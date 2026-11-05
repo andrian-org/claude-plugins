@@ -14,8 +14,11 @@ It is a runtime validator — the /dgf-doctor skill calls it, and so does
 tools/check-dual-schema-docs.sh. It reads and reports; it never edits.
 
 Sections: 1 install (in a project: every file the receipt lists is there and
-unedited, every chosen harness has every skill, and the receipt's version
-against the `dgf-factory` CLI on PATH; in this repository: package.json),
+unedited, every chosen harness has every skill, the receipt's version against
+the `dgf-factory` CLI on PATH, and the DGF line — the knowledge pack the
+receipt records against the estate's declared `dgf.version`, with the version
+gate over every installed fact that carries an `applies:` range (ADR 0036 §6);
+in this repository: package.json, and the pack registry packs/lines.json),
 2 skill slices (frontmatter YAML-safe), 3 portability (machine paths, DGF
 repository paths, runtime paths that do not exist, and relative links that
 leave the shipped set — ADR 0030), 4 line endings, 5 validator runtime (lxml
@@ -48,7 +51,9 @@ the working directory.
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — no findings
-  1  BLOCKED   — an installed file is missing, a harness lacks a skill, a slice
+  1  BLOCKED   — an installed file is missing, a harness lacks a skill, the
+                 receipt lists a file setup never installs, the runtime's .venv
+                 is committed (it is never run), a slice
                  will not register or has frontmatter YAML reads differently,
                  a shipped file names a DGF repository path, a runtime path
                  that does not exist or a link out of the shipped set, the
@@ -83,9 +88,10 @@ else:
     RED = YELLOW = GREEN = BOLD = NC = ""
 
 # The npm package payload (ADR 0030 §1). `.claude/`, `tools/`, `provenance/`, `tests/`
-# and `docs/` are maintainer material and never ship. An installed runtime holds the
-# last three; bin/ and cli/ stay in the global package.
-SHIPPED_DIRS = ("bin", "cli", "skills", "scripts", "knowledge")
+# and `docs/` are maintainer material and never ship. An installed runtime holds
+# skills/, scripts/ and knowledge/; bin/ and cli/ stay in the global package, and
+# agents/ installs into a harness's agents folder, never the runtime (ADR 0033 §5).
+SHIPPED_DIRS = ("bin", "cli", "skills", "scripts", "knowledge", "packs", "agents")
 
 # Where an installed runtime sits in a project, beside the receipt (ADR 0029 §2).
 PIPELINE_DIR = ".dgf-factory"
@@ -138,7 +144,8 @@ SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\Z")
 # Slices the roadmap calls for, in roadmap order. Absent ones are progress, not faults.
 EXPECTED_SLICES = ("dgf-doctor", "dgf", "dgf-plan", "dgf-implement", "dgf-verify", "dgf-commit",
                    "dgf-fix", "dgf-evolve", "dgf-component", "dgf-process", "dgf-audit", "dgf-model",
-                   "dgf-scaffold")
+                   "dgf-scaffold", "dgf-review", "dgf-rules", "dgf-rules-check", "dgf-qa",
+                   "dgf-docs", "dgf-explore", "dgf-grounded", "dgf-archive", "dgf-security")
 
 # A path into the runtime in shipped Markdown: `{{dgf_runtime}}/<path>` in the source,
 # `.dgf-factory/runtime/<path>` once setup has rendered it (ADR 0029 §3). The path ends
@@ -244,7 +251,7 @@ def is_ignored(path):
 
 
 def harness_files(root):
-    """In a project: the rendered SKILL.md files the receipt lists outside the runtime, project-relative."""
+    """In a project: the rendered SKILL.md and agent files the receipt lists outside the runtime, project-relative."""
     project = project_of(root)
     if project is None:
         return []
@@ -350,6 +357,7 @@ def check_package(root):
     if not bin_path or not (root / bin_path).is_file():
         error("PACKAGE_BIN_MISSING", rel, f"{rel} declares no `bin.{CLI_NAME}` that exists")
     info(f"package source — {package.get('name')} {package.get('version')}")
+    check_line_registry(root)
 
 
 def load_receipt(root, project):
@@ -372,7 +380,15 @@ def check_receipt(root, project):
     if data is None:
         return
     files = data.get("files") if isinstance(data.get("files"), dict) else {}
+    check_committed_venv(project)
     for rel, entry in sorted(files.items()):
+        why = module.misplaced(rel, entry.get("owner") if isinstance(entry, dict) else None) \
+            if hasattr(module, "misplaced") else None
+        if why:
+            error("INSTALL_RECEIPT_ENTRY_MISPLACED", f"{PIPELINE_DIR}{_SEP}{RECEIPT_NAME}",
+                  f"the receipt lists {rel}, which {why} — setup never installs there; "
+                  f"fix or delete the receipt, then re-run `dgf-factory setup`")
+            continue
         path = project / rel
         if not path.is_file():
             error("INSTALL_FILE_MISSING", rel, f"{rel} is in the receipt but not on disk — re-run `dgf-factory setup`")
@@ -383,7 +399,41 @@ def check_receipt(root, project):
         trace(f"[install] {rel} checked")
     check_harness_skills(root, data, files)
     check_version(data)
+    check_line(root, project, data)
     info(f"installed in {project} — {len(files)} file(s) recorded")
+
+
+_COMMITTED = {}
+
+
+def committed_venv(project):
+    """The files git tracks under the runtime's `.venv/`: an interpreter someone else committed.
+    Empty when git is absent or the project is not a repository. Asked once per project."""
+    if project in _COMMITTED:
+        return _COMMITTED[project]
+    venv = f"{PIPELINE_DIR}/{RUNTIME_NAME}/.venv"
+    tracked = []
+    git = shutil.which("git")
+    if git:
+        try:
+            done = subprocess.run([git, "-c", "core.fsmonitor=false", "ls-files", "-z", "--", venv],
+                                  cwd=project, capture_output=True, timeout=30)
+            if done.returncode == 0:
+                tracked = [name for name in done.stdout.decode("utf-8", "replace").split("\0") if name]
+        except (OSError, subprocess.SubprocessError) as exc:
+            trace(f"[install] git ls-files did not answer ({exc})")
+    _COMMITTED[project] = tracked
+    trace(f"[install] committed files under {venv}: {len(tracked)}")
+    return tracked
+
+
+def check_committed_venv(project):
+    tracked = committed_venv(project)
+    if tracked:
+        venv = f"{PIPELINE_DIR}{_SEP}{RUNTIME_NAME}{_SEP}.venv"
+        error("INSTALL_VENV_COMMITTED", venv,
+              f"{venv} is committed ({len(tracked)} file(s)) — a committed interpreter is never run; "
+              f"remove it from git (`git rm -r --cached {venv}`), then re-run `dgf-factory setup`")
 
 
 def check_harness_skills(root, data, files):
@@ -420,6 +470,171 @@ def check_version(data):
         warn("INSTALL_VERSION_DRIFT", f"{PIPELINE_DIR}{_SEP}{RECEIPT_NAME}",
              f"installed by dgf-factory {data.get('version')}, and the CLI on PATH is {current} — "
              f"run `dgf-factory setup` to update")
+
+
+# --- 1b. the DGF line (ADR 0036 §2, §3, §6) -----------------------------------
+
+LINE_REGISTRY = "packs/lines.json"
+CONFIG_NAME = "config.yaml"
+
+
+def line_registry(root):
+    """{line: entry} and the current line from the package's packs/lines.json, or (None, None) after an error."""
+    rel = LINE_REGISTRY.replace("/", _SEP)
+    path = root / LINE_REGISTRY
+    if not path.is_file():
+        error("PACK_REGISTRY", rel, f"{LINE_REGISTRY} not found — the package names no DGF line")
+        return None, None
+    try:
+        data = json.loads(read_text(path) or "")
+    except json.JSONDecodeError as exc:
+        error("PACK_REGISTRY", rel, f"{LINE_REGISTRY} is not valid JSON: {exc}")
+        return None, None
+    lines = data.get("lines") if isinstance(data, dict) else None
+    if not isinstance(lines, list) or not lines or data.get("format") != 1:
+        error("PACK_REGISTRY", rel, f"{LINE_REGISTRY} is not a format-1 registry with lines")
+        return None, None
+    found = {}
+    for entry in lines:
+        if not isinstance(entry, dict) or not all(isinstance(entry.get(k), str) for k in ("line", "dir", "dgf_version")):
+            error("PACK_REGISTRY", rel, f"{LINE_REGISTRY}: an entry lacks line, dir or dgf_version")
+            return None, None
+        found[entry["line"]] = entry
+    if data.get("current") not in found:
+        error("PACK_REGISTRY", rel, f"{LINE_REGISTRY}: current `{data.get('current')}` is not a listed line")
+        return None, None
+    return found, data["current"]
+
+
+def pack_dirs(root):
+    """[(line, pack dir)] for every pack the package source ships, or [] outside it."""
+    found, current = line_registry(root) if (root / LINE_REGISTRY).is_file() else (None, None)
+    if not found:
+        return []
+    return [(line, root / entry["dir"]) for line, entry in sorted(found.items())]
+
+
+def check_line_registry(root):
+    """Package mode: the registry parses, the current line is knowledge/, every other pack is packs/<line>/ and exists."""
+    found, current = line_registry(root)
+    if not found:
+        return
+    rel = LINE_REGISTRY.replace("/", _SEP)
+    for line, entry in sorted(found.items()):
+        expected = "knowledge" if line == current else f"packs/{line}"
+        if entry["dir"] != expected:
+            error("PACK_REGISTRY", rel, f"line {line} must live in {expected}{_SEP}, not {entry['dir']}")
+        elif not (root / entry["dir"]).is_dir():
+            error("PACK_MISSING", entry["dir"], f"{LINE_REGISTRY} names line {line} at {entry['dir']}{_SEP}, which does not exist")
+        elif line != current and (root / entry["dir"] / "README.md").exists():
+            error("PACK_REGISTRY", f"{entry['dir']}{_SEP}README.md", "a pack shares knowledge/README.md and holds no copy")
+    info(f"DGF lines shipped — {', '.join(sorted(found))} (current {current})")
+
+
+def declared_version(project):
+    """The `version:` under the top-level `dgf:` key of `<project>/.dgf-factory/config.yaml`, or None."""
+    path = project / PIPELINE_DIR / CONFIG_NAME
+    if not path.is_file():
+        return None
+    in_dgf = False
+    for raw in (read_text(path) or "").splitlines():
+        line = raw.split(" #", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        if not line[0].isspace():
+            in_dgf = line.strip() == "dgf:"
+            continue
+        key, sep, value = line.strip().partition(":")
+        if in_dgf and sep and key == "version":
+            return value.strip().strip('"').strip("'")
+    return None
+
+
+def installed_facts(root):
+    """[(rel, frontmatter fields, applies {since, until, out_of_range})] for the runtime's knowledge files."""
+    found = []
+    base = root / "knowledge"
+    for path in sorted(base.rglob("*.md")) if base.is_dir() else []:
+        if path.name == "README.md":
+            continue
+        text = read_text(path) or ""
+        fields = parse_frontmatter(text) or {}
+        applies = {}
+        block = text.split("\n---", 1)[0]
+        in_applies = False
+        for line in block.splitlines():
+            if line.startswith("applies:"):
+                in_applies = True
+                continue
+            if in_applies and line.startswith((" ", "\t")):
+                key, _, value = line.strip().partition(":")
+                applies[key] = value.strip().strip('"')
+            elif in_applies:
+                in_applies = False
+        if fields.get("out_of_range"):
+            applies["out_of_range"] = fields["out_of_range"].strip('"')
+        found.append((relpath(root, path), fields, applies))
+    return found
+
+
+def check_line(root, project, data):
+    """The installed pack against the estate's declared DGF version, and the version gate (ADR 0036 §6)."""
+    receipt_rel = f"{PIPELINE_DIR}{_SEP}{RECEIPT_NAME}"
+    config_rel = f"{PIPELINE_DIR}{_SEP}{CONFIG_NAME}"
+    versions = load_lib_module(root, "dgf_version")
+    facts = installed_facts(root)
+    stamps = sorted({fields.get("dgf_version", "").strip('"') for _rel, fields, _a in facts} - {""})
+    pack_version = stamps[0] if len(stamps) == 1 else None
+    line = data.get("dgfLine")
+    declared = declared_version(project)
+    trace(f"[line] receipt={line} config={declared} pack_version={pack_version} stamps={','.join(stamps)}")
+    if line is None:
+        warn("DGF_LINE_UNRECORDED", receipt_rel,
+             "the receipt records no DGF line — installed before DGF lines; re-run `dgf-factory setup`")
+    if versions is None:
+        trace("[line] no scripts/lib/dgf_version.py — the line and the version gate are not checked")
+        return
+    if declared is None:
+        info(f"no declared DGF version yet ({config_rel}) — run /dgf; installed line {line or 'unrecorded'}")
+        return
+    if not versions.is_version(declared):
+        warn("DGF_VERSION_UNKNOWN", config_rel,
+             f"`dgf.version` is `{declared}` — the installed facts cannot be compared with the estate's DGF; "
+             f"re-run /dgf with the version the estate runs")
+        return
+    declared_line = versions.line_of(declared)
+    if line and declared_line != line:
+        warn("DGF_LINE_MISMATCH", receipt_rel,
+             f"the estate runs DGF {declared} (line {declared_line}), and the installed knowledge is line {line} — "
+             f"run `dgf-factory setup --dgf-version {declared}`")
+    elif pack_version and versions.is_version(pack_version) and versions.compare(declared, pack_version) < 0:
+        warn("DGF_VERSION_BEHIND_PACK", config_rel,
+             f"the estate runs DGF {declared}; the installed facts were read at {pack_version} and may describe what "
+             f"{declared} lacks — get_release_notes(\"since:{declared}\") lists the difference")
+    else:
+        info(f"DGF line {line or declared_line} — the estate runs {declared}; knowledge read at {pack_version or '?'}")
+    gate_facts(versions, facts, declared)
+
+
+def gate_facts(versions, facts, declared):
+    """ADR 0036 §6: below a fact's `since` blocks (or warns, opted out); above its `until` warns."""
+    gated = 0
+    for rel, _fields, applies in facts:
+        if not applies:
+            continue
+        gated += 1
+        since, until = applies.get("since"), applies.get("until")
+        trace(f"[gate] {rel} since={since} until={until} declared={declared}")
+        if since and since != "null" and versions.is_version(since) and versions.compare(declared, since) < 0:
+            message = f"{rel} is true from DGF {since}; the estate runs {declared}"
+            if applies.get("out_of_range") == "warn":
+                warn("VERSION_BELOW_SINCE", rel, f"{message} — a restriction applied early (out_of_range: warn)")
+            else:
+                error("VERSION_BELOW_SINCE", rel, f"{message} — it is not true of this estate's DGF")
+        if until and until != "null" and versions.is_version(until) and versions.compare(declared, until) > 0:
+            warn("VERSION_ABOVE_UNTIL", rel, f"{rel} is known true until DGF {until}; the estate runs {declared} — "
+                                            f"possibly stale")
+    info(f"version gate — {gated} ranged fact(s) checked against DGF {declared}")
 
 
 # --- 2. skill slices ---------------------------------------------------------
@@ -631,8 +846,13 @@ def venv_python(root):
 
 def missing_dependencies(root):
     """The packages that do not import — in the project's .venv when it has one, since every
-    script switches to it (ADR 0031 §7), else in this interpreter."""
+    script switches to it (ADR 0031 §7), else in this interpreter. A committed .venv is never
+    run: its packages count as missing (section 1 reports it)."""
     python = venv_python(root)
+    project = project_of(root)
+    if python is not None and project is not None and committed_venv(project):
+        trace(f"dependency probe: {python} is committed — not run")
+        return list(VALIDATOR_DEPENDENCIES), str(python)
     if python is None:
         return [name for name in VALIDATOR_DEPENDENCIES if importlib.util.find_spec(name) is None], sys.executable
     absent = []
@@ -718,14 +938,19 @@ def check_knowledge_tables(root):
     if module is None:
         trace("no scripts/lib/knowledge.py — no machine-read tables to check")
         return
-    for table_id in module.TABLES:
-        try:
-            rows = module.load(table_id, root / "knowledge")
-        except module.KnowledgeTableError as exc:
-            error("KNOWLEDGE_TABLE", f"knowledge{_SEP}{module.TABLES[table_id][0]}", str(exc))
-            continue
-        trace(f"table {table_id}: {len(rows)} row(s)")
-    info(f"machine-read knowledge tables — {len(module.TABLES)} checked")
+    packs = pack_dirs(root) or [(None, root / "knowledge")]
+    for line, base in packs:
+        if not base.is_dir():
+            continue  # reported by check_line_registry as PACK_MISSING
+        shown = relpath(root, base)
+        for table_id in module.TABLES:
+            try:
+                rows = module.load(table_id, base)
+            except module.KnowledgeTableError as exc:
+                error("KNOWLEDGE_TABLE", f"{shown}{_SEP}{module.TABLES[table_id][0]}", str(exc))
+                continue
+            trace(f"table {table_id} ({shown}): {len(rows)} row(s)")
+    info(f"machine-read knowledge tables — {len(module.TABLES)} checked in {len(packs)} pack(s)")
 
 
 # --- 6. build progress (INFO only — never affects the exit code) -------------

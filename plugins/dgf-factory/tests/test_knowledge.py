@@ -8,37 +8,92 @@ from pathlib import Path
 from tests import helpers
 from lib import knowledge
 
+packs = helpers.load_tool("packs")
+
+# Rows per machine-read table, per registered DGF line (ADR 0036 §2). A line the
+# registry names without an entry here fails: a new pack states its counts.
 EXPECTED_ROWS = {
-    "legacy-artifacts": 8,
-    "code-places": 4,
-    "component-classes": 67,
-    "datasource-discriminators": 9,
-    "component-folders": 6,
-    "enum-member-names": 4,
-    "layout-components": 8,
-    "dispatchable": 34,
-    "correspondence": 7,
-    "parity": 67,
-    "process-divergence": 26,
-    "reference-edges": 21,
-    "run-time-names": 3,
-    "role-sources": 6,
-    "field-types": 13,
-    "db-types": 12,
-    "field-sql-types": 12,
-    "workspace-minimum": 6,
-    "auth-schemes": 3,
-    "instance-models": 2,
-    "solution-parts": 11,
+    "1.1": {
+        "legacy-artifacts": 8,
+        "code-places": 4,
+        "component-classes": 69,
+        "datasource-discriminators": 9,
+        "component-folders": 6,
+        "enum-member-names": 4,
+        "layout-components": 8,
+        "dispatchable": 36,
+        "correspondence": 8,
+        "parity": 69,
+        "process-divergence": 25,
+        "reference-edges": 21,
+        "run-time-names": 3,
+        "role-sources": 6,
+        "field-types": 13,
+        "db-types": 12,
+        "field-sql-types": 12,
+        "workspace-minimum": 6,
+        "auth-schemes": 3,
+        "instance-models": 2,
+        "solution-parts": 11,
+    },
+    "1.2": {
+        "legacy-artifacts": 8,
+        "code-places": 4,
+        "component-classes": 69,
+        "datasource-discriminators": 9,
+        "component-folders": 6,
+        "enum-member-names": 4,
+        "layout-components": 8,
+        "dispatchable": 36,
+        "correspondence": 8,
+        "parity": 69,
+        "process-divergence": 25,
+        "reference-edges": 21,
+        "run-time-names": 3,
+        "role-sources": 6,
+        "field-types": 13,
+        "db-types": 12,
+        "field-sql-types": 12,
+        "workspace-minimum": 6,
+        "auth-schemes": 3,
+        "instance-models": 2,
+        "solution-parts": 11,
+    },
+    "1.3": {
+        "legacy-artifacts": 8,
+        "code-places": 4,
+        "component-classes": 69,
+        "datasource-discriminators": 9,
+        "component-folders": 6,
+        "enum-member-names": 4,
+        "layout-components": 8,
+        "dispatchable": 36,
+        "correspondence": 8,
+        "parity": 69,
+        "process-divergence": 25,
+        "reference-edges": 21,
+        "run-time-names": 3,
+        "role-sources": 6,
+        "field-types": 13,
+        "db-types": 12,
+        "field-sql-types": 12,
+        "workspace-minimum": 6,
+        "auth-schemes": 3,
+        "instance-models": 2,
+        "solution-parts": 11,
+    },
 }
 
 
 class RealTables(unittest.TestCase):
-    def test_every_declared_table_loads(self):
-        tables = knowledge.load_all()
-        self.assertEqual(set(tables), set(knowledge.TABLES))
-        for table_id, rows in tables.items():
-            self.assertEqual(len(rows), EXPECTED_ROWS[table_id], table_id)
+    def test_every_declared_table_loads_in_every_pack(self):
+        for line in packs.lines():
+            with self.subTest(line=line):
+                self.assertIn(line, EXPECTED_ROWS, f"line {line} has no expected row counts")
+                tables = knowledge.load_all(packs.pack_dir(line))
+                self.assertEqual(set(tables), set(knowledge.TABLES))
+                for table_id, rows in tables.items():
+                    self.assertEqual(len(rows), EXPECTED_ROWS[line][table_id], f"{line} {table_id}")
 
     def test_backticks_are_stripped(self):
         row = knowledge.index("component-classes")["Date"]
@@ -91,8 +146,12 @@ class ReferenceEdges(unittest.TestCase):
 class RoleSources(unittest.TestCase):
     def test_the_sitemap_sources_split_on_a_comma_and_the_others_do_not(self):
         sources = knowledge.index("role-sources")
-        self.assertEqual({name for name, row in sources.items() if row["Separator"] == ","},
+        # DGF 1.3.0 trims each name (`, trimmed`); the older packs split exactly (`,`)
+        self.assertEqual({name for name, row in sources.items() if row["Separator"] in (",", ", trimmed")},
                          {"sitemap-roles", "sitemap-deny"})
+        self.assertEqual(sources["sitemap-roles"]["Separator"], ", trimmed")
+        older = knowledge.index("role-sources", helpers.PLUGIN_ROOT / "packs" / "1.2")
+        self.assertEqual(older["sitemap-roles"]["Separator"], ",")
         self.assertEqual(sources["sitemap-roles"]["File"], "_application.sitemap")
         self.assertEqual(sources["profile-group"]["Element"], "(folder)")
 
@@ -101,7 +160,7 @@ class RoleSources(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp)
         shutil.copytree(helpers.PLUGIN_ROOT / "knowledge", tmp / "k", ignore=shutil.ignore_patterns("schemas"))
         path = tmp / "k" / "permissions.md"
-        path.write_text(path.read_text(encoding="utf-8").replace("| `roles` | `,` |", "| `roles` | `;` |", 1),
+        path.write_text(path.read_text(encoding="utf-8").replace("| `roles` | `, trimmed` |", "| `roles` | `;` |", 1),
                         encoding="utf-8")
         with self.assertRaises(knowledge.KnowledgeTableError) as ctx:
             knowledge.load("role-sources", tmp / "k")
@@ -165,7 +224,7 @@ class MalformedTables(unittest.TestCase):
     def test_a_row_missing_its_closing_pipe_is_malformed_not_the_end(self):
         path = self.dir / "schema-families.md"
         lines = path.read_text(encoding="utf-8").splitlines()
-        index = next(i for i, line in enumerate(lines) if line.startswith("| 19 | Form"))
+        index = next(i for i, line in enumerate(lines) if line.startswith("| 21 | Form"))
         lines[index] = lines[index].rstrip().rstrip("|")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         self.assert_malformed("parity", "is not a `| … |` row")
@@ -202,3 +261,50 @@ class MalformedTables(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Seam(unittest.TestCase):
+    """KNOWLEDGE_DIR / SCHEMAS_DIR and use_dir (ADR 0036 §3): one switch moves every reader."""
+
+    def setUp(self):
+        self.saved = (knowledge.KNOWLEDGE_DIR, knowledge.SCHEMAS_DIR)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        knowledge.use_dir(self.saved[0])
+        knowledge.SCHEMAS_DIR = self.saved[1]
+
+    def test_the_environment_sets_the_starting_directory(self):
+        import subprocess
+        import sys
+        env = {**__import__("os").environ, "DGF_KNOWLEDGE_DIR": "/somewhere/else"}
+        code = "import sys; sys.path.insert(0, 'scripts'); from lib import knowledge; " \
+               "print(knowledge.KNOWLEDGE_DIR); print(knowledge.SCHEMAS_DIR)"
+        out = subprocess.run([sys.executable, "-c", code], cwd=helpers.PLUGIN_ROOT, env=env,
+                             capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(out, ["/somewhere/else", "/somewhere/else/schemas"])
+
+    def test_use_dir_moves_tables_and_schemas(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        knowledge.use_dir(tmp / "pack")
+        self.assertEqual(knowledge.knowledge_dir(), tmp / "pack")
+        self.assertEqual(knowledge.schemas_dir(), tmp / "pack" / "schemas")
+
+    @unittest.skipUnless(helpers.have_dependencies(), "lxml / jsonschema not installed")
+    def test_use_dir_clears_what_the_resolvers_cached(self):
+        from lib import json_resolve, xsd
+        json_resolve.component_types()
+        xsd.roots()
+        self.assertTrue(json_resolve._MEMBERS)
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        shutil.copytree(helpers.PLUGIN_ROOT / "knowledge", tmp / "pack")
+        (tmp / "pack" / "schemas" / "xsd" / "process.xsd").unlink()
+        knowledge.use_dir(tmp / "pack")
+        self.assertEqual(json_resolve._MEMBERS, [])
+        self.assertEqual(json_resolve.SCHEMA_DIR, tmp / "pack" / "schemas" / "json")
+        self.assertEqual(xsd.XSD_DIR, tmp / "pack" / "schemas" / "xsd")
+        self.assertNotIn("process.xsd", [name for names in xsd.roots().values() for name in names])
+        knowledge.use_dir(self.saved[0])
+        self.assertIn("process.xsd", [name for names in xsd.roots().values() for name in names])

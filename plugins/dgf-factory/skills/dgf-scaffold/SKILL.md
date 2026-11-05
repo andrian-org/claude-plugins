@@ -2,7 +2,7 @@
 name: dgf-scaffold
 description: Create a new DGF application from scratch in an empty folder — the solution, the API hosts, Docker, the database with its SQL, the workspaces, authentication and the documentation, plus the register, service and page artefacts the request describes. Use for "new DGF application", "scaffold an app", "start a DGF project from scratch", "empty folder", "multi-tenant application", "bootstrap a DGF system".
 argument-hint: "<what the application is>"
-allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details
+allowed-tools: Read Write Edit Glob Grep Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/design.py"*) Bash(python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/generate.py"*) AskUserQuestion mcp__dgf-mcp__list_release_notes mcp__dgf-mcp__get_component_doc mcp__dgf-mcp__get_json_schema_details
 disable-model-invocation: false
 version: 0.2.0
 ---
@@ -76,7 +76,7 @@ python3 "{{dgf_runtime}}/skills/dgf-scaffold/scripts/design.py" --folder "<folde
 |---|---|---|
 | `0` | nothing is open and nothing conflicts | Step 4 |
 | `1` | a conflict: each `ERROR` line names the key and the rule | Show each line. Ask the user for a corrected value (Step 3's way), edit the design, and run this step again |
-| `2` | `SCAFFOLD_ASK` lines: values are open | Step 3 |
+| `2` | `SCAFFOLD_ASK` lines: values are open; or `SCAFFOLD_LINE_MISMATCH`: the `dgf_version` targeted is on another DGF line than the installed knowledge | Relay any `SCAFFOLD_LINE_MISMATCH` line and ask the user whether to re-run setup with the command it names, or to target a release of the installed line — never generate across lines silently. Then Step 3 for any `SCAFFOLD_ASK` |
 | `3` | `SCAFFOLD_DESIGN_UNREADABLE`: the file cannot be read as a design | **STOP.** Relay the line. Fix the file only if the cause is plainly yours to fix — a missing brace you wrote; otherwise ask |
 
 `DEFAULT:` lines may appear with exit `0` or `2`. Keep them for Step 4.
@@ -92,7 +92,8 @@ workspace?" — not "instance_model?".
   `list_release_notes`, and offer the four newest releases whose `version` is an `X.Y.Z` (skip `NOTES-NEXT`,
   `README` and any other non-version row), newest first; any other release is typed under Other. Never preselect
   or recommend one, and never offer the knowledge stamp: it is the release the shipped facts were read at, not a
-  package to target. When the MCP is unavailable, ask for a typed `X.Y.Z`.
+  package to target. A release on another DGF line than the installed knowledge comes back from Step 2 as
+  `SCAFFOLD_LINE_MISMATCH`. When the MCP is unavailable, ask for a typed `X.Y.Z`.
 - Write each answer into the design under its key, and record it under `sources` as `asked`.
 - Then run Step 2 again.
 - After **five rounds** that still leave a value open, **STOP**. Keep the design, and say that running

@@ -101,21 +101,21 @@
         "clrType": "FormCellEvent",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Legacy change handler \u2014 the script run when the cell\u0027s value changes. Superseded by declarative ; kept for forms not yet migrated."
       },
       {
         "name": "event_onfocus",
         "clrType": "FormCellEvent",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Legacy focus handler \u2014 the script run when the cell receives focus. Same migration status as ."
       },
       {
         "name": "component",
         "clrType": "FormCellComponent",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Inline modern-component definition for this cell. Present when the cell renders a JSON IComponentConfiguration component rather than a plain field bound to settings.xml."
       },
       {
         "name": "content",
@@ -136,28 +136,28 @@
         "clrType": "PropertyConvertor",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Runtime property overrides evaluated against the current form state \u2014 the declarative way to make a cell readonly, hidden or required depending on other fields, instead of scripting it."
       },
       {
         "name": "componentEvent",
         "clrType": "ComponentEvent",
         "repeated": true,
         "wrapper": "componentEvents",
-        "summary": null
+        "summary": "Declarative reactions to this cell\u0027s lifecycle (value change, data load, \u2026). The modern replacement for ; each entry names a target component and an action verb."
       },
       {
         "name": "componentValidator",
         "clrType": "ComponentValidator",
         "repeated": true,
         "wrapper": "componentValidators",
-        "summary": null
+        "summary": "Custom validators that participate in the parent form\u0027s validity gate. Errors land on the cell\u0027s own FormControl, or \u2014 for aggregating components with no real control, such as a DataTable \u2014 on a shadow \u003Cname\u003E__validity control registered by the form."
       },
       {
         "name": "message",
         "clrType": "ComponentMessage",
         "repeated": true,
         "wrapper": "messages",
-        "summary": null
+        "summary": "Informational or validation messages attached to this cell and rendered beneath it."
       }
     ]
   },
@@ -522,35 +522,35 @@
         "clrType": "ResourceLabel",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Heading rendered above the form body. Carries a literal title and an optional reskey resolved against the localization resources at render time."
       },
       {
         "name": "description",
         "clrType": "ResourceLabel",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Introductory text rendered under the header. Same literal/reskey pair as ; typically holds guidance for the person filling the form in."
       },
       {
         "name": "printheader",
         "clrType": "ResourceLabel",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Heading used only on the printed/PDF rendering of the form, when it must differ from the on-screen . Falls back to the header when omitted."
       },
       {
         "name": "windowMask",
         "clrType": "WindowMask",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Mask template used to build the window/dialog caption when the form is opened as a modal, together with the table it reads its substitution values from."
       },
       {
         "name": "triggers",
         "clrType": "FormTriggers",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Switches for the server-side _triggers.xml steps (onload / onbeforesave / onaftersave). They do not gate the client onloadscript / onsavescript."
       },
       {
         "name": "tab",
@@ -564,28 +564,28 @@
         "clrType": "FormCell",
         "repeated": true,
         "wrapper": "hidden",
-        "summary": "Cells that never render to the user but must exist on the form for the runtime to populate them at save time. This is where the universal audit block lives (CreatedBy/IP/On \u002B ModifiedBy/IP/On with ~USERID/~IP/~NOW defaults). Distinct from a section with visible=\u0022false\u0022 \u2014 hidden cells skip layout entirely; an invisible section still occupies its slot in the tab structure."
+        "summary": "Cells that never render to the user but must exist on the form for the runtime to populate them at save time. This is where the universal audit block lives (CreatedBy/IP/On \u002B ModifiedBy/IP/On with ~USERID/~IP/~NOW defaults). Distinct from a section with visible=\u0022false\u0022 \u2014 hidden cells skip layout entirely; an invisible section still occupies its slot in the tab structure. That difference matters beyond layout: when the form is mapped into a grid\u0027s filter template only its tabs are walked, so cells here are dropped while an invisible section\u0027s cells are kept \u2014 carrying their oncreatevalue defaults in as real filter parameters. Audit cells belong here, never in an invisible section."
       },
       {
         "name": "handlers",
         "clrType": "FormHandlers",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Per-action behaviour for the form\u0027s own buttons (update, save-and-close, delete) plus the legacy script hooks (onloadscript, onsavescript, scriptReference). The script hooks are the pre-DataFetcher way of running form logic; new work should prefer declarative componentEvents."
       },
       {
         "name": "message",
         "clrType": "ComponentMessage",
         "repeated": true,
         "wrapper": "messages",
-        "summary": null
+        "summary": "Form-level informational or validation messages surfaced above the fields, independent of any single cell\u0027s own validators."
       },
       {
         "name": "parameter",
         "clrType": "ComponentParam",
         "repeated": true,
         "wrapper": "parameters",
-        "summary": null
+        "summary": "Named values passed into the form from its caller (workflow step, grid action, route) and available to cell defaults, data sources and scripts as ${...} tokens."
       },
       {
         "name": "componentValidator",
@@ -874,6 +874,11 @@
         "summary": "Value bound to the \u0022no selection\u0022 item. Usually empty string or null; set when a sentinel value is needed for downstream binding (e.g., \u00220\u0022 for an integer foreign key that should default to a known \u0022all\u0022 row)."
       },
       {
+        "name": "emptyOptionPosition",
+        "clrType": "string",
+        "summary": "Where the \u0022no selection\u0022 item sits: first (default) or last. A last item appears only once every page of the lookup has loaded."
+      },
+      {
         "name": "pattern",
         "clrType": "string",
         "summary": "Regular-expression validation applied at the UI layer. Failing the regex blocks form submission and shows . Cell-side validation runs in addition to settings.xml field-side validation; both must pass."
@@ -935,7 +940,7 @@
         "clrType": "PropertyConvertor",
         "repeated": false,
         "wrapper": null,
-        "summary": null
+        "summary": "Runtime property overrides applied to the row as a whole \u2014 most often to show or hide the entire row based on other field values, rather than repeating the condition on every cell."
       },
       {
         "name": "cell",
@@ -1062,6 +1067,11 @@
         "summary": "Tab identifier. Convention: tab_\u003Cpurpose\u003E (e.g., tab_general, tab_attachments). The runtime uses this for tab-selection state across reloads and for cross-tab references in PropertyConvertors."
       },
       {
+        "name": "visible",
+        "clrType": "string",
+        "summary": "Visibility override. The literal \u0022false\u0022 hides the tab header; any other value shows it."
+      },
+      {
         "name": "title",
         "clrType": "string",
         "summary": null
@@ -1079,6 +1089,13 @@
         "repeated": true,
         "wrapper": "sections",
         "summary": "Sections contained in this tab. Sections render in order, stacked vertically within the tab body."
+      },
+      {
+        "name": "propertyConvertor",
+        "clrType": "PropertyConvertor",
+        "repeated": false,
+        "wrapper": null,
+        "summary": "Runtime overrides for this tab (hidden, disabled) evaluated against the current form state."
       }
     ]
   },
@@ -1095,7 +1112,7 @@
       {
         "name": "onbeforesave",
         "clrType": "bool",
-        "summary": "Tri-state via the companion (canonical XmlSerializer pattern): when the onbeforesave attribute is missing, OnBeforeSaveSpecified == false and the bool defaults to false; when present, the bool reflects the parsed value and Specified flips to true. XmlFormMappingService uses this distinction to gate FormScript.OnSave \u002B FormScript.OnSaveEvents only on an explicitonbeforesave=\u0022false\u0022 \u2014 empty \u003Ctriggers/\u003E elements remain inert (legacy default preserved)."
+        "summary": null
       },
       {
         "name": "onload",

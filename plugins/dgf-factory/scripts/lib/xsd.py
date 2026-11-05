@@ -1,8 +1,9 @@
 """xsd.py — the legacy XML family: grammar selection and XSD validation (DD9).
 
-- Each vendored XSD is compiled once with lxml. `profile.xsd` does not compile
-  (it declares attributes named `xmlns:xsi`), so a `Tree` document is reported
-  and not validated (ADR 0015 §9).
+- Each vendored XSD is compiled once with lxml. One that does not compile is
+  reported, and a document of its grammar is not validated (ADR 0015 §9);
+  `profile.xsd` did not until DGF 1.1.16, which dropped its `xmlns:*`
+  attribute declarations.
 - A root element selects its grammar. The three view grammars share the root
   `view` and are told apart by the folder the file sits in — `_views`,
   `_lookupviews` or `_gridforms`, from the `legacy-artifacts` table — or by
@@ -26,7 +27,6 @@ from lxml import etree
 
 from . import knowledge, report
 
-XSD_DIR = Path(__file__).resolve().parents[2] / "knowledge" / "schemas" / "xsd"
 XS = "http://www.w3.org/2001/XMLSchema"
 PROCESS = "process.xsd"
 VIEW_KINDS = {"table": "table-view.xsd", "lookup": "lookup-view.xsd", "grid": "grid-form.xsd"}
@@ -37,13 +37,37 @@ _ROOTS = None
 _EXTENDED = None
 
 
+def xsd_dir():
+    """The vendored XSD set of the pack in use (knowledge.use_dir moves it)."""
+    return knowledge.schemas_dir() / "xsd"
+
+
+def __getattr__(name):
+    """`XSD_DIR` stays readable, and always names the pack in use."""
+    if name == "XSD_DIR":
+        return xsd_dir()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _reset():
+    global _ROOTS, _EXTENDED
+    _COMPILED.clear()
+    _UNCOMPILABLE.clear()
+    _ROOTS = None
+    _EXTENDED = None
+    report.debug("xsd.reset", "cleared", xsd=xsd_dir())
+
+
+knowledge.register_reset(_reset)
+
+
 def _q(tag):
     return f"{{{XS}}}{tag}"
 
 
 def root_of(xsd_file):
     """The first top-level xs:element's name — the grammar's root."""
-    tree = etree.parse(str(XSD_DIR / xsd_file))
+    tree = etree.parse(str(xsd_dir() / xsd_file))
     element = tree.getroot().find(_q("element"))
     return element.get("name") if element is not None else None
 
@@ -53,7 +77,7 @@ def roots():
     global _ROOTS
     if _ROOTS is None:
         _ROOTS = {}
-        for path in sorted(XSD_DIR.glob("*.xsd")):
+        for path in sorted(xsd_dir().glob("*.xsd")):
             _ROOTS.setdefault(root_of(path.name), []).append(path.name)
         report.debug("xsd.roots", "read", roots=",".join(sorted(_ROOTS)))
     return _ROOTS
@@ -64,7 +88,7 @@ def schema(xsd_file):
     if xsd_file in _COMPILED:
         return _COMPILED[xsd_file]
     try:
-        compiled = etree.XMLSchema(etree.parse(str(XSD_DIR / xsd_file)))
+        compiled = etree.XMLSchema(etree.parse(str(xsd_dir() / xsd_file)))
     except etree.XMLSchemaParseError as exc:
         _UNCOMPILABLE[xsd_file] = str(exc).split("\n")[0]
         compiled = None
@@ -80,7 +104,7 @@ def uncompilable_reason(xsd_file):
 
 def enumeration(xsd_file, simple_type):
     """The xs:enumeration values of a named top-level xs:simpleType, in order."""
-    tree = etree.parse(str(XSD_DIR / xsd_file))
+    tree = etree.parse(str(xsd_dir() / xsd_file))
     for declared in tree.getroot().iterfind(_q("simpleType")):
         if declared.get("name") == simple_type:
             return [e.get("value") for e in declared.iter(_q("enumeration"))]
@@ -140,7 +164,7 @@ def extended_process_schema():
     global _EXTENDED
     if _EXTENDED is not None:
         return _EXTENDED
-    tree = copy.deepcopy(etree.parse(str(XSD_DIR / PROCESS)))
+    tree = copy.deepcopy(etree.parse(str(xsd_dir() / PROCESS)))
     types = {ct.get("name"): ct for ct in tree.getroot().iter(_q("complexType")) if ct.get("name")}
     unordered = []
     for row in knowledge.load("process-divergence"):
@@ -169,15 +193,30 @@ def _apply(owner, name, kind, types):
             if attribute.get("name") == name:
                 attribute.set("type", "xs:string")
         return
-    sequence = owner.find(_q("sequence"))
-    if sequence is None:
-        sequence = etree.Element(_q("sequence"))
-        owner.insert(0, sequence)
-    element = etree.SubElement(sequence, _q("element"))
+    model = _content_model(owner)
+    if any(child.get("name") == name for child in model.findall(_q("element"))):
+        report.debug("xsd.extended_process_schema", "already declared", owner=owner.get("name"), element=name)
+        return
+    element = etree.SubElement(model, _q("element"))
     element.set("name", name)
     # Reuse the grammar's own type for the element where it has one (`OnInit` →
     # `OnInitType`), so the added element's contents are still checked.
     element.set("type", f"{name}Type" if f"{name}Type" in types else "xs:anyType")
+
+
+def _content_model(owner):
+    """The owner's top-level xs:sequence or xs:choice; an empty sequence is added when it has neither.
+
+    Since DGF 1.1.16 some grammars declare a child list as an unbounded xs:choice (process.xsd's
+    `OnInitType`); a second content model beside it would not compile.
+    """
+    for tag in ("sequence", "choice"):
+        model = owner.find(_q(tag))
+        if model is not None:
+            return model
+    model = etree.Element(_q("sequence"))
+    owner.insert(0, model)
+    return model
 
 
 def _any_order(owner):
@@ -186,8 +225,11 @@ def _any_order(owner):
     XmlSerializer reads a class's child elements in any order, and a list member
     in any number (knowledge/process-model.md §1), so pass 2 must not reject a
     placement the runtime accepts. An element that no row adds is still unknown.
+    An owner whose grammar already reads its children as an unbounded choice is left as it is.
     """
     sequence = owner.find(_q("sequence"))
+    if sequence is None:
+        return
     choice = etree.Element(_q("choice"))
     choice.set("minOccurs", "0")
     choice.set("maxOccurs", "unbounded")

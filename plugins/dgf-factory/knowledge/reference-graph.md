@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-27
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 
 # Reference graph — every reference a configuration file makes, as the engine resolves it
@@ -165,6 +165,11 @@ does not find everything a running system reaches:
   samples), sitemaps, `_form.xml` and view `WORKFLOW:` strings (73 in `_form.xml`), and JSON `workflow`
   components (44) start workflows no process names. A shared workflow no traced reference reaches may
   still be reached from one of these.
+- **A lookup view's `<view>` handler.** The view button of an editable legacy lookup opens what the
+  handler names, `<type>:<name>`: `FORM:` — a handler with no type is a form, and a view with none
+  opens `FORM:default/READONLY` — `WORKFLOW:`, `PROCESS:`, and since DGF 1.2.0 `PROFILE:<name>`, a
+  `_PROFILE` tree in a popup, `BASE:` kept in the name (`ComboBoxComponentServiceInternal`). The server
+  only builds the button and the page opens the target, so a handler is not an edge of §1.
 - **`hideExceptions`**, which turns a `throws` into a recorded error (§2).
 
 ### 3.1 Run-time names

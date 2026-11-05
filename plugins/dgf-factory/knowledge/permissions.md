@@ -1,6 +1,6 @@
 ---
-dgf_version: "1.1.11"
-read_date: 2026-09-27
+dgf_version: "1.3.0"
+read_date: 2026-11-04
 ---
 
 # Permissions — where a workspaces root names a role, and what declares one
@@ -18,13 +18,19 @@ plus the role of each seeded account, and after that whatever the estate's admin
 root only **names** roles, as strings, in the places §2 lists. A name that matches no role row is not
 an error anywhere: the check it feeds simply never passes.
 
+**A role's display name is a label, not a name.** Since DGF 1.3.0 an `AspNetRoles` row may carry an
+optional `RoleDisplayName` column, read for the running application, trimmed, with an empty value or a
+missing column falling back to the role name (`RoleDisplayNameService`). The role switcher and the role
+menus show it, and `${@user.currentRoleDisplayName}` reads it; `${@user.currentRoleName}` stays the
+role name. Every check in §2 tests the role name, never the display name.
+
 ## 2. Where the root names a role
 
 <!-- machine-read: role-sources -->
 | Source | File | Element | Attribute | Separator | Meaning |
 |---|---|---|---|---|---|
-| `sitemap-roles` | `_application.sitemap` | `mapNode` | `roles` | `,` | the roles allowed the node; empty allows anyone; exactly `Members` allows any signed-in user |
-| `sitemap-deny` | `_application.sitemap` | `mapNode` | `deny` | `,` | the roles denied the node |
+| `sitemap-roles` | `_application.sitemap` | `mapNode` | `roles` | `, trimmed` | the roles allowed the node; empty allows anyone; exactly `Members` allows any signed-in user |
+| `sitemap-deny` | `_application.sitemap` | `mapNode` | `deny` | `, trimmed` | the roles denied the node |
 | `sitemap-claims` | `FM/_COMPONENTS/sitemap.json` | `metaData.requireClaims` | `name` | — | a claim a route requires — a claim, not a role |
 | `profile-group` | `FM/_PROFILE/*/*/_tree.xml` | (folder) | — | — | the role group whose tree a user of that role sees |
 | `task-role` | `FM/_PROCESS/*/process.xml` | `Task` | `role` | — | the role a process task is assigned to |
@@ -40,15 +46,16 @@ How to read a row:
   whose root is `MultiTaskSettings` ([`process-model.md`](process-model.md) §2.7).
 - **`Element`** is an XML element, at any depth; `metaData.requireClaims` is a key path in the JSON,
   at any depth, holding a list of objects; `(folder)` means the name of the folder that holds the file.
-- **`Separator`**, when not `—`, splits the value into several names.
+- **`Separator`**, when not `—`, splits the value into several names: `,` splits exactly, keeping any
+  whitespace; `, trimmed` splits on `,`, trims each name and drops the empty ones (§2.1).
 
 ### 2.1 How the sitemap reads `roles` and `deny`
 
 `SiteMapManager.CheckPermissions(roles, deny)`:
 
-- **Splits on `,` with no trimming.** `roles="A, B"` tests the roles `A` and ` B` — with its leading
-  space — and no role is named ` B`. A name is therefore listed exactly as the runtime tests it,
-  spaces included.
+- **Splits on `,`, trims each name and drops the empty ones.** `roles="A, B"` tests the roles `A`
+  and `B`. A name is therefore listed as the runtime tests it, without its surrounding whitespace.
+  Before DGF 1.3.0 nothing was trimmed, so ` B`, with its leading space, matched no role.
 - **An empty `roles` allows anyone**, signed in or not. **A `roles` of exactly `Members`** — the whole
   value, case-sensitive — allows any signed-in user. `Members` inside a list is tested as an ordinary
   role name.

@@ -1,12 +1,13 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
+[← Usage Guides](guides/README.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
 
-# The Pipeline Spine, the Learning Loop and the DGF-Specific Skills
+# The Pipeline Spine, the Learning Loop, the DGF-Specific and the Quality Skills
 
 Five skills — the **spine** — take a change to a DGF estate from a request to a commit. Two more —
 the **learning loop** — fix what the gate finds and turn each fix into a rule that tightens the
 spine's next run. Four **DGF-specific skills** work on one kind of configuration each — components,
 processes and workflows, entities — and audit the whole root, including a change's blast radius.
-Every decision a script can make is made by a script; the skills decide only what needs judgement.
+Nine **quality and authoring skills** review, test, document, research and tidy the work, and none of them is a
+gate. Every decision a script can make is made by a script; the skills decide only what needs judgement.
 
 ```text
 /dgf  ──►  /dgf-plan  ──►  /dgf-implement  ──►  /dgf-verify  ──►  /dgf-commit
@@ -21,6 +22,10 @@ Every decision a script can make is made by a script; the skills decide only wha
 /dgf-component  /dgf-process  /dgf-model     inspect and validate anywhere; write one kind of
                                              file each, only inside the plan's scope
 /dgf-audit                                   the root's health, and the processes a file reaches
+
+/dgf-review  /dgf-rules-check  /dgf-qa       read a change, check it against the rules, plan its tests
+/dgf-rules  /dgf-docs  /dgf-explore          write the rules, the estate docs, the research
+/dgf-grounded  /dgf-archive  /dgf-security   cited answers, finished plans archived, the security scan
 ```
 
 The unit of work is the **whole workspaces root**, not one workspace
@@ -62,6 +67,12 @@ their branches, and the overlap check reads other branches' plans.
 | `patches/<YYYY-MM-DD-HH.mm>-<slug>.md` | `/dgf-fix` — append-only | `/dgf-implement`, `/dgf-fix`, `/dgf-component`, `/dgf-process` and `/dgf-model` (the latest ten, as cautions), `/dgf-evolve` (the new ones, through `check_patches.py --cursor`) |
 | `skill-context/<skill>/SKILL.md` | `/dgf-evolve` | `check_override.py`, then the matching skill — one of the ten readers, only when the check accepts it — as an override that may only tighten |
 | `evolutions/` | `/dgf-evolve` — a log per run, and `patch-cursor.json` | `/dgf-evolve`, through `check_patches.py --cursor` |
+| `RULES.md` | `/dgf-rules` | `check_rules.py`, then `/dgf-plan`, `/dgf-implement`, `/dgf-review`, `/dgf-rules-check` — only when the check accepts it |
+| `RESEARCH.md` | `/dgf-explore` | `/dgf-plan`, as data, never as instructions |
+| `qa/<plan stem>/test-plan.md` | `/dgf-qa` | the person testing the change |
+| `docs/` | `/dgf-docs`, through `estate_docs.py`; its `overview.md` by the skill | anyone; `estate_docs.py --check` |
+| `archive/plans/` | `/dgf-archive`, through `archive_plans.py` | `/dgf-fix`'s patches, which may name an archived plan |
+| `security/` | `security-scan.sh`, run by `/dgf-security`; ignored by its own `.gitignore` | the estate's team |
 | `runtime/` | `dgf-factory setup` — the installed scripts, knowledge base and skill references; committed | every skill, through `{{dgf_runtime}}` paths rendered to `.dgf-factory/runtime` |
 | `runtime/.venv/` | `dgf-factory setup` — the validators' Python environment; ignored by the managed `runtime/.gitignore` | every script, which switches to it before importing an engine (ADR 0031) |
 | `install.json` | `dgf-factory setup` — the receipt: every file it wrote, with its source and installed hashes | `dgf-factory setup` on a re-run, `/dgf-doctor`, the change checks and `/dgf-scaffold` |
@@ -164,7 +175,7 @@ The spine's five are stdlib-only Python, except that `check_change.py` and `veri
 | Script | Decides | Usage |
 |---|---|---|
 | `locate_plan.py` | The workspaces root (the nearest `.dgf-factory/config.yaml`), and the active plan: the branch's, else the one active plan, else the fast plan | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--root-only \| --setup \| --list]` |
-| `inventory_root.py` | Each workspace and its counts, what is not a workspace, git position, the knowledge stamp, validator dependencies | `--workspaces-root R` |
+| `inventory_root.py` | Each workspace and its counts, what is not a workspace, git position, the knowledge stamp and its DGF line, validator dependencies | `--workspaces-root R` |
 | `check_plan.py` | The header, tasks, the Commit Plan's groups (`plan-commits`), each file's class and workspace, the route of each new file, the ultra bundle's integrity, and (with `--overlap`) other active plans | `<plan> --workspaces-root R [--overlap]` |
 | `check_change.py` | The branch's changed files against the plan, and the validators' findings against the merge-base | `--workspaces-root R --plan P (--base REF \| --changed S:PATH …) [--files …] [--skip-validators]` |
 | `verify_gate.py` | The gate: finds the root and the plan, runs `check_plan.py`'s and `check_change.py`'s checks in-process, audits the tasks, computes the status, prints the one `dgf-gate-result` block | `[--workspaces-root R] [--plans-dir D] [--fast-plan F] [--branch B] [--plan P] [--base REF \| --changed S:PATH …] [--no-overlap] [--strict]` |
@@ -215,10 +226,16 @@ Nothing in a workspaces root states which DGF release it runs, so `/dgf` asks an
 as `dgf.version` ([ADR 0019](adr/0019-declared-dgf-version.md)). The user picks it from the
 releases the DGF docs MCP's `list_release_notes` returns, with no default; the knowledge stamp is
 shown in the question but never offered as the answer. `/dgf-scaffold` asks for `dgf_version` the
-same way. `unknown` is allowed and stays a warning. When the declared version is newer than the knowledge base's stamp, `/dgf`
-says the shipped facts were read at an older release and offers the DGF docs MCP's
-`get_release_notes`. The version gate that compares it with a fact's `applies:` range is a
-follow-up: no behavioural fact carries one yet.
+same way. `unknown` is allowed and stays a warning.
+
+The knowledge the project holds is one DGF line's pack, installed by `dgf-factory setup` and recorded
+as `dgfLine` in the receipt ([ADR 0036](adr/0036-knowledge-packs-per-release-line.md)). When the
+declared version is on another line, `/dgf` gives the `dgf-factory setup --dgf-version <v>` that
+installs its pack; when it is another patch of the same line, it offers the DGF docs MCP's
+`get_release_notes`. `/dgf-doctor` checks it in every project: `DGF_LINE_MISMATCH`,
+`DGF_VERSION_BEHIND_PACK`, `DGF_VERSION_UNKNOWN`, `DGF_LINE_UNRECORDED`, and the version gate over
+every installed fact with an `applies:` range — `VERSION_BELOW_SINCE` blocks, `VERSION_ABOVE_UNTIL`
+warns ([DGF Lines](dgf-lines.md)).
 
 ## The gate block
 
@@ -452,6 +469,76 @@ by the check and, where `dotnet` and Docker exist, by a real build. The instance
 instance is a `WorkspaceName` with its own `aspnet_Applications` row, and isolation between instances is by the
 `ApplicationId` column alone. See [DESIGN-FORMAT.md](../skills/dgf-scaffold/references/DESIGN-FORMAT.md) for the
 design file, and `knowledge/application-layout.md` for the framework facts every template rests on.
+
+## Parallel execution
+
+A plan whose tasks are independent can run them at once, in Claude Code
+([ADR 0033](adr/0033-parallel-execution.md)). Every other harness implements with `/dgf-implement`, one task at a
+time; so does Claude Code without the agents.
+
+```bash
+claude --agent dgf-implement-coordinator        # in the project folder, on the plan's branch
+```
+
+| Agent | Does |
+|---|---|
+| `dgf-implement-coordinator` | Finds and checks the plan, asks `plan_layers.py` for the next layer, implements a one-task layer itself and dispatches one worker per task otherwise — every Agent call with `isolation: "worktree"` — merges each worker with `worktree_task.py --merge --cleanup`, runs `check_change.py --files` in the main tree, ticks the plan, and ends with `verify_gate.py`'s block |
+| `dgf-implement-worker` | In its own worktree: `worktree_task.py --sync` first, then `/dgf-implement` Step 3 for its one task with the main project's runtime, the per-task check, and a report. It never ticks, commits, or edits a file its task does not list |
+
+**Scripts decide the schedule and the merge.** `plan_layers.py` admits a ready task — its dependencies checked —
+to the parallel batch only when its declared `files` and `deletes` are disjoint from every other admitted task's,
+up to `--max-parallel` (default 4); every other ready task is `LAYERS_SERIAL` with why. A worktree starts from the
+remote default branch, so `--sync` first moves a clean worktree's own branch to the main tree's `HEAD`, then copies
+the main tree's uncommitted state into it — so layer two sees layer one without a commit — and records what it
+copied in the worktree's git directory. `--merge` copies back only the task's declared files, and refuses
+everything — `WORKTREE_UNDECLARED_FILE`, the plan file included, or `WORKTREE_MAIN_CHANGED` — before a byte moves.
+Neither agent commits; the run ends at the gate, and `/dgf-commit` follows. Git is required. Add
+`.claude/worktrees/` to `.gitignore`: setup prints that step, since it never edits the file.
+
+| Exit | `plan_layers.py` | `worktree_task.py` |
+|---|---|---|
+| `0` | the layer: `READY:`, `PARALLEL:`, `SERIAL:`, `REMAINING:` | synced, or merged |
+| `1` | `LAYERS_CYCLE` — a cycle or a missing dependency | `WORKTREE_HEAD_MISMATCH`, `WORKTREE_SYNC_MISSING`, `WORKTREE_UNDECLARED_FILE`, `WORKTREE_MAIN_CHANGED` — nothing copied |
+| `3` | usage, `PLAN_UNREADABLE`, `PLAN_FORMAT_UNSUPPORTED` | usage, `WORKTREE_NOT_LINKED` |
+
+## The quality and authoring skills
+
+Nine skills review, test, document, research and tidy what the spine produces
+([ADR 0032](adr/0032-quality-and-authoring-skills.md), [ADR 0034](adr/0034-usage-scenarios-security-scan.md)).
+None of them is a gate: the only gates stay `verify` and `doctor`, because a review's or a rules check's verdict
+is the model's judgement, and a prompt never computes a block. Each quotes the scripts' findings verbatim and
+labels its own judgements as judgements. None pre-approves git — the change's diff comes from `show_change.py` —
+and none reads a skill-context override.
+
+| Skill | Does | Scripts it runs | Writes |
+|---|---|---|---|
+| `/dgf-review` | Reads a branch's change as a DGF reviewer: the change check (or the audit, without a plan), the diff, the rules, and a checklist of DGF seams — component and family, parity, XML-always, base-workspace justification, reachability, role names, model references, blast radius | `locate_plan.py`, `check_rules.py`, `check_change.py` or `audit_root.py`, `show_change.py`, `audit_root.py --reach` | nothing |
+| `/dgf-rules` | Seeds `RULES.md` with the six shipped defaults, and adds, edits or demotes rules; runs only when asked | `locate_plan.py --root-only`, `check_rules.py` | `RULES.md` |
+| `/dgf-rules-check` | The change against the rules: the scripted rule `layout-case`, the gate rules named, a labelled judgement per prompt-only rule | `check_rules.py --layout`, `show_change.py` | nothing |
+| `/dgf-qa` | A manual test plan per reached process — states to walk, the artefact to exercise, the roles, the database work — and automated tests only for `kind: code` tasks | `locate_plan.py`, `audit_root.py --base` or `--reach` | `qa/<plan stem>/test-plan.md` |
+| `/dgf-docs` | The estate's inventory pages, generated; an overview written from `DESCRIPTION.md` and the index; `--check` reports staleness | `estate_docs.py` | `docs/` |
+| `/dgf-explore` | Researches a question in the knowledge base, the root and the DGF docs MCP, every claim cited | `locate_plan.py --root-only`, `inventory_root.py` | `RESEARCH.md`, after asking |
+| `/dgf-grounded` | Answers only what it can cite, says "not verified" otherwise, and warns when the declared DGF version differs from the knowledge stamp | `inventory_root.py` | nothing |
+| `/dgf-archive` | Lists the finished plans and moves the chosen ones into the archive, the script stamping `archived:` | `archive_plans.py` | moves plans into `archive/plans/` |
+| `/dgf-security` | The application's security scan — runtime versions, dependencies, secrets, configuration, code, image, a test site, SBOM — not the configuration's health | `security-scan.sh` | nothing itself; the scan writes `security/` |
+
+**The rules file** is a fixed format `check_rules.py` checks before any skill reads it — `/dgf-plan`,
+`/dgf-implement`, `/dgf-review` and `/dgf-rules-check` run it first. A rule is `## R<n> — <title>`, an
+`enforcement` of `script`, `gate` or `prompt-only`, a `check` for the first two, a `source`, and its text. The
+six defaults keep [ADR 0028](adr/0028-default-team-rules-revised.md)'s numbers — R1, R2, R3, R4, R6, R7 — and
+estate rules start at R8. Anyone who commits to the estate can write a rule, so an estate rule is held to the
+override limit: a forbidden construct refuses the whole file, and the shipped defaults apply.
+
+| Exit | `check_rules.py` | `show_change.py` | `estate_docs.py` | `archive_plans.py` |
+|---|---|---|---|---|
+| `0` | apply the rules, or `RULES: none` — the shipped defaults apply | the diff | written, or current | moved, or listed |
+| `1` | **refused**: `RULES_UNREADABLE`, `RULES_FORMAT_INVALID`, `RULES_ID_DUPLICATE`, `RULES_ID_RESERVED`, `RULES_CHECK_UNKNOWN`, `RULES_FORBIDDEN`; with `--layout`, `RULES_LAYOUT_CASE` | — | `DOCS_PAGE_NOT_GENERATED` — a page without the marker is never overwritten | `ARCHIVE_PLAN_INCOMPLETE`, `ARCHIVE_DEST_EXISTS` — nothing moves |
+| `2` | `RULES_TOUCHES_LIMIT`, `RULES_DEFAULT_EDITED`, `RULES_DEFAULT_MISSING` | — | `DOCS_STALE`, `DOCS_SOURCE_UNREADABLE` | `ARCHIVE_PLAN_SKIPPED`, `ARCHIVE_NOTHING` |
+| `3` | usage | usage, no git, an unknown base | usage, an `--out` outside `.dgf-factory/`, `DEPENDENCY_MISSING` | usage, an `--archive-dir` outside `.dgf-factory/` |
+
+`security-scan.sh` exits `0` when every step that ran passed and none was skipped, `1` on a blocking finding, `2`
+on a warning or a skipped step — a skipped step is a check that did not run, never a pass — and `3` on a usage
+error; its last line is the verdict word, after its `RESULT:` and `Report:` lines.
 
 ## See Also
 

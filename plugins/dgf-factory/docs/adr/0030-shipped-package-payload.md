@@ -200,3 +200,13 @@ not match its own check.
 
 - The drift check reads the `provenance/` ledgers and runs as a maintainer tool against a DGF checkout
   ([ADR 0013](0013-version-gating-provenance-ledger.md) §5).
+
+## Errata
+
+Corrections of fact that do not change what this ADR decides. See [the ADR contract](README.md) §"Errata".
+
+- **2026-11-03** — §1's payload gains a sixth directory: `agents/`, the Claude Code agents of the parallel run,
+  added by [ADR 0033](0033-parallel-execution.md) §5 and installed into a harness's `agentsDir`, never into the
+  runtime. The rule is unchanged and covers it: no DGF repository path, no link out of the payload.
+  `package.json` `files`, `doctor.py`'s `SHIPPED_DIRS` and `tools/check_package.py` list it.
+

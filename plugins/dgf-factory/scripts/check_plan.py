@@ -54,7 +54,7 @@ from lib import cli, git, json_resolve, knowledge, plan, report, workspace
 
 HEADER = "Plan check"
 REQUIRED = ("plan_format", "mode", "branch", "created", "affects_workspaces")
-SUPPORTED_FORMAT = "1"
+SUPPORTED_FORMAT = plan.SUPPORTED_FORMAT  # re-exported: it lives in lib/plan.py
 BASE = workspace.BASE_WORKSPACE
 COMPONENTS = "_COMPONENTS"
 COMMITS_EXPECTED_FROM = 5  # the plan format asks for a Commit Plan from five tasks

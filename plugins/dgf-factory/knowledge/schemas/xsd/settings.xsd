@@ -90,12 +90,15 @@
         <xs:attribute name="type" type="FieldTypeEnum" use="required"/>
         <xs:attribute name="dbtype" type="DbTypeEnum" use="optional"/>
         <xs:attribute name="format" type="xs:string" use="optional"/>
+        <!-- Read by FormCellMapper (date pickers) and GridUIProvider (DateTime column format). -->
+        <xs:attribute name="displayFormat" type="xs:string" use="optional"/>
         <xs:attribute name="title" type="xs:string" use="required"/>
         <xs:attribute name="description" type="xs:string" use="optional"/>
         <xs:attribute name="size" type="xs:string" use="optional"/>
         <xs:attribute name="required" type="xs:boolean" use="optional" default="false"/>
         <xs:attribute name="readonly" type="xs:boolean" use="optional" default="false"/>
         <xs:attribute name="uimask" type="xs:string" use="optional"/>
+        <!-- Applied by FormCellMapper to both Text renderings (TextBox and format="textarea"); "." excludes newlines, use [\s\S] for multi-line. -->
         <xs:attribute name="pattern" type="xs:string" use="optional"/>
         <xs:attribute name="patternValidationMessage" type="xs:string" use="optional"/>
         <xs:attribute name="pageSize" type="xs:integer" use="optional"/>
@@ -108,12 +111,15 @@
         <xs:attribute name="accuracy" type="xs:int" use="optional"/>
     </xs:complexType>
 
-    <!-- Field Type Enumeration -->
+    <!-- Field Type Enumeration
+         Field.FieldType is the FieldTypeEnum enum, bound by XmlSerializer (exact, case-sensitive). A value that is
+         not a member makes the WHOLE settings.xml fail to deserialize, so the entity does not load.
+         ⛔ There is no "Decimal" and no "Memo": use Float or Money for decimals, and Text (format="textarea")
+         for long text. -->
     <xs:simpleType name="FieldTypeEnum">
         <xs:restriction base="xs:string">
             <xs:enumeration value="Text"/>
             <xs:enumeration value="Integer"/>
-            <xs:enumeration value="Decimal"/>
             <xs:enumeration value="Float"/>
             <xs:enumeration value="Boolean"/>
             <xs:enumeration value="DateTime"/>
@@ -122,7 +128,6 @@
             <xs:enumeration value="EditableGrid"/>
             <xs:enumeration value="Image"/>
             <xs:enumeration value="Money"/>
-            <xs:enumeration value="Memo"/>
             <xs:enumeration value="Html"/>
         </xs:restriction>
     </xs:simpleType>

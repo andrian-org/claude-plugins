@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 import { HARNESSES, getHarness, harnessIds, selectHarnesses } from '../../cli/harnesses.mjs';
 
-test('all 16 of AI Factory 2.19.0\'s harnesses are listed, ids unique', () => {
+test('all 16 of AI Factory 2.21.0\'s harnesses are listed, ids unique', () => {
   assert.equal(HARNESSES.length, 16);
   assert.equal(new Set(harnessIds()).size, 16);
   for (const id of ['claude', 'codex', 'gemini', 'cursor', 'copilot', 'universal']) assert.ok(getHarness(id));
@@ -27,6 +27,11 @@ test('an unknown harness is a usage error naming the choices', () => {
 
 test('codex-app and universal share .agents/skills with different transforms and are refused together', () => {
   assert.throws(() => selectHarnesses(['codex-app', 'universal']), (err) => err.code === 3 && /codex-app.*universal/.test(err.message));
+});
+
+test('antigravity shares .agents/skills with universal, same transform, and is refused with codex-app', () => {
+  assert.deepEqual(selectHarnesses(['universal', 'antigravity']).map((h) => h.id), ['universal', 'antigravity']);
+  assert.throws(() => selectHarnesses(['codex-app', 'antigravity']), (err) => err.code === 3 && /codex-app.*antigravity/.test(err.message));
 });
 
 test('a repeated id is selected once', () => {

@@ -67,7 +67,7 @@ class Audit(unittest.TestCase):
         self.assertIn("APPLICATIONS: a b (base webasm)", out)
         self.assertRegex(out, r"GRAPH: a nodes=\d+ edges=\d+ resolved=\d+ unresolved=1 ")
         self.assertIn("VALIDATOR: validate_model.py files=0", out)
-        self.assertIn('ROLE: " Supervisor" sitemap-roles=1', out)
+        self.assertIn('ROLE: "Supervisor" sitemap-roles=1', out)  # DGF 1.3.0 trims each name
         self.assertIn('ROLE: "Case Officer" sitemap-roles=1', out)
         self.assertIn("CHECKS RUN: graph, validators, roles", out)
         self.assertIn("NOT RUN: role-check (nothing in the root declares roles", out)
@@ -169,13 +169,20 @@ class Audit(unittest.TestCase):
         self.assertIn("and the loader throws", line)
         self.assertNotIn("the runtime generates a default", line)
 
-    def test_a_json_file_outside_every_fm_is_a_draft_no_loader_reads(self):
+    def test_a_json_file_outside_every_workspace_is_a_draft_no_loader_reads(self):
         """A validator's call on it is exit 3, but for the root it is no configuration: not a defect in it."""
-        helpers.make_root(self.root, {"a/package.json": '{"name": "tooling"}\n'})
+        helpers.make_root(self.root, {"tooling/package.json": '{"name": "tooling"}\n'})
         code, out, _ = self.audit()
         self.assertEqual(code, 2, out)
         self.assertNotIn("SCHEMA_UNSELECTABLE", self.codes(out))
         self.assertIn("NOT RUN: drafts (1 JSON file outside every FM/, which no loader reads)", out)
+
+    def test_a_file_a_workspace_serves_is_no_configuration(self):
+        """A chart's GeoJSON under <workspace>/maps/ (DGF 1.1.16) is a static file the API serves, read by no loader."""
+        helpers.make_root(self.root, {"a/maps/regions.json": '{"type": "FeatureCollection", "features": []}\n'})
+        code, out, _ = self.audit()
+        self.assertNotIn("UNKNOWN_COMPONENT", self.codes(out), out)
+        self.assertNotIn("drafts", out)
 
     def test_a_validator_that_raises_is_exit_3_with_the_report_so_far(self):
         """A crash is no finding about the root: the audit could not check it, and says so."""

@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""vendor_schemas.py — copy DGF's schema set into knowledge/schemas/, with DGF paths rewritten.
+"""vendor_schemas.py — copy DGF's schema set into one knowledge pack's schemas/, with DGF paths rewritten.
 
 A repo-maintenance tool, not a runtime validator: maintainers run it, skills do
 not. It is the re-vendor step of provenance/knowledge/schemas/MANIFEST.md §4, and
 the only writer of that ledger's frontmatter.
 
+It writes one pack — the current line's (knowledge/schemas/) by default,
+another with --pack X.Y (packs/<X.Y>/schemas/); tools/packs.py says where.
+
 What it does, in order:
   1. Refuses a DGF tree with uncommitted changes under the schema folders — the
-     commit it records would not describe the files it copied.
+     commit it records would not describe the files it copied — and a HEAD that
+     is not exactly a release tag of the pack's line: the pack's `dgf_version` is
+     that tag (ADR 0036 §1), never Directory.Build.props.
   2. Reads and digests every upstream schema file in UPSTREAM_SETS.
   3. Rewrites DGF repository paths in the text (ADR 0012 §4):
        docs/wiki/<page>     -> get_doc_page('<page>')
@@ -17,12 +22,13 @@ What it does, in order:
      upstream, regenerates the ledger's frontmatter and restamps the shipped
      manifest.
 
-Usage:  vendor_schemas.py <dgf-root> [--dry-run] [--read-date YYYY-MM-DD]
+Usage:  vendor_schemas.py <dgf-root> [--pack <X.Y>] [--dry-run] [--read-date YYYY-MM-DD]
         DEBUG=1 vendor_schemas.py <dgf-root> --dry-run   # per-file trace
 
 Exit codes (contract, see .ai-factory/rules/base.md):
   0  CLEAN     — written; or, with --dry-run, nothing would change
-  1  BLOCKED   — refused: dirty DGF tree, a surviving DGF path, or a broken rewrite
+  1  BLOCKED   — refused: dirty DGF tree, HEAD not at a release tag of the pack's
+                 line, a surviving DGF path, or a broken rewrite
   2  WARNINGS  — --dry-run only: the vendored set would change
   3  usage error
 """
@@ -64,7 +70,9 @@ UPSTREAM_SETS = (
 )
 DIR_ORDER = ("json", "xsd", "standalone")  # the ledger lists entries in this order
 STANDALONE_COMMENT = "  # hand-authored standalone contract, not the generated set"
-VERSION_SOURCE = "src/Directory.Build.props"
+VERSION_SOURCE = "src/Directory.Build.props"  # the DGF root marker only (ADR 0036 §1)
+RELEASE_TAG = re.compile(r"^\d+\.\d+\.\d+$")
+PACK_LINE = None  # the line being vendored; set by use_pack()
 
 WIKI_LINK = re.compile(r"(?:(?<![\w.-])|(?<=\\[nrt]))docs/wiki/([A-Za-z0-9_./-]+?\.md)")
 PATH_TAIL = r"[A-Za-z0-9_./-]*"
@@ -108,11 +116,41 @@ def sha256(data):
 
 # --- inputs ------------------------------------------------------------------
 
+def load_packs():
+    spec = importlib.util.spec_from_file_location("packs_for_vendor", PLUGIN_ROOT / "tools" / "packs.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def use_pack(line):
+    """Point VENDORED_ROOT, SHIPPED_MANIFEST and LEDGER at one pack; returns its line."""
+    global VENDORED_ROOT, SHIPPED_MANIFEST, LEDGER, PACK_LINE
+    packs = load_packs()
+    try:
+        chosen = line or packs.current(PLUGIN_ROOT)
+        VENDORED_ROOT = packs.pack_dir(chosen, PLUGIN_ROOT) / "schemas"
+        LEDGER = packs.ledger_dir(chosen, PLUGIN_ROOT) / "schemas" / "MANIFEST.md"
+    except packs.RegistryError as exc:
+        fail(3, f"line registry: {exc}")
+    SHIPPED_MANIFEST = VENDORED_ROOT / "MANIFEST.md"
+    PACK_LINE = chosen
+    trace(f"pack {chosen}: vendored={VENDORED_ROOT} ledger={LEDGER}")
+    return chosen
+
+
 def parse_args(argv):
-    usage = f"Usage: {Path(argv[0]).name} <dgf-root> [--dry-run] [--read-date YYYY-MM-DD]"
+    usage = f"Usage: {Path(argv[0]).name} <dgf-root> [--pack <X.Y>] [--dry-run] [--read-date YYYY-MM-DD]"
     args = argv[1:]
     dry_run = "--dry-run" in args
     args = [a for a in args if a != "--dry-run"]
+    line = None
+    if "--pack" in args:
+        index = args.index("--pack")
+        if index + 1 >= len(args):
+            fail(3, usage)
+        line = args[index + 1]
+        del args[index:index + 2]
     read_date = date.today().isoformat()
     if "--read-date" in args:
         index = args.index("--read-date")
@@ -125,7 +163,7 @@ def parse_args(argv):
     dgf_root = Path(args[0]).expanduser().resolve()
     if not (dgf_root / VERSION_SOURCE).is_file():
         fail(3, f"Not a DGF repository root (no {VERSION_SOURCE}): {dgf_root}")
-    return dgf_root, dry_run, read_date
+    return dgf_root, dry_run, read_date, line
 
 
 def load_dgf_path_pattern():
@@ -146,11 +184,12 @@ def git(dgf_root, *args):
 
 
 def dgf_version(dgf_root):
-    text = (dgf_root / VERSION_SOURCE).read_text(encoding="utf-8")
-    match = re.search(r"<Version>\s*([^<\s]+)\s*</Version>", text)
-    if not match:
-        fail(3, f"No <Version> in {VERSION_SOURCE}")
-    return match.group(1)
+    """The release tag at HEAD (the highest, when several), or None. ADR 0036 §1: the tag is the version."""
+    tags = [tag.strip() for tag in git(dgf_root, "tag", "--points-at", "HEAD").splitlines()
+            if RELEASE_TAG.match(tag.strip())]
+    tags.sort(key=lambda tag: tuple(int(part) for part in tag.split(".")))
+    trace(f"release tags at HEAD: {', '.join(tags) or '-'}")
+    return tags[-1] if tags else None
 
 
 def upstream_files(dgf_root):
@@ -246,8 +285,8 @@ def vendor_one(rel, data, dgf_path):
 
 # --- outputs -----------------------------------------------------------------
 
-def ledger_text(commit, entries):
-    lines = ["---", f"dgf_commit: {commit}", "sources:"]
+def ledger_text(commit, entries, tag):
+    lines = ["---", f"dgf_commit: {commit}", f"dgf_tag: {tag}", "sources:"]
     for vendored, upstream, upstream_sha, shipped_sha in entries:
         if vendored.startswith("standalone/"):
             lines.append(STANDALONE_COMMENT)
@@ -275,11 +314,13 @@ def stale_vendored(keep):
 # --- main --------------------------------------------------------------------
 
 def main(argv):
-    dgf_root, dry_run, read_date = parse_args(argv)
+    dgf_root, dry_run, read_date, line = parse_args(argv)
+    line = use_pack(line)
     dgf_path = load_dgf_path_pattern()
     print(f"{BOLD}Vendor DGF schemas{' (dry run)' if dry_run else ''}{NC}")
     print(f"DGF:    {dgf_root}")
     print(f"Plugin: {PLUGIN_ROOT}")
+    print(f"Pack:   {line} — {VENDORED_ROOT.relative_to(PLUGIN_ROOT).as_posix()}/")
 
     section("1. Upstream state")
     dirty = git(dgf_root, "status", "--porcelain", "--", *[s[1] for s in UPSTREAM_SETS])
@@ -288,7 +329,13 @@ def main(argv):
     commit = git(dgf_root, "rev-parse", "HEAD").strip()
     version = dgf_version(dgf_root)
     print(f"Commit:  {commit}")
-    print(f"Version: {version}  (from {VERSION_SOURCE})")
+    print(f"Version: {version or 'none'}  (the release tag at HEAD)")
+    if version is None:
+        error(f"HEAD {commit[:12]} is at no release tag — a pack is read only at one (ADR 0036 §1); "
+              f"check out the tag, e.g. with tools/dgf_lines.py checkout")
+    elif ".".join(version.split(".")[:2]) != line:
+        error(f"HEAD is at tag {version}, which is not on line {line} — pass --pack "
+              f"{'.'.join(version.split('.')[:2])}, or check out a {line}.* tag")
     if ERRORS:
         return summary(dry_run, changed=False)
 
@@ -320,7 +367,7 @@ def main(argv):
     changed_files = [rel for rel, data in outputs.items()
                      if not (VENDORED_ROOT / rel).is_file() or (VENDORED_ROOT / rel).read_bytes() != data]
     stale = list(stale_vendored(set(outputs)))
-    ledger = ledger_text(commit, entries)
+    ledger = ledger_text(commit, entries, version)
     ledger_changed = ledger != LEDGER.read_text(encoding="utf-8")
     manifest = restamped_manifest(version, read_date)
     for rel in changed_files:

@@ -15,9 +15,19 @@
             <xs:element name="handlers" type="handlersType" minOccurs="0"/>
             <xs:element name="triggers" type="triggersType" minOccurs="0"/>
             <xs:element name="parameters" type="parametersType" minOccurs="0"/>
+            <!-- Form.Messages: form-level messages surfaced above the fields (same shape as a cell's). -->
+            <xs:element name="messages" type="messagesType" minOccurs="0"/>
+            <!-- Form.ComponentValidators: cross-component invariants authored on the form root (a banner that
+                 gates SAVE/NEXT), same shape as a cell's. -->
+            <xs:element name="componentValidators" type="componentValidatorsType" minOccurs="0"/>
         </xs:all>
         <xs:attribute name="padding" type="xs:string"/>
         <xs:attribute name="labelwidth" type="xs:integer"/>
+        <!-- Read by the form mapper (Form.cs: [XmlAttribute("toolbar")] / [XmlAttribute("checkChanges")]) and
+             written by build_form_xml from FormSpec.showToolbar / checkChanges. Undeclared here, the builder's
+             own output failed validate_form_xml. toolbar is "true" | "false" | "compact". -->
+        <xs:attribute name="toolbar" type="xs:string"/>
+        <xs:attribute name="checkChanges" type="xs:boolean"/>
     </xs:complexType>
 
     <!-- Header Type -->
@@ -56,9 +66,10 @@
 
     <!-- Tab Type -->
     <xs:complexType name="tabType">
-        <xs:sequence>
+        <xs:all>
             <xs:element name="sections" type="sectionsType" minOccurs="0"/>
-        </xs:sequence>
+            <xs:element name="propertyConvertor" type="propertyConvertorType" minOccurs="0"/>
+        </xs:all>
         <xs:attribute name="title" type="xs:string" use="required"/>
         <xs:attribute name="name" type="xs:string" use="required"/>
         <xs:attribute name="visible" type="xs:boolean" default="true"/>
@@ -72,16 +83,22 @@
     </xs:complexType>
 
     <!-- Section Type -->
+    <!-- FormSection: children in any order. -->
     <xs:complexType name="sectionType">
-        <xs:sequence>
-            <xs:element name="rows" type="rowsType" minOccurs="0"/>
-            <xs:element name="propertyConvertor" type="propertyConvertorType" minOccurs="0"/>
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="rows" type="rowsType"/>
+            <xs:element name="propertyConvertor" type="propertyConvertorType"/>
+            <!-- FormSection.Messages: inline messages shown in the section. -->
+            <xs:element name="messages" type="messagesType"/>
+        </xs:choice>
         <xs:attribute name="name" type="xs:string" use="required"/>
         <xs:attribute name="title" type="xs:string"/>
         <xs:attribute name="showlabel" type="xs:boolean"/>
         <xs:attribute name="decoration" type="decorationType"/>
-        <xs:attribute name="columns" type="xs:integer" default="1"/>
+        <!-- Required in practice: XmlFormMappingService.MapFormSections calls int.Parse(section.Columns) with no
+             fallback, so a section without columns="…" throws and the form fails to map. There is no default of 1.
+             (14,843 of 14,845 production sections set it.) -->
+        <xs:attribute name="columns" type="xs:integer" use="required"/>
         <xs:attribute name="visible" type="xs:boolean" default="true"/>
         <xs:attribute name="marginTop" type="xs:integer"/>
     </xs:complexType>
@@ -113,11 +130,21 @@
     <xs:complexType name="cellType">
         <xs:all>
             <xs:element name="properties" type="propertiesType" minOccurs="0"/>
+            <!-- <content/> makes the cell CUSTOM (FormCell.IsCustom is `Content != null`): not bound to a
+                 settings field. Required on every unbound cell, even an empty one. The `control_` name
+                 prefix is a convention the engine never reads: a cell without <content/> is looked up as
+                 a field, and the form fails with "The form cell … does not exist in the form". -->
             <xs:element name="content" type="xs:string" minOccurs="0"/>
-            <xs:element name="event" type="xs:string" minOccurs="0"/>
+            <!-- FormCellEvent: the script as text; enabled="false" turns it off. -->
+            <xs:element name="event" type="cellEventType" minOccurs="0"/>
             <xs:element name="component" type="componentType" minOccurs="0"/>
             <xs:element name="componentEvents" type="componentEventsType" minOccurs="0"/>
             <xs:element name="messages" type="messagesType" minOccurs="0"/>
+            <!-- FormCell.PropertyConvertor: property overrides evaluated against the form state
+                 (readonly / hidden / required from other fields), declaratively. -->
+            <xs:element name="propertyConvertor" type="propertyConvertorType" minOccurs="0"/>
+            <!-- FormCell.ComponentValidators: modern validators on a legacy cell (see Validators.md). -->
+            <xs:element name="componentValidators" type="componentValidatorsType" minOccurs="0"/>
         </xs:all>
         <xs:attribute name="title" type="xs:string"/>
         <xs:attribute name="name" type="xs:string"/>
@@ -170,7 +197,23 @@
         <xs:attribute name="colspan" type="xs:int"/>
         <xs:attribute name="itemTemplate" type="xs:int"/>
         <xs:attribute name="lines" type="xs:int"/>
+        <!-- FormCellProperties.InputGroupSkipDisableAndReadOnlyForAddons: an InputGroup's add-ons stay active
+             when the field is readonly or disabled. -->
+        <xs:attribute name="inputGroupSkipDisableAndReadOnlyForAddons" type="xs:boolean"/>
+        <!-- FormCellProperties.EmptyOptionName / EmptyOptionValue / EmptyOptionPosition: the "no selection" item
+             of a Picklist or Lookup ComboBox. It applies only when name and value are both non-empty. -->
+        <xs:attribute name="emptyOptionName" type="xs:string"/>
+        <xs:attribute name="emptyOptionValue" type="xs:string"/>
+        <xs:attribute name="emptyOptionPosition" type="emptyOptionPositionType"/>
     </xs:complexType>
+
+    <!-- A "last" item appears only once every page of the lookup has loaded. -->
+    <xs:simpleType name="emptyOptionPositionType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="first"/>
+            <xs:enumeration value="last"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- Readonly Type -->
     <xs:simpleType name="readonlyType">
@@ -219,11 +262,20 @@
         <xs:attribute name="name" type="xs:string"/>
     </xs:complexType>
 
-    <!-- Component Type Value -->
+    <!-- Component Type Value
+         Lookup, Picklist, EditableGrid and Image fields pick their own control. On another field, a type the
+         mapper cannot build is ignored and the field shows its default control; on a custom cell nothing renders. -->
     <xs:simpleType name="componentTypeValue">
         <xs:restriction base="xs:string">
             <xs:enumeration value="button"/>
+            <!-- codeViewer: exact case. Read-only: it shows the field's value, and the field is not saved from it. -->
+            <xs:enumeration value="codeViewer"/>
+            <!-- comboBox: only on a Lookup or Picklist cell, to carry componentEvents; the field type picks the control. -->
+            <xs:enumeration value="comboBox"/>
             <xs:enumeration value="dataFetcher"/>
+            <!-- Icon: exact case. The mapper's switch is case-sensitive, so "icon" builds nothing. -->
+            <xs:enumeration value="Icon"/>
+            <xs:enumeration value="signaturePadSig100"/>
             <xs:enumeration value="eligibility"/>
             <xs:enumeration value="eligibilityCriteria"/>
             <xs:enumeration value="iframe"/>
@@ -361,7 +413,17 @@
         <xs:attribute name="message" type="xs:string" use="required"/>
         <xs:attribute name="hidden" type="xs:boolean" use="optional"/>
         <xs:attribute name="type" type="messageTypeEnum" use="optional"/>
+        <!-- ComponentMessagePosition; the mapper parses it case-insensitively and defaults to bottom. -->
+        <xs:attribute name="position" type="messagePositionEnum" use="optional"/>
     </xs:complexType>
+
+    <!-- Message Position Enum -->
+    <xs:simpleType name="messagePositionEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="top"/>
+            <xs:enumeration value="bottom"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- Message Type Enum -->
     <xs:simpleType name="messageTypeEnum">
@@ -369,8 +431,39 @@
             <xs:enumeration value="warning"/>
             <xs:enumeration value="info"/>
             <xs:enumeration value="error"/>
+            <xs:enumeration value="success"/>
         </xs:restriction>
     </xs:simpleType>
+
+    <!-- FormCell.ComponentValidators → ComponentValidator: key, expression (true = valid), message, when,
+         validateOn, severity; an async validator names a dataFetcher (fetcher=, or <dataFetcher>/<dataFetchers>). -->
+    <xs:complexType name="componentValidatorsType">
+        <xs:sequence>
+            <xs:element name="componentValidator" type="componentValidatorType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="componentValidatorType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="dataFetcher" type="xs:anyType"/>
+            <xs:element name="dataFetchers" type="xs:anyType"/>
+        </xs:choice>
+        <xs:attribute name="key" type="xs:string" use="required"/>
+        <xs:attribute name="expression" type="xs:string"/>
+        <xs:attribute name="message" type="xs:string"/>
+        <xs:attribute name="when" type="xs:string"/>
+        <xs:attribute name="validateOn" type="xs:string"/>
+        <xs:attribute name="severity" type="xs:string"/>
+        <xs:attribute name="fetcher" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="cellEventType">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="enabled" type="xs:string"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
 
     <!-- Property Convertor Type -->
     <xs:complexType name="propertyConvertorType">

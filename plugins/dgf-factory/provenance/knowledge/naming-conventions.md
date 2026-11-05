@@ -3,11 +3,11 @@ sources:
   - path: src/Core/DGF.Kernel/WorkspaceSettings.cs
     sha256: 8c7f8c588fe93b14c88d098eed047d3de015340e79dd3d3d4ecb34e70bef7f30
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Tools/dgf-mcp/Services/SchemaIndexService.cs
-    sha256: 2558a66391ef4fbc8d5d7918ce9d66a4cf8aeb37dd8553a45807a11eb23df8c9
+    sha256: f421f5e81d77eddfcc8f2f59dbab187049a41e2b6bff031a07ff8f06387306de
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+    sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Core/DGF.Domain/Process/StateProcess/ProcessManager.cs
     sha256: c99435834fd8d306c833eef6f5cd09dc13fad8c0a02da8786c61bba1c99e3df0
   - path: src/Core/DGF.OM/Workflow/WorkflowManager.cs
@@ -23,7 +23,7 @@ sources:
   - path: src/Core/DGF.Domain/Data/EditableGrid/EditableGridManager.cs
     sha256: 66941b29b2a35731aca24b532be267570dc666aae1e611bcb528c13591961f98
   - path: src/Core/DGF.Domain/Data/StaticOptionReader.cs
-    sha256: 7062c1b433e5883303c6f42030675d3833607a60243d9f2d4ea58fa2cea29a34
+    sha256: 5b6c5808f3d8c3038dc2caa28c3f9c0890734f7334630678a39319c791079602
   - path: src/Core/DGF.DataSources/DataSourceLoader.cs
     sha256: 24e3b570fcc4e533640f03370d8278e9b3eae461dc8ebb6860ac9f8b42eab8d6
   - path: src/Core/DGF.DataSources/Endpoints/EndpointFactory.cs

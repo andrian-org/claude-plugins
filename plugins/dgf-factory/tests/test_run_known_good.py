@@ -90,6 +90,65 @@ class Arguments(unittest.TestCase):
         self.assertEqual(code, 3, err)
         self.assertIn("Not a DGF repository root", err)
 
+    def test_an_unregistered_pack_is_exit_3(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = helpers.make_root(Path(tmp), {"src/Directory.Build.props": "<Project/>\n",
+                                                 "src/samples/workspaces/.keep": ""})
+            # the arguments are settled before the dependency check: without lxml/jsonschema the answer is the same
+            code, _, err = helpers.run_cli_blocking(helpers.TOOLS / "run_known_good.py", root, "--pack", "9.9")
+        self.assertEqual(code, 3, err)
+        self.assertIn("no knowledge pack for DGF line 9.9", err)
+
+
+class Packs(unittest.TestCase):
+    """--pack picks the pack's directory, exceptions file and schema ledger (ADR 0036 §2)."""
+
+    def test_the_current_line_uses_the_tools_exceptions_file(self):
+        packs = helpers.load_tool("packs")
+        line, entry, knowledge_dir, exceptions, ledger = TOOL.resolve_pack(None)
+        self.assertEqual(line, packs.current())
+        self.assertEqual(knowledge_dir, helpers.PLUGIN_ROOT / "knowledge")
+        self.assertEqual(exceptions, helpers.PLUGIN_ROOT / "tools" / "known-good-exceptions.txt")
+        self.assertEqual(ledger, helpers.PLUGIN_ROOT / "provenance" / "knowledge" / "schemas" / "MANIFEST.md")
+        self.assertEqual(entry["line"], line)
+
+    def test_every_registered_pack_resolves_with_its_own_exceptions(self):
+        packs = helpers.load_tool("packs")
+        for line in packs.lines():
+            with self.subTest(line=line):
+                _line, _entry, knowledge_dir, exceptions, _ledger = TOOL.resolve_pack(line)
+                self.assertEqual(knowledge_dir, packs.pack_dir(line))
+                self.assertTrue(exceptions.is_file(), exceptions)
+
+
+class CheckoutTag(unittest.TestCase):
+    """The checkout must be at the pack's release tag, or the run says so (ADR 0036 §2, check_drift's VERSION_MISMATCH)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="known-good-tag-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.repo = helpers.make_repo(self.tmp / "dgf", {"README.md": "dgf\n"})
+
+    def test_the_newest_release_tag_at_head_is_read(self):
+        helpers.tag(self.repo, "1.3.0")
+        helpers.tag(self.repo, "1.3.1")
+        helpers.tag(self.repo, "1.3.1-beta")
+        self.assertEqual(TOOL.release_tag(self.repo), "1.3.1")
+
+    def test_a_tag_other_than_the_packs_is_a_mismatch(self):
+        helpers.tag(self.repo, "1.3.1")
+        message = TOOL.version_mismatch(TOOL.release_tag(self.repo), {"line": "1.3", "dgf_version": "1.3.0"})
+        self.assertIn("1.3.1", message)
+        self.assertIn("1.3.0", message)
+
+    def test_no_release_tag_is_a_mismatch(self):
+        message = TOOL.version_mismatch(TOOL.release_tag(self.repo), {"line": "1.3", "dgf_version": "1.3.0"})
+        self.assertIn("no release tag", message)
+
+    def test_the_packs_own_tag_is_no_mismatch(self):
+        helpers.tag(self.repo, "1.3.0")
+        self.assertIsNone(TOOL.version_mismatch(TOOL.release_tag(self.repo), {"line": "1.3", "dgf_version": "1.3.0"}))
+
 
 if __name__ == "__main__":
     unittest.main()

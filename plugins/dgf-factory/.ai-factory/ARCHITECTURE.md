@@ -12,7 +12,9 @@ touching each other.
 What the slices share sits in exactly two places: a plugin-level `knowledge/` tree
 holding the versioned DGF facts that more than one skill needs, and a plugin-level
 `scripts/` tree holding validators that more than one skill calls. Everything else is
-local to a slice. Maintainer material — the checks contributors run, and the record of
+local to a slice. Beside the slices, and not shared by them, is the **installer** — `bin/`
+and `cli/`, dependency-free Node — which places the payload in a project and never reads its
+content as code. Maintainer material — the checks contributors run, and the record of
 where each DGF fact came from — sits beside the slices in `tools/` and `provenance/`, and
 is never shipped. This is the Structured Modules trade-off — soft boundaries and fast
 authoring rather than enforced ports and adapters — which is the right level of
@@ -21,8 +23,9 @@ formalism for a corpus that has no runtime and no dependency injection to invert
 The folder names below follow the agent-skill convention every harness reads —
 `skills/<name>/SKILL.md` — not the reference pattern's `src/[ModuleName]/Slices/` names.
 `dgf-factory setup` installs the tree into a project: each `SKILL.md`, rendered, into each
-chosen harness's skills folder, and `skills/`, `scripts/` and `knowledge/` into
-`.dgf-factory/runtime/` ([ADR 0029](../docs/adr/0029-npm-cli-delivery.md)). The pattern's
+chosen harness's skills folder, each agent into its harness's agents folder, and `skills/`,
+`scripts/` and one DGF line's knowledge pack into `.dgf-factory/runtime/`
+([ADR 0029](../docs/adr/0029-npm-cli-delivery.md), [ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md)). The pattern's
 boundary and dependency rules are kept in full — only the folder vocabulary is translated.
 
 ## Decision Rationale
@@ -42,14 +45,28 @@ boundary and dependency rules are kept in full — only the folder vocabulary is
 - **Why not Explicit Architecture:** its value is enforcing domain purity across a
   dependency-inverted runtime. There is no runtime here to invert, so the ceremony buys
   nothing a review of `knowledge/` would not catch.
+- **Why the installer is a module, not a slice:** it is written in another language, runs
+  before any skill exists in the project, and owns *where* files go, never *what* they say.
+  Its one contract with the Python side is a file — the receipt — not an import.
 
 ## Folder Structure
 
 ```text
 plugins/dgf-factory/
-├── package.json                        # ── PACKAGE ── @andrian-org/dgf-factory; `files` is what ships
+├── package.json                        # ── PACKAGE ── @andrian-org/dgf-factory; `files` is what ships; no dependencies
 ├── bin/dgf-factory.mjs                 # ── INSTALLER ── the CLI entry
-├── cli/                                #   setup: registry, rendering, receipt, MCP, Python step
+├── cli/                                #   Node ≥ 18.3, stdlib only
+│   ├── main.mjs                        #     command table → commands/*.mjs, each run(args) → exit code
+│   ├── commands/                       #     setup.mjs, status.mjs, uninstall.mjs
+│   ├── harnesses.mjs                   #     the 16 harnesses: folders, agents folder, transform, MCP target
+│   ├── lines.mjs                       #     which DGF line's pack to install (ADR 0036 §3); twin of lib/dgf_version.py
+│   ├── transform.mjs                   #     {{dgf_runtime}} → .dgf-factory/runtime; /dgf-x per harness
+│   ├── plan.mjs, preview.mjs, diff.mjs #     each file decided against the receipt (ADR 0029 §5), shown first
+│   ├── receipt.mjs, hash.mjs           #     .dgf-factory/install.json; the hash Python implements twice
+│   ├── fsops.mjs                       #     atomic writes, inside the project only
+│   ├── mcp.mjs                         #     the dgf-mcp entry, merged into each harness's MCP file
+│   ├── python.mjs                      #     .dgf-factory/runtime/.venv + the pinned requirements
+│   └── exit.mjs, log.mjs, paths.mjs, prompt.mjs
 │
 ├── skills/                             # ── SLICES ── one directory per skill
 │   ├── dgf-doctor/                     # Slice: install check, against the receipt
@@ -87,23 +104,37 @@ plugins/dgf-factory/
 │   │   └── templates/                  #   settings.xml
 │   ├── dgf-audit/                      # Slice: read-only — the root's health, and blast radius (exists)
 │   │   └── SKILL.md
-│   └── dgf-scaffold/                   # Slice: a new application from an empty folder (exists)
-│       ├── SKILL.md
-│       ├── references/                 #   DESIGN-FORMAT.md — the design file, docs/application.json
-│       ├── scripts/                    #   slice-local: design.py (the design check), generate.py (render, --check),
-│       │                               #   check.py, render.py (template engine), context.py (template context)
-│       └── templates/                  #   manifest.json + solution/, workspace/, patterns/{register,service,page}/
+│   ├── dgf-scaffold/                   # Slice: a new application from an empty folder (exists)
+│   │   ├── SKILL.md
+│   │   ├── references/                 #   DESIGN-FORMAT.md — the design file, docs/application.json
+│   │   ├── scripts/                    #   slice-local: design.py (the design check), generate.py (render, --check),
+│   │   │                               #   check.py, render.py (template engine), context.py (template context)
+│   │   └── templates/                  #   manifest.json + solution/, workspace/, patterns/{register,service,page}/
+│   │
+│   │   ── quality & authoring slices ── reports, never gates; each writes at most one artifact (ADR 0032)
+│   ├── dgf-review/                     # Slice: read-only — a DGF reviewer's read of a change
+│   ├── dgf-rules/                      # Slice: writes the estate's RULES.md
+│   │   └── references/                 #   default-rules.md (ADR 0028's six), RULES-FORMAT.md
+│   ├── dgf-rules-check/                # Slice: read-only — the change against the rules
+│   ├── dgf-qa/                         # Slice: a manual test plan per reached process
+│   │   └── references/                 #   TEST-PLAN-FORMAT.md
+│   ├── dgf-docs/                       # Slice: the estate's generated inventory pages, and an overview
+│   ├── dgf-explore/                    # Slice: cited research into RESEARCH.md
+│   ├── dgf-grounded/                   # Slice: read-only — answers only what it can cite
+│   ├── dgf-archive/                    # Slice: finished plans into the archive, through archive_plans.py
+│   └── dgf-security/                   # Slice: the application's security scan, through security-scan.sh
 │
-├── agents/                             # ── SUBAGENTS ── coordinator, workers, sidecars
-│   ├── dgf-implement-coordinator.md
-│   └── dgf-implement-worker.md
+├── agents/                             # ── SLICES ── harness subagents, under the same rules as skills/
+│   └── claude/                         #   agents/<harness id>/; rendered into .claude/agents/, never the runtime (ADR 0033)
+│       ├── dgf-implement-coordinator.md #    top level: layers from plan_layers.py, one worker per task
+│       └── dgf-implement-worker.md     #     one task in its own worktree (isolation: worktree)
 │
-├── knowledge/                          # ── SHARED DOMAIN ── the DGF knowledge base
+├── knowledge/                          # ── SHARED DOMAIN ── the current DGF line's knowledge pack (ADR 0036)
 │   ├── README.md                       #   how to cite, date and version-stamp a fact
-│   ├── component-catalogue.md          #   the 34 IComponentService<TSource> registrations, and why 4 other counts differ
+│   ├── component-catalogue.md          #   the 36 IComponentService<TSource> registrations, and why 4 other counts differ
 │   ├── composition-specs.md            #   declarative XML/JSON composition + EventBase verbs
 │   ├── naming-conventions.md
-│   ├── schema-families.md              #   JSON vs XSD: parity (67 rows), correspondence, resolution
+│   ├── schema-families.md              #   JSON vs XSD: parity (69 rows), correspondence, resolution
 │   ├── json-reader.md                  #   how the runtime reads component JSON; dispatch, folders, file refs
 │   ├── process-model.md                #   process.xsd vs the runtime model; reference resolution
 │   ├── data-model.md                   #   entities, fields, relations; what each model loader does
@@ -113,8 +144,11 @@ plugins/dgf-factory/
 │   └── schemas/                        #   vendored copies, version-stamped
 │       ├── MANIFEST.md                 #     DGF version, date, per-file dialect and membership
 │       ├── json/                       #     generated *.schema.json (modern component config)
-│       ├── xsd/                        #     the 9 *.xsd + form.reference.json (legacy XML)
+│       ├── xsd/                        #     the 10 *.xsd + form.reference.json (legacy XML)
 │       └── standalone/                 #     hand-authored contracts from DGF docs/schemas/
+├── packs/                              # ── SHARED DOMAIN ── each older DGF line's pack, packs/<X.Y>/ — the same
+│                                       #   files as knowledge/ minus README.md; lines.json, the shipped registry.
+│                                       #   Setup installs one pack per project at .dgf-factory/runtime/knowledge/
 │
 ├── scripts/                            # ── SHARED INFRASTRUCTURE ── cross-slice validators
 │   ├── validate_config.py              #   family first, schema read the runtime's way, parity gate
@@ -130,11 +164,21 @@ plugins/dgf-factory/
 │   ├── check_patches.py                #   the patch format; which patches the cursor has not seen
 │   ├── check_override.py               #   may a skill read its override — shape, sources, forbidden, limit
 │   ├── audit_root.py                   #   the whole-root audit, and blast radius per application
+│   ├── plan_layers.py                  #   the next layer of a plan: ready, parallel, serial and why (ADR 0033)
+│   ├── worktree_task.py                #   --sync a worker's worktree; --merge it back within the task's files
+│   ├── check_rules.py                  #   the estate's RULES.md before any skill reads it; layout-case (ADR 0032)
+│   ├── show_change.py                  #   the change's diff, for skills that pre-approve no git (ADR 0035)
+│   ├── estate_docs.py                  #   the estate's inventory pages, written or --check'ed
+│   ├── archive_plans.py                #   finished plans listed, and with --apply archived
+│   ├── security-scan.sh                #   Trivy, Gitleaks, Semgrep, ZAP; needs Docker (ADR 0034)
 │   ├── requirements.txt                #   lxml + jsonschema, exact pins with hashes
 │   └── lib/                            #   one module per concern
+│       ├── runtime.py                  #     every entry script re-runs under .dgf-factory/runtime/.venv first
+│       ├── install_receipt.py          #     the receipt, read: the install footprint; the Python twin of hash.mjs
 │       ├── report.py                   #     findings, codes → exit codes, verdict, DEBUG trace
 │       ├── deps.py                     #     missing lxml/jsonschema → exit 3 with the install command
 │       ├── knowledge.py                #     machine-read table loader — stdlib, no package imports
+│       ├── dgf_version.py              #     versions, lines, the pack an estate reads — twin of cli/lines.mjs
 │       ├── cli.py                      #     argument parsing (usage = exit 3), the directory walk
 │       ├── family.py                   #     JSON vs XSD resolution, from bytes
 │       ├── json_reader.py, prepass.py  #     the runtime's JSON reader; NJsonSchema allOf merge
@@ -146,6 +190,7 @@ plugins/dgf-factory/
 │       ├── process_checks.py           #     dead transitions, reachability, workflow/change-state refs
 │       ├── plan.py                     #     the plan file's header, tasks, Commit Plan; each path's class and artifact
 │       ├── git.py                      #     read-only git calls; a commit's tree written blob by blob
+│       ├── worktree.py                 #     a worker's worktree — the only module that changes a repository
 │       ├── runner.py                   #     every validator over a root or some of its files
 │       ├── baseline.py                 #     which findings a branch introduced (merge-base comparison)
 │       ├── model.py                    #     each model loader's resolution rule; a form's bound cells
@@ -156,34 +201,44 @@ plugins/dgf-factory/
 │       ├── patches.py                  #     the patch file and the patch cursor
 │       └── overrides.py                #     the override template, FORBIDDEN constructs, LIMIT_WORDS
 │
-├── .mcp.json                           # MCP servers (DGF docs MCP only)
+├── .mcp.json                           # MCP servers (DGF docs MCP only) — this folder's dev config, not shipped
 │
 │   ── NOT SHIPPED ── everything below is maintainer material
-├── tests/                              # ── TESTS ── unittest suite; fixtures/unit/, fixtures/known-bad/
+├── tests/                              # ── TESTS ── unittest suite; fixtures/unit/, fixtures/known-bad/,
+│   └── cli/                            #   fixtures/hash/ (both hashes' digests); cli/: node --test, one file per module
 ├── tools/                              # ── MAINTENANCE ── run by contributors, never by a skill
-│   ├── check-dual-schema-docs.sh       #   doc, decision-record, manifest, stamp contracts; runs tests/
+│   ├── check-dual-schema-docs.sh       #   doc, decision-record, install-and-package, stamp contracts; runs tests/
+│   ├── check_package.py                #   the npm tarball holds the payload, and only the payload
+│   ├── smoke_install.sh                #   pack, install into a temp prefix, set up a scratch project, end to end
 │   ├── check_knowledge_stamps.py       #   stamps, ledgers, vendored-schema digests
 │   ├── vendor_schemas.py               #   re-vendors DGF's schemas, rewriting DGF paths
 │   ├── derive_sql_types.py             #   the SQL type of each dbtype, tallied from DGF's settings/table pairs
 │   ├── run_known_good.py               #   every validator over DGF's samples, held to the exceptions file
 │   ├── known-good-exceptions.txt       #   evidenced excuses + the warning baseline
-│   ├── check_drift.py                  #   provenance ledgers' digests against a DGF checkout
+│   ├── check_drift.py                  #   a pack's ledgers' digests against a DGF checkout (--pack)
+│   ├── packs.py                        #   where each DGF line's pack, ledgers and exceptions live
+│   ├── dgf_lines.py                    #   status, diff, checkout (a cache at a tag), freeze, fork
+│   ├── restamp_knowledge.py            #   re-digests a pack's ledgers and stamps at a tag
+│   ├── dgf_lines_watch.sh              #   cron/launchd entry; opt-in headless /dgf-sync in a worktree
+│   ├── build_papers.sh                 #   docs/papers/*.md to PDF (pandoc, headless Chrome)
 │   └── requirements.in                 #   the validator dependencies, compiled with uv
 ├── provenance/                         # ── PROVENANCE ── where each knowledge fact came from
-│   └── knowledge/                      #   one ledger per knowledge file, same relative path
-│       └── schemas/MANIFEST.md         #     DGF commit, upstream + shipped sha256 per file
+│   ├── knowledge/                      #   the current pack: one ledger per knowledge file, same relative path
+│   │   └── schemas/MANIFEST.md         #     DGF commit and tag, upstream + shipped sha256 per file
+│   ├── packs/<X.Y>/                    #   each older pack's ledgers + its known-good-exceptions.txt
+│   ├── lines.json                      #   maintainer registry: each line's tag, commit, support branch
+│   └── sync-log/                       #   one per-source triage log per sync
 ├── docs/                               # documentation, the blueprint, ADRs (docs/adr/)
 ├── AGENTS.md                           # navigation index
 └── .ai-factory/                        # pipeline artifacts
 ```
 
-The tree is the target shape. Today `skills/dgf-doctor/`, the five spine slices (`dgf`,
-`dgf-plan`, `dgf-implement`, `dgf-verify`, `dgf-commit`), the learning loop's two (`dgf-fix`,
-`dgf-evolve`), the five DGF-specific slices (`dgf-component`, `dgf-process`, `dgf-model`,
-`dgf-audit`, `dgf-scaffold`), `knowledge/`, `scripts/`, `tests/`, `tools/`, `provenance/` and the files around
-them exist. `dgf-scaffold` generates a new application because DGF ships no bootstrap template
+The tree is the current shape; every directory in it exists. `dgf-scaffold` generates a new
+application because DGF ships no bootstrap template
 ([ADR 0026](../docs/adr/0026-authoring-entry-point-revised.md) §2, [ADR 0027](../docs/adr/0027-dgf-specific-skills-revised.md)
-§7); `agents/` arrives later. Every gate block is
+§7). `agents/` holds the DGF subagents — the implement coordinator and its worker — a slice-level
+sibling of `skills/` under the same rules; setup installs them only for Claude Code
+([ADR 0033](../docs/adr/0033-parallel-execution.md)). Every gate block is
 built by `lib/gate_result.py` and printed by a script — `verify_gate.py` for `/dgf-verify`,
 `doctor.py` for `/dgf-doctor` — and the skill relays it
 ([ADR 0022](../docs/adr/0022-gate-block-contract-revised.md)).
@@ -194,7 +249,7 @@ from a slice by `{{dgf_runtime}}/knowledge/...` and `{{dgf_runtime}}/scripts/...
 `SKILL.md` files go into a harness's folder.
 
 **Shipped and maintainer material are kept apart, by directory.** What ships is exactly
-the npm package payload — `bin/`, `cli/`, `skills/`, `scripts/` and `knowledge/`, as
+the npm package payload — `bin/`, `cli/`, `skills/`, `scripts/`, `knowledge/`, `packs/` and `agents/`, as
 `package.json` `files` lists them and `doctor.py`'s `SHIPPED_DIRS` restates; `tools/check_package.py`
 holds the tarball to it. A developer's install has no DGF checkout, so no shipped file names a path
 into the DGF repository, and no shipped file links outside the payload
@@ -257,9 +312,55 @@ The flow is strictly one-directional: **`SKILL.md` → its own `references/` and
 - ❌ A shipped file names a DGF repository path — `src/…`, `docs/wiki/…`, a checkout
   folder. Cite the knowledge base, a DGF docs MCP call (`get_doc_page('<page>')`) or a DGF
   type name. `doctor.py` blocks on it as `DGF_PATH`.
+- ✅ A slice reads `{{dgf_runtime}}/knowledge/`, which is whichever line's pack setup installed. It
+  never reads `packs/` and never branches on the DGF line. Validators, skills and the installer are
+  one codebase and must hold for every shipped pack
+  ([ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md))
+- ❌ A shipped script that changes a git repository, except through `lib/worktree.py`. `lib/git.py` is
+  read-only by contract. `worktree.py` holds the three calls that change a repository (moving a
+  worker's own branch, removing its worktree, deleting its branch), and only `worktree_task.py` calls
+  them ([ADR 0033](../docs/adr/0033-parallel-execution.md) §3)
 - ❌ Circular invocation — slice A invokes B, B invokes A. Route through an artifact.
 - ❌ Absolute paths, `~/` paths, or bare `knowledge/…` paths in a skill. Always
   `{{dgf_runtime}}/…`, which setup renders project-relative.
+
+### The installer and the runtime
+
+The installer and the payload run at different times, in different languages, and meet only
+through files. Direction: **`bin/` → `cli/` → the payload as files → the project**. The payload never
+reaches back.
+
+- ✅ `cli/` reads `skills/`, `scripts/`, `knowledge/`, `packs/` and `agents/` **as bytes**: it copies
+  `skills/`, `scripts/` and one line's pack into `.dgf-factory/runtime/` with the source layout kept
+  (three scripts find siblings by `parents[3]`), renders `{{dgf_runtime}}` in every `*.md`, and rewrites
+  the body's `/dgf-x` per harness in each harness's `SKILL.md`. Frontmatter is kept as written
+  ([ADR 0029](../docs/adr/0029-npm-cli-delivery.md) §3). The pack, `knowledge/` or `packs/<X.Y>/`, always
+  lands at `.dgf-factory/runtime/knowledge/` (`plan.packFiles`). Agents are never runtime files: each
+  `agents/<harness id>/<name>.md` is rendered the same way into that harness's agents folder; the package
+  ships agents for Claude Code only ([ADR 0033](../docs/adr/0033-parallel-execution.md) §5)
+- ✅ `cli/python.mjs` is the one place Node runs Python: it creates `.dgf-factory/runtime/.venv` and
+  installs `scripts/requirements.txt` into it. It never runs a validator or a skill script
+- ✅ **The receipt is the only Node↔Python contract.** `cli/receipt.mjs` writes
+  `.dgf-factory/install.json`; `scripts/lib/install_receipt.py` reads it — the footprint the change checks
+  and the scaffold's empty-folder rule ignore, and the harness files `doctor.py` checks. The hash is
+  implemented twice, `cli/hash.mjs` and `install_receipt.hash_bytes`, and both are held to
+  `tests/fixtures/hash/expected.json`
+- ✅ **The line choice is the second twin.** `cli/lines.mjs` (setup) and `scripts/lib/dgf_version.py`
+  (the doctor) implement ADR 0036 §3's selection rules over the shipped registry `packs/lines.json`, and
+  both are held to `tests/fixtures/unit/dgf-lines/selection.json`. The receipt records the chosen
+  `dgfLine`; neither side reads the other's code
+- ✅ Every entry script's first statement, under `__main__` and before any other `from lib import …`,
+  is `runtime.use_project_venv()` ([ADR 0031](../docs/adr/0031-validator-runtime-project-venv.md)).
+  `runtime.py` and `install_receipt.py` are stdlib-only and import nothing from `lib/`, so the
+  stdlib-only scripts can load them by path
+- ❌ A payload file imports, calls or names a module in `cli/`, or carries a harness list. Python learns
+  which harness files exist from the receipt, never from `cli/harnesses.mjs`
+- ❌ `cli/` imports a payload module, parses a `SKILL.md` beyond its body text, or decides anything about
+  DGF. The installer owns placement; the slices own content
+- ❌ A runtime dependency in `package.json`, or a Python dependency outside the hash-pinned
+  `scripts/requirements.txt`. The CLI is stdlib Node; the validators need only `lxml` and `jsonschema`
+- ❌ A write outside the project root, or a non-atomic one. Every write goes through `cli/fsops.mjs`,
+  and the receipt is written last
 
 ## Layer/Module Communication
 
@@ -280,9 +381,18 @@ application only into an empty folder, only through `generate.py`, and hands ove
 the user to run `/dgf` on the new workspaces root ([ADR 0026](../docs/adr/0026-authoring-entry-point-revised.md)
 §2). Every later change to that application is the pipeline's.
 
-Shared `knowledge/` is read-only to every slice. It changes through a deliberate edit,
-with its `provenance/` ledger updated in the same change, never as a side effect of
-running the pipeline. The vendored schemas change only through `tools/vendor_schemas.py`.
+The installer talks to the slices the same way — through an artifact. `dgf-factory setup`
+writes the runtime, each harness's `SKILL.md`, the MCP entries and, last, the receipt; `/dgf-doctor`
+and the change checks read the receipt. Re-running `setup` is the update: each file is decided against
+the receipt and the disk (create, update, keep-edited, conflict, missing, remove), previewed, and only
+then written.
+
+Shared `knowledge/` and `packs/` are read-only to every slice. A pack moves only through the
+maintainer skill `/dgf-sync` and the tools, never as a side effect of running the pipeline. Each pack
+is read at an exact DGF release tag. Digests and stamps are written by `tools/restamp_knowledge.py`,
+vendored schemas by `tools/vendor_schemas.py`, and the two registries (`packs/lines.json`,
+`provenance/lines.json`) by `tools/dgf_lines.py`, never by hand. Every sync leaves a per-source triage
+log in `provenance/sync-log/` ([ADR 0036](../docs/adr/0036-knowledge-packs-per-release-line.md)).
 
 ## Key Principles
 
@@ -291,7 +401,7 @@ running the pipeline. The vendored schemas change only through `tools/vendor_sch
    `scripts/`. Promote on the second use, not in anticipation of it.
 2. **Knowledge is the asset; the pipeline is copyable.** The DGF facts in `knowledge/`
    are what makes this plugin worth having. Every fact carries the date and the DGF
-   version it was read from. Its DGF source files and their digests are in its
+   release tag it was read at, one pack per DGF release line. Its DGF source files and their digests are in its
    `provenance/` ledger; the shipped fact names its source by DGF type, file name or MCP
    call.
 3. **Determinism before prompting.** If a JSON Schema, an XSD, or a script can decide a
@@ -315,6 +425,10 @@ running the pipeline. The vendored schemas change only through `tools/vendor_sch
 8. **What ships stands alone.** A developer's install holds the shipped directories and
    the hosted DGF docs MCP, nothing more. Every path in a shipped file resolves inside the
    plugin or on the MCP; everything that needs a DGF checkout is maintainer material.
+9. **One source, rendered at install.** `skills/`, `scripts/`, `knowledge/`, `packs/` and
+   `agents/` in this repository are the only source. Each harness's copy, and the project's runtime, is produced by
+   `setup`; no per-harness copy is kept by hand, and a fix lands in the source, never in an
+   installed copy.
 
 ## Code Organization Note
 
@@ -461,6 +575,26 @@ The sketch shows the shape only. The real `scripts/validate_config.py` is a comp
 the family by declaration or by vendored root element (`docs/dgf-schemas.md` §7). It also
 reads JSON the way the runtime does (ADR 0015).
 
+### An entry script's preamble (as built: every script in `scripts/`)
+
+The first thing an entry script does is switch to the project's virtual environment, before any
+module that imports `lxml` or `jsonschema` is loaded. Only under `__main__`, so a test that imports
+the script never switches interpreter. From `scripts/validate_config.py`:
+
+```python
+if __name__ == "__main__":
+    from lib import runtime; runtime.use_project_venv()
+
+import sys
+
+from lib import cli, deps, report
+```
+
+`runtime.use_project_venv()` re-runs the script under `.dgf-factory/runtime/.venv`'s interpreter
+when one exists; `DGF_IN_VENV=1` on the re-run stops a broken environment from looping, and
+`DGF_NO_VENV=1` disables the switch. Without the environment, `deps.py` reports the missing package
+as exit `3` with the install command.
+
 ## Anti-Patterns
 
 - ❌ **DGF facts inlined in a `SKILL.md`.** The moment a component name, a verb or a
@@ -505,3 +639,13 @@ reads JSON the way the runtime does (ADR 0015).
   `tools/check_knowledge_stamps.py` fails. Re-vendor with `tools/vendor_schemas.py`.
 - ❌ **Forking an `aif-*` skill.** They are installer-managed; edits are detected and
   overwritten on update.
+- ❌ **Fixing a skill in a project's `.dgf-factory/runtime/` or a harness folder.** `setup` sees the
+  edit and keeps it (`keep-edited`); the next release that changes the file becomes a `conflict` the user
+  must resolve by hand, and `/dgf-doctor` reports the file as edited until then. Fix the source here and
+  re-run `setup`.
+- ❌ **A second harness registry.** A Python check that hard-codes `.claude/skills/` or any harness
+  folder drifts from `cli/harnesses.mjs`. Read the harness files from the receipt.
+- ❌ **Changing the hash on one side.** `cli/hash.mjs` and `install_receipt.hash_bytes` must agree
+  byte for byte, or every installed file reads as edited. Change both, and the shared fixture.
+- ❌ **An entry script that imports `lib/` before `runtime.use_project_venv()`.** It loads `lxml`
+  from whatever Python ran it and reports a missing dependency the project's venv already has.

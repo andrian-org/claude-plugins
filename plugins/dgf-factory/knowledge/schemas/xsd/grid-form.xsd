@@ -4,17 +4,32 @@
     <xs:element name="view" type="gridViewType"/>
 
     <!-- Main Grid View Type -->
+    <!-- Children in any order (XmlSerializer). Declared additions are only what the DataTable editable-grid
+         mapping reads (DataTableComponentServiceInternal → MapFromDataGrid, loaded as EditableGridView). -->
     <xs:complexType name="gridViewType">
-        <xs:sequence>
-            <xs:element name="row" type="gridRowType" minOccurs="0"/>
-            <xs:element name="header" type="headerType" minOccurs="0"/>
-            <xs:element name="description" type="descriptionType" minOccurs="0"/>
-            <xs:element name="fetch" type="gridFetchType" minOccurs="0"/>
-            <xs:element name="handlers" type="gridHandlersType" minOccurs="0"/>
-            <xs:element name="autoNewRow" type="xs:string" minOccurs="0"/>
-            <xs:element name="totalField" type="xs:string" minOccurs="0"/>
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="row" type="gridRowType"/>
+            <xs:element name="header" type="headerType"/>
+            <xs:element name="description" type="descriptionType"/>
+            <xs:element name="fetch" type="gridFetchType"/>
+            <xs:element name="handlers" type="gridHandlersType"/>
+            <xs:element name="autoNewRow" type="xs:string"/>
+            <xs:element name="totalField" type="xs:string"/>
+            <!-- Columns fetched with each row but not shown. -->
+            <xs:element name="hidden" type="gridHiddenType"/>
+            <xs:element name="hideHeaders" type="xs:string"/>
+            <!-- A CSS style for rows matching ANY of its conditions. -->
+            <xs:element name="rowstyle" type="g_rowStyleListType"/>
+        </xs:choice>
         <xs:attribute name="ordernumber" type="xs:boolean"/>
+        <!-- Row multi-select. -->
+        <xs:attribute name="check" type="xs:boolean"/>
+    </xs:complexType>
+
+    <xs:complexType name="gridHiddenType">
+        <xs:sequence>
+            <xs:element name="cell" type="gridCellType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
     </xs:complexType>
 
     <!-- Header Type -->
@@ -51,6 +66,11 @@
         <xs:attribute name="title" type="xs:string" use="required"/>
         <xs:attribute name="width" type="xs:integer"/>
         <xs:attribute name="align" type="alignType"/>
+        <!-- A JSON component in FM/_COMPONENTS/Template/<name>.json (BASE: → base workspace), rendered in every
+             row of this column with the row as ${item.*}. -->
+        <xs:attribute name="columnTemplate" type="xs:string"/>
+        <xs:attribute name="hidden" type="xs:boolean"/>
+        <xs:attribute name="reskey" type="xs:string"/>
     </xs:complexType>
 
     <!-- Alignment Type -->
@@ -98,10 +118,12 @@
 
     <!-- Grid Fetch Type -->
     <xs:complexType name="gridFetchType">
-        <xs:sequence>
-            <xs:element name="sort" type="gridSortType" minOccurs="0"/>
-            <xs:element name="filter" type="gridFilterType" minOccurs="0"/>
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="sort" type="gridSortType"/>
+            <xs:element name="filter" type="gridFilterType"/>
+            <!-- A grouped grid. -->
+            <xs:element name="groups" type="g_groupsType"/>
+        </xs:choice>
     </xs:complexType>
 
     <!-- Grid Sort Type -->
@@ -129,18 +151,19 @@
         <xs:attribute name="attribute" type="xs:string" use="required"/>
         <xs:attribute name="operator" type="xs:string"/>
         <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="value2" type="xs:string"/>
     </xs:complexType>
 
     <!-- Grid Handlers Type -->
     <xs:complexType name="gridHandlersType">
-        <xs:sequence>
-            <xs:element name="smartedit" type="handlerActionType" minOccurs="0"/>
-            <xs:element name="create" type="gridHandlerActionType" minOccurs="0"/>
-            <xs:element name="select" type="gridHandlerActionType" minOccurs="0"/>
-            <xs:element name="select_ro" type="gridHandlerActionType" minOccurs="0"/>
-            <xs:element name="delete" type="handlerActionType" minOccurs="0"/>
-            <xs:element name="edit" type="gridHandlerActionType" minOccurs="0"/>
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="smartedit" type="handlerActionType"/>
+            <xs:element name="create" type="gridHandlerActionType"/>
+            <xs:element name="select" type="gridHandlerActionType"/>
+            <xs:element name="select_ro" type="gridHandlerActionType"/>
+            <xs:element name="delete" type="handlerActionType"/>
+            <xs:element name="edit" type="gridHandlerActionType"/>
+        </xs:choice>
     </xs:complexType>
 
     <!-- Handler Action Type (for smartedit, delete) -->
@@ -148,6 +171,8 @@
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="enabled" type="xs:boolean" use="required"/>
+                <xs:attribute name="title" type="xs:string"/>
+                <xs:attribute name="reskey" type="xs:string"/>
             </xs:extension>
         </xs:simpleContent>
     </xs:complexType>
@@ -159,8 +184,38 @@
                 <xs:attribute name="enabled" type="xs:boolean" use="required"/>
                 <xs:attribute name="title" type="xs:string"/>
                 <xs:attribute name="window" type="xs:string"/>
+                <xs:attribute name="reskey" type="xs:string"/>
             </xs:extension>
         </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- Shapes shared with table-view.xsd. -->
+    <xs:complexType name="g_groupsType">
+        <xs:sequence>
+            <xs:element name="group" type="g_groupType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="g_groupType">
+        <xs:attribute name="name" type="xs:string"/>
+        <xs:attribute name="ascending" type="xs:boolean"/>
+        <xs:attribute name="groupDisplayType" type="xs:string"/>
+        <xs:attribute name="headerFormat" type="xs:string"/>
+        <xs:attribute name="value" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="g_rowStyleListType">
+        <xs:sequence>
+            <xs:element name="style" type="g_rowStyleType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="g_rowStyleType">
+        <xs:sequence>
+            <xs:element name="condition" type="filterConditionType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="valueNew" type="xs:string"/>
     </xs:complexType>
 
 </xs:schema>

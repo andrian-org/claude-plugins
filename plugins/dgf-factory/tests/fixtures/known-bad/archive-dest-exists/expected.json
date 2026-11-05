@@ -1,0 +1,18 @@
+{
+  "cli": "archive_plans.py",
+  "args": [
+    "--workspaces-root",
+    "workspaces",
+    "--plans-dir",
+    ".dgf-factory/plans/",
+    "--fast-plan",
+    ".dgf-factory/PLAN.md",
+    "--archive-dir",
+    ".dgf-factory/archive/",
+    "--apply"
+  ],
+  "exit": 1,
+  "codes": [
+    "ARCHIVE_DEST_EXISTS"
+  ]
+}

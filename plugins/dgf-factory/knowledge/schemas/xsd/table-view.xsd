@@ -4,18 +4,41 @@
     <xs:element name="view" type="viewType"/>
 
     <!-- Main View Type -->
+    <!-- Children in any order (XmlSerializer). Declared additions are only what the DataTable / TreeTable
+         mapping reads (GridContainerControl.ExtractDataGridStructureAsync → GridUiProvider, TableDataQueryService). -->
     <xs:complexType name="viewType">
-        <xs:sequence>
-            <xs:element name="header" type="headerType" minOccurs="0"/>
-            <xs:element name="description" type="descriptionType" minOccurs="0"/>
-            <xs:element name="row" type="rowType" minOccurs="0"/>
-            <xs:element name="fetch" type="fetchType" minOccurs="0"/>
-            <xs:element name="handlers" type="handlersType" minOccurs="0"/>
-        </xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="header" type="headerType"/>
+            <xs:element name="description" type="descriptionType"/>
+            <xs:element name="row" type="rowType"/>
+            <xs:element name="fetch" type="fetchType"/>
+            <xs:element name="handlers" type="handlersType"/>
+            <!-- Columns fetched with each row but not shown. -->
+            <xs:element name="hidden" type="cellListType"/>
+            <!-- The parent-key column of a TreeTable (ParentKeyPath). -->
+            <xs:element name="parentFieldName" type="xs:string"/>
+            <!-- Per-row actions: only handler="DELETE" has an effect. -->
+            <xs:element name="rowactions" type="rowActionsType"/>
+            <!-- A CSS style for rows matching ANY of its conditions. -->
+            <xs:element name="rowstyle" type="rowStyleListType"/>
+        </xs:choice>
         <xs:attribute name="select" type="xs:boolean" default="false"/>
         <xs:attribute name="preview" type="xs:boolean" default="true"/>
         <xs:attribute name="check" type="xs:boolean" default="true"/>
         <xs:attribute name="icon" type="xs:boolean" default="true"/>
+        <!-- mode="Hierarchy": a tree view (paging off; TreeTable). A GRID node is routed to the TreeTable by the
+             sitemap's <set name="RenderMode" value="Hierarchy"/>. -->
+        <xs:attribute name="mode" type="xs:string"/>
+        <!-- separate: page, then COUNT_BIG(*) in the same batch, run only when the page is full.
+             window: a COUNT(*) OVER() column on the page — for a view that counts faster in one pass. -->
+        <xs:attribute name="totalCount" default="separate">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="separate"/>
+                    <xs:enumeration value="window"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
     </xs:complexType>
 
     <!-- Header Type -->
@@ -41,7 +64,8 @@
         <xs:sequence>
             <xs:element name="cell" type="cellType" maxOccurs="unbounded"/>
         </xs:sequence>
-        <xs:attribute name="keyfield" type="xs:string" use="required"/>
+        <!-- Defaults to the table's primary key. -->
+        <xs:attribute name="keyfield" type="xs:string"/>
     </xs:complexType>
 
     <!-- Cell Type -->
@@ -51,16 +75,67 @@
                 <xs:attribute name="name" type="xs:string" use="required"/>
                 <xs:attribute name="title" type="xs:string" use="required"/>
                 <xs:attribute name="width" type="xs:integer"/>
+                <!-- A JSON component in FM/_COMPONENTS/Template/<name>.json (BASE: → base workspace), rendered in
+                     every row of this column with the row as ${item.*}. -->
+                <xs:attribute name="columnTemplate" type="xs:string"/>
+                <xs:attribute name="hidden" type="xs:boolean"/>
+                <xs:attribute name="reskey" type="xs:string"/>
             </xs:extension>
         </xs:simpleContent>
     </xs:complexType>
 
     <!-- Fetch Type -->
     <xs:complexType name="fetchType">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="sort" type="sortType"/>
+            <xs:element name="filter" type="filterType"/>
+            <!-- A grouped grid. A group's value= is a drill-down row filter. -->
+            <xs:element name="groups" type="groupsType"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:complexType name="groupsType">
         <xs:sequence>
-            <xs:element name="sort" type="sortType" minOccurs="0"/>
-            <xs:element name="filter" type="filterType" minOccurs="0"/>
+            <xs:element name="group" type="groupType" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="groupType">
+        <xs:attribute name="name" type="xs:string"/>
+        <xs:attribute name="ascending" type="xs:boolean"/>
+        <xs:attribute name="groupDisplayType" type="xs:string"/>
+        <xs:attribute name="headerFormat" type="xs:string"/>
+        <xs:attribute name="value" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="cellListType">
+        <xs:sequence>
+            <xs:element name="cell" type="cellType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="rowActionsType">
+        <xs:sequence>
+            <xs:element name="item" type="rowActionItemType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="rowActionItemType">
+        <xs:attribute name="handler" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="rowStyleListType">
+        <xs:sequence>
+            <xs:element name="style" type="rowStyleType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="rowStyleType">
+        <xs:sequence>
+            <xs:element name="condition" type="rowStyleConditionType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="valueNew" type="xs:string"/>
     </xs:complexType>
 
     <!-- Sort Type -->
@@ -88,25 +163,91 @@
         <xs:attribute name="attribute" type="xs:string" use="required"/>
         <xs:attribute name="operator" type="operatorType" use="required"/>
         <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="value2" type="xs:string"/>
     </xs:complexType>
+
+    <!-- Row Style Condition Type
+         Same shape as conditionType, but its own operator set: a row style is NOT a fetch filter. -->
+    <xs:complexType name="rowStyleConditionType">
+        <xs:attribute name="attribute" type="xs:string" use="required"/>
+        <xs:attribute name="operator" type="rowStyleOperatorType" use="required"/>
+        <xs:attribute name="value" type="xs:string"/>
+        <xs:attribute name="value2" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Row Style Operator Type
+         Exactly the operators the UI evaluates for a row style: ConditionOperator
+         (condition-operator.ts), looked up by RowStylePipe.operationMap
+         (row-style.pipe.ts). The pipe skips an unknown operator without an error,
+         so the style would never apply. That is why gt, ge, lt, le, like, contains, between and the other
+         fetch-filter operators are NOT listed: a numeric or range rowstyle does nothing today. -->
+    <xs:simpleType name="rowStyleOperatorType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="eq"/>
+            <xs:enumeration value="ne"/>
+            <xs:enumeration value="not-null"/>
+            <xs:enumeration value="null"/>
+            <xs:enumeration value="eq-true"/>
+            <xs:enumeration value="eq-false"/>
+            <xs:enumeration value="today"/>
+            <xs:enumeration value="past"/>
+            <xs:enumeration value="future"/>
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="after"/>
+            <xs:enumeration value="before"/>
+            <xs:enumeration value="on-or-after"/>
+            <xs:enumeration value="on-or-before"/>
+            <xs:enumeration value="next-seven-days"/>
+            <xs:enumeration value="last-seven-days"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- Operator Type -->
     <xs:simpleType name="operatorType">
         <xs:restriction base="xs:string">
+            <!-- Every operator FetchFilterConditionFormatter implements. The identity operators need no
+                 value: the server fills in the current user / application / teams / role. -->
             <xs:enumeration value="eq"/>
+            <xs:enumeration value="eq_n"/>
             <xs:enumeration value="ne"/>
-            <xs:enumeration value="lt"/>
-            <xs:enumeration value="le"/>
-            <xs:enumeration value="gt"/>
-            <xs:enumeration value="ge"/>
+            <xs:enumeration value="not-null"/>
+            <xs:enumeration value="null"/>
+            <xs:enumeration value="contains"/>
+            <xs:enumeration value="difference"/>
             <xs:enumeration value="like"/>
             <xs:enumeration value="not-like"/>
-            <xs:enumeration value="in"/>
-            <xs:enumeration value="not-in"/>
-            <xs:enumeration value="empty"/>
-            <xs:enumeration value="not-empty"/>
+            <xs:enumeration value="gt"/>
+            <xs:enumeration value="ge"/>
+            <xs:enumeration value="lt"/>
+            <xs:enumeration value="le"/>
+            <xs:enumeration value="eq-userid"/>
+            <xs:enumeration value="ne-userid"/>
+            <xs:enumeration value="eq-appid"/>
+            <xs:enumeration value="ne-appid"/>
+            <xs:enumeration value="eq-teams"/>
+            <xs:enumeration value="ne-teams"/>
+            <xs:enumeration value="eq-role"/>
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="after"/>
+            <xs:enumeration value="before"/>
+            <xs:enumeration value="on-or-after"/>
+            <xs:enumeration value="on-or-before"/>
+            <xs:enumeration value="after-and-before"/>
+            <xs:enumeration value="today"/>
+            <xs:enumeration value="future"/>
+            <xs:enumeration value="past"/>
+            <xs:enumeration value="future-or-today"/>
+            <xs:enumeration value="past-or-today"/>
+            <xs:enumeration value="next-seven-days"/>
+            <xs:enumeration value="last-seven-days"/>
             <xs:enumeration value="eq-true"/>
             <xs:enumeration value="eq-false"/>
+            <xs:enumeration value="empty"/>
+            <xs:enumeration value="not-empty"/>
+            <xs:enumeration value="in"/>
+            <xs:enumeration value="not-in"/>
+            <xs:enumeration value="eq-variable"/>
+            <xs:enumeration value="ne-variable"/>
         </xs:restriction>
     </xs:simpleType>
 

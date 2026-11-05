@@ -1,4 +1,4 @@
-[← Skill Authoring](skill-authoring.md) · [Back to README](../README.md) · [DGF Schemas →](dgf-schemas.md)
+[← Skill Authoring](skill-authoring.md) · [Back to README](../README.md) · [DGF Lines →](dgf-lines.md)
 
 # DGF Knowledge Sourcing
 
@@ -14,9 +14,15 @@ kind of mistake here — they get baked into prompts and propagate into generate
 The exact stamp fields — `dgf_version` and `read_date` in the knowledge file, a per-source
 `sha256` in its provenance ledger — and the rule for when a fact needs a *version range*
 rather than just a stamp are decided in
-[ADR 0013](adr/0013-version-gating-provenance-ledger.md). Short version: stamp everything,
-range only facts whose runtime behaviour changed between releases. `dgf_version` is read from
-`src/Directory.Build.props`, never from a git tag.
+[ADR 0036](adr/0036-knowledge-packs-per-release-line.md), which superseded ADR 0013. Short version:
+stamp everything, range only facts whose runtime behaviour changed *inside* a release line.
+`dgf_version` is the **exact release tag** the facts were read at — never `src/Directory.Build.props`,
+whose `<Version>` reads `1.1.15` at the tags 1.1.16, 1.2.0 and 1.3.0 alike.
+
+**One pack per DGF release line.** `knowledge/` is the current line's pack; each older line is a
+complete pack under `packs/<X.Y>/`, named in `packs/lines.json`. `dgf-factory setup` installs the one
+pack an estate runs into `.dgf-factory/runtime/knowledge/`, so projects on different lines coexist on
+one machine. Keeping the packs current is the maintainer flow in [dgf-lines.md](dgf-lines.md).
 
 **Where a fact came from is recorded outside `knowledge/`.** `knowledge/` ships, and a shipped
 file names no path into the DGF repository
@@ -167,7 +173,7 @@ verification is structural-plus-our-own-semantics, with no headless execution
 with `lxml` and `jsonschema`, reading JSON the way the runtime does
 ([0015](adr/0015-validator-runtime-and-json-reader.md), superseding 0007); version gates are
 necessary, so every fact is stamped and behavioural facts carry a range
-([0013](adr/0013-version-gating-provenance-ledger.md), superseding 0008 and 0003); shipped
+([0036](adr/0036-knowledge-packs-per-release-line.md), superseding 0013, 0008 and 0003); shipped
 files carry no DGF repository paths ([0012](adr/0012-no-dgf-paths-in-shipped-files.md)); and seven conventions ship as
 defaults ([0005](adr/0005-default-team-rules.md)).
 

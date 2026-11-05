@@ -11,7 +11,10 @@ live outside the shipped directories.
 import importlib.util
 import json
 import re
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 from tests import helpers
 
@@ -58,7 +61,11 @@ class KnownBad(unittest.TestCase):
         for case in cases():
             expected = json.loads((case / "expected.json").read_text(encoding="utf-8"))
             with self.subTest(case=case.name):
-                code, out, err = helpers.run_cli(expected["cli"], *expected["args"], cwd=case)
+                # from a copy: a CLI that writes (estate_docs.py writes the pages it may) never changes the corpus
+                work = Path(tempfile.mkdtemp()).resolve() / case.name
+                self.addCleanup(shutil.rmtree, work.parent)
+                shutil.copytree(case, work, symlinks=True)
+                code, out, err = helpers.run_cli(expected["cli"], *expected["args"], cwd=work)
                 shown = f"{case.name}\n--- stdout ---\n{out}--- stderr ---\n{err}"
                 self.assertEqual(code, expected["exit"], shown)
                 found = set(FINDING.findall(out + err))

@@ -13,6 +13,8 @@ import { run } from '../../cli/commands/setup.mjs';
 const REPO = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const BIN = path.join(REPO, 'bin', 'dgf-factory.mjs');
 const LEFTOVER = /\$\{CLAUDE_PLUGIN_ROOT\}|\{\{dgf_runtime\}\}/;
+const SKILLS = readdirSync(path.join(REPO, 'skills')).filter((name) => existsSync(path.join(REPO, 'skills', name, 'SKILL.md'))).length;
+const AGENTS = ['dgf-implement-coordinator.md', 'dgf-implement-worker.md'];
 
 function tmp(t, prefix = 'dgf-setup-') {
   const dir = mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -50,7 +52,7 @@ test('claude, codex and gemini: skills, MCP, runtime and receipt, with nothing l
   const result = cli('--root', project, '--harness', 'claude,codex,gemini', '--yes', '--no-python');
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   for (const dir of ['.claude/skills', '.codex/skills', '.gemini/skills']) {
-    assert.equal(readdirSync(path.join(project, dir)).length, 13, dir);
+    assert.equal(readdirSync(path.join(project, dir)).length, SKILLS, dir);
     assert.ok(existsSync(path.join(project, dir, 'dgf-plan', 'SKILL.md')));
   }
   assert.deepEqual(JSON.parse(readFileSync(path.join(project, '.mcp.json'), 'utf8')).mcpServers['dgf-mcp'].url, 'https://dgf-mcp.dotgov.uk/mcp');
@@ -63,6 +65,13 @@ test('claude, codex and gemini: skills, MCP, runtime and receipt, with nothing l
   const receipt = JSON.parse(readFileSync(path.join(project, '.dgf-factory/install.json'), 'utf8'));
   assert.deepEqual(receipt.harnesses.map((h) => h.id), ['claude', 'codex', 'gemini']);
   assert.match(readFileSync(path.join(project, '.codex/skills/dgf-plan/SKILL.md'), 'utf8'), /\$dgf-implement/);
+  // the agents: Claude Code only, recorded with claude as their owner (ADR 0033 §5)
+  assert.deepEqual(readdirSync(path.join(project, '.claude/agents')).sort(), AGENTS);
+  for (const dir of ['.codex/agents', '.gemini/agents', '.dgf-factory/runtime/agents']) assert.equal(existsSync(path.join(project, dir)), false, dir);
+  for (const name of AGENTS) assert.equal(receipt.files[`.claude/agents/${name}`]?.owner, 'claude', name);
+  assert.match(readFileSync(path.join(project, '.claude/agents/dgf-implement-worker.md'), 'utf8'), /python3 "<main project>\/\.dgf-factory\/runtime\/scripts\/worktree_task\.py" --sync/);
+  assert.match(result.stdout, /\.claude\/agents\//);
+  assert.match(result.stdout, /add \.claude\/worktrees\/ to \.gitignore/);
   const skills = Object.entries(snapshot(project)).filter(([rel]) => rel.endsWith('.md') && !rel.startsWith('.dgf-factory/runtime/skills/dgf-doctor/scripts'));
   for (const [rel, data] of skills) assert.doesNotMatch(Buffer.from(data, 'base64').toString(), LEFTOVER, rel);
 });
@@ -80,7 +89,7 @@ test('a second run reports everything unchanged and changes no byte', (t) => {
 test('a hand-edited skill survives an update of the package, and is reported', async (t) => {
   const project = tmp(t);
   const pkg = tmp(t, 'dgf-pkg-');
-  for (const entry of ['package.json', 'skills', 'scripts', 'knowledge']) cpSync(path.join(REPO, entry), path.join(pkg, entry), { recursive: true });
+  for (const entry of ['package.json', 'skills', 'scripts', 'knowledge', 'packs']) cpSync(path.join(REPO, entry), path.join(pkg, entry), { recursive: true });
   const out = sink();
   assert.equal(await run(['--root', project, '--harness', 'claude', '--yes', '--no-python'], { parseArgs }, { io: null, out, pkgRoot: pkg }), 0, out.text());
   const mine = path.join(project, '.claude/skills/dgf-plan/SKILL.md');
@@ -97,6 +106,15 @@ test('a hand-edited skill survives an update of the package, and is reported', a
   assert.match(second.text(), /CONFLICT \.claude\/skills\/dgf-plan\/SKILL\.md — you edited it/);
   assert.match(second.text(), /\+A new upstream line\./, 'the conflict shows the new version\'s diff');
   assert.equal(JSON.parse(readFileSync(path.join(project, '.dgf-factory/install.json'), 'utf8')).version, '9.9.9');
+});
+
+test('gemini alone gets no agents, and no word of worktrees', (t) => {
+  const project = tmp(t);
+  const result = cli('--root', project, '--harness', 'gemini', '--yes', '--no-python');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(existsSync(path.join(project, '.claude')), false);
+  assert.ok(!Object.keys(JSON.parse(readFileSync(path.join(project, '.dgf-factory/install.json'), 'utf8')).files).some((rel) => rel.includes('agents/')));
+  assert.doesNotMatch(result.stdout, /worktrees/);
 });
 
 test('without a terminal, --harness is required (exit 3)', (t) => {
@@ -182,4 +200,31 @@ test('Ctrl+D at the apply prompt is a usage error, and nothing is written', asyn
   await assert.rejects(run(['--root', project, '--harness', 'claude', '--no-python'], { parseArgs }, { io: abortedTerminal(), out: sink() }),
     (err) => err.code === 3 && /cancelled/.test(err.message));
   assert.deepEqual(readdirSync(project), []);
+});
+
+test('an install in a harness folder AI Factory has since moved is moved by re-running setup (windsurf: .windsurf → .devin)', (t) => {
+  const project = tmp(t);
+  // exit 2: windsurf has no project MCP file, so setup prints the dgf-mcp registration as a manual step
+  assert.ok([0, 2].includes(cli('--root', project, '--harness', 'windsurf', '--yes', '--no-python').status));
+  // rewrite the install as AI Factory 2.19.0's registry placed it: the skills under .windsurf/skills/
+  const receiptPath = path.join(project, '.dgf-factory', 'install.json');
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  const files = {};
+  for (const [rel, entry] of Object.entries(receipt.files)) {
+    if (!rel.startsWith('.devin/skills/')) { files[rel] = entry; continue; }
+    const old = rel.replace('.devin/skills/', '.windsurf/skills/');
+    mkdirSync(path.dirname(path.join(project, old)), { recursive: true });
+    writeFileSync(path.join(project, old), readFileSync(path.join(project, rel)));
+    files[old] = entry;
+  }
+  rmSync(path.join(project, '.devin'), { recursive: true, force: true });
+  receipt.files = files;
+  writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + '\n');
+
+  const rerun = cli('--root', project, '--harness', 'windsurf', '--yes', '--no-python');
+  assert.ok([0, 2].includes(rerun.status), rerun.stdout + rerun.stderr);
+  assert.ok(existsSync(path.join(project, '.devin', 'skills', 'dgf', 'SKILL.md')), 'the new folder is installed');
+  assert.ok(!existsSync(path.join(project, '.windsurf')), 'the unedited files in the old folder are removed');
+  const after = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.deepEqual(Object.keys(after.files).filter((rel) => rel.startsWith('.windsurf/')), []);
 });

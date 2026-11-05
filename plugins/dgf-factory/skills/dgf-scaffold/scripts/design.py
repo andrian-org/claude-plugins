@@ -378,6 +378,21 @@ def capitalise(name):
 
 # --- the check ---------------------------------------------------------------
 
+def check_line(result, version):
+    """ADR 0036 §3: the package version targeted against the DGF line whose knowledge is installed here."""
+    try:
+        installed_line = install_receipt.line(result.folder)
+    except install_receipt.ReceiptError:
+        return  # reported by the folder check as INSTALL_RECEIPT_UNREADABLE
+    target = ".".join(version.split(".")[:2])
+    report.debug("design.check_line", "compared", dgf_version=version, installed_line=installed_line or "-")
+    if installed_line and target != installed_line:
+        result.add("SCAFFOLD_LINE_MISMATCH",
+                   f"`dgf_version` {version} is on DGF line {target}, and the knowledge installed here describes line "
+                   f"{installed_line} — run `dgf-factory setup --dgf-version {version}` first, or target a "
+                   f"{installed_line}.* release")
+
+
 def check(folder, knowledge_dir=None, empty_only=False, generated=False):
     """Run the checks in order; the Result carries the findings, the defaults and the resolved design.
 
@@ -450,6 +465,8 @@ def build(reader, result, raw, out, tables, generated=False):
             result.ask("dgf_version", "the DGF.API package version to target, such as 1.1.15 — the framework pins none")
     elif not VERSION.match(version):
         result.add("SCAFFOLD_OPTION_INVALID", f"`dgf_version` `{report.one_line(version)}` is not a version such as 1.1.15")
+    else:
+        check_line(result, version)
     out["dgf_version"] = version
 
     # --- instances

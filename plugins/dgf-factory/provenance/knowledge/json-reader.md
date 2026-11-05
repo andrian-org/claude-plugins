@@ -1,7 +1,7 @@
 ---
 sources:
   - path: src/DGF.API/ConfigureServices.cs
-    sha256: 2b9414f21ee3e8817bad0e53da83a42e12de93edadf84312638106ded7337d8a
+    sha256: da6b8856d99d6a527a8d081ec98beb96bd8422870297540e7a1f7abd227f8865
   - path: src/Core/DGF.Kernel/Utils/Serialization/JsonSerializationService.cs
     sha256: f57d38b06a3c40d73926e0c479a576f04a7f46b146a15d3e9b7b1799e00daff7
   - path: src/Components/DGF.Components.Services/JsonConverters/ComponentConverter.cs
@@ -9,7 +9,7 @@ sources:
   - path: src/Components/DGF.Components.Shared/ComponentAssignableTypesCache.cs
     sha256: 08a111d859832060a4b3a41efb70abb31ce2c785136cc5adeb345a88d5e45967
   - path: src/Components/DGF.Components.Shared/Enums/ComponentType.cs
-    sha256: c4537aca552b01ed5b7f4fcae929db06913f002cce5386cf1f2084ab9e6384e1
+    sha256: 72b714d3b6fe8f7b5d9926262f04acc223ca6d24f58b75d863ce74f26469faac
   - path: src/Core/DGF.DataSources/JsonConverters/DataSourceConverter.cs
     sha256: fc5204bd8799da796b7dade09c8c3ffe9b77d1cbaf64f7ff3fbe35c8500628a1
   - path: src/Components/DGF.Components.Shared/DataSources/DataSourceType.cs
@@ -39,7 +39,7 @@ sources:
   - path: src/Core/DGF.DataSources/Endpoints/EndpointFactory.cs
     sha256: d0f6f004156c4ba2b07960f263a1033cb6d95dd7799e44f85e77168bea3f060d
   - path: src/Components/Extensions/DGF.Sitemap/SiteMap/SiteMapManager.cs
-    sha256: 514b1fc09da059629e13cbc95b2d3b9558c9e1dd2b719648fa15544a709fa7fd
+    sha256: f3414c918809460218216df71e0dfbeab469f406515d2970db2b090279a20809
   - path: src/Components/Extensions/DGF.Sitemap/SiteMap/Options/SiteMapOptions.cs
     sha256: 94f81b82b0396ddfc729d6743c2a8f854aba35ac1cf38b34e29e79411097e377
   - path: src/Components/Extensions/DGF.FlowComponents/WorkFlow/WorkflowLoaderService.cs
@@ -55,13 +55,13 @@ sources:
   - path: src/Components/Extensions/DGF.AccordionComponent/Models/Configuration/AccordionConfiguration.cs
     sha256: 0fd1d3194aeeaaecd8c87e55d0ef0556b7efc364c061eb16adceff40139eb862
   - path: src/Components/DGF.Components.Shared/ComponentsBase/Configuration/ComponentConfigurationBase.cs
-    sha256: ec8df91ac1c040a3b6f364af5d74b99b55b55c4c719a49e50a96b6ea68114075
+    sha256: c1354ba985974b211a98ea110abb91a6513f2fdbb2500c38bf7e32c9a60b7676
   - path: src/Tools/SchemaExporter/Program.cs
-    sha256: 8aebe862098764ab0429376a613c554518170e6445507e6b9eb7433ab0d16815
+    sha256: 6d8c7bbe6cbb2ad1f20debd534b6079c56e0ce29dda6d6617298f3158c9c03e5
   - path: src/DGF.API/DGF.API.csproj
-    sha256: 20110b272c9ee5cdfee28c1ad53be68c42744a7fa21217d0c80e27402c612501
+    sha256: 06afe7c30185a24a85825e67b7e8dcb04d3d2df50f2e4b53f6bbc43ee6182c83
   - path: docs/wiki/AI-Authoring/format-coverage.md
-    sha256: b2abde1173c4f6a9f36142705ec9a32ea1cd0deda73d7be9408a0fd4432f2fcd
+    sha256: d1e77ed0dd0d14680fe9d0df2af04534e689486a6b2b09e35d3720db01a8a01b
   - path: src/Components/DGF.Components.Shared/Enums/LinkTarget.cs
     sha256: 772eb6bea7081b4acd01c1f5642cd9bb2b9e8565ee3e0a26dca6a9fad690e748
   - path: src/Components/DGF.Components.Shared/ListData/Paging.cs
@@ -87,11 +87,11 @@ sources:
   - path: src/Components/Extensions/DGF.Form/Models/Configuration/FormConfiguration.cs
     sha256: 964a5e94c40f05cc21b536cabbfabed53af48e32f9c9bc6155e4efaa71cbf18a
   - path: src/Components/Extensions/DGF.LayoutComponents/ContainerComponent/Models/Configuration/ContainerConfiguration.cs
-    sha256: ec68d7ce26ac0e9e954ba5fc0be6bbb547673552fef19e8a870c7a7bd89dab08
+    sha256: f10b579e0798f4e2ce30f6949a976975123b116d104ce55118baa8fcda5af1c7
   - path: src/Components/Extensions/DGF.LayoutComponents/RowComponent/Models/Configuration/RowConfig.cs
-    sha256: a03ffe385b19cc170a697a46308580fecfa9a6c156dae476b00e0762c12d2f63
+    sha256: debf7f067162e25674f2f598ee70d044ab6e9896c0a3a67539cbfcd2c79562d9
   - path: src/Components/Extensions/DGF.LayoutComponents/SectionComponent/Models/Configuration/SectionConfig.cs
-    sha256: 21edbf1ffb078f44c4a9aefa521de11fa1216d1966920470925c3f27edfd11ce
+    sha256: 727403e691746b3c415dea04d0d84388a3b8989e961e2f26fe1fd4e4f4349968
   - path: src/Components/Extensions/DGF.Router/Models/Configuration/RouteConfiguration.cs
     sha256: 2cd68f32ce545b8a9d40b8584dfefe1ec4426099057c2943eed8791b5ddf60f1
   - path: src/Components/Extensions/DGF.Sitemap/Models/Configuration/FooterConfiguration.cs

@@ -79,16 +79,18 @@ class Grammars(unittest.TestCase):
     def test_form_component_type_enumeration(self):
         from lib import xsd
         listed = xsd.enumeration("form.xsd", "componentTypeValue")
-        self.assertEqual(len(listed), 15)
+        self.assertEqual(len(listed), 19)  # 1.1.16 added button, dataFetcher, listBox, textBox; 1.2.0 codeViewer, comboBox
         self.assertIn("query", listed)
-        self.assertNotIn("comboBox", listed)
+        self.assertIn("comboBox", listed)
+        self.assertNotIn("toggle", listed)
         with self.assertRaises(LookupError):
             xsd.enumeration("form.xsd", "noSuchType")
 
-    def test_profile_does_not_compile(self):
+    def test_profile_compiles_since_1_1_16(self):
+        # DGF 1.1.16 dropped the `xmlns:*` attribute declarations that kept profile.xsd from compiling.
         from lib import xsd
-        self.assertIsNone(xsd.schema("profile.xsd"))
-        self.assertIn("xmlns", xsd.uncompilable_reason("profile.xsd"))
+        self.assertIsNotNone(xsd.schema("profile.xsd"))
+        self.assertEqual(xsd.uncompilable_reason("profile.xsd"), "")
 
     def test_construct_names(self):
         from lib import xsd
@@ -138,9 +140,11 @@ class ProcessStructure(unittest.TestCase):
         activities = ('<States><State name="A"><OnInit><Task state="NEW" /><UpdateRecord /></OnInit>'
                       '<Transitions><Transition state="End" /></Transitions></State></States>')
         plain = '<OnStart action=""><Transitions><Transition state="A" /></Transitions></OnStart>'
-        for body in (plain + states, on_start + states, plain + activities):
+        for body in (plain + states, on_start + states):
             with self.subTest(body=body):
                 self.assertEqual(self.structure_of(body), (True, ["XSD_RUNTIME_DIVERGENCE"]))
+        # Since DGF 1.1.16 process.xsd itself reads OnInit's children in any order and number.
+        self.assertEqual(self.structure_of(plain + activities), (True, []))
 
     def test_an_added_element_keeps_its_own_type(self):
         body = ('<OnStart action=""><OnInit><Bogus /></OnInit><Transitions><Transition state="A" />'
